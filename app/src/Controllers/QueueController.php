@@ -18,7 +18,7 @@ final class QueueController
         $rows = (new AuthoringRepository($this->db))->queueRows((int) $this->session->get('user_id'));
         $moderator = null;
         foreach ($rows as $r) {
-            if ($r['k'] === 'gate') { $moderator = $r; break; }
+            if ($r['k'] === '0gate') { $moderator = $r; break; }
         }
         if ($moderator === null) return new Response('Forbidden', 403);
         return $this->view->render('queue/index', [

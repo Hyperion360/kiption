@@ -198,11 +198,13 @@ final class AuthoringRepository
     }
 
     /** Queue page in ONE query: the moderator gate is the zeroth branch.
+     *  k='0gate' sorts ahead of every content row, so the LIMIT window can
+     *  never cut it (a missing gate row reads as non-moderator = 403).
      *  No 'gate' row in the result = caller is not a moderator (403). */
     public function queueRows(int $userId): array
     {
         return $this->db->all(
-            "SELECT 'gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e
+            "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e
              FROM users u WHERE u.id = ? AND u.role IN ('moderator', 'admin')
              UNION ALL
              SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at

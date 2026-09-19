@@ -98,4 +98,20 @@ final class QueueTest extends TestCase
         $this->assertSame(302, $res->status, $res->body);
         $this->assertNotNull($this->db->one('SELECT approved_at FROM users WHERE id = ?', [$id])['approved_at']);
     }
+
+    public function test_gate_row_survives_a_full_queue(): void
+    {
+        // 151+ pending chapters fill the LIMIT 151 window; the gate row must
+        // still come back, else a real moderator is 403'd at the queue cap.
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES ('Host Story', 'host-story', 'S.', 1, 1, 1)");
+        $hostId = (int) $this->db->lastInsertId();
+        for ($i = 2; $i <= 170; $i++) {
+            $this->db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, ?, \'bulk\', \'x\', 0, 1)',
+                [$hostId, $i]);
+        }
+        $rows = (new \App\Repositories\AuthoringRepository($this->db))->queueRows(1);
+        $this->assertContains('0gate', array_column($rows, 'k'), 'gate row must ride inside the LIMIT window');
+        $res = $this->clientAs(1)->get('/queue');
+        $this->assertSame(200, $res->status, 'moderator must not be 403d when the queue is full');
+    }
 }

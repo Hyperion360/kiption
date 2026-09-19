@@ -4,7 +4,7 @@
   <h1>Validation queue</h1>
   <?php
   $groups = ['story' => [], 'chapter' => [], 'member' => []];
-  foreach ($rows as $r) { if ($r['k'] !== 'gate') $groups[$r['k']][] = $r; }
+  foreach ($rows as $r) { if ($r['k'] !== '0gate') $groups[$r['k']][] = $r; }
   ?>
   <h2>Stories</h2>
   <?php if ($groups['story'] === []): ?><p class="chapter-meta">Nothing waiting.</p><?php else: ?>
