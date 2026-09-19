@@ -45,6 +45,7 @@ final class Cache
         if (!$this->isCacheable($request)) return;
         if ($response->status !== 200) return;
         if (array_intersect(['Set-Cookie', 'set-cookie'], array_keys($response->headers)) !== []) return;
+        if (($response->headers['X-Robots-Tag'] ?? '') !== '') return; // nothing worth indexing, nothing worth caching
         $file = $this->fileFor($request->path);
         if ($file === null) return;
         @mkdir(dirname($file), 0775, true);

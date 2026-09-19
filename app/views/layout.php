@@ -5,6 +5,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= $this->e($title ?? 'Kiption') ?></title>
+  <?php if (isset($head) && $head !== null): ?>
+  <?php foreach ($head->metaTags() as $t): ?>
+  <meta name="<?= $this->e($t['name']) ?>" content="<?= $this->e($t['content']) ?>">
+  <?php endforeach; ?>
+  <?php foreach ($head->ogTags() as $t): ?>
+  <meta property="<?= $this->e($t['property']) ?>" content="<?= $this->e($t['content']) ?>">
+  <?php endforeach; ?>
+  <?php foreach ($head->twitterTags() as $t): ?>
+  <meta name="<?= $this->e($t['name']) ?>" content="<?= $this->e($t['content']) ?>">
+  <?php endforeach; ?>
+  <link rel="canonical" href="<?= $this->e($head->canonical()) ?>">
+  <?php if ($head->jsonLd() !== ''): ?>
+  <script type="application/ld+json"><?= $head->jsonLd() /* JSON_HEX_TAG makes this safe */ ?></script>
+  <?php endif; ?>
+  <?php else: ?>
+  <link rel="canonical" href="/">
+  <?php endif; ?>
+  <link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? 'Feed') ?>" href="/feed">
   <link rel="stylesheet" href="/assets/reader.css">
 </head>
 <body>

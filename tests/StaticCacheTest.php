@@ -72,6 +72,13 @@ final class StaticCacheTest extends TestCase
         $this->assertNull($this->cache->serve($req));
     }
 
+    public function test_maybe_store_refuses_noindexed_responses(): void
+    {
+        $req = new Request('GET', '/browse/category/junk', [], [], []);
+        $this->cache->maybeStore($req, new Response('empty', 200, ['X-Robots-Tag' => 'noindex']));
+        $this->assertNull($this->cache->serve($req));
+    }
+
     public function test_purge_all_removes_files_but_keeps_dir(): void
     {
         $req = new Request('GET', '/story/view/x', [], [], []);
