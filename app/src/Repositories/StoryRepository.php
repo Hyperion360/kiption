@@ -7,8 +7,10 @@ final class StoryRepository
     public function __construct(private Database $db) {}
 
     /** ONE query: story + author + rating + categories + chapter TOC blob.
-     *  The blob is "position|title|word_count" joined with "~"; parse and
-     *  ksort in PHP so ordering never depends on GROUP_CONCAT internals.
+     *  The blob is JSON: titles are free text (admin CRUD writes chapters
+     *  today), so no hand-rolled delimiter scheme is safe to parse. json_group_array
+     *  yields [] when the story has no validated chapters. Decode and ksort in
+     *  PHP so ordering never depends on aggregation internals.
      *  @return array<string,mixed>|null */
     public function findStoryBySlug(string $slug): ?array
     {
@@ -18,8 +20,9 @@ final class StoryRepository
                     (SELECT GROUP_CONCAT(c.name, ", ") FROM story_categories sc
                      JOIN categories c ON c.id = sc.category_id
                      WHERE sc.story_id = s.id) AS category_names,
-                    (SELECT GROUP_CONCAT(CAST(ch.position AS TEXT) || "|" || ch.title || "|" || CAST(ch.word_count AS TEXT), "~")
-                     FROM chapters ch WHERE ch.story_id = s.id AND ch.validated = 1) AS chapters_blob
+                    (SELECT json_group_array(json_object(\'position\', ch.position, \'title\', ch.title, \'word_count\', ch.word_count))
+                     FROM chapters ch WHERE ch.story_id = s.id AND ch.validated = 1
+                     ORDER BY ch.position) AS chapters_blob
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id

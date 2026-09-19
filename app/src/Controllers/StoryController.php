@@ -16,10 +16,8 @@ final class StoryController
         $story = $this->repo->findStoryBySlug($slug);
         if ($story === null) return new Response('Page not found', 404);
         $chapters = [];
-        foreach (explode('~', (string) $story['chapters_blob']) as $chunk) {
-            if ($chunk === '') continue;
-            [$pos, $title, $words] = explode('|', $chunk, 3);
-            $chapters[(int) $pos] = ['position' => (int) $pos, 'title' => $title, 'word_count' => (int) $words];
+        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
         }
         ksort($chapters);
         unset($story['chapters_blob']);

@@ -68,7 +68,21 @@ final class StoryRepositoryTest extends TestCase
     public function test_story_landing_returns_toc_blob(): void
     {
         $story = (new StoryRepository($this->db))->findStoryBySlug('the-rabbit-hole');
-        $this->assertSame('1|Down|100~2|Through|100', $story['chapters_blob']);
+        $toc = json_decode((string) $story['chapters_blob'], true);
+        $this->assertSame([
+            ['position' => 1, 'title' => 'Down', 'word_count' => 100],
+            ['position' => 2, 'title' => 'Through', 'word_count' => 100],
+        ], $toc);
+    }
+
+    public function test_toc_blob_survives_delimiter_characters_in_titles(): void
+    {
+        $this->db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (1, 3, ?, ?, 1, 444)',
+            ['A|B~C', '<p>x</p>']);
+        $story = (new StoryRepository($this->db))->findStoryBySlug('the-rabbit-hole');
+        $toc = json_decode((string) $story['chapters_blob'], true);
+        $this->assertCount(3, $toc);
+        $this->assertSame(['position' => 3, 'title' => 'A|B~C', 'word_count' => 444], $toc[2]);
     }
 
     public function test_find_story_with_chapter_pivots_target(): void

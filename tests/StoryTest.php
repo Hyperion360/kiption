@@ -56,6 +56,20 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('Chapter 2', $res->body);
     }
 
+    public function test_toc_renders_titles_with_delimiter_characters_intact(): void
+    {
+        // admin-CRUD-written chapter titles are free text; the TOC transport
+        // must survive the characters a delimited blob would split on
+        $db = new Database($this->dsn);
+        $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (1, 3, ?, ?, 1, 444)',
+            ['A|B~C', '<p>x</p>']);
+        $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('Chapter 3: A|B~C', $res->body);
+        $this->assertStringContainsString('444 words', $res->body);
+        $this->assertStringNotContainsString('Chapter 0', $res->body);
+    }
+
     public function test_unknown_story_404(): void
     {
         $res = $this->app->handle(new Request('GET', '/story/view/nope', [], [], []));
