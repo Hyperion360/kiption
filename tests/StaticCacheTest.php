@@ -80,4 +80,47 @@ final class StaticCacheTest extends TestCase
         $this->assertNull($this->cache->serve($req));
         $this->assertDirectoryExists($this->dir);
     }
+
+    public function test_fill_via_app_render_then_hit(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'kiption-wire-') . '.sqlite';
+        $dsn = 'sqlite:' . $path;
+        $db = new \Kip\Database($dsn);
+        (new \Kip\Migrations\Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        \App\Seeder::run($db);
+        $app = new \Kip\App([
+            'env' => 'prod',
+            'controller_namespace' => 'App\\Controllers\\',
+            'views' => dirname(__DIR__) . '/app/views',
+            'db' => ['dsn' => $dsn],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+        ]);
+        $req = new Request('GET', '/story/view/the-rabbit-hole', [], [], []);
+        $res = $app->handle($req);
+        $this->cache->maybeStore($req, $res);
+        $hit = $this->cache->serve($req);
+        $this->assertNotNull($hit);
+        $this->assertStringContainsString('The Rabbit Hole', $hit->body);
+        @unlink($path); @unlink($path . '-wal'); @unlink($path . '-shm');
+    }
+
+    public function test_cookie_bearing_request_never_served_from_cache(): void
+    {
+        $req = new Request('GET', '/story/view/x', [], [], []);
+        $this->cache->maybeStore($req, new Response('anon', 200));
+        $cookied = new Request('GET', '/story/view/x', [], [], ['age_ok' => '1']);
+        $this->assertNull($this->cache->serve($cookied));
+    }
+
+    public function test_maintenance_marker_purges_once(): void
+    {
+        $req = new Request('GET', '/story/view/x', [], [], []);
+        $this->cache->maybeStore($req, new Response('x', 200));
+        $this->cache->maintenancePurge(true);
+        $this->assertNull($this->cache->serve($req), 'purged when maintenance turns on');
+        $this->cache->maintenancePurge(true);
+        $this->assertFileExists($this->dir . '/.maintenance-purged');
+        $this->cache->maintenancePurge(false);
+        $this->assertFileDoesNotExist($this->dir . '/.maintenance-purged');
+    }
 }

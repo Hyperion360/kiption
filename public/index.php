@@ -6,15 +6,19 @@ request
   |
   v
 public/index.php
-  |-- config.php  (maintenance = lock file OR env)
+  |-- config.php  (maintenance = lock file OR env; static_cache dir)
   |-- Request::fromGlobals(trustedProxy)
   |-- MaintenanceGuard::blocks(config, path)?
-  |      |-- yes --> render app/views/maintenance.php --> Response 503 --> send --> exit
-  |      \-- no  --> new Kip\App(config, lazy session)
-  |                    |-- App::handle(request)
-  |                    |     |-- route to App\Controllers\*
-  |                    |     \-- Response (200/404/...)
-  |                    \-- send
+  |      |-- yes --> static cache maintenancePurge(true) --> 503 view --> exit
+  |      \-- no  --> static cache maintenancePurge(false)
+  |-- static cache serve(request)?  (GET, no cookies, no query, whitelisted path)
+  |      |-- HIT  --> send --> exit            (App never boots)
+  |      \-- miss --> new Kip\App(config, lazy session)
+  |                     |-- App::handle(request)
+  |                     |     |-- route to App\Controllers\*
+  |                     |     \-- Response (200/404/...)
+  |                     |-- static cache maybeStore(request, response)  (anonymous 200 only)
+  |                     \-- send
 */
 declare(strict_types=1);
 require __DIR__ . '/../vendor/autoload.php';
@@ -24,9 +28,23 @@ $config['views'] = $config['app_dir'] . '/views';
 
 $request = Kip\Http\Request::fromGlobals(trustedProxy: $config['trusted_proxy']);
 
+$static = ($config['static_cache']['enabled'] ?? false)
+    ? new \App\StaticCache\Cache($config['static_cache']['dir'])
+    : null;
+
 if (\App\MaintenanceGuard::blocks($config, $request->path)) {
+    $static?->maintenancePurge(true);
     $body = (new Kip\View($config['views']))->render('maintenance');
     (new Kip\Http\Response($body, 503))->send();
+    exit;
+}
+
+if (!($config['maintenance'] ?? false)) {
+    $static?->maintenancePurge(false);
+}
+
+if ($static !== null && ($hit = $static->serve($request)) !== null) {
+    $hit->send();
     exit;
 }
 
@@ -36,5 +54,9 @@ $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || ($config['trusted_proxy'] && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 
 $app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
-$app->handle($request)->send();
+$response = $app->handle($request);
+if ($static !== null) {
+    $static->maybeStore($request, $response);
+}
+$response->send();
 ob_end_flush();
