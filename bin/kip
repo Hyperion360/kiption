@@ -58,6 +58,10 @@ match ($argv[1] ?? 'help') {
             }
             throw $e;
         }
+        // Phase-5 login gates: an admin-created account is trusted by construction,
+        // so it is born verified and approved (no email token exists for it).
+        $db->query('UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?),
+                    approved_at = COALESCE(approved_at, ?) WHERE email = ?', [date('c'), date('c'), $email]);
         if ($isAdmin) {
             try {
                 $db->query('UPDATE users SET is_admin = 1, role = \'admin\' WHERE email = ?', [$email]);

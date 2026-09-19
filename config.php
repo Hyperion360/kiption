@@ -1,7 +1,7 @@
 <?php
 return [
     'env'     => getenv('KIP_ENV') ?: 'prod', // prod default, D4 info-disclosure rule
-    'db'      => ['dsn' => 'sqlite:' . __DIR__ . '/app/data.sqlite'],
+    'db'      => ['dsn' => getenv('KIP_DB_DSN') ?: 'sqlite:' . __DIR__ . '/app/data.sqlite'], // KIP_DB_DSN: tests/CLI point bin/kip at a throwaway DB
     'log_db'  => ['dsn' => 'sqlite:' . __DIR__ . '/app/logs.sqlite', 'retention_days' => 30],
     'cache_db' => ['dsn' => 'sqlite:' . __DIR__ . '/app/cache.sqlite', 'ttl_seconds' => 3600],
     'app_dir' => __DIR__ . '/app',
