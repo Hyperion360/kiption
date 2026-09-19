@@ -72,3 +72,17 @@ on stories, `BreadcrumbList` on categories, `ItemList` on listings). The
 Atom feed is at `/feed` with an RSS2 alias at `/rss` (autodiscovery is
 built in). Empty category listings are `noindex` and never cached. Crawlers
 are kept off faceted query-string permutations via `robots.txt`.
+
+## Accounts and writing
+
+Registration supports four modes (`registration_mode` in `config.php`):
+`open` (immediate), `verify` (email link, 24h; an expired link clears the
+never-activated account), `approval` (an admin approves in the validation
+queue), and `invite` (codes created in the admin panel, consumed once).
+Pennames are 3-30 characters, lowercase. Chapter text and author notes are
+markdown: *italic*, **bold**, `---` scene breaks, quotes, and https links;
+raw HTML cannot be stored. Members post through the validation queue
+(`validation_required`); `validated_author` and above publish directly.
+Story and chapter edits are transactional and purge the affected static
+pages. The queue at `/queue` (moderator and admin roles) approves or
+removes pending stories, chapters, and member approvals.
