@@ -21,6 +21,15 @@
         <button type="submit">Leave kudos</button>
       </form>
     <?php endif; ?>
+    <span>Favorites: <?= number_format((int) $favorite_count) ?></span>
+    <?php if ((int) $favorite_by_me === 1): ?>
+      <span>In your favorites</span>
+    <?php elseif (!empty($csrf)): ?>
+      <form method="post" action="/favorites/toggle/<?= $this->e($story['slug']) ?>" class="inline">
+        <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+        <button type="submit">Add to favorites</button>
+      </form>
+    <?php endif; ?>
   </div>
   <?php if (($story['notes'] ?? '') !== ''): ?>
     <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>
