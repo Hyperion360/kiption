@@ -7,7 +7,8 @@ return [
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),
     'admin'   => ['enabled' => true],   // /admin CRUD panel, gate: users.is_admin = 1
-    'uploads' => ['dir' => __DIR__ . '/public/uploads'],
+    'uploads' => ['dir' => __DIR__ . '/public/uploads', 'max_bytes' => 2097152,
+                  'ext' => ['png', 'jpg', 'jpeg', 'webp', 'gif']],
     'base_url' => getenv('KIP_BASE_URL') ?: 'http://localhost:8080',   // absolute links in emails
     'mail'     => ['transport' => 'log', 'log_path' => __DIR__ . '/app/mail.log', 'from' => 'noreply@localhost'],
     'site_name' => 'Kiption',
