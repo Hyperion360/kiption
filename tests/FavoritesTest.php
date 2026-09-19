@@ -64,6 +64,9 @@ final class FavoritesTest extends TestCase
         $this->assertSame(302, $res->status);
         $this->assertSame(0, (int) $this->db->one(
             "SELECT COUNT(*) c FROM favorites WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole')")['c']);
+        // notification fires on add only: the off-toggle must not have spoken
+        $this->assertSame(1, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM notifications WHERE kind = 'favorite' AND user_id = 1")['c']);
     }
 
     public function test_favorites_page_lists_stories(): void

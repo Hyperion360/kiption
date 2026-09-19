@@ -83,4 +83,26 @@ final class KudosTest extends TestCase
     {
         $this->assertSame(404, $this->client(1)->postWithToken('/kudos/add/nope')->status);
     }
+
+    public function test_self_kudos_count_but_never_notifies(): void
+    {
+        // the author may leave kudos on their own story, but the
+        // no-self-congratulation guard must keep the inbox silent
+        $res = $this->client(1)->postWithToken('/kudos/add/the-rabbit-hole');
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(1, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM story_kudos WHERE user_id = 1 AND story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole')")['c']);
+        $this->assertSame(0, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM notifications WHERE kind = 'kudos' AND user_id = 1")['c']);
+    }
+
+    public function test_guest_kudos_notifies_author_without_actor(): void
+    {
+        $res = $this->client()->post('/kudos/add/the-rabbit-hole');
+        $this->assertSame(302, $res->status, $res->body);
+        $row = $this->db->one("SELECT actor_id, story_title FROM notifications WHERE kind = 'kudos' AND user_id = 1");
+        $this->assertNotNull($row);
+        $this->assertNull($row['actor_id']); // anonymous reader, the inbox renders "A reader"
+        $this->assertSame('The Rabbit Hole', $row['story_title']);
+    }
 }
