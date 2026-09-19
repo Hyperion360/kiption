@@ -42,4 +42,23 @@ final class HomeTest extends TestCase
         $res = $this->app()->handle(new Request('GET', '/', [], [], []));
         $this->assertSame(200, $res->status);
     }
+
+    public function test_layout_carries_theme_attribute_and_browse_link(): void
+    {
+        $res = $this->app()->handle(new Request('GET', '/home/index', [], [], []));
+        $this->assertStringNotContainsString('data-theme=', $res->body);
+        $this->assertStringContainsString('href="/browse"', $res->body);
+    }
+
+    public function test_layout_reflects_light_cookie(): void
+    {
+        $res = $this->app()->handle(new Request('GET', '/home/index', [], [], ['theme' => 'light']));
+        $this->assertStringContainsString('data-theme="light"', $res->body);
+    }
+
+    public function test_layout_reflects_dark_cookie(): void
+    {
+        $res = $this->app()->handle(new Request('GET', '/home/index', [], [], ['theme' => 'dark']));
+        $this->assertStringContainsString('data-theme="dark"', $res->body);
+    }
 }

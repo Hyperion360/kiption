@@ -1,0 +1,71 @@
+/* Kiption reading design: Alice tokens, dark default, light via cookie or OS. */
+:root {
+  --bg: #06040d;
+  --ink: #ebe2cf;
+  --dim: #b8ad95;
+  --gold: #f5d98a;
+  --gold-deep: #c9a455;
+  --line: rgba(245, 217, 138, 0.18);
+  --card: rgba(26, 16, 48, 0.6);
+}
+html[data-theme="light"] {
+  --bg: #faf7f0;
+  --ink: #2a1a0a;
+  --dim: #6b5d48;
+  --gold: #8a6d2f;
+  --gold-deep: #6f5722;
+  --line: rgba(42, 26, 10, 0.15);
+  --card: rgba(42, 26, 10, 0.04);
+}
+@media (prefers-color-scheme: light) {
+  html:not([data-theme="dark"]):not([data-theme="light"]) {
+    --bg: #faf7f0; --ink: #2a1a0a; --dim: #6b5d48;
+    --gold: #8a6d2f; --gold-deep: #6f5722;
+    --line: rgba(42, 26, 10, 0.15); --card: rgba(42, 26, 10, 0.04);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.6;
+}
+a { color: var(--gold-deep); }
+a:hover { color: var(--gold); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.site-head { border-bottom: 1px solid var(--line); }
+.site-nav {
+  max-width: 960px; margin: 0 auto; padding: 0.75rem 1rem;
+  display: flex; gap: 1.25rem; align-items: baseline; flex-wrap: wrap;
+}
+.site-nav .brand { font-variant: small-caps; letter-spacing: 0.08em; color: var(--ink); }
+.site-nav .theme-toggle { margin-left: auto; }
+.site-main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.site-foot {
+  border-top: 1px solid var(--line); color: var(--dim);
+  text-align: center; padding: 1rem; font-size: 0.85rem;
+}
+/* Reading column: the core of the product. */
+.prose {
+  max-width: 680px; margin: 0 auto;
+  font-size: clamp(1.1rem, 0.5rem + 1.5vw, 1.3rem); line-height: 1.85;
+}
+.prose p { margin: 0 0 1.5em; }
+.chapter-meta { color: var(--dim); font-size: 0.9rem; }
+.story-list { list-style: none; margin: 0; padding: 0; }
+.story-list li {
+  border: 1px solid var(--line); background: var(--card);
+  padding: 1rem 1.25rem; margin-bottom: 1rem;
+}
+.story-list .meta { color: var(--dim); font-size: 0.9rem; }
+.badge {
+  display: inline-block; border: 1px solid var(--line); border-radius: 3px;
+  font-size: 0.75rem; padding: 0 0.4em; color: var(--dim);
+}
+.card {
+  max-width: 480px; margin: 4rem auto; text-align: center;
+  border: 1px solid var(--line); background: var(--card); padding: 2.5rem 2rem;
+}
+.chapter-nav { display: flex; justify-content: space-between; gap: 1rem; margin-top: 2.5rem; }

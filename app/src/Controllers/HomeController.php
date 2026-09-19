@@ -14,6 +14,8 @@ final class HomeController
         $loggedIn = $this->request->cookies !== [] && $this->session->get('user_id') !== null;
         return $this->view->render('home/index', [
             'title' => 'Kiption',
+            'theme' => \App\Theme::current($this->request),
+            'path' => $this->request->path,
             'loggedIn' => $loggedIn,
             'csrf' => $loggedIn ? $this->session->csrfToken() : null,
         ]);
