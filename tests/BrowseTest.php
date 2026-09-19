@@ -90,4 +90,12 @@ final class BrowseTest extends TestCase
             $this->assertStringContainsString('No stories yet', $res->body);
         }
     }
+
+    public function test_h1_names_the_listing_on_each_route(): void
+    {
+        $recent = $this->app->handle(new Request('GET', '/browse/recent', [], [], []));
+        $this->assertStringContainsString('<h1>Recently updated</h1>', $recent->body);
+        $category = $this->app->handle(new Request('GET', '/browse/category/general', [], [], []));
+        $this->assertStringContainsString('<h1>Category: general</h1>', $category->body);
+    }
 }

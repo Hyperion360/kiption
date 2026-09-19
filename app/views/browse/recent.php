@@ -1,6 +1,6 @@
 <?php // app/views/browse/recent.php ?>
 <?php $this->layout('layout'); ?>
-<h1>Recently updated</h1>
+<h1><?= $this->e($title ?? 'Recently updated') ?></h1>
 <ul class="story-list">
 <?php foreach ($stories as $s): ?>
   <li>
