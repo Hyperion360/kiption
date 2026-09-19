@@ -123,4 +123,25 @@ final class StaticCacheTest extends TestCase
         $this->cache->maintenancePurge(false);
         $this->assertFileDoesNotExist($this->dir . '/.maintenance-purged');
     }
+
+    public function test_purge_story_removes_story_and_collection_pages(): void
+    {
+        foreach (['/story/view/x', '/story/read/x/1', '/story/read/x/2', '/browse', '/', '/story/view/y'] as $p) {
+            $this->cache->maybeStore(new Request('GET', $p, [], [], []), new Response($p, 200));
+        }
+        $this->cache->purgeStory('x', ['general']);
+        foreach (['/story/view/x', '/story/read/x/1', '/story/read/x/2'] as $p) {
+            $this->assertNull($this->cache->serve(new Request('GET', $p, [], [], [])), "{$p} purged");
+        }
+        $this->assertNull($this->cache->serve(new Request('GET', '/', [], [], [])), 'home purged');
+        $this->assertNull($this->cache->serve(new Request('GET', '/browse', [], [], [])), 'browse purged');
+        $this->assertNotNull($this->cache->serve(new Request('GET', '/story/view/y', [], [], [])), 'unrelated story survives');
+    }
+
+    public function test_purge_story_hits_its_categories(): void
+    {
+        $this->cache->maybeStore(new Request('GET', '/browse/category/general', [], [], []), new Response('c', 200));
+        $this->cache->purgeStory('x', ['general']);
+        $this->assertNull($this->cache->serve(new Request('GET', '/browse/category/general', [], [], [])));
+    }
 }

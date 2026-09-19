@@ -65,6 +65,23 @@ final class Cache
         if (is_file($marker)) touch($marker); // keep marker semantics across purge
     }
 
+    /** Purge a story's pages plus the collection pages its updates affect.
+     *  $categorySlugs are the story's categories (caller reads them from the
+     *  DB before deleting/changing the row). */
+    public function purgeStory(string $slug, array $categorySlugs): void
+    {
+        foreach (['/story/view/' . $slug, '/browse', '/browse/recent', '/'] as $p) {
+            $f = $this->fileFor($p);
+            if ($f !== null && is_file($f)) @unlink($f);
+        }
+        $readDir = $this->dir . '/story/read/' . $slug;
+        if (is_dir($readDir)) exec('rm -rf ' . escapeshellarg($readDir));
+        foreach ($categorySlugs as $catSlug) {
+            $f = $this->fileFor('/browse/category/' . $catSlug);
+            if ($f !== null && is_file($f)) @unlink($f);
+        }
+    }
+
     /** Phase 1 contract: the moment maintenance blocks the first request, the
      *  static layer must go dark once; the marker prevents per-request purges.
      *  Call with true on every blocked request, false on every normal one. */
