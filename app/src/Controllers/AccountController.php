@@ -19,16 +19,23 @@ final class AccountController
     {
         $userId = (int) $this->session->get('user_id');
         $rows = $this->db->all(
-            "SELECT 'me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, NULL AS e
+            "SELECT '0me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, NULL AS e
              FROM users u WHERE u.id = ?
              UNION ALL
-             SELECT 'story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at
+             SELECT '1follow', CAST(f.author_id AS TEXT), u2.penname, f.notify_mode,
+                     CAST((SELECT COUNT(*) FROM stories s WHERE s.author_id = f.author_id AND s.deleted_at IS NULL AND s.validated = 1) AS TEXT), NULL
+             FROM follows f JOIN users u2 ON u2.id = f.author_id WHERE f.follower_id = ?
+             UNION ALL
+             SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at
              FROM stories s WHERE s.author_id = ? AND s.deleted_at IS NULL
-             ORDER BY k DESC, e", [$userId, $userId]);
+             ORDER BY k, e LIMIT 250", [$userId, $userId, $userId]);
         $me = null;
         $stories = [];
+        $following = [];
         foreach ($rows as $r) {
-            if ($r['k'] === 'me') $me = $r; else $stories[] = $r;
+            if ($r['k'] === '0me') { $me = $r; }
+            elseif ($r['k'] === '1follow') { $following[] = $r; }
+            else { $stories[] = $r; }
         }
         return $this->view->render('account/show', [
             'title' => 'Your account',
@@ -37,6 +44,7 @@ final class AccountController
             'path' => $this->request->path,
             'me' => $me,
             'stories' => $stories,
+            'following' => $following,
             'csrf' => $this->session->csrfToken(),
         ]);
     }

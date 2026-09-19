@@ -30,6 +30,16 @@
         <button type="submit">Add to favorites</button>
       </form>
     <?php endif; ?>
+    <?php if (!empty($csrf)): ?>
+      <?php if ((int) $following_author === 1): ?>
+        <span>You follow this author</span>
+      <?php else: ?>
+        <form method="post" action="/follow/author/<?= (int) $story['author_id'] ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <button type="submit">Follow author</button>
+        </form>
+      <?php endif; ?>
+    <?php endif; ?>
   </div>
   <?php if (($story['notes'] ?? '') !== ''): ?>
     <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>

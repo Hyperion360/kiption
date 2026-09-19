@@ -23,4 +23,22 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
+  <h2>Authors you follow</h2>
+  <?php if ($following === []): ?><p class="chapter-meta">Nobody yet.</p>
+  <?php else: ?>
+  <ul>
+    <?php foreach ($following as $f): ?>
+      <li>
+        <strong><?= $this->e($f['b']) ?></strong>
+        <span class="chapter-meta">(<?= (int) $f['d'] ?> stories, notify mode: <?= $this->e($f['c']) ?>)</span>
+        <form method="post" action="/follow/mode/<?= (int) $f['a'] ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit">Cycle mode</button>
+        </form>
+        <form method="post" action="/follow/stop/<?= (int) $f['a'] ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit">Unfollow</button>
+        </form>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
 </section>
