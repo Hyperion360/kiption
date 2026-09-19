@@ -14,7 +14,8 @@ final class FollowController
     {
         $follower = (int) $this->session->get('user_id');
         $authorId = (int) $id;
-        [$inserted,] = (new EngagementRepository($this->db))->addFollow($follower, $authorId);
+        [$inserted, $authorId] = (new EngagementRepository($this->db))->addFollow($follower, $authorId);
+        if ($authorId === 0) return new Response('Page not found', 404);
         if ($inserted && $this->db->one(
                 "SELECT 1 AS x FROM notifications WHERE user_id = ? AND actor_id = ? AND kind = 'follow'",
                 [$authorId, $follower]) === null) {

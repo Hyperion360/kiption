@@ -45,10 +45,12 @@ final class EngagementRepository
              ORDER BY f.created_at DESC LIMIT 100', [$userId]);
     }
 
-    /** @return array{0: bool inserted, 1: int authorId} fresh follows notify; idempotent re-follows do not */
+    /** @return array{0: bool inserted, 1: int authorId} fresh follows notify; idempotent re-follows do not.
+     *  AuthorId 0 = no such user: the caller 404s before the FK can raise a 500. */
     public function addFollow(int $followerId, int $authorId): array
     {
         if ($followerId === $authorId) return [false, $authorId];
+        if ($this->db->one('SELECT id FROM users WHERE id = ?', [$authorId]) === null) return [false, 0];
         $stmt = $this->db->query('INSERT OR IGNORE INTO follows (follower_id, author_id) VALUES (?, ?)', [$followerId, $authorId]);
         return [$stmt->rowCount() === 1, $authorId];
     }

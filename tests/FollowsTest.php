@@ -60,6 +60,15 @@ final class FollowsTest extends TestCase
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM follows')['c']);
     }
 
+    public function test_follow_unknown_author_404s(): void
+    {
+        // the follows FK would bubble a 500 error page for a crafted id;
+        // the house contract for engagement writes is a 404, no row written
+        $this->assertSame(404, $this->client($this->memberId)->postWithToken('/follow/author/99999')->status);
+        $this->assertSame(404, $this->client($this->memberId)->postWithToken('/follow/author/zero')->status);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM follows')['c']);
+    }
+
     public function test_notify_mode_cycles(): void
     {
         $client = $this->client($this->memberId);
