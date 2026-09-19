@@ -29,10 +29,22 @@ final class SeedTest extends TestCase
         $this->assertSame(2, (int) $stories);
         $ratings = $db->one('SELECT COUNT(*) c FROM ratings')['c'];
         $this->assertSame(4, (int) $ratings);
-        $adult = $db->one("SELECT COUNT(*) c FROM ratings WHERE is_adult = 1")['c'];
+        $adult = $db->one('SELECT COUNT(*) c FROM ratings WHERE is_adult = 1')['c'];
         $this->assertSame(2, (int) $adult);
         $chapters = $db->one('SELECT COUNT(*) c FROM chapters')['c'];
         $this->assertSame(4, (int) $chapters);
+    }
+
+    public function test_seed_after_hours_chapter_row(): void
+    {
+        \App\Seeder::run(new Database($this->dsn));
+        $row = (new Database($this->dsn))->one(
+            "SELECT title, content, validated FROM chapters
+             WHERE story_id = (SELECT id FROM stories WHERE slug = 'after-hours')");
+        $this->assertNotNull($row);
+        $this->assertSame('One', $row['title']);
+        $this->assertSame('<p>Body.</p>', $row['content']);
+        $this->assertSame(1, (int) $row['validated']);
     }
 
     public function test_seed_refuses_when_stories_exist(): void

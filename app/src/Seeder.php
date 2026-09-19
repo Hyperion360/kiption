@@ -57,7 +57,8 @@ final class Seeder
         $db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, 1, 100, ?, ?)',
             ['After Hours', 'after-hours', 'What the warning is for.', $authorId, $explicitId, '2026-09-01T09:00:00Z', '2026-09-12T09:00:00Z']);
         $story2 = (int) $db->lastInsertId();
-        $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (' . $story2 . ', 1, "One", "<p>Body.</p>", 1, 100)');
+        $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (' . $story2 . ', ?, ?, ?, 1, ?)',
+            [1, 'One', '<p>Body.</p>', 100]);
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story2 . ', ' . $categoryId . ')');
     }
 }
