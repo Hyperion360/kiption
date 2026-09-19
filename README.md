@@ -31,3 +31,34 @@ the next request, no restart), `rm app/maintenance.lock` disables it. The
 use. `KIP_ENV=dev` bypasses the guard for the developer; note `php bin/kip
 serve` runs in dev mode, so maintenance is observed via a plain
 `php -S` server as shown in the plan's smoke test.
+
+## Static page cache
+
+Anonymous guests are served pre-rendered HTML from `public/cache/` before PHP
+boots. The layer fills itself on first visit; `php bin/kip pages:build`
+pre-renders everything (run it after deploys and imports); `php bin/kip
+pages:prune` wipes it plus the framework page cache (run it after editing
+stories through the built-in admin panel until Plan 5 makes the app's own
+writers the only write path, and after template-only deploys).
+
+Serving the layer without PHP at the webserver level is OPTIONAL and
+subtle. The PHP fallback in `public/index.php` is the supported path and is
+always correct on its own.
+
+    # Apache 2.4, in .htaccess: GET, cookieless, queryless requests only.
+    # All three conditions are load-bearing: dropping the cookie condition
+    # traps consented readers on the cached age-gate page forever; dropping
+    # the query condition breaks pagination; and during maintenance the
+    # webserver serves cached pages without running PHP, so an outage
+    # requires removing the cache directory (or disabling this rule).
+    RewriteCond %{REQUEST_METHOD} ^GET$ [NC]
+    RewriteCond %{QUERY_STRING} ^$
+    RewriteCond %{HTTP_COOKIE} ^$
+    RewriteCond %{DOCUMENT_ROOT}/cache%{REQUEST_URI}/index.html -f
+    RewriteRule ^ cache%{REQUEST_URI}/index.html [L]
+
+nginx deliberately has NO snippet here: `try_files` cannot express the
+cookie and query conditions, and the map- or internal-location workarounds
+have not been validated on a real server. A tested webserver cookbook
+(nginx included) is a tracked TODO; until then, nginx users get the PHP
+fallback, which is fully correct.
