@@ -1,14 +1,9 @@
 <?php // app/views/home/index.php ?>
 <?php $this->layout('layout'); ?>
-<h1>Welcome to Kip</h1>
+<h1>Kiption</h1>
 <p>
-  This is the Kip skeleton, a minimal starting point with auth already
-  wired up (login, logout, throttling, CSRF) and nothing else opinionated.
-</p>
-<p>
-  Follow <code>docs/tutorial.md</code> to build your first feature on top of
-  this skeleton, or look at <code>examples/blog</code> for a complete
-  end-to-end app built the same way.
+  A self-hosted fiction archive. This instance is being set up; stories,
+  chapters, and the reading experience arrive with the next milestones.
 </p>
 <?php if ($loggedIn): ?>
 <form method="post" action="/auth/logout">

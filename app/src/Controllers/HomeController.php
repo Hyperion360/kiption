@@ -13,7 +13,7 @@ final class HomeController
         // Only a request already carrying a cookie can belong to a logged-in user.
         $loggedIn = $this->request->cookies !== [] && $this->session->get('user_id') !== null;
         return $this->view->render('home/index', [
-            'title' => 'Welcome to Kip',
+            'title' => 'Kiption',
             'loggedIn' => $loggedIn,
             'csrf' => $loggedIn ? $this->session->csrfToken() : null,
         ]);

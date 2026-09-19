@@ -10,4 +10,7 @@ return [
     'uploads' => ['dir' => __DIR__ . '/public/uploads'],
     'base_url' => getenv('KIP_BASE_URL') ?: 'http://localhost:8080',   // absolute links in emails
     'mail'     => ['transport' => 'log', 'log_path' => __DIR__ . '/app/mail.log', 'from' => 'noreply@localhost'],
+    'site'    => ['name' => 'Kiption'],
+    'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),
+    'maintenance_allow' => [],
 ];
