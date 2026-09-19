@@ -41,7 +41,6 @@ final class BrowseController
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
         $stories = $this->stories->storiesInCategory($slug, $perPage, $offset);
-        if ($stories === null) return new Response('Page not found', 404);
         return $this->view->render('browse/recent', [
             'title' => 'Category: ' . $slug,
             'theme' => \App\Theme::current($this->request),

@@ -76,10 +76,11 @@ final class BrowseTest extends TestCase
         $this->assertStringContainsString('/browse/category/general?page=2', $res->body);
     }
 
-    public function test_unknown_category_404(): void
+    public function test_unknown_category_renders_honest_empty_state(): void
     {
         $res = $this->app->handle(new Request('GET', '/browse/category/nope', [], [], []));
-        $this->assertSame(404, $res->status);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('No stories yet', $res->body);
     }
 
     public function test_huge_page_param_returns_empty_page_not_500(): void

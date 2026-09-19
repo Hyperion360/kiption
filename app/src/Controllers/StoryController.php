@@ -34,13 +34,12 @@ final class StoryController
 
     public function read(string $slug, string $n = '1'): Response|string
     {
-        $story = $this->repo->findStoryBySlug($slug);
+        $position = max(1, (int) $n);
+        $story = $this->repo->findStoryWithChapter($slug, $position);
         if ($story === null) return new Response('Page not found', 404);
-        $position = (int) $n;
-        $positions = array_values(array_filter(array_map('intval', explode('~', (string) $story['chapters_blob'])), static fn(int $p): bool => $p > 0));
+        $positions = array_values(array_filter(array_map('intval', explode('~', (string) $story['positions_blob'])), static fn(int $p): bool => $p > 0));
         sort($positions);
-        $total = count($positions);
-        if ($total === 0 || !in_array($position, $positions, true)) {
+        if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
             return new Response('Page not found', 404);
         }
         if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
@@ -52,21 +51,21 @@ final class StoryController
                 'returnTo' => '/story/read/' . $slug . '/' . $position,
             ]);
         }
-        $row = $this->repo->findStoryWithChapter($slug, $position);
-        if ($row === null || $row['ch_title'] === null && $row['ch_content'] === null) {
-            return new Response('Page not found', 404);
-        }
+        $total = count($positions);
         $prev = null; $next = null;
-        foreach ($positions as $p) { if ($p < $position) $prev = $p; if ($next === null && $p > $position) $next = $p; }
+        foreach ($positions as $pn) {
+            if ($pn < $position) $prev = $pn;
+            if ($next === null && $pn > $position) $next = $pn;
+        }
         return $this->view->render('story/read', [
-            'title' => 'Chapter ' . $position . ': ' . ($row['ch_title'] !== '' ? $row['ch_title'] : 'Chapter ' . $position) . ' - ' . $story['title'],
+            'title' => 'Chapter ' . $position . ': ' . ($story['ch_title'] !== '' && $story['ch_title'] !== null ? $story['ch_title'] : 'Chapter ' . $position) . ' - ' . $story['title'],
             'theme' => \App\Theme::current($this->request),
             'path' => $this->request->path,
             'story' => $story,
             'chapter' => [
-                'title' => $row['ch_title'], 'notes_before' => $row['ch_notes_before'],
-                'content' => $row['ch_content'], 'notes_after' => $row['ch_notes_after'],
-                'word_count' => $row['ch_word_count'],
+                'title' => $story['ch_title'], 'notes_before' => $story['ch_notes_before'],
+                'content' => $story['ch_content'], 'notes_after' => $story['ch_notes_after'],
+                'word_count' => $story['ch_word_count'],
             ],
             'position' => $position,
             'total' => $total,
