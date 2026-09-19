@@ -64,4 +64,25 @@ final class SeedTest extends TestCase
         $stories = $db->one('SELECT COUNT(*) c FROM stories')['c'];
         $this->assertSame(2, (int) $stories);
     }
+
+    public function test_failed_seed_rolls_back_completely(): void
+    {
+        // the fresh path never deletes the demo user, so a pre-existing
+        // demo@example.test row makes the users INSERT fail mid-seed;
+        // the transaction must restore exactly the pre-seed state
+        $db = new Database($this->dsn);
+        $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, 0, \'\', 1)', ['Solo']);
+        $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)',
+            ['demo@example.test', 'x', 'Earlier User']);
+        try {
+            \App\Seeder::run($db);
+            $this->fail('Seeder should have hit the UNIQUE user constraint');
+        } catch (\PDOException $e) {
+            $this->assertStringContainsString('UNIQUE', $e->getMessage());
+        }
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM ratings')['c'], 'ratings rolled back');
+        $this->assertSame('Solo', $db->one('SELECT label FROM ratings')['label']);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM stories')['c'], 'no stories leaked');
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the earlier user survived');
+    }
 }
