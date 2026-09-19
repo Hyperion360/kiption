@@ -35,6 +35,7 @@ final class SchemaTest extends TestCase
             'news', 'news_comments', 'pages', 'mail_templates', 'page_stats',
             'login_attempts', 'password_resets', 'email_verifications', 'invites',
             'import_map', 'import_runs', 'legacy_urls', 'legacy_log',
+            'notifications', 'story_kudos', 'follows', 'reading_history',
         ];
         return array_map(static fn(string $t): array => [$t], $tables);
     }
