@@ -1,6 +1,7 @@
 <?php $this->layout('layout'); ?>
 <h1>Log in</h1>
 <?php if ($error): ?><p id="form-error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
+  <?php if (!empty($verified)): ?><p class="chapter-meta">Email verified, log in.</p><?php endif; ?>
 <form method="post" action="/auth/attempt">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
   <label>Email <input type="email" name="email" required autocomplete="email"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>

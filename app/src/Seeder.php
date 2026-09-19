@@ -36,9 +36,9 @@ final class Seeder
         $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Adventure']);
         $db->query('INSERT INTO categories (name, slug, description) VALUES (?, ?, ?)',
             ['General', 'general', 'Stories that fit nowhere finer.']);
-        $db->query('INSERT INTO users (email, password_hash, penname, role, created_at) VALUES (?, ?, ?, ?, ?)',
+        $db->query('INSERT INTO users (email, password_hash, penname, role, email_verified_at, approved_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
             ['demo@example.test', password_hash('password123', PASSWORD_DEFAULT), 'Demo Author', 'validated_author',
-             '2026-01-01T00:00:00Z']);
+             '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']);
         $authorId = (int) $db->lastInsertId();
         $teenId = (int) $db->one('SELECT id FROM ratings WHERE label = ?', ['Teen'])['id'];
         $explicitId = (int) $db->one('SELECT id FROM ratings WHERE label = ?', ['Explicit'])['id'];

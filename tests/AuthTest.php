@@ -41,6 +41,9 @@ final class AuthTest extends TestCase
     private function registerUser(string $email = 'qa@kiption.test', string $password = 'password123'): void
     {
         (new Auth($this->db, $this->app->session))->register($email, $password);
+        // Active by construction: the login gates (verified/approved) postdate this factory.
+        $this->db->query('UPDATE users SET email_verified_at = ?, approved_at = ? WHERE email = ?',
+            [date('c'), date('c'), $email]);
     }
 
     public function test_login_form_renders_with_csrf_and_labels(): void
