@@ -50,6 +50,26 @@ final class StoryRepository
         );
     }
 
+    /** @return list<array<string,mixed>>|null null when the category slug is unknown */
+    public function storiesInCategory(string $slug, int $perPage, int $offset): ?array
+    {
+        if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
+        $cat = $this->db->one('SELECT id FROM categories WHERE slug = ?', [$slug]);
+        if ($cat === null) return null;
+        return $this->db->all(
+            'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at,
+                    u.penname, r.label AS rating_label
+             FROM stories s
+             JOIN users u ON u.id = s.author_id
+             JOIN ratings r ON r.id = s.rating_id
+             JOIN story_categories sc ON sc.story_id = s.id
+             WHERE sc.category_id = ? AND s.validated = 1 AND s.deleted_at IS NULL
+             ORDER BY s.updated_at DESC, s.id DESC
+             LIMIT ? OFFSET ?',
+            [(int) $cat['id'], $perPage, $offset]
+        );
+    }
+
     /** @return list<array<string,mixed>> */
     public function categoriesWithCounts(): array
     {

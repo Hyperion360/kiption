@@ -13,4 +13,5 @@ return [
     'site'    => ['name' => 'Kiption'],
     'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),
     'maintenance_allow' => [],
+    'items_per_page' => 20,
 ];

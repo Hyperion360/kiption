@@ -8,3 +8,4 @@ public/uploads/
 app/backups/
 app/maintenance.lock
 .phpunit.result.cache
+.DS_Store
