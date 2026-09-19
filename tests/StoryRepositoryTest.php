@@ -110,6 +110,26 @@ final class StoryRepositoryTest extends TestCase
         $this->assertStringNotContainsString('TEMP B-TREE', $text);
     }
 
+    public function test_story_view_engagement_subqueries_are_scan_free(): void
+    {
+        // findStoryBySlug's favorite_count subquery resolves story-side without
+        // an index (idx_favorites_story leads with user_id), so the whole
+        // favorites table scanned on every story page render. The story-side
+        // partial index must keep the phase-6a shape SCAN-free.
+        $plan = $this->db->all(
+            'EXPLAIN QUERY PLAN SELECT s.*,
+                (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count,
+                (SELECT COUNT(*) FROM favorites f WHERE f.story_id = s.id) AS favorite_count,
+                (SELECT COUNT(*) FROM story_kudos k2 WHERE k2.story_id = s.id AND k2.user_id = 2) AS kudos_by_me,
+                (SELECT COUNT(*) FROM favorites f2 WHERE f2.story_id = s.id AND f2.user_id = 2) AS favorite_by_me,
+                (SELECT COUNT(*) FROM follows fo WHERE fo.author_id = s.author_id AND fo.follower_id = 2) AS following_author,
+                (SELECT rh.marked_at FROM reading_history rh WHERE rh.story_id = s.id AND rh.user_id = 2) AS marked_at_me
+             FROM stories s WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL',
+            ['the-rabbit-hole']);
+        $text = implode(' ', array_column($plan, 'detail'));
+        $this->assertStringNotContainsString('SCAN', $text);
+    }
+
     public function test_recent_validated_first_page(): void
     {
         $rows = (new StoryRepository($this->db))->recentStories(20, 0);
