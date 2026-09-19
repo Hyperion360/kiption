@@ -114,4 +114,13 @@ final class QueueTest extends TestCase
         $res = $this->clientAs(1)->get('/queue');
         $this->assertSame(200, $res->status, 'moderator must not be 403d when the queue is full');
     }
+
+    public function test_pending_member_lookup_is_index_backed(): void
+    {
+        // The queue's member branch must not scan the users table (it grows
+        // with membership); the partial index answers approved_at IS NULL.
+        $plan = $this->db->all('EXPLAIN QUERY PLAN SELECT id, penname, email, created_at FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL');
+        $text = implode(' ', array_column($plan, 'detail'));
+        $this->assertStringNotContainsString('SCAN', $text);
+    }
 }
