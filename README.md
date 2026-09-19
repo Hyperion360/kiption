@@ -86,3 +86,14 @@ raw HTML cannot be stored. Members post through the validation queue
 Story and chapter edits are transactional and purge the affected static
 pages. The queue at `/queue` (moderator and admin roles) approves or
 removes pending stories, chapters, and member approvals.
+
+## Engagement
+
+Readers can leave kudos (once per story; guests keyed by IP), favorite
+stories to a shelf, follow authors with per-follow notification modes
+(site inbox, immediate email, digest), track reading progress with a
+continue-reading list, and mark stories for later. Every engagement
+event lands in the notification inbox at `/notifications`. Counts on
+cached pages snapshot at fill time; per-reader state renders only on
+the dynamic (cookie-carrying) path, so the static layer never serves
+personal variants.

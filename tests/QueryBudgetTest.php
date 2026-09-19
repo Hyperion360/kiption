@@ -61,7 +61,7 @@ final class QueryBudgetTest extends TestCase
         return [['/story/new'], ['/story/edit/the-rabbit-hole'],
                 ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2'],
                 ['/story/read/the-rabbit-hole/1'],
-                ['/queue']];
+                ['/queue'], ['/notifications'], ['/favorites']];
     }
 
     /** @dataProvider authPages */
