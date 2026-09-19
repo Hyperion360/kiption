@@ -13,5 +13,6 @@ return [
     'site'    => ['name' => 'Kiption'],
     'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),
     'maintenance_allow' => [],
+    'static_cache' => ['enabled' => true, 'dir' => __DIR__ . '/public/cache'],
     'items_per_page' => 20,
 ];
