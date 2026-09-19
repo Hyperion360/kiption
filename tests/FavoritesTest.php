@@ -75,4 +75,21 @@ final class FavoritesTest extends TestCase
         $this->assertStringContainsString('The Rabbit Hole', $res->body);
         $this->assertStringContainsString('name="robots" content="noindex"', $res->body);
     }
+
+    public function test_favorites_shelf_plan_is_sort_index_backed(): void
+    {
+        // favoritesRows orders one member's shelf by created_at DESC; without
+        // an ordered index SQLite materializes a TEMP B-TREE per render. The
+        // (user_id, created_at DESC) index walks the shelf pre-sorted, same
+        // standard the inbox shape set with idx_notifications_user.
+        $plan = $this->db->all(
+            'EXPLAIN QUERY PLAN SELECT s.slug, s.title, s.summary, s.updated_at,
+                    (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count
+             FROM favorites f JOIN stories s ON s.id = f.story_id
+             WHERE f.user_id = ? AND s.deleted_at IS NULL
+             ORDER BY f.created_at DESC LIMIT 100', [$this->fanId]);
+        $text = implode(' ', array_column($plan, 'detail'));
+        $this->assertStringNotContainsString('SCAN', $text);
+        $this->assertStringNotContainsString('TEMP B-TREE', $text);
+    }
 }
