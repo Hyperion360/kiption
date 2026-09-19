@@ -10,3 +10,5 @@ app/maintenance.lock
 .phpunit.result.cache
 .DS_Store
 public/cache/
+AGENTS.md
+CLAUDE.md
