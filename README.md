@@ -1,62 +1,33 @@
-# kip/skeleton
+# Kiption
 
-The starting point for a new Kip application: routing, database, sessions,
-CSRF, a working auth battery (login, logout, throttling, password reset),
-and the admin panel are already wired up. No blog, no demo content, just
-the minimum scaffolding plus a welcome page.
+Self-hosted fiction archive built on [Kip](https://github.com/Hyperion360/kip),
+the batteries-included, zero-dependency PHP framework. Working title; the
+product name is not final.
 
-## Quickstart
+Status: bootstrap milestone. The schema is complete; reading, authoring,
+validation queues, and the static page cache arrive in the next milestones.
 
-```bash
-composer install
-php bin/kip migrate
-```
+## Requirements
 
-Then create an account (run on its own. It prompts for the password with
-the echo off, keeping it out of shell history) and start the dev server:
+- PHP 8.3+ with the pdo_sqlite extension
+- Composer
+- Network access to fetch `kip/framework` from its GitHub repository
+  (during dual-repo framework development, a temporary local path
+  repository pointing at `../MVC-Lite` may be substituted; do not commit it)
 
-```bash
-php bin/kip user:create you@example.com
-```
+## Run it
 
-```bash
-php bin/kip serve
-```
+    composer install
+    php bin/kip migrate
+    php bin/kip serve
 
-Then open http://localhost:8080. Log in and the home page shows a
-"Log out" button. To make the account an admin (the only way admin access
-is ever granted), add `--admin`:
+Tests:
 
-```bash
-php bin/kip user:create you@example.com --admin
-```
+    vendor/bin/phpunit
 
-> **Note:** until `kip/framework` is published to Packagist, this skeleton's
-> `composer.json` resolves it via a local path repository (`../` relative to
-> this directory). That's why `composer install` must be run with this
-> skeleton still sitting next to the framework checkout it was cloned from.
-
-## What's included
-
-- `app/src/Controllers/HomeController.php`, renders the welcome page.
-- `app/src/Controllers/AuthController.php`: login/logout, CSRF-protected,
-  with login throttling, plus the password-reset flow
-  (forgot/remind/reset/confirm; dev mail lands in `app/mail.log`).
-- `app/views/`: `layout.php`, `home/index.php`, `auth/login.php`,
-  `auth/forgot.php`, `auth/reset.php`.
-- `app/migrations/`: `users` (with `is_admin`), `login_attempts`, and
-  `password_resets` tables.
-- The admin panel is enabled in `config.php`, log in with an `--admin`
-  account and visit `/admin` (see the
-  [admin chapter](../docs/guide/12-admin-panel.md)).
-- `public/`, `bin/kip`, `config.php`, same shape as the framework's CLI and
-  front controller, pointed at this app's own `vendor/`. `bin/kip` also
-  covers `backup` and dev auto-migrate on `serve`.
-
-## Next steps
-
-Follow [`../docs/tutorial.md`](../docs/tutorial.md) to build your first
-feature on top of this skeleton, then browse the
-[full guide](../docs/guide/README.md) for the reference material the
-tutorial doesn't cover. For a complete worked example (the tutorial's end
-state), see [`../examples/blog`](../examples/blog).
+Maintenance mode: `touch app/maintenance.lock` enables it (effective on
+the next request, no restart), `rm app/maintenance.lock` disables it. The
+`KIP_MAINTENANCE=1` environment variable also enables it for deploy-time
+use. `KIP_ENV=dev` bypasses the guard for the developer; note `php bin/kip
+serve` runs in dev mode, so maintenance is observed via a plain
+`php -S` server as shown in the plan's smoke test.
