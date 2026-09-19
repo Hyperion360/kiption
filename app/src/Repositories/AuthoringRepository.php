@@ -282,4 +282,16 @@ final class AuthoringRepository
             return [(string) $ch['slug'], $cats];
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
     }
+
+    /** Post-commit lookup for the notify hooks: story coordinates + the latest
+     *  VALIDATED chapter (the thing followers can actually read). */
+    public function storyForNotify(string $slug): ?array
+    {
+        return $this->db->one(
+            "SELECT s.id AS story_id, s.author_id, s.title, s.slug,
+                    COALESCE((SELECT c.position FROM chapters c WHERE c.story_id = s.id AND c.validated = 1
+                              ORDER BY c.position DESC LIMIT 1), 0) AS latest_position,
+                    (SELECT COUNT(*) FROM chapters c2 WHERE c2.story_id = s.id AND c2.validated = 1) AS live_chapters
+             FROM stories s WHERE s.slug = ? AND s.deleted_at IS NULL", [$slug]);
+    }
 }

@@ -8,7 +8,7 @@ final class ChapterController
 {
     public function __construct(
         private View $view, private Request $request, private Database $db,
-        private Session $session, private App $app,
+        private Session $session, private App $app, private \Kip\Mailer $mailer,
     ) {}
 
     #[AuthAttr]
@@ -30,12 +30,14 @@ final class ChapterController
         if (trim($content) === '') {
             return new Response($this->form($slug, null, 'Chapter text is required.'), 422);
         }
+        $auto = $this->autoValidates();
         try {
-            [$cats] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $this->autoValidates());
+            [$cats] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
         }
         $this->purge($slug, $cats);
+        if ($auto) $this->notifyPublish($slug);
         return Response::redirect('/story/edit/' . $slug);
     }
 
@@ -49,6 +51,10 @@ final class ChapterController
             return new Response('Page not found', 404);
         }
         $this->purge($slug, $cats);
+        $wasLive = (int) ($this->db->one(
+            'SELECT validated FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
+            [$slug, $position])['validated'] ?? 0);
+        if ($wasLive === 1) $this->notifyPublish($slug); // only an already-live chapter's edit is "news"
         return Response::redirect('/story/edit/' . $slug);
     }
 
@@ -94,6 +100,27 @@ final class ChapterController
     private function purge(string $slug, array $cats): void
     {
         (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, $cats);
+    }
+
+    private function notifyPublish(string $slug): void
+    {
+        $repo = new \App\Repositories\AuthoringRepository($this->db);
+        $story = $repo->storyForNotify($slug);
+        if ($story === null || (int) $story['live_chapters'] === 0) return;
+        [$ids, $emails] = (new \App\Repositories\EngagementRepository($this->db))->followersToNotify((int) $story['author_id']);
+        $notifications = new \App\Notifications($this->db);
+        foreach ($ids as $followerId) {
+            $notifications->create($followerId, 'update', (int) $story['story_id'], (int) $story['author_id'], (string) $story['title']);
+        }
+        $base = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/');
+        foreach ($emails as $email) {
+            try {
+                $this->mailer->send($email, 'Story update: ' . $story['title'],
+                    "A story you follow has a new chapter:\n\n" . $story['title'] . "\n{$base}/story/read/{$story['slug']}/{$story['latest_position']}");
+            } catch (\Throwable $e) {
+                error_log("follower mail failed: {$e->getMessage()}");
+            }
+        }
     }
 
     private function head(): \App\Seo\Head
