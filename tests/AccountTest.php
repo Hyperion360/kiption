@@ -37,6 +37,7 @@ final class AccountTest extends TestCase
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+            'uploads' => ['dir' => $this->uploads, 'max_bytes' => 2097152, 'ext' => ['png', 'jpg', 'jpeg', 'webp', 'gif']],
         ]);
         // CLI has no SAPI uploads: swap the mover for copy(), the seam Storage ships for this.
         $app->container->instance(Storage::class,
@@ -82,11 +83,14 @@ final class AccountTest extends TestCase
         $this->assertSame(302, $res->status, $res->body);
         $row = $this->db->one('SELECT avatar_path FROM users WHERE id = 1');
         $this->assertMatchesRegularExpression('#^/uploads/[0-9a-f]{16}\.png$#', (string) $row['avatar_path']);
+        $this->assertFileExists($this->uploads . '/' . basename((string) $row['avatar_path']));
         $first = $row['avatar_path'];
         $res = $client->postWithFile('/account/avatar', [], 'avatar', $this->pngFile());
+        $this->assertSame(302, $res->status, $res->body);
         $row = $this->db->one('SELECT avatar_path FROM users WHERE id = 1');
         $this->assertNotSame($first, $row['avatar_path']);
-        $this->assertFileDoesNotExist($this->uploads . basename((string) $first));
+        $this->assertFileDoesNotExist($this->uploads . '/' . basename((string) $first), 'the replaced avatar file must be deleted');
+        $this->assertFileExists($this->uploads . '/' . basename((string) $row['avatar_path']));
     }
 
     public function test_avatar_rejects_wrong_content(): void

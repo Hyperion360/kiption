@@ -57,7 +57,9 @@ final class AccountController
         $old = $this->db->one('SELECT avatar_path FROM users WHERE id = ?', [$userId]);
         $this->db->query('UPDATE users SET avatar_path = ? WHERE id = ?', [$path, $userId]);
         if ($old !== null && $old['avatar_path'] !== null) {
-            @unlink(dirname(__DIR__, 3) . '/public' . $old['avatar_path']);
+            // basename() keeps the delete inside the configured uploads dir.
+            $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
+            @unlink($dir . '/' . basename((string) $old['avatar_path']));
         }
         return Response::redirect('/account');
     }
