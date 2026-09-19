@@ -27,6 +27,22 @@ final class HeadTest extends TestCase
         $this->assertStringEndsNotWith(' ', $h->description());
     }
 
+    public function test_description_cut_never_splits_a_utf8_character(): void
+    {
+        $desc = Head::make(siteName: 'S')->withDescription(str_repeat('中', 200))->description();
+        $this->assertSame(160, mb_strlen($desc, 'UTF-8')); // the budget is 160 characters, no spaces to trim at
+        // A byte cut ships invalid UTF-8 and the layout escaper (htmlspecialchars,
+        // UTF-8) then blanks the whole content attribute: description goes empty.
+        $this->assertTrue(mb_check_encoding($desc, 'UTF-8'));
+    }
+
+    public function test_short_multibyte_descriptions_are_not_byte_truncated(): void
+    {
+        // 100 characters of 2-byte text: inside the 160 character budget even
+        // though it is 200 bytes. Byte maths cut this to 160 bytes.
+        $this->assertSame(str_repeat('é', 100), Head::make(siteName: 'S')->withDescription(str_repeat('é', 100))->description());
+    }
+
     public function test_og_article_type_carries_times(): void
     {
         $h = Head::make(siteName: 'S')->withArticle(published: '2026-08-01T09:00:00Z', modified: '2026-09-10T09:00:00Z');

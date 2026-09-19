@@ -57,10 +57,17 @@ final class Head
     {
         $d = trim((string) $this->descriptionText);
         if ($d === '') return 'A self-hosted fiction archive.';
-        if (strlen($d) <= 160) return $d;
-        $cut = substr($d, 0, 160);
-        $space = strrpos($cut, ' ');
-        return $space === false ? rtrim($cut) : rtrim(substr($cut, 0, $space));
+        // The budget is 160 characters, never bytes: a byte cut splits multibyte
+        // sequences, ships invalid UTF-8, and htmlspecialchars then blanks the
+        // whole content attribute. PCRE /u counts characters and cannot split one.
+        // On non-UTF-8 input the match fails and the string passes through as-is.
+        if (preg_match('/^.{161,}$/us', $d) === 1) {
+            preg_match('/^.{160}/us', $d, $m);
+            $cut = $m[0];
+            $space = strrpos($cut, ' ');
+            return $space === false ? rtrim($cut) : rtrim(substr($cut, 0, $space));
+        }
+        return $d;
     }
 
     public function canonical(): string
