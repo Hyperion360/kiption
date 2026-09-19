@@ -104,5 +104,5 @@ match ($argv[1] ?? 'help') {
             exit(1);
         }
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };
