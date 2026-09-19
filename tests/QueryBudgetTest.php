@@ -59,7 +59,8 @@ final class QueryBudgetTest extends TestCase
     public static function authPages(): array
     {
         return [['/story/new'], ['/story/edit/the-rabbit-hole'],
-                ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2']];
+                ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2'],
+                ['/queue']];
     }
 
     /** @dataProvider authPages */
@@ -69,6 +70,10 @@ final class QueryBudgetTest extends TestCase
         $client = new \Kip\Testing\TestClient($app);
         $client->post('/auth/attempt', ['email' => 'demo@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
+        if ($page === '/queue') {
+            $demoId = (int) $db->one('SELECT id FROM users WHERE email = ?', ['demo@example.test'])['id'];
+            \App\Adminness::setRole($db, $demoId, 'moderator');
+        }
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule

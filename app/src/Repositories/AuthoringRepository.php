@@ -196,4 +196,85 @@ final class AuthoringRepository
                           word_count = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE story_id = ?)
                           WHERE id = ?', [date('c'), $storyId, $storyId]);
     }
+
+    /** Queue page in ONE query: the moderator gate is the zeroth branch.
+     *  No 'gate' row in the result = caller is not a moderator (403). */
+    public function queueRows(int $userId): array
+    {
+        return $this->db->all(
+            "SELECT 'gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e
+             FROM users u WHERE u.id = ? AND u.role IN ('moderator', 'admin')
+             UNION ALL
+             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at
+             FROM stories s JOIN users au ON au.id = s.author_id
+             WHERE s.validated = 0 AND s.deleted_at IS NULL
+             UNION ALL
+             SELECT 'chapter', ch.id, ch.title, s.slug, au2.penname, ch.updated_at
+             FROM chapters ch JOIN stories s ON s.id = ch.story_id JOIN users au2 ON au2.id = s.author_id
+             WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1
+             UNION ALL
+             SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at
+             FROM users us WHERE us.approved_at IS NULL AND us.email_verified_at IS NOT NULL
+             ORDER BY k, e LIMIT 151", [$userId]);
+    }
+
+    /** Approve a story and every chapter under it. Returns [slug, cats] or null. */
+    public function approveStory(int $storyId): ?array
+    {
+        $story = $this->db->one('SELECT id, slug FROM stories WHERE id = ? AND validated = 0 AND deleted_at IS NULL', [$storyId]);
+        if ($story === null) return null;
+        $cats = $this->categorySlugs((int) $story['id']);
+        $this->db->begin();
+        try {
+            $this->db->query('UPDATE stories SET validated = 1, updated_at = ? WHERE id = ?', [date('c'), $story['id']]);
+            $this->db->query('UPDATE chapters SET validated = 1 WHERE story_id = ?', [$story['id']]);
+            $this->db->commit();
+            return [(string) $story['slug'], $cats];
+        } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+    }
+
+    /** @return array{0: string, 1: array}|null */
+    public function approveChapter(int $chapterId): ?array
+    {
+        $ch = $this->db->one(
+            'SELECT ch.id, ch.story_id, s.slug FROM chapters ch JOIN stories s ON s.id = ch.story_id
+             WHERE ch.id = ? AND ch.validated = 0 AND s.deleted_at IS NULL', [$chapterId]);
+        if ($ch === null) return null;
+        $cats = $this->categorySlugs((int) $ch['story_id']);
+        $this->db->begin();
+        try {
+            $this->db->query('UPDATE chapters SET validated = 1, updated_at = ? WHERE id = ?', [date('c'), $ch['id']]);
+            $this->db->query('UPDATE stories SET updated_at = ? WHERE id = ?', [date('c'), $ch['story_id']]);
+            $this->db->commit();
+            return [(string) $ch['slug'], $cats];
+        } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+    }
+
+    /** @return array{0: string, 1: array}|null */
+    public function removeStory(int $storyId): ?array
+    {
+        $story = $this->db->one('SELECT id, slug FROM stories WHERE id = ? AND deleted_at IS NULL AND validated = 0', [$storyId]);
+        if ($story === null) return null;
+        $cats = $this->categorySlugs((int) $story['id']);
+        $this->db->query('UPDATE stories SET deleted_at = ? WHERE id = ?', [date('c'), $story['id']]);
+        return [(string) $story['slug'], $cats];
+    }
+
+    /** @return array{0: string, 1: array}|null */
+    public function removeChapter(int $chapterId): ?array
+    {
+        $ch = $this->db->one(
+            'SELECT ch.id, ch.story_id, ch.position, s.slug FROM chapters ch JOIN stories s ON s.id = ch.story_id
+             WHERE ch.id = ? AND ch.validated = 0 AND s.deleted_at IS NULL', [$chapterId]);
+        if ($ch === null) return null;
+        $cats = $this->categorySlugs((int) $ch['story_id']);
+        $this->db->begin();
+        try {
+            $this->db->query('DELETE FROM chapters WHERE id = ?', [$ch['id']]);
+            $this->db->query('UPDATE chapters SET position = position - 1 WHERE story_id = ? AND position > ?',
+                [$ch['story_id'], $ch['position']]);
+            $this->db->commit();
+            return [(string) $ch['slug'], $cats];
+        } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+    }
 }
