@@ -84,6 +84,7 @@ final class ChapterController
             'position' => $position,
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
+            'loggedIn' => true,
         ]);
     }
 

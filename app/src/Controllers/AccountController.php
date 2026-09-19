@@ -61,6 +61,7 @@ final class AccountController
             'progress' => $progress,
             'marked' => $marked,
             'csrf' => $this->session->csrfToken(),
+            'loggedIn' => true,
         ]);
     }
 

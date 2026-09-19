@@ -32,6 +32,7 @@
       <a href="/browse">Browse</a>
       <a href="/browse/recent">Recent</a>
       <a href="/auth/login">Log in</a>
+      <?php if ($loggedIn ?? false): ?><a href="/notifications">Notifications</a><?php endif; ?>
     </nav>
   </header>
   <main class="site-main"><?= $content ?></main>

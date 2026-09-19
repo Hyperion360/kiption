@@ -220,6 +220,7 @@ final class StoryController
             'chapters' => $chapters,
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
+            'loggedIn' => true,
         ]);
     }
 

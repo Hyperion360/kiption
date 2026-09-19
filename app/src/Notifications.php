@@ -21,12 +21,13 @@ final class Notifications
         $this->db->query('UPDATE notifications SET read_at = ? WHERE user_id = ? AND read_at IS NULL', [date('c'), $userId]);
     }
 
-    /** ONE query: newest 50 with the actor penname folded in via a scalar subquery. */
+    /** ONE query: newest 50 with actor penname and story slug folded in via scalar subqueries. */
     public function inboxRows(int $userId): array
     {
         return $this->db->all(
             'SELECT n.kind, n.story_id, n.story_title, n.read_at, n.created_at,
-                    (SELECT penname FROM users u WHERE u.id = n.actor_id) AS actor
+                    (SELECT penname FROM users u WHERE u.id = n.actor_id) AS actor,
+                    (SELECT slug FROM stories st WHERE st.id = n.story_id) AS story_slug
              FROM notifications n WHERE n.user_id = ?
              ORDER BY n.created_at DESC LIMIT 50', [$userId]);
     }

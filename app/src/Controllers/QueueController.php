@@ -28,6 +28,7 @@ final class QueueController
             'path' => $this->request->path,
             'rows' => $rows,
             'csrf' => $this->session->csrfToken(),
+            'loggedIn' => true,
         ]);
     }
 
