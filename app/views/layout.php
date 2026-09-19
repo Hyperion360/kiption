@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= $this->e($title ?? 'Kiption') ?></title>
+  <title><?= $this->e(isset($head) && $head !== null ? $head->title() : ($title ?? 'Kiption')) ?></title>
   <?php if (isset($head) && $head !== null): ?>
   <?php foreach ($head->metaTags() as $t): ?>
   <meta name="<?= $this->e($t['name']) ?>" content="<?= $this->e($t['content']) ?>">

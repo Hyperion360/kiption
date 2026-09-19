@@ -1,6 +1,6 @@
 <?php // app/src/Controllers/StoryController.php
 namespace App\Controllers;
-use Kip\{Database, Http\Request, Http\Response, View};
+use Kip\{App, Database, Http\Request, Http\Response, View};
 use App\Repositories\StoryRepository;
 
 final class StoryController
@@ -9,6 +9,7 @@ final class StoryController
         private View $view,
         private Request $request,
         private StoryRepository $repo,
+        private App $app,
     ) {}
 
     public function view(string $slug): Response|string
@@ -21,8 +22,19 @@ final class StoryController
         }
         ksort($chapters);
         unset($story['chapters_blob']);
+        $head = $this->head()
+            ->withTitle($story['title'] . ' by ' . $story['penname'])
+            ->withDescription($story['meta_description'] ?? $story['summary'])
+            ->withCanonical('/story/view/' . $story['slug'])
+            ->withArticle($story['created_at'], $story['updated_at']);
+        $hasPart = [];
+        foreach ($chapters as $c) {
+            $hasPart[] = ['@type' => 'CreativeWork', 'position' => $c['position'], 'name' => $c['title']];
+        }
+        $head = $head->withJsonLd($this->bookJsonLd($head, $story, $hasPart));
         return $this->view->render('story/view', [
             'title' => $story['title'] . ' by ' . $story['penname'],
+            'head' => $head,
             'theme' => \App\Theme::current($this->request),
             'path' => $this->request->path,
             'story' => $story,
@@ -40,9 +52,11 @@ final class StoryController
         if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
             return new Response('Page not found', 404);
         }
+        $chapterTitle = $story['ch_title'] !== '' && $story['ch_title'] !== null ? $story['ch_title'] : 'Chapter ' . $position;
         if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
             return $this->view->render('story/gate', [
                 'title' => 'Content warning',
+                'head' => $this->head()->withTitle('Content warning')->withCanonical($this->request->path),
                 'theme' => \App\Theme::current($this->request),
                 'path' => $this->request->path,
                 'story' => $story,
@@ -55,8 +69,17 @@ final class StoryController
             if ($pn < $position) $prev = $pn;
             if ($next === null && $pn > $position) $next = $pn;
         }
+        $head = $this->head()
+            ->withTitle('Chapter ' . $position . ': ' . $chapterTitle . ' - ' . $story['title'])
+            ->withDescription($story['meta_description'] ?? $story['summary'])
+            ->withCanonical('/story/read/' . $slug . '/' . $position)
+            ->withArticle($story['created_at'], $story['updated_at']);
+        $head = $head->withJsonLd($this->bookJsonLd($head, $story, [
+            ['@type' => 'CreativeWork', 'position' => $position, 'name' => $chapterTitle],
+        ]));
         return $this->view->render('story/read', [
-            'title' => 'Chapter ' . $position . ': ' . ($story['ch_title'] !== '' && $story['ch_title'] !== null ? $story['ch_title'] : 'Chapter ' . $position) . ' - ' . $story['title'],
+            'title' => 'Chapter ' . $position . ': ' . $chapterTitle . ' - ' . $story['title'],
+            'head' => $head,
             'theme' => \App\Theme::current($this->request),
             'path' => $this->request->path,
             'story' => $story,
@@ -70,6 +93,28 @@ final class StoryController
             'prev' => $prev,
             'next' => $next,
         ]);
+    }
+
+    private function head(): \App\Seo\Head
+    {
+        return \App\Seo\Head::make(
+            siteName: (string) $this->app->config('site_name', 'Kiption'),
+            ogImage: (string) $this->app->config('og_image', ''),
+            baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
+        );
+    }
+
+    /** Book node shared by view (full TOC) and read (current chapter only). */
+    private function bookJsonLd(\App\Seo\Head $head, array $story, array $hasPart): array
+    {
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'Book',
+            'name' => $story['title'],
+            'author' => $story['penname'],
+            'url' => $head->url('/story/view/' . $story['slug']),
+            'hasPart' => $hasPart,
+        ];
     }
 
 }

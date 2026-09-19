@@ -40,7 +40,7 @@ final class StoryRepository
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
         return $this->db->one(
-            'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.updated_at, s.word_count,
+            'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.created_at, s.updated_at, s.word_count,
                     u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
                     MAX(CASE WHEN ch.position = ? THEN ch.title END) AS ch_title,
                     MAX(CASE WHEN ch.position = ? THEN ch.notes_before END) AS ch_notes_before,

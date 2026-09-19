@@ -16,6 +16,7 @@ final class BrowseController
     {
         return $this->view->render('browse/index', [
             'title' => 'Browse',
+            'head' => $this->head()->withTitle('Browse')->withCanonical('/browse'),
             'theme' => \App\Theme::current($this->request),
             'categories' => $this->stories->categoriesWithCounts(),
         ]);
@@ -26,8 +27,15 @@ final class BrowseController
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
         $stories = $this->stories->recentStories($perPage, $offset);
+        $items = [];
+        foreach ($stories as $i => $s) {
+            $items[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => '/story/view/' . $s['slug'], 'name' => $s['title']];
+        }
         return $this->view->render('browse/recent', [
             'title' => 'Recently updated',
+            'head' => $this->head()->withTitle('Recently updated')
+                ->withCanonical($this->request->path)
+                ->withJsonLd(['@context' => 'https://schema.org', '@type' => 'ItemList', 'itemListElement' => $items]),
             'theme' => \App\Theme::current($this->request),
             'path' => $this->request->path,
             'stories' => $stories,
@@ -41,14 +49,40 @@ final class BrowseController
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
         $stories = $this->stories->storiesInCategory($slug, $perPage, $offset);
-        return $this->view->render('browse/recent', [
+        $head = $this->head()->withTitle('Category: ' . $slug)
+            ->withCanonical($this->request->path)
+            ->withJsonLd([
+                '@context' => 'https://schema.org',
+                '@type' => 'BreadcrumbList',
+                'itemListElement' => [
+                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => '/'],
+                    ['@type' => 'ListItem', 'position' => 2, 'name' => 'Browse', 'item' => '/browse'],
+                    ['@type' => 'ListItem', 'position' => 3, 'name' => 'Category: ' . $slug, 'item' => '/browse/category/' . $slug],
+                ],
+            ]);
+        $data = [
             'title' => 'Category: ' . $slug,
+            'head' => $stories === [] ? $head->withNoindex() : $head,
             'theme' => \App\Theme::current($this->request),
             'path' => $this->request->path,
             'stories' => $stories,
             'page' => $page,
             'baseUrl' => '/browse/category/' . $slug,
-        ]);
+        ];
+        // Empty category pages have no unique content to rank; belt (meta) and
+        // suspenders (header) so no cache or crawler ever indexes them.
+        return $stories === []
+            ? (new Response($this->view->render('browse/recent', $data), 200))->withHeader('X-Robots-Tag', 'noindex')
+            : $this->view->render('browse/recent', $data);
+    }
+
+    private function head(): \App\Seo\Head
+    {
+        return \App\Seo\Head::make(
+            siteName: (string) $this->app->config('site_name', 'Kiption'),
+            ogImage: (string) $this->app->config('og_image', ''),
+            baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
+        );
     }
 
     /** Coerced page param: junk, zero and negatives become page 1. */
