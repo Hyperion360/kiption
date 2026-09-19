@@ -64,4 +64,18 @@ final class FeedTest extends TestCase
         $res = $this->app->handle(new Request('GET', '/feed', [], [], []));
         $this->assertNotFalse(simplexml_load_string($res->body), 'must remain well-formed XML');
     }
+
+    public function test_feed_strips_xml_invalid_control_characters(): void
+    {
+        $db = new Database('sqlite:' . $this->path);
+        $db->query('UPDATE stories SET title = ?, summary = ? WHERE slug = ?', ["Be\x0Btween", "Sum\x0Cma\x01ry", 'after-hours']);
+        foreach (['/feed', '/rss'] as $uri) {
+            $res = $this->app->handle(new Request('GET', $uri, [], [], []));
+            $xml = simplexml_load_string($res->body);
+            $this->assertNotFalse($xml, "{$uri} must stay well-formed XML under hostile text");
+            $this->assertStringNotContainsString("\x0B", $res->body);
+            $this->assertStringNotContainsString("\x0C", $res->body);
+            $this->assertStringNotContainsString("\x01", $res->body);
+        }
+    }
 }

@@ -7,7 +7,11 @@ final class Feed
 
     private static function e(?string $s): string
     {
-        return htmlspecialchars((string) $s, self::X, 'UTF-8');
+        // XML 1.0 admits only tab, LF and CR among C0 controls; any other control
+        // byte in a title or summary makes readers reject the whole feed, and
+        // htmlspecialchars strips none of them. Strip first, then escape.
+        $s = preg_replace('#[\x{0}-\x{8}\x{B}\x{C}\x{E}-\x{1F}]#u', '', (string) $s) ?? '';
+        return htmlspecialchars($s, self::X, 'UTF-8');
     }
 
     public static function atom(string $siteName, string $baseUrl, array $stories): string
