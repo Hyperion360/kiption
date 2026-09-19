@@ -33,7 +33,7 @@ final class SchemaTest extends TestCase
             'ratings', 'stories', 'story_categories', 'story_tags', 'story_characters',
             'coauthors', 'chapters', 'series', 'series_items', 'reviews', 'favorites',
             'news', 'news_comments', 'pages', 'mail_templates', 'page_stats',
-            'login_attempts', 'password_resets',
+            'login_attempts', 'password_resets', 'email_verifications', 'invites',
             'import_map', 'import_runs', 'legacy_urls', 'legacy_log',
         ];
         return array_map(static fn(string $t): array => [$t], $tables);

@@ -60,7 +60,7 @@ match ($argv[1] ?? 'help') {
         }
         if ($isAdmin) {
             try {
-                $db->query('UPDATE users SET is_admin = 1 WHERE email = ?', [$email]);
+                $db->query('UPDATE users SET is_admin = 1, role = \'admin\' WHERE email = ?', [$email]);
             } catch (\PDOException) {
                 fwrite(STDERR, "User created, but users.is_admin is missing, run the add_users_is_admin migration first.\n");
                 exit(1);
