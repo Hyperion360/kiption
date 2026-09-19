@@ -94,5 +94,15 @@ match ($argv[1] ?? 'help') {
         ]), $config['app_dir'] . '/backups'))->run(date('Ymd-His'));
         echo "Backup written: {$result}\n";
     })(),
+    'db:seed' => (function () use ($config, $argv) {
+        $db = new Kip\Database($config['db']['dsn']);
+        try {
+            \App\Seeder::run($db, force: in_array('--force', $argv, true));
+            echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category).\n";
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, $e->getMessage() . "\n");
+            exit(1);
+        }
+    })(),
     default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|user:create <email> [password] [--admin]]\n"),
 };
