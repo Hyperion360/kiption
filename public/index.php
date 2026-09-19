@@ -21,6 +21,15 @@ public/index.php
   |                     \-- send
 */
 declare(strict_types=1);
+
+// Dev-server passthrough (php -S router mode): real files serve directly, exactly as
+// the production .htaccess RewriteCond !-f does. Dead code under Apache/FPM.
+if (PHP_SAPI === 'cli-server') {
+    $p = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+    $real = realpath(__DIR__ . $p);
+    if ($real !== false && str_starts_with($real, __DIR__ . '/') && is_file($real)) return false;
+}
+
 require __DIR__ . '/../vendor/autoload.php';
 
 $config = require __DIR__ . '/../config.php';

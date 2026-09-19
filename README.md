@@ -62,3 +62,13 @@ cookie and query conditions, and the map- or internal-location workarounds
 have not been validated on a real server. A tested webserver cookbook
 (nginx included) is a tracked TODO; until then, nginx users get the PHP
 fallback, which is fully correct.
+
+## SEO
+
+Every page ships a unique title with the site name, a meta description
+(stories use the summary unless `meta_description` is set), Open Graph and
+Twitter tags, a self-canonical URL, and JSON-LD (`WebSite` on home, `Book`
+on stories, `BreadcrumbList` on categories, `ItemList` on listings). The
+Atom feed is at `/feed` with an RSS2 alias at `/rss` (autodiscovery is
+built in). Empty category listings are `noindex` and never cached. Crawlers
+are kept off faceted query-string permutations via `robots.txt`.
