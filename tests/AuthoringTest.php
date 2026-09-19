@@ -222,4 +222,31 @@ final class AuthoringTest extends TestCase
         $this->assertSame(2, (int) $this->db->one(
             "SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-empty')")['c']);
     }
+
+    public function test_story_rejects_unknown_rating(): void
+    {
+        // A forged or stale rating_id must be a 422 form error, never an
+        // uncaught FK violation (generic 500).
+        $res = $this->clientAs(1)->postWithToken('/story/create',
+            ['title' => 'Bad Rating', 'summary' => 'x', 'rating_id' => '9999', 'categories' => []]);
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString('rating', $res->body);
+        $this->assertNull($this->db->one("SELECT id FROM stories WHERE title = 'Bad Rating'"));
+        $res = $this->clientAs(1)->postWithToken('/story/update/the-rabbit-hole',
+            ['title' => 'The Rabbit Hole', 'summary' => 'A slow fall into a stranger world.',
+             'rating_id' => '9999', 'categories' => []]);
+        $this->assertSame(422, $res->status);
+        $rating = (int) $this->db->one("SELECT rating_id FROM stories WHERE slug = 'the-rabbit-hole'")['rating_id'];
+        $this->assertSame($this->ratingId(), $rating); // row untouched, still the seeded Teen rating
+    }
+
+    public function test_story_drops_unknown_categories(): void
+    {
+        $res = $this->clientAs(1)->postWithToken('/story/create',
+            ['title' => 'Odd Categories', 'summary' => 'x', 'rating_id' => (string) $this->ratingId(), 'categories' => ['8888', (string) $this->categoryId()]]);
+        $this->assertSame(302, $res->status, $res->body);
+        $row = $this->db->one("SELECT * FROM stories WHERE title = 'Odd Categories'");
+        $this->assertSame(1, (int) $this->db->one(
+            'SELECT COUNT(*) c FROM story_categories WHERE story_id = ?', [$row['id']])['c']); // only the real id stored
+    }
 }

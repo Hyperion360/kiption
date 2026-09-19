@@ -106,7 +106,10 @@ final class AuthoringRepository
         $this->db->query('DELETE FROM story_categories WHERE story_id = ?', [$storyId]);
         foreach (array_unique(array_map('intval', $categoryIds)) as $cid) {
             if ($cid > 0) {
-                $this->db->query('INSERT INTO story_categories (story_id, category_id) VALUES (?, ?)', [$storyId, $cid]);
+                // INSERT ... SELECT drops unknown ids (forged or stale input) instead of
+                // tripping the FK constraint, mirroring the non-numeric filter upstream.
+                $this->db->query('INSERT INTO story_categories (story_id, category_id) SELECT ?, id FROM categories WHERE id = ?',
+                    [$storyId, $cid]);
             }
         }
     }

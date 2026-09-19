@@ -111,6 +111,9 @@ final class StoryController
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
         }
+        if (!$this->validRating($ratingId)) {
+            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
+        }
         [$id, $slug, $cats] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates());
         $this->staticCache()->purgeStory($slug, $cats);
@@ -133,6 +136,9 @@ final class StoryController
     public function update(string $slug): Response|string
     {
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed] = $this->storyInput();
+        if (!$this->validRating($ratingId)) {
+            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
+        }
         try {
             [$newSlug, $cats] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed);
@@ -206,6 +212,13 @@ final class StoryController
         $role = (string) ($this->db->one('SELECT role FROM users WHERE id = ?', [$this->uid()])['role'] ?? 'member');
         return !((bool) $this->app->config('validation_required', true))
             || in_array($role, ['validated_author', 'moderator', 'admin'], true);
+    }
+
+    /** POST paths are not budget-bound: a forged or stale rating id is a 422,
+     *  never an FK violation surfacing as the kernel's generic 500. */
+    private function validRating(int $ratingId): bool
+    {
+        return $this->db->one('SELECT 1 AS x FROM ratings WHERE id = ?', [$ratingId]) !== null;
     }
 
     private function staticCache(): \App\StaticCache\Cache
