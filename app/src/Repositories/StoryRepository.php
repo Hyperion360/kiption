@@ -63,7 +63,7 @@ final class StoryRepository
     public function recentStories(int $perPage, int $offset): array
     {
         return $this->db->all(
-            'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at,
+            'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, s.created_at,
                     u.penname, r.label AS rating_label
              FROM stories s
              JOIN users u ON u.id = s.author_id

@@ -45,6 +45,7 @@ final class QueryBudgetTest extends TestCase
     public static function pages(): array
     {
         return [['/'], ['/browse'], ['/browse/recent'], ['/browse/category/general'],
-                ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3']];
+                ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3'],
+                ['/feed'], ['/rss']];
     }
 }
