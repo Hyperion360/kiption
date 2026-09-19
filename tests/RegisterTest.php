@@ -68,6 +68,19 @@ final class RegisterTest extends TestCase
         $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) c FROM user_prefs WHERE user_id = ?", [$row['id']])['c']);
     }
 
+    public function test_locked_account_login_gate(): void
+    {
+        // The third gate: a locked account authenticates, is logged back out,
+        // and gets the locked message (contract: locked/unverified/unapproved
+        // each log out with their own message).
+        $client = $this->client(['registration_mode' => 'open']);
+        $client->post('/auth/store', $this->form(['email' => 'l@e.test', 'penname' => 'lockedone']));
+        $this->db->query("UPDATE users SET is_locked = 1 WHERE email = 'l@e.test'");
+        $login = $client->post('/auth/attempt', ['email' => 'l@e.test', 'password' => 'password123']);
+        $this->assertStringContainsString('account is locked', $login->body);
+        $this->assertSame(302, $client->get('/account')->status, 'gate must have logged the session back out');
+    }
+
     public function test_verify_mode_gates_login_until_token(): void
     {
         $client = $this->client();

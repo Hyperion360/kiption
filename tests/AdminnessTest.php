@@ -65,4 +65,17 @@ final class AdminnessTest extends TestCase
         $this->assertIsArray($row);
         $this->assertSame('moderator', $row['role']);
     }
+
+    public function test_moderator_gate_survives_a_broken_users_table(): void
+    {
+        // The PDOException arm: any database failure is a 403, never a 500
+        // and never an accidental pass-through.
+        $store = [];
+        $session = new Session($store);
+        $session->set('user_id', 1);
+        $this->db->query('DROP TABLE users');
+        $res = Adminness::requireModerator($this->db, $session);
+        $this->assertInstanceOf(Response::class, $res);
+        $this->assertSame(403, $res->status);
+    }
 }
