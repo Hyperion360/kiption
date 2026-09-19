@@ -48,9 +48,9 @@ final class Seeder
             ['The Rabbit Hole', 'the-rabbit-hole', 'A slow fall into a stranger world.', 'Thanks for reading.', $authorId, $teenId,
              '2026-08-01T09:00:00Z', '2026-09-10T09:00:00Z']);
         $story1 = (int) $db->lastInsertId();
-        foreach ([[1, 'Down', '<p>Falling <em>down</em> the hole, past shelves of nothing.</p>', 100],
-                  [2, 'Through', '<p>Through the little door, the garden is wrong.</p>', 200],
-                  [3, 'Up', '<p>Climbing back is its own kind of falling.</p>', 300]] as [$pos, $title, $body, $words]) {
+        foreach ([[1, 'Down', "Falling *down* the hole, past shelves of nothing.", 100],
+                  [2, 'Through', 'Through the little door, the garden is wrong.', 200],
+                  [3, 'Up', 'Climbing back is its own kind of falling.', 300]] as [$pos, $title, $body, $words]) {
             $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (' . $story1 . ', ?, ?, ?, 1, ?)',
                 [$pos, $title, $body, $words]);
         }
@@ -60,7 +60,7 @@ final class Seeder
             ['After Hours', 'after-hours', 'What the warning is for.', $authorId, $explicitId, '2026-09-01T09:00:00Z', '2026-09-12T09:00:00Z']);
         $story2 = (int) $db->lastInsertId();
         $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (' . $story2 . ', ?, ?, ?, 1, ?)',
-            [1, 'One', '<p>Body.</p>', 100]);
+            [1, 'One', 'Body.', 100]);
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story2 . ', ' . $categoryId . ')');
         } catch (\Throwable $e) {
             $db->rollBack();

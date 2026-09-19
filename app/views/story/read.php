@@ -9,11 +9,11 @@
   <div class="prose">
     <h1><?= $this->e($chapter['title'] !== '' ? $chapter['title'] : 'Chapter ' . $position) ?></h1>
     <?php if (($chapter['notes_before'] ?? '') !== ''): ?>
-      <p class="chapter-meta"><?= $this->e($chapter['notes_before']) ?></p>
+      <div class="chapter-meta"><?= \App\Markdown::render($chapter['notes_before']) ?></div>
     <?php endif; ?>
-    <?= $chapter['content'] /* sanitized at write time; seed and Plan 5 writers guarantee this */ ?>
+    <?= \App\Markdown::render($chapter['content']) /* markdown at rest; raw HTML cannot be stored */ ?>
     <?php if (($chapter['notes_after'] ?? '') !== ''): ?>
-      <p class="chapter-meta"><?= $this->e($chapter['notes_after']) ?></p>
+      <div class="chapter-meta"><?= \App\Markdown::render($chapter['notes_after']) ?></div>
     <?php endif; ?>
   </div>
   <nav class="chapter-nav" aria-label="Chapter navigation">

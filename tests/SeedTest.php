@@ -43,7 +43,7 @@ final class SeedTest extends TestCase
              WHERE story_id = (SELECT id FROM stories WHERE slug = 'after-hours')");
         $this->assertNotNull($row);
         $this->assertSame('One', $row['title']);
-        $this->assertSame('<p>Body.</p>', $row['content']);
+        $this->assertSame('Body.', $row['content']);
         $this->assertSame(1, (int) $row['validated']);
     }
 

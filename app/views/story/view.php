@@ -12,7 +12,7 @@
   </p>
   <p><?= $this->e($story['summary']) ?></p>
   <?php if (($story['notes'] ?? '') !== ''): ?>
-    <p class="chapter-meta"><?= $this->e($story['notes']) ?></p>
+    <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>
   <?php endif; ?>
   <h2>Chapters</h2>
   <ol>
