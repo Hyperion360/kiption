@@ -81,4 +81,13 @@ final class BrowseTest extends TestCase
         $res = $this->app->handle(new Request('GET', '/browse/category/nope', [], [], []));
         $this->assertSame(404, $res->status);
     }
+
+    public function test_huge_page_param_returns_empty_page_not_500(): void
+    {
+        foreach (['/browse/recent', '/browse/category/general'] as $path) {
+            $res = $this->app->handle(new Request('GET', $path, ['page' => '99999999999999999999'], [], []));
+            $this->assertSame(200, $res->status, "{$path} must not 500 on a huge page param");
+            $this->assertStringContainsString('No stories yet', $res->body);
+        }
+    }
 }
