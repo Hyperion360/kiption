@@ -98,11 +98,15 @@ match ($argv[1] ?? 'help') {
         $db = new Kip\Database($config['db']['dsn']);
         try {
             \App\Seeder::run($db, force: in_array('--force', $argv, true));
-            echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category).\n";
         } catch (\RuntimeException $e) {
             fwrite(STDERR, $e->getMessage() . "\n");
             exit(1);
         }
+        if ($config['static_cache']['enabled'] ?? false) {
+            \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
+            echo "Static page cache and framework page cache purged.\n";
+        }
+        echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category).\n";
     })(),
     'pages:build' => (function () use ($config) {
         $dir = $config['static_cache']['dir'] ?? null;
