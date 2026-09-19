@@ -12,11 +12,17 @@ final class StoryRepository
      *  yields [] when the story has no validated chapters. Decode and ksort in
      *  PHP so ordering never depends on aggregation internals.
      *  @return array<string,mixed>|null */
-    public function findStoryBySlug(string $slug): ?array
+    public function findStoryBySlug(string $slug, int $me = 0): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
         return $this->db->one(
             'SELECT s.*, u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
+                    (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count,
+                    (SELECT COUNT(*) FROM favorites f WHERE f.story_id = s.id) AS favorite_count,
+                    (SELECT COUNT(*) FROM story_kudos k2 WHERE k2.story_id = s.id AND k2.user_id = ?) AS kudos_by_me,
+                    (SELECT COUNT(*) FROM favorites f2 WHERE f2.story_id = s.id AND f2.user_id = ?) AS favorite_by_me,
+                    (SELECT COUNT(*) FROM follows fo WHERE fo.author_id = s.author_id AND fo.follower_id = ?) AS following_author,
+                    (SELECT rh.marked_at FROM reading_history rh WHERE rh.story_id = s.id AND rh.user_id = ?) AS marked_at_me,
                     (SELECT GROUP_CONCAT(c.name, ", ") FROM story_categories sc
                      JOIN categories c ON c.id = sc.category_id
                      WHERE sc.story_id = s.id) AS category_names,
@@ -27,7 +33,7 @@ final class StoryRepository
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL',
-            [$slug]
+            [$me, $me, $me, $me, $slug]
         );
     }
 

@@ -11,6 +11,17 @@
     | in <?= $this->e($story['category_names'] ?? 'Uncategorized') ?>
   </p>
   <p><?= $this->e($story['summary']) ?></p>
+  <div class="engagement-bar chapter-meta">
+    <span>Kudos: <?= number_format((int) $kudos_count) ?></span>
+    <?php if ((int) $kudos_by_me === 1): ?>
+      <span>You left kudos</span>
+    <?php else: ?>
+      <form method="post" action="/kudos/add/<?= $this->e($story['slug']) ?>" class="inline">
+        <?php if (!empty($csrf)): ?><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><?php endif; ?>
+        <button type="submit">Leave kudos</button>
+      </form>
+    <?php endif; ?>
+  </div>
   <?php if (($story['notes'] ?? '') !== ''): ?>
     <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>
   <?php endif; ?>

@@ -17,7 +17,8 @@ final class StoryController
 
     public function view(string $slug): Response|string
     {
-        $story = $this->repo->findStoryBySlug($slug);
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $story = $this->repo->findStoryBySlug($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
@@ -42,6 +43,13 @@ final class StoryController
             'path' => $this->request->path,
             'story' => $story,
             'chapters' => array_values($chapters),
+            'kudos_count' => (int) $story['kudos_count'],
+            'kudos_by_me' => (int) $story['kudos_by_me'],
+            'favorite_count' => (int) $story['favorite_count'],
+            'favorite_by_me' => (int) $story['favorite_by_me'],
+            'following_author' => (int) $story['following_author'],
+            'marked_at_me' => $story['marked_at_me'],
+            'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
     }
 
