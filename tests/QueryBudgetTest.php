@@ -23,16 +23,22 @@ final class QueryBudgetTest extends TestCase
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
-    /** @dataProvider pages */
-    public function test_every_page_stays_inside_the_one_query_budget(string $page): void
+    private function config(): array
     {
-        $app = new App([
+        return [
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
-        ]);
+            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-budget-test.log', 'from' => 'noreply@kiption.test'],
+        ];
+    }
+
+    /** @dataProvider pages */
+    public function test_every_page_stays_inside_the_one_query_budget(string $page): void
+    {
+        $app = new App($this->config());
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function () use (&$queries): void { $queries++; });
@@ -48,5 +54,28 @@ final class QueryBudgetTest extends TestCase
                 ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3'],
                 ['/story/read/after-hours/1'], // adult story, cookieless: the age-gate render is a page shape too
                 ['/feed'], ['/rss']];
+    }
+
+    public static function authPages(): array
+    {
+        return [['/story/new'], ['/story/edit/the-rabbit-hole']];
+    }
+
+    /** @dataProvider authPages */
+    public function test_author_pages_stay_inside_the_one_query_budget(string $page): void
+    {
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'demo@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            $queries++;
+        });
+        $res = $client->get($page);
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status, $page);
+        $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
     }
 }

@@ -1,6 +1,7 @@
 <?php // app/src/Controllers/StoryController.php
 namespace App\Controllers;
-use Kip\{App, Database, Http\Request, Http\Response, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, View};
+use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\StoryRepository;
 
 final class StoryController
@@ -10,6 +11,8 @@ final class StoryController
         private Request $request,
         private StoryRepository $repo,
         private App $app,
+        private Database $db,
+        private Session $session,
     ) {}
 
     public function view(string $slug): Response|string
@@ -93,6 +96,135 @@ final class StoryController
             'prev' => $prev,
             'next' => $next,
         ]);
+    }
+
+    #[AuthAttr]
+    public function new(): string
+    {
+        return $this->renderForm($this->authoring()->formData(null, $this->uid()), null, null, null);
+    }
+
+    #[AuthAttr] #[Post]
+    public function create(): Response|string
+    {
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed] = $this->storyInput();
+        if ($title === '') {
+            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
+        }
+        [$id, $slug, $cats] = $this->authoring()->createStory(
+            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates());
+        $this->staticCache()->purgeStory($slug, $cats);
+        return Response::redirect('/story/edit/' . $slug);
+    }
+
+    #[AuthAttr]
+    public function edit(string $slug): Response|string
+    {
+        $rows = $this->authoring()->formData($slug, $this->uid());
+        $story = null;
+        foreach ($rows as $r) {
+            if ($r['k'] === 's') { $story = $r; break; }
+        }
+        if ($story === null) return new Response('Page not found', 404);
+        return $this->renderForm($rows, $story, null, $slug);
+    }
+
+    #[AuthAttr] #[Post]
+    public function update(string $slug): Response|string
+    {
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed] = $this->storyInput();
+        try {
+            [$newSlug, $cats] = $this->authoring()->updateStory(
+                $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed);
+        } catch (\RuntimeException) {
+            return new Response('Page not found', 404);
+        }
+        $this->staticCache()->purgeStory($newSlug, $cats);
+        if ($newSlug !== $slug) {
+            $this->staticCache()->purgeStory($slug, $cats); // old URLs' files too
+        }
+        return Response::redirect('/story/edit/' . $newSlug);
+    }
+
+    #[AuthAttr] #[Post]
+    public function delete(string $slug): Response
+    {
+        try {
+            [$slug, $cats] = $this->authoring()->deleteStory($slug, $this->uid());
+        } catch (\RuntimeException) {
+            return new Response('Page not found', 404);
+        }
+        $this->staticCache()->purgeStory($slug, $cats);
+        return Response::redirect('/account');
+    }
+
+    /** @param array[] $rows formData output; $story null on the create form */
+    private function renderForm(array $rows, ?array $story, ?string $error, ?string $editSlug): string
+    {
+        $categories = [];
+        $ratings = [];
+        foreach ($rows as $r) {
+            if ($r['k'] === 'cat') $categories[] = $r;
+            if ($r['k'] === 'r') $ratings[] = $r;
+        }
+        $chapters = [];
+        if ($story !== null && ($story['h'] ?? null) !== null && $story['h'] !== '[]') {
+            $chapters = json_decode((string) $story['h'], true) ?: [];
+            usort($chapters, static fn(array $x, array $y): int => (int) $x['position'] <=> (int) $y['position']);
+        }
+        return $this->view->render('story/form', [
+            'title' => $story === null ? 'New story' : 'Edit story',
+            'head' => $this->head()->withTitle($story === null ? 'New story' : 'Edit story')
+                ->withCanonical($this->request->path)->withNoindex(),
+            'theme' => \App\Theme::current($this->request),
+            'path' => $this->request->path,
+            'story' => $story === null ? null : [
+                'slug' => (string) $editSlug, 'title' => $story['b'], 'summary' => $story['c'],
+                'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
+            ],
+            'selectedCategories' => $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
+            'categories' => $categories,
+            'ratings' => $ratings,
+            'chapters' => $chapters,
+            'csrf' => $this->session->csrfToken(),
+            'error' => $error,
+        ]);
+    }
+
+    private function authoring(): \App\Repositories\AuthoringRepository
+    {
+        return new \App\Repositories\AuthoringRepository($this->db);
+    }
+
+    private function uid(): int
+    {
+        return (int) $this->session->get('user_id');
+    }
+
+    private function autoValidates(): bool
+    {
+        $role = (string) ($this->db->one('SELECT role FROM users WHERE id = ?', [$this->uid()])['role'] ?? 'member');
+        return !((bool) $this->app->config('validation_required', true))
+            || in_array($role, ['validated_author', 'moderator', 'admin'], true);
+    }
+
+    private function staticCache(): \App\StaticCache\Cache
+    {
+        return new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
+    }
+
+    /** @return array{string,string,string,int,array,bool} */
+    private function storyInput(): array
+    {
+        $post = $this->request->post;
+        return [
+            trim((string) ($post['title'] ?? '')),
+            trim((string) ($post['summary'] ?? '')),
+            trim((string) ($post['notes'] ?? '')),
+            (int) ($post['rating_id'] ?? 0),
+            array_values(array_filter((array) ($post['categories'] ?? []), 'is_numeric')),
+            isset($post['completed']),
+        ];
     }
 
     private function head(): \App\Seo\Head
