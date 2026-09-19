@@ -104,5 +104,17 @@ match ($argv[1] ?? 'help') {
             exit(1);
         }
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    'pages:build' => (function () use ($config) {
+        $dir = $config['static_cache']['dir'] ?? null;
+        if ($dir === null) { fwrite(STDERR, "static_cache not configured.\n"); exit(1); }
+        $n = \App\StaticCache\Builder::build($config, $dir);
+        echo "Built {$n} static pages into {$dir}.\n";
+    })(),
+    'pages:prune' => (function () use ($config) {
+        $dir = $config['static_cache']['dir'] ?? null;
+        if ($dir === null) { fwrite(STDERR, "static_cache not configured.\n"); exit(1); }
+        \App\StaticCache\Builder::prune($dir, $config['app_dir']);
+        echo "Static layer and framework page cache pruned.\n";
+    })(),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };
