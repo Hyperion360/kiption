@@ -145,4 +145,69 @@ final class AuthoringTest extends TestCase
         // restore for other tests
         $this->db->query("UPDATE stories SET deleted_at = NULL WHERE slug = 'the-rabbit-hole'");
     }
+
+    /** Throwaway story for chapter tests. */
+    private function chapterFixture(string $slug): void
+    {
+        $this->db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, word_count) VALUES (?, ?, ?, 1, ?, 1, 200)',
+            ['Fixture ' . $slug, $slug, 's.', $this->ratingId()]);
+        $storyId = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 1, \'One\', \'One hundred words pretend.\', 1, 100)', [$storyId]);
+        $this->db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 2, \'Two\', \'Also pretend words here.\', 1, 100)', [$storyId]);
+    }
+
+    public function test_chapter_create_appends_and_counts_words(): void
+    {
+        $this->chapterFixture('ch-create');
+        $res = $this->clientAs(1)->postWithToken('/chapter/create/ch-create',
+            ['title' => 'Sideways', 'content' => 'Four *short* words.', 'notes_before' => '', 'notes_after' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $ch = $this->db->one("SELECT * FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-create') AND position = 3");
+        $this->assertNotNull($ch);
+        $this->assertSame(3, (int) $ch['word_count']); // markers excluded
+        $story = $this->db->one("SELECT word_count FROM stories WHERE slug = 'ch-create'");
+        $this->assertSame(203, (int) $story['word_count']);
+        $this->assertSame(1, (int) $ch['validated']); // validated_author bypass
+    }
+
+    public function test_chapter_requires_ownership(): void
+    {
+        $this->chapterFixture('ch-own');
+        $res = $this->clientAs($this->memberId())->get('/chapter/new/ch-own');
+        $this->assertSame(404, $res->status);
+    }
+
+    public function test_chapter_update_recounts(): void
+    {
+        $this->chapterFixture('ch-upd');
+        $res = $this->clientAs(1)->postWithToken('/chapter/update/ch-upd/1',
+            ['title' => 'One', 'content' => 'Now five whole words here.', 'notes_before' => '', 'notes_after' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $ch = $this->db->one("SELECT word_count FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-upd') AND position = 1");
+        $this->assertSame(5, (int) $ch['word_count']);
+        $story = $this->db->one("SELECT word_count FROM stories WHERE slug = 'ch-upd'");
+        $this->assertSame(105, (int) $story['word_count']);
+    }
+
+    public function test_chapter_delete_resequences(): void
+    {
+        $this->chapterFixture('ch-del');
+        $res = $this->clientAs(1)->postWithToken('/chapter/delete/ch-del/1');
+        $this->assertSame(302, $res->status, $res->body);
+        $positions = array_map('intval', array_column($this->db->all(
+            "SELECT position FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-del') ORDER BY position"), 'position'));
+        $this->assertSame([1], $positions);
+        $story = $this->db->one("SELECT word_count FROM stories WHERE slug = 'ch-del'");
+        $this->assertSame(100, (int) $story['word_count']);
+    }
+
+    public function test_chapter_empty_content_rejected(): void
+    {
+        $this->chapterFixture('ch-empty');
+        $res = $this->clientAs(1)->postWithToken('/chapter/create/ch-empty',
+            ['title' => 'X', 'content' => '   ', 'notes_before' => '', 'notes_after' => '']);
+        $this->assertSame(422, $res->status);
+        $this->assertSame(2, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-empty')")['c']);
+    }
 }

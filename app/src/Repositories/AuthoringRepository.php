@@ -118,4 +118,82 @@ final class AuthoringRepository
             'SELECT c.slug FROM story_categories sc JOIN categories c ON c.id = sc.category_id WHERE sc.story_id = ?',
             [$storyId]), 'slug');
     }
+
+    /** Chapter row + story context, owner/admin gated; one query. For NEW
+     *  chapters ($position null) the next position rides along (NULL row). */
+    public function chapterFormData(string $slug, ?int $position, int $userId): ?array
+    {
+        $chapterJoin = $position === null
+            ? 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = (SELECT COALESCE(MAX(position), 0) + 1 FROM chapters WHERE story_id = s.id)'
+            : 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = ' . (int) $position;
+        return $this->db->one(
+            "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.position
+             FROM stories s {$chapterJoin}
+             WHERE s.slug = ? AND s.deleted_at IS NULL
+               AND (s.author_id = ? OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))",
+            [$slug, $userId, $userId]);
+    }
+
+    /** @return array{0: array} category slugs for the purge caller */
+    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated): array
+    {
+        $story = $this->ownStory($slug, $userId);
+        $words = \App\Markdown::wordCount($content);
+        $this->db->begin();
+        try {
+            $this->db->query(
+                'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count)
+                 SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
+                [$story['id'], $title, $before, $content, $after, $validated ? 1 : 0, $words, $story['id']]);
+            $this->touchStory($story['id']);
+            $this->db->commit();
+            return [$this->categorySlugs((int) $story['id'])];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /** @return array{0: array} */
+    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after): array
+    {
+        $story = $this->ownStory($slug, $userId);
+        $this->db->begin();
+        try {
+            $this->db->query('UPDATE chapters SET title = ?, notes_before = ?, content = ?, notes_after = ?,
+                              word_count = ?, updated_at = ? WHERE story_id = ? AND position = ?',
+                [$title, $before, $content, $after, \App\Markdown::wordCount($content), date('c'), $story['id'], $position]);
+            $this->touchStory($story['id']);
+            $this->db->commit();
+            return [$this->categorySlugs((int) $story['id'])];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /** @return array{0: array} */
+    public function deleteChapter(string $slug, int $position, int $userId): array
+    {
+        $story = $this->ownStory($slug, $userId);
+        $this->db->begin();
+        try {
+            $this->db->query('DELETE FROM chapters WHERE story_id = ? AND position = ?', [$story['id'], $position]);
+            $this->db->query('UPDATE chapters SET position = position - 1 WHERE story_id = ? AND position > ?', [$story['id'], $position]);
+            $this->touchStory($story['id']);
+            $this->db->commit();
+            return [$this->categorySlugs((int) $story['id'])];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /** Updated-at + live word-count rollup, called inside the caller's transaction. */
+    private function touchStory(int $storyId): void
+    {
+        $this->db->query('UPDATE stories SET updated_at = ?,
+                          word_count = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE story_id = ?)
+                          WHERE id = ?', [date('c'), $storyId, $storyId]);
+    }
 }

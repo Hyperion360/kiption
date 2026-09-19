@@ -58,7 +58,8 @@ final class QueryBudgetTest extends TestCase
 
     public static function authPages(): array
     {
-        return [['/story/new'], ['/story/edit/the-rabbit-hole']];
+        return [['/story/new'], ['/story/edit/the-rabbit-hole'],
+                ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2']];
     }
 
     /** @dataProvider authPages */
