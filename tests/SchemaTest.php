@@ -114,4 +114,27 @@ final class SchemaTest extends TestCase
         $this->expectException(\PDOException::class);
         $db->query('INSERT INTO reviews (story_id, rating) VALUES (1, 11)');
     }
+
+    public function test_legacy_chapter_html_converts_to_markdown_at_rest(): void
+    {
+        // Phase 5 made markdown the at-rest format; stores seeded before the
+        // switch still carry the old renderer's HTML. Migration 006 converts
+        // that exact vocabulary so public pages render identically instead of
+        // showing escaped markup.
+        $db = $this->db();
+        $this->migrate($db);
+        $this->seedStory($db);
+        $legacy = '<p>Falling <em>down</em> the <strong>hole</strong>, past shelves.</p>';
+        $db->query('INSERT INTO chapters (story_id, position, title, content, notes_before, notes_after, validated, word_count)
+                    SELECT id, 1, \'One\', ?, \'<p>Before.</p>\', \'\', 1, 8 FROM stories WHERE id = 1', [$legacy]);
+        $db->query("UPDATE stories SET notes = '<p>Thanks.</p>' WHERE id = 1");
+        (require dirname(__DIR__) . '/app/migrations/006_legacy_content_to_markdown.php')->up($db);
+
+        $ch = $db->one('SELECT content, notes_before FROM chapters WHERE story_id = 1');
+        $this->assertSame('Falling *down* the **hole**, past shelves.', $ch['content']);
+        $this->assertSame('Before.', $ch['notes_before']);
+        $this->assertSame('Thanks.', $db->one('SELECT notes FROM stories WHERE id = 1')['notes']);
+        // The whole point: rendered output identical to the legacy HTML.
+        $this->assertSame($legacy . "\n", \App\Markdown::render((string) $ch['content']));
+    }
 }
