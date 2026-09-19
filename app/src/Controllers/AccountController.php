@@ -26,15 +26,28 @@ final class AccountController
                      CAST((SELECT COUNT(*) FROM stories s WHERE s.author_id = f.author_id AND s.deleted_at IS NULL AND s.validated = 1) AS TEXT), NULL
              FROM follows f JOIN users u2 ON u2.id = f.author_id WHERE f.follower_id = ?
              UNION ALL
+             SELECT '2progress', s.slug, s.title, CAST(rh.last_position AS TEXT),
+                     CAST((SELECT COUNT(*) FROM chapters c WHERE c.story_id = s.id AND c.validated = 1) AS TEXT), NULL
+             FROM reading_history rh JOIN stories s ON s.id = rh.story_id
+             WHERE rh.user_id = ? AND rh.marked_at IS NULL AND s.deleted_at IS NULL
+             UNION ALL
+             SELECT '3marked', s2.slug, s2.title, NULL, NULL, NULL
+             FROM reading_history rh2 JOIN stories s2 ON s2.id = rh2.story_id
+             WHERE rh2.user_id = ? AND rh2.marked_at IS NOT NULL AND s2.deleted_at IS NULL
+             UNION ALL
              SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at
              FROM stories s WHERE s.author_id = ? AND s.deleted_at IS NULL
-             ORDER BY k, e LIMIT 250", [$userId, $userId, $userId]);
+             ORDER BY k, e LIMIT 250", [$userId, $userId, $userId, $userId, $userId]);
         $me = null;
         $stories = [];
         $following = [];
+        $progress = [];
+        $marked = [];
         foreach ($rows as $r) {
             if ($r['k'] === '0me') { $me = $r; }
             elseif ($r['k'] === '1follow') { $following[] = $r; }
+            elseif ($r['k'] === '2progress') { $progress[] = $r; }
+            elseif ($r['k'] === '3marked') { $marked[] = $r; }
             else { $stories[] = $r; }
         }
         return $this->view->render('account/show', [
@@ -45,6 +58,8 @@ final class AccountController
             'me' => $me,
             'stories' => $stories,
             'following' => $following,
+            'progress' => $progress,
+            'marked' => $marked,
             'csrf' => $this->session->csrfToken(),
         ]);
     }

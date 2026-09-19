@@ -88,7 +88,7 @@ final class StoryController
         $head = $head->withJsonLd($this->bookJsonLd($head, $story, [
             ['@type' => 'CreativeWork', 'position' => $position, 'name' => $chapterTitle],
         ]));
-        return $this->view->render('story/read', [
+        $rendered = $this->view->render('story/read', [
             'title' => 'Chapter ' . $position . ': ' . $chapterTitle . ' - ' . $story['title'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
@@ -104,6 +104,24 @@ final class StoryController
             'prev' => $prev,
             'next' => $next,
         ]);
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        if ($me !== 0) {
+            try {
+                (new \App\Repositories\EngagementRepository($this->db))->recordProgress($me, (int) $story['id'], (int) $position);
+            } catch (\Throwable) {
+                // progress must never break a read
+            }
+        }
+        return $rendered;
+    }
+
+    #[AuthAttr] #[Post]
+    public function mark(string $slug): Response
+    {
+        $story = $this->db->one('SELECT id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
+        if ($story === null) return new Response('Page not found', 404);
+        (new \App\Repositories\EngagementRepository($this->db))->toggleMark($slug, (int) $this->session->get('user_id'));
+        return Response::redirect('/story/view/' . $slug);
     }
 
     #[AuthAttr]

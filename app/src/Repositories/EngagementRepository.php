@@ -85,4 +85,35 @@ final class EngagementRepository
     {
         return array_column($this->db->all('SELECT follower_id FROM follows WHERE author_id = ?', [$authorId]), 'follower_id');
     }
+
+    /** Fire-and-forget progress upsert; NEVER moves the marker backwards.
+     *  Exactly THREE params (OV probe: a fourth 'now' param is a binding error;
+     *  updated_at refreshes via excluded.updated_at = the strftime default). */
+    public function recordProgress(int $userId, int $storyId, int $position): void
+    {
+        $this->db->query(
+            'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
+             ON CONFLICT (user_id, story_id) DO UPDATE SET
+                last_position = MAX(last_position, excluded.last_position),
+                updated_at = excluded.updated_at',
+            [$userId, $storyId, $position]);
+    }
+
+    public function toggleMark(string $slug, int $userId): bool
+    {
+        $story = $this->db->one('SELECT id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
+        if ($story === null) return false;
+        $row = $this->db->one('SELECT marked_at FROM reading_history WHERE user_id = ? AND story_id = ?', [$userId, $story['id']]);
+        if ($row === null) {
+            $this->db->query('INSERT INTO reading_history (user_id, story_id, last_position, marked_at) VALUES (?, ?, 1, ?)',
+                [$userId, $story['id'], date('c')]);
+            return true;
+        }
+        if ($row['marked_at'] === null) {
+            $this->db->query('UPDATE reading_history SET marked_at = ? WHERE user_id = ? AND story_id = ?', [date('c'), $userId, $story['id']]);
+            return true;
+        }
+        $this->db->query('UPDATE reading_history SET marked_at = NULL WHERE user_id = ? AND story_id = ?', [$userId, $story['id']]);
+        return false;
+    }
 }

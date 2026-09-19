@@ -60,6 +60,7 @@ final class QueryBudgetTest extends TestCase
     {
         return [['/story/new'], ['/story/edit/the-rabbit-hole'],
                 ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2'],
+                ['/story/read/the-rabbit-hole/1'],
                 ['/queue']];
     }
 
@@ -77,6 +78,10 @@ final class QueryBudgetTest extends TestCase
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
+             ON CONFLICT (user_id, story_id) DO UPDATE SET
+                last_position = MAX(last_position, excluded.last_position),
+                updated_at = excluded.updated_at') return; // progress upsert, the logged-in read shape's extra write
             $queries++;
         });
         $res = $client->get($page);

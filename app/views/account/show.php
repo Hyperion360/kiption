@@ -41,4 +41,25 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
+  <h2>Continue reading</h2>
+  <?php if ($progress === []): ?><p class="chapter-meta">Nothing in progress.</p>
+  <?php else: ?>
+  <ul>
+    <?php foreach ($progress as $p): ?>
+      <li>
+        <a href="/story/read/<?= $this->e($p['a']) ?>/<?= (int) $p['c'] ?>"><?= $this->e($p['b']) ?></a>
+        <span class="chapter-meta">(chapter <?= (int) $p['c'] ?> of <?= (int) $p['d'] ?>)</span>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
+  <h2>Marked for later</h2>
+  <?php if ($marked === []): ?><p class="chapter-meta">Nothing marked.</p>
+  <?php else: ?>
+  <ul>
+    <?php foreach ($marked as $m): ?>
+      <li><a href="/story/view/<?= $this->e($m['a']) ?>"><?= $this->e($m['b']) ?></a></li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
 </section>

@@ -40,6 +40,12 @@
         </form>
       <?php endif; ?>
     <?php endif; ?>
+    <?php if (!empty($csrf)): ?>
+      <form method="post" action="/story/mark/<?= $this->e($story['slug']) ?>" class="inline">
+        <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+        <button type="submit"><?= $marked_at_me === null ? 'Mark for later' : 'Unmark' ?></button>
+      </form>
+    <?php endif; ?>
   </div>
   <?php if (($story['notes'] ?? '') !== ''): ?>
     <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>
