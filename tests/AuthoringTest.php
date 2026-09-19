@@ -173,8 +173,20 @@ final class AuthoringTest extends TestCase
     public function test_chapter_requires_ownership(): void
     {
         $this->chapterFixture('ch-own');
-        $res = $this->clientAs($this->memberId())->get('/chapter/new/ch-own');
-        $this->assertSame(404, $res->status);
+        $member = $this->clientAs($this->memberId());
+        $this->assertSame(404, $member->get('/chapter/new/ch-own')->status);
+        // Write actions must fail like the story ones (404), never as unhandled 500s:
+        // ownStory() throws RuntimeException on a non-owned or unknown slug.
+        $this->assertSame(404, $member->postWithToken('/chapter/create/ch-own',
+            ['title' => 'X', 'content' => 'stolen words', 'notes_before' => '', 'notes_after' => ''])->status);
+        $this->assertSame(404, $member->postWithToken('/chapter/update/ch-own/1',
+            ['title' => 'X', 'content' => 'stolen words', 'notes_before' => '', 'notes_after' => ''])->status);
+        $this->assertSame(404, $member->postWithToken('/chapter/delete/ch-own/1')->status);
+        $this->assertSame(404, $this->clientAs(1)->postWithToken('/chapter/delete/no-such-story/1')->status);
+        $ch = $this->db->one("SELECT title FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-own') AND position = 1");
+        $this->assertSame('One', $ch['title']); // untouched
+        $this->assertSame(2, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-own')")['c']);
     }
 
     public function test_chapter_update_recounts(): void

@@ -30,7 +30,11 @@ final class ChapterController
         if (trim($content) === '') {
             return new Response($this->form($slug, null, 'Chapter text is required.'), 422);
         }
-        [$cats] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $this->autoValidates());
+        try {
+            [$cats] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $this->autoValidates());
+        } catch (\RuntimeException) {
+            return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
+        }
         $this->purge($slug, $cats);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -39,7 +43,11 @@ final class ChapterController
     public function update(string $slug, int $position): Response|string
     {
         [$title, $content, $before, $after] = $this->chapterInput();
-        [$cats] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after);
+        try {
+            [$cats] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after);
+        } catch (\RuntimeException) {
+            return new Response('Page not found', 404);
+        }
         $this->purge($slug, $cats);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -47,7 +55,11 @@ final class ChapterController
     #[AuthAttr] #[Post]
     public function delete(string $slug, int $position): Response
     {
-        [$cats] = $this->repo()->deleteChapter($slug, $position, $this->uid());
+        try {
+            [$cats] = $this->repo()->deleteChapter($slug, $position, $this->uid());
+        } catch (\RuntimeException) {
+            return new Response('Page not found', 404);
+        }
         $this->purge($slug, $cats);
         return Response::redirect('/story/edit/' . $slug);
     }
