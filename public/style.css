@@ -71,3 +71,11 @@ small, .muted {
   color: #9c2f1d;
   font-weight: 600;
 }
+
+/* Dark-mode override: the light alert red is 2.4:1 on the dark bg; this
+   tint keeps WCAG 1.4.3 AA (7.1:1) for error text in dark mode. */
+@media (prefers-color-scheme: dark) {
+  [role=alert] {
+    color: #f0856d;
+  }
+}
