@@ -65,12 +65,35 @@ final class StoryRepositoryTest extends TestCase
         $this->assertNull((new StoryRepository($this->db))->findStoryBySlug('nope'));
     }
 
-    public function test_chapters_ordered_and_validated_only(): void
+    public function test_story_landing_returns_toc_blob(): void
     {
-        $chapters = (new StoryRepository($this->db))->chaptersForStory(1);
-        $this->assertCount(2, $chapters);
-        $this->assertSame(1, (int) $chapters[0]['position']);
-        $this->assertSame('Down', $chapters[0]['title']);
+        $story = (new StoryRepository($this->db))->findStoryBySlug('the-rabbit-hole');
+        $this->assertSame('1|Down|100~2|Through|100', $story['chapters_blob']);
+    }
+
+    public function test_find_story_with_chapter_pivots_target(): void
+    {
+        $row = (new StoryRepository($this->db))->findStoryWithChapter('the-rabbit-hole', 2);
+        $this->assertNotNull($row);
+        $this->assertSame('Through', $row['ch_title']);
+        $this->assertSame('Through the door.', $row['ch_content']);
+        $this->assertSame('1~2', $row['positions_blob']);
+        $this->assertSame('Demo Author', $row['penname']);
+    }
+
+    public function test_find_story_with_missing_chapter_yields_null_pivot(): void
+    {
+        $row = (new StoryRepository($this->db))->findStoryWithChapter('the-rabbit-hole', 9);
+        $this->assertNotNull($row); // story exists
+        $this->assertNull($row['ch_title']); // chapter does not: controller 404s on this
+    }
+
+    public function test_recency_query_plan_is_index_backed(): void
+    {
+        $plan = $this->db->all('EXPLAIN QUERY PLAN SELECT slug FROM stories WHERE validated = 1 AND deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT 20');
+        $text = implode(' ', array_column($plan, 'detail'));
+        $this->assertStringNotContainsString('SCAN', $text);
+        $this->assertStringNotContainsString('TEMP B-TREE', $text);
     }
 
     public function test_recent_validated_first_page(): void

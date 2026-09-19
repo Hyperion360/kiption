@@ -17,11 +17,11 @@
     <?php endif; ?>
   </div>
   <nav class="chapter-nav" aria-label="Chapter navigation">
-    <?php if ($position > 1): ?>
-      <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= $position - 1 ?>">Previous</a>
+    <?php if ($prev !== null): ?>
+      <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= $prev ?>">Previous</a>
     <?php else: ?><span></span><?php endif; ?>
-    <?php if ($position < $total): ?>
-      <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= $position + 1 ?>">Next</a>
+    <?php if ($next !== null): ?>
+      <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= $next ?>">Next</a>
     <?php endif; ?>
   </nav>
 </article>

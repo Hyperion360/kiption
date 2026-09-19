@@ -10,6 +10,8 @@ final class Seeder
         if ($existing > 0 && !$force) {
             throw new \RuntimeException("Refusing to seed: database already contains stories (use --force).");
         }
+        $db->begin();
+        try {
         if ($force) {
             foreach (['reviews', 'favorites', 'page_stats', 'chapters', 'story_characters', 'story_tags',
                       'story_categories', 'coauthors', 'series_items', 'stories', 'characters', 'tags',
@@ -60,5 +62,10 @@ final class Seeder
         $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (' . $story2 . ', ?, ?, ?, 1, ?)',
             [1, 'One', '<p>Body.</p>', 100]);
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story2 . ', ' . $categoryId . ')');
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+        $db->commit();
     }
 }

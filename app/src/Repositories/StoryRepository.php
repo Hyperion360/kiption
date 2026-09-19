@@ -6,7 +6,10 @@ final class StoryRepository
 {
     public function __construct(private Database $db) {}
 
-    /** @return array<string,mixed>|null story row + penname, rating label/adult flag, category names */
+    /** ONE query: story + author + rating + categories + chapter TOC blob.
+     *  The blob is "position|title|word_count" joined with "~"; parse and
+     *  ksort in PHP so ordering never depends on GROUP_CONCAT internals.
+     *  @return array<string,mixed>|null */
     public function findStoryBySlug(string $slug): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
@@ -14,7 +17,9 @@ final class StoryRepository
             'SELECT s.*, u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
                     (SELECT GROUP_CONCAT(c.name, ", ") FROM story_categories sc
                      JOIN categories c ON c.id = sc.category_id
-                     WHERE sc.story_id = s.id) AS category_names
+                     WHERE sc.story_id = s.id) AS category_names,
+                    (SELECT GROUP_CONCAT(CAST(ch.position AS TEXT) || "|" || ch.title || "|" || CAST(ch.word_count AS TEXT), "~")
+                     FROM chapters ch WHERE ch.story_id = s.id AND ch.validated = 1) AS chapters_blob
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
@@ -23,14 +28,31 @@ final class StoryRepository
         );
     }
 
-    /** @return list<array<string,mixed>> validated chapters, position order */
-    public function chaptersForStory(int $storyId): array
+    /** ONE query for the reading page: story meta plus the target chapter
+     *  pivoted via conditional aggregation, plus the validated-position list
+     *  for prev/next (positions can be non-contiguous when a middle chapter
+     *  is unvalidated). ch_title NULL means the chapter does not exist.
+     *  @return array<string,mixed>|null */
+    public function findStoryWithChapter(string $slug, int $position): ?array
     {
-        return $this->db->all(
-            'SELECT id, position, title, word_count, validated
-             FROM chapters WHERE story_id = ? AND validated = 1
-             ORDER BY position',
-            [$storyId]
+        if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
+        return $this->db->one(
+            'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.updated_at, s.word_count,
+                    u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
+                    MAX(CASE WHEN ch.position = ? THEN ch.title END) AS ch_title,
+                    MAX(CASE WHEN ch.position = ? THEN ch.notes_before END) AS ch_notes_before,
+                    MAX(CASE WHEN ch.position = ? THEN ch.content END) AS ch_content,
+                    MAX(CASE WHEN ch.position = ? THEN ch.notes_after END) AS ch_notes_after,
+                    MAX(CASE WHEN ch.position = ? THEN ch.word_count END) AS ch_word_count,
+                    (SELECT GROUP_CONCAT(CAST(ch2.position AS TEXT), "~") FROM chapters ch2
+                     WHERE ch2.story_id = s.id AND ch2.validated = 1) AS positions_blob
+             FROM stories s
+             JOIN users u ON u.id = s.author_id
+             JOIN ratings r ON r.id = s.rating_id
+             LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.validated = 1
+             WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
+             GROUP BY s.id',
+            [$position, $position, $position, $position, $position, $slug]
         );
     }
 
@@ -79,16 +101,6 @@ final class StoryRepository
                      JOIN stories s ON s.id = sc.story_id
                      WHERE sc.category_id = c.id AND s.validated = 1 AND s.deleted_at IS NULL) AS story_count
              FROM categories c ORDER BY c.position, c.name'
-        );
-    }
-
-    /** Single chapter with its story context for the reading page. */
-    public function findChapter(int $storyId, int $position): ?array
-    {
-        return $this->db->one(
-            'SELECT id, position, title, notes_before, content, notes_after, word_count
-             FROM chapters WHERE story_id = ? AND position = ? AND validated = 1',
-            [$storyId, $position]
         );
     }
 }
