@@ -2,6 +2,7 @@
 namespace App\Tests;
 use Kip\App;
 use Kip\Http\Request;
+use Kip\Session;
 use PHPUnit\Framework\TestCase;
 
 final class HomeTest extends TestCase
@@ -22,6 +23,18 @@ final class HomeTest extends TestCase
         $res = $this->app()->handle(new Request('GET', '/home/index', [], [], []));
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('<title>Kiption</title>', $res->body);
+        $this->assertStringNotContainsString('Log out', $res->body); // guest sees no session-bound form
+    }
+
+    public function test_logged_in_home_shows_logout_form_with_csrf(): void
+    {
+        $store = [];
+        $session = new Session($store);
+        $session->set('user_id', 1);
+        $res = $this->app()->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $session);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('action="/auth/logout"', $res->body);
+        $this->assertStringContainsString('name="_token"', $res->body);
     }
 
     public function test_root_path_maps_to_home_index(): void
