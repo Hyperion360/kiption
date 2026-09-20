@@ -26,6 +26,7 @@ final class ReadingTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
+        @unlink(substr($this->path, 0, -strlen('.sqlite'))); // the zero-byte tempnam stub itself
     }
 
     private function client(int $as): TestClient
