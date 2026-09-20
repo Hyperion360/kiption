@@ -65,6 +65,24 @@ final class SearchTest extends TestCase
         $this->assertContains('the-rabbit-hole', array_column($rows, 'slug'), 'chapter content hit surfaces the story');
     }
 
+    public function test_search_hides_pending_chapter_content_until_validated(): void
+    {
+        // Reader surfaces gate ch.validated = 1 unconditionally (the TOC blob,
+        // /story/read); search must not make pending chapter text or titles
+        // discoverable ahead of moderation on any path or for any viewer.
+        $sid = (int) $this->db()->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $this->db()->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?,?,?,?,0,4)',
+            [$sid, 9, 'Xyqar Draft', 'Zylophant confidential draft text here.']);
+        $repo = new \App\Repositories\SearchRepository($this->db());
+        $this->assertSame([], $repo->search('zylophant', [], 20, 0, 0)['rows'], 'pending chapter body hidden from guests');
+        $this->assertSame([], $repo->search('zylophant', [], 20, 0, 1)['rows'], 'pending chapter body hidden from members too (reader gates are unconditional)');
+        $this->assertSame([], $repo->search('xyqar', [], 20, 0, 0)['rows'], 'pending chapter TITLE hidden');
+        $this->assertSame([], $repo->searchLike('zylophant', [], 20, 0, 0)['rows'], 'the LIKE fallback gates the same');
+        // approving the chapter flips the same term findable through the live index
+        $this->db()->query('UPDATE chapters SET validated = 1 WHERE story_id = ? AND position = 9', [$sid]);
+        $this->assertSame('the-rabbit-hole', $repo->search('zylophant', [], 20, 0, 0)['rows'][0]['slug'] ?? null, 'validated chapter content searchable');
+    }
+
     public function test_search_gates_and_personalizes_restricted(): void
     {
         $repo = new \App\Repositories\SearchRepository($this->db());

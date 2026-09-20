@@ -72,10 +72,10 @@ final class SearchRepository
                     SELECT 's', ROW_NUMBER() OVER (ORDER BY st.rank ASC), st.slug, st.title, st.summary,
                            st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
                     FROM (SELECT {$this->selectList()}, MIN(f.rank) AS rank FROM (
-                            SELECT rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
+                            SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
                             UNION
-                            SELECT story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
-                          ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$filter}
+                            SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
+                          ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$this->chapterGate()}{$filter}
                           GROUP BY s.id, s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label
                           ORDER BY rank ASC LIMIT ? OFFSET ?) st
                     ORDER BY k, p",
@@ -95,7 +95,7 @@ final class SearchRepository
                    st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
             FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$filter}
                   AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
-                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.content LIKE ? ESCAPE '\\'))
+                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.content LIKE ? ESCAPE '\\'))
                  ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?) st
             ORDER BY k, p",
             $params
@@ -154,6 +154,17 @@ final class SearchRepository
             . ' WHERE s.validated = 1 AND s.deleted_at IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)';
     }
 
+    /** Chapter-arm rows (f.chapter_id set) surface only VALIDATED chapters:
+     *  every reader surface gates ch.validated = 1 unconditionally (the TOC
+     *  blob, /story/read), so search must not make pending chapter text or
+     *  titles discoverable ahead of moderation. Story-arm rows carry a NULL
+     *  chapter_id and pass untouched. Param-free: the documented bind arrays
+     *  are unchanged. */
+    private function chapterGate(): string
+    {
+        return ' AND (f.chapter_id IS NULL OR EXISTS (SELECT 1 FROM chapters c WHERE c.id = f.chapter_id AND c.validated = 1))';
+    }
+
     public function searchFts(string $q, array $filters, int $perPage, int $offset, int $me): array
     {
         $match = self::matchExpression($q);
@@ -165,10 +176,10 @@ final class SearchRepository
         $params[] = $perPage + 1; $params[] = $offset;
         $rows = $this->db->all(
             "SELECT {$this->selectList()}, MIN(f.rank) AS rank FROM (
-                SELECT rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
+                SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
                 UNION
-                SELECT story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
-            ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$filter}
+                SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
+            ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$this->chapterGate()}{$filter}
             GROUP BY s.id, s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label
             ORDER BY rank ASC LIMIT ? OFFSET ?",
             $params
@@ -195,7 +206,7 @@ final class SearchRepository
         $rows = $this->db->all(
             "SELECT {$this->selectList()} FROM stories s {$this->fromGates()}{$filter}
               AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
-                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.content LIKE ? ESCAPE '\\'))
+                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.content LIKE ? ESCAPE '\\'))
              ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?",
             $params
         );
