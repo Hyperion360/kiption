@@ -18,5 +18,6 @@ return [
     'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),
     'maintenance_allow' => [],
     'static_cache' => ['enabled' => true, 'dir' => getenv('KIP_STATIC_CACHE_DIR') ?: __DIR__ . '/public/cache'], // KIP_STATIC_CACHE_DIR: tests/imports point pages:build at a throwaway dir
+    'nav_file' => getenv('KIP_NAV_FILE') ?: __DIR__ . '/app/nav.json', // KIP_NAV_FILE: tests/imports point the nav artifact at a throwaway path
     'items_per_page' => 20,
 ];
