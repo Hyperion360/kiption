@@ -31,8 +31,10 @@ final class EfictionInstall
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_authorfields (field_id INTEGER PRIMARY KEY, field_type TEXT, field_name TEXT, field_title TEXT, field_options TEXT, field_order INTEGER, field_profile TEXT DEFAULT '0')");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_authorinfo (uid INTEGER, field_id INTEGER, info TEXT)");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_log (log_id INTEGER PRIMARY KEY, log_action TEXT, log_uid INTEGER, log_ip INTEGER, log_timestamp TEXT, log_type TEXT)");
-        $this->pdo->exec("CREATE TABLE {$p}fanfiction_messages (message_id INTEGER PRIMARY KEY, message_name TEXT, message_text TEXT)");
-        $this->pdo->exec("CREATE TABLE {$p}fanfiction_pagelinks (pl_id INTEGER PRIMARY KEY, pl_name TEXT, pl_url TEXT, pl_position INTEGER, pl_display TEXT, pl_type TEXT, pl_pageid INTEGER, pl_childof INTEGER)");
+        $this->pdo->exec("CREATE TABLE {$p}fanfiction_messages (message_id INTEGER PRIMARY KEY, message_name TEXT, message_title TEXT, message_text TEXT)");
+        // REAL 3.5.5 columns (install/install.php:632); the 9b shape with
+        // pl_type/pl_pageid was invented and exists nowhere in the source
+        $this->pdo->exec("CREATE TABLE {$p}fanfiction_pagelinks (link_id INTEGER PRIMARY KEY, link_name TEXT, link_text TEXT, link_key TEXT, link_url TEXT, link_target TEXT, link_access INTEGER)");
         $this->pdo->exec("CREATE TABLE fxs_fanfiction_settings (sitekey TEXT PRIMARY KEY, tableprefix TEXT, store TEXT, storiespath TEXT, maintenance INTEGER, language TEXT)");
         // adversarial seed: penname case collision, admincreated ghost, zero dates,
         // 'No Review' sentinel, response block appended, store=files chapter
@@ -46,13 +48,18 @@ final class EfictionInstall
         $this->pdo->exec("INSERT INTO {$p}fanfiction_reviews (reviewid, item, chapid, reviewer, uid, review, date, rating, respond, type) VALUES (100, 7, 0, 'Guest Reader', 0, 'No Review', '2012-02-01 00:00:00', 5, '0', 'ST')");
         mkdir($this->root . '/stories/1', 0775, true);
         file_put_contents($this->root . '/stories/1/10.txt', 'The stored <b>chapter</b> text.');
-        // seeds for the finding-7 tables: an EAV profile row, a mail template,
-        // a custom page (stored in messages per admin/custpages.php), a log row
+        // seeds for the finding-7 tables: an EAV profile row, a custom page
+        // pair (messages row + its viewpage pagelink, the custpages.php shape),
+        // a log row
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authorfields (field_id, field_name, field_title) VALUES (1, 'bio', 'Biography')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authorinfo (uid, field_id, info) VALUES (1, 1, 'I write things.')");
-        $this->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_text) VALUES (1, 'signup', 'Welcome to the archive.')");
+        // a custom page per the REAL linkage: admin/custpages.php mints a
+        // messages row (message_name/message_title/message_text) plus a
+        // pagelink whose link_url = 'viewpage.php?page={message_name}'
+        // (viewpage.php:35 resolves the body by message_name)
+        $this->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_title, message_text) VALUES (1, 'about', 'About', 'Welcome to the archive.')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_log (log_id, log_action, log_uid, log_ip, log_timestamp, log_type) VALUES (1, 'SR:7', 2, NULL, '2012-03-01 00:00:00', 'SR')");
-        $this->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (pl_id, pl_name, pl_url, pl_position, pl_display, pl_type, pl_pageid, pl_childof) VALUES (1, 'About', '', 1, '1', 'C', 0, 0)");
+        $this->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (1, 'about_link', 'About', 'viewpage.php?page=about', '0', 0)");
     }
 
     public function installShims(): void

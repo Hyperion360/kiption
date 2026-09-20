@@ -40,8 +40,11 @@ final class ImportCliTest extends TestCase
 
     private function kip(string $args): array
     {
-        exec(sprintf('KIP_DB_DSN=sqlite:%s KIP_STATIC_CACHE_DIR=%s PATH="/opt/homebrew/bin:$PATH" php %s %s 2>&1',
-            escapeshellarg($this->dbPath), escapeshellarg($this->root . '/cache'),
+        // KIP_NAV_FILE keeps the rider's nav-artifact rebuild inside this
+        // test's throwaway root (a bare subprocess would otherwise rebuild
+        // the repo's app/nav.json)
+        exec(sprintf('KIP_DB_DSN=sqlite:%s KIP_STATIC_CACHE_DIR=%s KIP_NAV_FILE=%s PATH="/opt/homebrew/bin:$PATH" php %s %s 2>&1',
+            escapeshellarg($this->dbPath), escapeshellarg($this->root . '/cache'), escapeshellarg($this->root . '/nav.json'),
             escapeshellarg(dirname(__DIR__) . '/bin/kip'), $args), $out, $code);
         return [$code, implode("\n", $out)];
     }

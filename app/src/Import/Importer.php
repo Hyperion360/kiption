@@ -53,6 +53,13 @@ final class Importer
     private array $chapterMap = [];
     private array $seriesMap = [];
     private array $newsMap = [];
+    /** @var array<string, int> per-LEGACY-row 'imported' outcomes for the
+     *  rider tables: a message row maps to at most one page outcome even when
+     *  two pagelinks share it, and ghost pages (no messages row) have no
+     *  message of their own, so verifyDiff cannot read these off the
+     *  counts['pages'] insert tally. */
+    private array $riderImported = [];
+    private int $navImported = 0;
     /** @var array<int, array{created: string, updated: string, fallback: bool}> keyed by new story id */
     private array $storyMeta = [];
     /** @var array<int, string[]> review created_at values per new story id */
@@ -87,6 +94,13 @@ final class Importer
             if ($sync !== null) $this->db->exec("PRAGMA synchronous = {$sync}");
             $this->finishRun();
             (new LegacyRedirects())->writeForImport($this->db);
+            // the rider's nav artifact: commit-only (a dry-run's nav_links
+            // rows roll back), only when a link imported, and BEFORE the
+            // Builder so built pages embed the links; the empty-string guard
+            // keeps rebuild() off the CWD when config carries no nav_file
+            // (NavLinks::all guards '', rebuild does not)
+            $navFile = (string) ($this->config['nav_file'] ?? '');
+            if ($this->navImported > 0 && $navFile !== '') \App\NavLinks::rebuild($this->db, $navFile);
             \App\StaticCache\Builder::build($this->config, $this->config['static_cache']['dir'] ?? dirname(__DIR__, 3) . '/public/cache');
             return $this->renderReport() . $this->verifyDiff($manifest)
                 . "snapshot: see pre-import-*.sqlite next to the bundle; restore = copy it over the DB\n";
@@ -676,15 +690,18 @@ final class Importer
         }
     }
 
-    /** Sub-pass 8: news + comments + log. News drops its author STRING
-     *  (counted in mapNews; no string column exists) and keeps published_at;
-     *  comments resolve through the nid map (failed -> rejected count) with
-     *  failed uids NULL-counted; log rows land in legacy_log verbatim.
-     *  messages/pagelinks stay in the bundle for Phase 10, counted here. */
+    /** Sub-pass 8: news + comments + log + the custpage rider. News drops its
+     *  author STRING (counted in mapNews; no string column exists) and keeps
+     *  published_at; comments resolve through the nid map (failed -> rejected
+     *  count) with failed uids NULL-counted; log rows land in legacy_log
+     *  verbatim; the rider maps the custpage pair (messages row + its
+     *  viewpage pagelink) into pages/nav_links (mapCustpages below). */
     private function passNewsAndLog(): void
     {
         $r = $this->report;
         $comments = [];
+        $pagelinks = [];
+        $messages = [];
         foreach ($this->reader->rows() as $e) {
             $row = $e['row'];
             switch ($e['table']) {
@@ -721,8 +738,8 @@ final class Importer
                     $this->bump($this->counts, 'legacy_log');
                     $this->tick();
                     break;
-                case 'fanfiction_messages': $r->drop('messages (Phase 10 mail templates)'); break;
-                case 'fanfiction_pagelinks': $r->drop('pagelinks (Phase 10 nav)'); break;
+                case 'fanfiction_messages': $messages[(string) $row['message_name']] = $row; break;
+                case 'fanfiction_pagelinks': $pagelinks[] = $row; break;
             }
         }
         foreach ($comments as $row) {
@@ -744,6 +761,79 @@ final class Importer
             $this->bump($this->counts, 'news_comments');
             $this->tick();
         }
+        $this->mapCustpages($pagelinks, $messages);
+    }
+
+    /** Sub-pass 8 rider (Task 9): custpages + pagelinks. A custpage is a
+     *  fanfiction_messages row the admin named, surfaced through a pagelink
+     *  whose link_url = 'viewpage.php?page={message_name}' (viewpage.php:35
+     *  resolves the body by message_name; admin/custpages.php:43 mints the
+     *  pair together). Each viewpage pagelink lands as one nav_link (label,
+     *  '/page/view/' + slug, position = link_id, eFiction's only ordering)
+     *  plus one page (slug from the label, body from the messages row, the
+     *  label as a '(imported page)' placeholder body when the message row is
+     *  missing, counted). pages INSERT OR IGNORE (slug PK, first body wins)
+     *  and nav_links INSERT..SELECT WHERE NOT EXISTS (label, url) make
+     *  re-runs idempotent WITHOUT import_map rows (new_id is INTEGER; pages
+     *  are slug-PK'd, documented): a re-run simply no-ops both inserts. The
+     *  constructed url satisfies the nav's internal-only guard by
+     *  construction (Slug::make emits [a-z0-9-]), so external/custom
+     *  link_url values cannot map and reject with a count; unreferenced
+     *  messages (eFiction's welcome/copyright mail texts) reject too. The
+     *  nav artifact rebuilds post-pass when any link imported (see run). */
+    private function mapCustpages(array $pagelinks, array $messages): void
+    {
+        $r = $this->report;
+        $counted = []; // message_names whose outcome is tallied exactly once
+        foreach ($pagelinks as $row) {
+            $this->bump($this->seen, 'fanfiction_pagelinks');
+            if (!preg_match('#^viewpage\.php\?page=([a-z0-9_]{3,30})$#', (string) ($row['link_url'] ?? ''), $m)) {
+                $r->reject('pagelink url external/custom');
+                $this->bump($this->rejected, 'fanfiction_pagelinks');
+                continue;
+            }
+            $text = trim((string) ($row['link_text'] ?? ''));
+            $label = $text !== '' ? $text : trim((string) ($row['link_name'] ?? ''));
+            $slug = \App\Slug::make($label, 'page');
+            $url = '/page/view/' . $slug;
+            $msg = $messages[$m[1]] ?? null;
+            if ($msg !== null) {
+                $body = $this->prose((string) ($msg['message_text'] ?? ''));
+                $title = trim((string) ($msg['message_title'] ?? ''));
+                $title = $title !== '' ? $title : $label;
+            } else {
+                $body = $this->prose($label . ' (imported page)');
+                $title = $label;
+                $r->drop('page body missing (placeholder imported)');
+            }
+            $page = $this->db->query('INSERT OR IGNORE INTO pages (slug, title, body) VALUES (?, ?, ?)',
+                [$slug, mb_substr($title, 0, 255), $body]);
+            if ($msg !== null && !isset($counted[$m[1]])) {
+                // one outcome per message row, taken from its first pagelink
+                if ($page->rowCount() === 1) $this->bump($this->riderImported, 'fanfiction_messages');
+                else $this->bump($this->skipped, 'fanfiction_messages');
+                $counted[$m[1]] = true;
+            }
+            if ($page->rowCount() === 1) { $this->bump($this->counts, 'pages'); $this->tick(); }
+            $nav = $this->db->query(
+                'INSERT INTO nav_links (label, url, position) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM nav_links WHERE label = ? AND url = ?)',
+                [$label, $url, (int) ($row['link_id'] ?? 0), $label, $url]);
+            if ($nav->rowCount() === 1) {
+                $this->bump($this->counts, 'nav_links');
+                $this->bump($this->riderImported, 'fanfiction_pagelinks');
+                $this->navImported++;
+                $this->tick();
+            } else {
+                $this->bump($this->skipped, 'fanfiction_pagelinks');
+            }
+        }
+        foreach (array_keys($messages) as $name) {
+            $this->bump($this->seen, 'fanfiction_messages');
+            if (!isset($counted[$name])) {
+                $r->reject('message without pagelink');
+                $this->bump($this->rejected, 'fanfiction_messages');
+            }
+        }
     }
 
     /** Recomputed row counts per table vs the manifest's legacy counts minus
@@ -761,10 +851,16 @@ final class Importer
             'fanfiction_reviews' => 'reviews', 'fanfiction_favorites' => 'favorites',
             'fanfiction_news' => 'news', 'fanfiction_comments' => 'news_comments',
             'fanfiction_log' => 'legacy_log',
+            'fanfiction_messages' => 'pages', 'fanfiction_pagelinks' => 'nav_links',
         ];
         foreach ($ours as $legacy => $newTable) {
             $m = (int) ($manifest['counts'][$legacy] ?? 0);
-            $imported = $this->tally($this->counts, $newTable);
+            // the rider tables count 'imported' per LEGACY row (a message maps
+            // once even when two pagelinks share it; ghost pages have no
+            // messages row), unlike the insert tallies the other rows read
+            $imported = array_key_exists($legacy, $this->riderImported)
+                ? $this->riderImported[$legacy]
+                : $this->tally($this->counts, $newTable);
             $rej = $this->tally($this->rejected, $legacy);
             $skip = $this->tally($this->skipped, $legacy);
             if ($m === 0 && $imported === 0 && $rej === 0 && $skip === 0) continue;

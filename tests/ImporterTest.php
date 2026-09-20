@@ -63,7 +63,16 @@ final class ImporterTest extends TestCase
             'uploads' => ['dir' => $this->roots[0] . '/uploads'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'static_cache' => ['enabled' => true, 'dir' => $this->cacheDir],
+            'nav_file' => $this->navFile(),
         ];
+    }
+
+    /** The nav artifact path the rider rebuilds into (finding 7: in-process
+     *  import() with nav_file in config; a subprocess would write the repo's
+     *  app/nav.json). */
+    private function navFile(): string
+    {
+        return $this->roots[0] . '/nav.json';
     }
 
     private function migrate(): void
@@ -297,8 +306,10 @@ final class ImporterTest extends TestCase
         $this->assertStringContainsString('dropped authorinfo field website: 1', $out);
         $this->assertStringContainsString('dropped series challenges CSV: 1', $out);
         $this->assertStringContainsString('dropped favorite comments: 1', $out);
-        $this->assertStringContainsString('dropped messages (Phase 10 mail templates): 1', $out);
-        $this->assertStringContainsString('dropped pagelinks (Phase 10 nav): 1', $out);
+        // Task 9 rider: the fixture's custpage pair maps (the old drop stubs
+        // are gone; the rider test carries the full behavioral assertions)
+        $this->assertNotNull($db->one("SELECT * FROM pages WHERE slug = 'about'"), 'the custpage rider maps the messages body to a page');
+        $this->assertNotNull($db->one("SELECT * FROM nav_links WHERE label = 'About' AND url = '/page/view/about'"), 'the pagelink rider maps the nav link');
         // roles, EAV, junctions, clamps, anchors
         $this->assertSame('admin', $db->one("SELECT role FROM users WHERE penname = 'The Admin'")['role'], 'manifest admins CSV upgraded (junk tokens ignored)');
         $this->assertSame('EAV bio wins', $db->one("SELECT bio FROM users WHERE penname = 'The Admin'")['bio']);
@@ -318,6 +329,61 @@ final class ImporterTest extends TestCase
         $this->assertStringContainsString('already mapped', $again);
         $this->assertSame(4, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
         $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM stories')['c'], 'story 10 rejected (author missing), no duplicates');
+    }
+
+    public function test_rider_maps_custpages_and_pagelinks(): void
+    {
+        $this->migrate();
+        // the re-keyed fixture (real 3.5.5 columns) seeds the linked pair:
+        // messages 'about' + pagelink 'About' -> viewpage.php?page=about (the
+        // exact shape admin/custpages.php mints); the extras exercise the edges
+        $b = $this->bundle(function (\EfictionInstall $fx): void {
+            $p = $fx->prefix;
+            // an external link_url: the internal-only url guard drops it with a count
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (2, 'recs_link', 'Recs', 'https://example.com/recs', '1', 0)");
+            // a viewpage link whose message row does not exist: placeholder body
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (3, 'ghost_link', 'Ghost', 'viewpage.php?page=ghost', '0', 0)");
+            // a message no pagelink references (eFiction's welcome mail text)
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_title, message_text) VALUES (2, 'welcome', '', 'Hello member.')");
+        });
+        $out = $this->import($b, 'commit');
+        $db = $this->db();
+        // the custpage lands as a page carrying the messages row's BODY (and
+        // the body renders, markdown-at-rest), not just the slug existing
+        $page = $db->one("SELECT title, body FROM pages WHERE slug = 'about'");
+        $this->assertNotNull($page, 'the custpage rider creates the page');
+        $this->assertSame('Welcome to the archive.', $page['body']);
+        $this->assertSame('About', $page['title']);
+        $this->assertStringContainsString('Welcome to the archive.', \App\Markdown::render($page['body']));
+        // a viewpage link with no message row still imports, placeholder counted
+        $this->assertSame('Ghost (imported page)', $db->one("SELECT body FROM pages WHERE slug = 'ghost'")['body']);
+        $this->assertStringContainsString('dropped page body missing (placeholder imported): 1', $out);
+        // the pagelink lands as a nav_link; external urls drop with a count
+        $this->assertNotNull($db->one("SELECT * FROM nav_links WHERE label = 'About' AND url = '/page/view/about'"));
+        $this->assertNull($db->one("SELECT * FROM nav_links WHERE label = 'Recs'"), 'the internal-only guard drops external urls');
+        $this->assertStringContainsString('REJECT pagelink url external/custom: 1', $out);
+        $this->assertStringContainsString('REJECT message without pagelink: 1', $out);
+        // the nav artifact rebuilt during the commit, ordered by position
+        $this->assertFileExists($this->navFile());
+        $this->assertSame(
+            [['label' => 'About', 'url' => '/page/view/about'], ['label' => 'Ghost', 'url' => '/page/view/ghost']],
+            \App\NavLinks::all($this->navFile())
+        );
+        // verification mentions pages/nav_links and reconciles
+        $this->assertStringContainsString('fanfiction_messages        manifest 2, imported 1, rejected 1, skipped 0', $out);
+        $this->assertStringContainsString('fanfiction_pagelinks       manifest 3, imported 2, rejected 1, skipped 0', $out);
+        // NO import_map rows: pages are slug-PK'd and new_id is INTEGER
+        $this->assertSame(0, (int) $db->one("SELECT COUNT(*) c FROM import_map WHERE legacy_table IN ('fanfiction_messages', 'fanfiction_pagelinks')")['c']);
+        // the old drop stubs are gone
+        $this->assertStringNotContainsString('dropped pagelinks', $out);
+        $this->assertStringNotContainsString('dropped messages', $out);
+        // idempotent re-run: no duplicates, first body wins, outcomes skip
+        $again = $this->import($b, 'commit');
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM nav_links WHERE label = 'About'")['c']);
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM pages WHERE slug = 'about'")['c']);
+        $this->assertSame('Welcome to the archive.', $db->one("SELECT body FROM pages WHERE slug = 'about'")['body'], 'first body wins');
+        $this->assertStringContainsString('fanfiction_pagelinks       manifest 3, imported 0, rejected 1, skipped 2', $again);
+        $this->assertStringContainsString('fanfiction_messages        manifest 2, imported 0, rejected 1, skipped 1', $again);
     }
 
     public function test_mixed_options_refuse_in_process(): void
