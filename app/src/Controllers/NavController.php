@@ -78,8 +78,10 @@ final class NavController
         return Response::redirect('/nav');
     }
 
-    /** label 1-40, url internal-only (`/` then [a-z0-9/_-]*): no javascript:,
-     *  no external hosts, nothing the router could not serve itself. */
+    /** label 1-40, url internal-only (the router's own path shape: segments of
+     *  [a-z0-9_-], single slashes): no javascript:, no external hosts, and no
+     *  scheme-relative //host either (the QA 10a probe: //evil passed the old
+     *  one-slash-free class and rendered as an external href). */
     private function input(): array
     {
         $label = trim($this->request->postStr('label'));
@@ -87,7 +89,7 @@ final class NavController
         if ($label === '' || mb_strlen($label) > 40) {
             return [$label, $url, 'Label must be 1 to 40 characters.'];
         }
-        if (!preg_match('#^/[a-z0-9/_-]*$#', $url)) {
+        if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $url)) {
             return [$label, $url, 'URL must be an internal path like /page/about.'];
         }
         return [$label, $url, null];

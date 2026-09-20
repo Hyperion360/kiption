@@ -106,6 +106,11 @@ final class PagesNavTest extends TestCase
             \App\NavLinks::all($this->navFile()));
         // junk url rejected; member and guest barred
         $this->assertSame(422, $admin->postWithToken('/nav/create', ['label' => 'X', 'url' => 'javascript:alert(1)', 'position' => '3', 'is_hidden' => ''])->status);
+        // QA 10a: scheme-relative urls must reject too (the router whitelist
+        // shape: no consecutive slashes). //evil passes the old pattern and
+        // renders as an external href; the guard is internal-only by contract.
+        $this->assertSame(422, $admin->postWithToken('/nav/create', ['label' => 'X', 'url' => '//evil', 'position' => '3', 'is_hidden' => ''])->status, 'scheme-relative url is external');
+        $this->assertSame(302, $admin->postWithToken('/nav/create', ['label' => 'Rules2', 'url' => '/page/rules2', 'position' => '4', 'is_hidden' => ''])->status, 'a legal internal url still passes the tightened guard');
         $this->assertSame(302, $this->client()->get('/nav')->status, 'auth redirect');
         $this->assertSame(403, $this->client($this->memberId())->post('/nav/create', ['label' => 'X', 'url' => '/x', 'position' => '1', 'is_hidden' => ''])->status, 'CSRF-before-auth 403');
     }
