@@ -164,12 +164,19 @@ final class AuthoringRepository
         ];
     }
 
-    /** Story owner or admin (SQL-side gate via the extended ownStory) adds;
-     *  coauthor must be a full member, not the author, not already attached.
-     *  Returns the attached id. */
+    /** Story owner or admin STRICTLY (NOT the coauthor-inclusive story gate:
+     *  coauthors gain editing rights, not coauthor-management rights, matching
+     *  the owner/admin-only form section) adds; the coauthor must be a full
+     *  member, not the author, not already attached. Returns the attached id. */
     public function addCoauthor(string $slug, string $penname, int $actorId): int
     {
-        $story = $this->ownStory($slug, $actorId); // extended gate: admin stays in SQL
+        $story = $this->db->one(
+            "SELECT s.id, s.author_id, (SELECT COUNT(*) FROM users v WHERE v.id = ? AND v.role = 'admin') is_admin
+             FROM stories s WHERE s.slug = ?", [$actorId, $slug]);
+        if ($story === null
+            || ((int) $story['author_id'] !== $actorId && (int) $story['is_admin'] === 0)) {
+            throw new \RuntimeException('not found');
+        }
         $user = $this->db->one("SELECT id, email, penname, profile_slug FROM users WHERE penname = ? COLLATE NOCASE AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL AND is_locked = 0", [$penname]);
         if ($user === null) throw new \RuntimeException('member not found');
         if ((int) $user['id'] === (int) $story['author_id']) throw new \RuntimeException('already the author');

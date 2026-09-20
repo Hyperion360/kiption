@@ -88,6 +88,17 @@ final class CoauthorTest extends TestCase
         $this->assertSame(404, $co->postWithToken('/coauthor/add/the-rabbit-hole', ['penname' => 'betafriend'])->status);
     }
 
+    public function test_coauthor_cannot_add_other_coauthors(): void
+    {
+        $owner = $this->client($this->authorId());
+        $owner->postWithToken('/coauthor/add/the-rabbit-hole', ['penname' => 'otherwriter']);
+        // coauthors gain editing rights, NOT coauthor-management rights; the raw
+        // POST must fail exactly like the hidden form section (defense in depth)
+        $co = $this->client($this->otherId());
+        $this->assertSame(404, $co->postWithToken('/coauthor/add/the-rabbit-hole', ['penname' => 'betafriend'])->status);
+        $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) c FROM coauthors')['c'], 'guarded intake must store nothing');
+    }
+
     public function test_coauthor_may_leave_and_owner_may_remove(): void
     {
         $owner = $this->client($this->authorId());
