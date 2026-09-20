@@ -1,5 +1,6 @@
 <?php // app/src/StaticCache/Builder.php
 namespace App\StaticCache;
+use App\Seo\Sitemap;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -72,6 +73,18 @@ final class Builder
             $before = ($f = $cache->fileFor($url)) !== null && is_file($f);
             $cache->maybeStore($request, $response);
             if (!$before && $f !== null && is_file($f)) $written++;
+        }
+        // Sitemap + robots regeneration rides every build, written into the
+        // EXPLICIT public_dir config key, never derived from $cacheDir:
+        // KIP_STATIC_CACHE_DIR may relocate the cache off the web root, but
+        // sitemap.xml and robots.txt must stay web-served (finding 11).
+        // Skipped when public_dir/base_url are unconfigured: the count above
+        // stays cache pages only (sitemaps are files, not cache pages).
+        $publicDir = $config['public_dir'] ?? null;
+        $baseUrl = rtrim((string) ($config['base_url'] ?? ''), '/');
+        if ($publicDir !== null && $baseUrl !== '') {
+            Sitemap::writeAll($db, $publicDir, $baseUrl, $config);
+            Sitemap::writeRobots($publicDir . '/robots.txt', (bool) ($config['ai_crawlers'] ?? true));
         }
         return $written;
     }

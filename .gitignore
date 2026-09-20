@@ -10,6 +10,7 @@ app/maintenance.lock
 .phpunit.result.cache
 .DS_Store
 public/cache/
+public/sitemap*.xml
 app/nav.json
 AGENTS.md
 CLAUDE.md

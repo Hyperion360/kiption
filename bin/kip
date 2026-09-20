@@ -125,6 +125,11 @@ match ($argv[1] ?? 'help') {
         \App\StaticCache\Builder::prune($dir, $config['app_dir']);
         echo "Static layer and framework page cache pruned.\n";
     })(),
+    'robots' => (function () use ($config) {
+        $file = ($config['public_dir'] ?? dirname(__DIR__) . '/../public') . '/robots.txt';
+        \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true));
+        echo "Wrote {$file}\n";
+    })(),
     'digest:send' => (function () use ($config) {
         $db = new Kip\Database($config['db']['dsn']);
         $mailer = new Kip\Mailer($config['mail'] ?? []);
@@ -218,5 +223,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|robots|digest:send|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };
