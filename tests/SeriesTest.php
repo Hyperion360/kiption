@@ -69,6 +69,7 @@ final class SeriesTest extends TestCase
         $this->assertStringContainsString('href="/user/view/demo-author"', $res->body);
         $this->assertStringContainsString('Demo Author', $res->body);
         $this->assertStringNotContainsString('Remove', $res->body); // guests see no management UI
+        $this->assertDoesNotMatchRegularExpression('/\dT\d{2}:\d{2}/', $res->body); // dates render date-only, the listing convention
     }
 
     public function test_owner_sees_management_and_members_see_submit_form(): void

@@ -5,7 +5,7 @@
   <p class="chapter-meta">
     by <a href="/user/view/<?= $this->e($series['owner_slug']) ?>"><?= $this->e($series['owner_penname']) ?></a>
     | <?= number_format((int) $series['item_count']) ?> works
-    | <?= $this->e($series['created_at']) ?>
+    | <?= $this->e(substr((string) $series['created_at'], 0, 10)) ?>
   </p>
   <?php if ($series['summary'] !== ''): ?><p><?= $this->e($series['summary']) ?></p><?php endif; ?>
   <?php if ($loggedIn && $isOwner): ?><p><a href="/series/edit/<?= $this->e($series['slug']) ?>">Edit series</a><span class="chapter-meta"> | membership: <?= $this->e($series['membership']) ?><?= $series['membership'] === 'moderated' ? ' (member submissions await your confirmation)' : '' ?></span></p><?php endif; ?>
@@ -16,7 +16,7 @@
         <span class="chapter-meta">
           (<?= number_format((int) $it['chapter_count']) ?> chapters
           | <?= number_format((int) $it['word_count']) ?> words
-          | <?= $this->e($it['updated_at']) ?>)
+          | updated <?= $this->e(substr((string) $it['updated_at'], 0, 10)) ?>)
         </span>
         <?php if ((int) $it['confirmed'] === 0): ?><span class="badge">Pending</span><?php endif; ?>
         <?php if ($isOwner || $isAdmin): ?>
