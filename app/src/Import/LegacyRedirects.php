@@ -49,14 +49,17 @@ final class LegacyRedirects
         $path = trim($request->path, '/');
         if (!isset(self::SHAPES[$path])) return null;
         if ($path === 'reviews.php') {
-            if (!isset($request->get['item'], $request->get['type'])) return null;
-            $get = ['item' => (string) $request->get['item'], 'type' => (string) $request->get['type']];
+            $item = $request->get['item'] ?? null;
+            $type = $request->get['type'] ?? null;
+            if (!is_string($item) || !is_string($type)) return null; // array params (eFiction's browse accepted them) hold no honest match
+            $get = ['item' => $item, 'type' => $type];
             ksort($get);
             $params = http_build_query($get);
         } else {
             $param = array_key_first(self::SHAPES[$path]);
-            if (!isset($request->get[$param])) return null;
-            $params = $param . '=' . $request->get[$param];
+            $value = $request->get[$param] ?? null;
+            if (!is_string($value)) return null;
+            $params = $param . '=' . $value;
         }
         $row = $db->one('SELECT target_type, target_id FROM legacy_urls WHERE legacy_path = ? AND params = ?',
             [$path, $params]);
