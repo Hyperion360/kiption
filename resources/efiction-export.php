@@ -161,8 +161,16 @@ final class EfictionExporter
             }
             $tar = new \PharData($outDir . '/kiption-export.tar');
             $tar->buildFromDirectory($stage);
-            $tar->compress(\Phar::GZ);
-            unlink($outDir . '/kiption-export.tar');
+            // Do NOT use PharData::compress() here: under phar.readonly=1 it
+            // leaves this process's phar cache serving corrupt entry data for
+            // the new .tar.gz (the on-disk bytes are valid, but any
+            // same-process PharData read of it, such as the bundle reader,
+            // extracts garbage). gzencode of the flushed tar is deterministic
+            // core PHP and reads correctly both in-process and fresh.
+            unset($tar);
+            $tarPath = $outDir . '/kiption-export.tar';
+            file_put_contents($outDir . '/kiption-export.tar.gz', gzencode((string) file_get_contents($tarPath), 9));
+            unlink($tarPath);
         }
         $counts = htmlspecialchars(json_encode($manifest['counts'], JSON_UNESCAPED_SLASHES), ENT_QUOTES);
         return [self::page('Download ready', "<p>Rows exported: <code>{$counts}</code></p>"
