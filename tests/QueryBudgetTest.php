@@ -67,6 +67,8 @@ final class QueryBudgetTest extends TestCase
                 // The search fold carries the filter taxonomies AND the results
                 // in ONE compound statement, query string and all.
                 ['/search?q=wonderland'],
+                // The toplists hub: all four sections ride one zero-bind compound.
+                ['/top'],
                 ['/feed'], ['/rss']];
     }
 

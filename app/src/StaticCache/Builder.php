@@ -18,7 +18,7 @@ final class Builder
         unset($config['cache_db']);
         $config['log_db'] = ['dsn' => 'sqlite::memory:'];
         $app = new App($config);
-        $urls = ['/', '/browse', '/browse/recent'];
+        $urls = ['/', '/browse', '/browse/recent', '/top'];
         foreach ($db->all('SELECT slug FROM categories') as $c) {
             $urls[] = '/browse/category/' . $c['slug'];
         }

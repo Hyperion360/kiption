@@ -13,7 +13,7 @@ final class Cache
     public function fileFor(string $path): ?string
     {
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $path)) return null;
-        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+)$#', $path)) return null;
+        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/top)$#', $path)) return null;
         $prefix = $path === '/' ? '' : $path;   // '/' must not become '//'
         return $this->dir . $prefix . '/index.html';
     }
@@ -86,6 +86,12 @@ final class Cache
         }
         foreach ($seriesSlugs as $ss) $this->purgeSeries($ss);
         if ($authorProfileSlug !== '') $this->purgeUser($authorProfileSlug);
+        // The toplists hub aggregates every story's engagement, so any story's
+        // kudos/favorites/reviews/visibility change can reorder it: every
+        // engagement and visibility write path already calls purgeStory, and
+        // /top rides them all through this unconditional unlink.
+        $f = $this->fileFor('/top');
+        if ($f !== null && is_file($f)) @unlink($f);
     }
 
     public function purgeSeries(string $slug): void
