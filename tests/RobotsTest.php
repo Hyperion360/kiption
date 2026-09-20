@@ -53,4 +53,22 @@ final class RobotsTest extends TestCase
         $this->assertSame(0, $code);
         $this->assertStringContainsString('robots', implode("\n", $out));
     }
+
+    public function test_kip_robots_fallback_resolves_inside_the_app_tree(): void
+    {
+        // When an operator's config omits public_dir, the arm falls back to a
+        // path expression; it must resolve to THIS app's public/ dir, never a
+        // dir one level above the tree. The expression is resolved exactly as
+        // bin/kip would (__DIR__ = bin/), so the pin catches a stray ../.
+        $src = (string) file_get_contents(dirname(__DIR__) . '/bin/kip');
+        $this->assertSame(1, preg_match("/\\\$file = \(\\\$config\['public_dir'\] \?\? (.+)\) \. '\/robots\.txt'/", $src, $m),
+            'the robots arm carries a public_dir fallback');
+        $expr = str_replace('__DIR__', var_export(dirname(__DIR__) . '/bin', true), $m[1]);
+        $resolved = eval('return ' . $expr . ';');
+        $this->assertSame(
+            realpath(dirname(__DIR__) . '/public'),
+            realpath($resolved),
+            'the fallback must be the app public dir, not <repo>/../public'
+        );
+    }
 }

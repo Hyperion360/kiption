@@ -127,7 +127,7 @@ match ($argv[1] ?? 'help') {
         echo "Static layer and framework page cache pruned.\n";
     })(),
     'robots' => (function () use ($config) {
-        $file = ($config['public_dir'] ?? dirname(__DIR__) . '/../public') . '/robots.txt';
+        $file = ($config['public_dir'] ?? dirname(__DIR__) . '/public') . '/robots.txt';
         \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true));
         echo "Wrote {$file}\n";
     })(),
