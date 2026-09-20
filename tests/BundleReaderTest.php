@@ -64,4 +64,35 @@ final class BundleReaderTest extends TestCase
         $this->expectException(\RuntimeException::class);
         new BundleReader($junk);
     }
+
+    public function test_reader_rejects_nonexistent_bundle_path(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('bundle not found');
+        new BundleReader($this->root . '/nope.tar.gz');
+    }
+
+    public function test_reader_rejects_missing_parts_without_leaking_the_temp_dir(): void
+    {
+        $stage = $this->root . '/stage';
+        mkdir($stage, 0775, true);
+        file_put_contents($stage . '/junk.txt', 'hi');
+        $tarPath = $this->root . '/partial.tar';
+        $tar = new \PharData($tarPath);
+        $tar->buildFromDirectory($stage);
+        unset($tar);
+        $bundle = $this->root . '/partial.tar.gz';
+        file_put_contents($bundle, gzencode((string) file_get_contents($tarPath), 9));
+        unlink($tarPath);
+        $before = glob(sys_get_temp_dir() . '/kiption-read-*');
+        try {
+            new BundleReader($bundle);
+            $this->fail('expected RuntimeException for a bundle without manifest/jsonl');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('manifest.json', $e->getMessage());
+        }
+        // PHP never runs the destructor when the constructor throws, so the
+        // missing-parts path itself must clean the extracted temp dir
+        $this->assertSame($before, glob(sys_get_temp_dir() . '/kiption-read-*'));
+    }
 }

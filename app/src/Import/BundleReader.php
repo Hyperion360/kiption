@@ -17,12 +17,15 @@ final class BundleReader
         try {
             $tar = new \PharData($this->bundlePath);
             $tar->extractTo($this->dir, null, true);
+            if (!is_file($this->dir . '/manifest.json') || !is_file($this->dir . '/archive.jsonl.gz')) {
+                throw new \RuntimeException('bundle is missing manifest.json or archive.jsonl.gz');
+            }
         } catch (\Throwable $e) {
+            // the destructor never runs when the constructor throws: every
+            // throw path below must clean the extracted temp dir itself
             exec('rm -rf ' . escapeshellarg($this->dir)); // finding 14: ctor-throw must not leak the temp dir
-            throw new \RuntimeException('not a valid export bundle: ' . $e->getMessage(), 0, $e);
-        }
-        if (!is_file($this->dir . '/manifest.json') || !is_file($this->dir . '/archive.jsonl.gz')) {
-            throw new \RuntimeException('bundle is missing manifest.json or archive.jsonl.gz');
+            throw $e instanceof \RuntimeException ? $e
+                : new \RuntimeException('not a valid export bundle: ' . $e->getMessage(), 0, $e);
         }
     }
 
