@@ -58,6 +58,9 @@ final class QueryBudgetTest extends TestCase
                 ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3'],
                 ['/story/read/after-hours/1'], // adult story, cookieless: the age-gate render is a page shape too
                 ['/series/view/down-the-rabbit-hole'],
+                // The seeded about page: a real pages row so the budget row
+                // exercises the actual page render, not a 404.
+                ['/page/view/about'],
                 ['/user/view/demo-author'], ['/user/stories/demo-author'], ['/user/favorites/demo-author'],
                 ['/browse/authors'], ['/browse/authors/b'],
                 // Query-string surfaces stay budget-1 shapes (one query each) but are

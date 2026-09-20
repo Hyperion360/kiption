@@ -67,6 +67,10 @@ final class Seeder
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story2 . ', ' . $categoryId . ')');
         $db->query("INSERT INTO series (title, slug, summary, owner_id, membership) VALUES ('Down the Rabbit Hole', 'down-the-rabbit-hole', 'The complete descent, chapter by chapter.', (SELECT id FROM users WHERE penname = 'Demo Author'), 'open')");
         $db->query("INSERT INTO series_items (series_id, story_id, position, confirmed) VALUES ((SELECT id FROM series WHERE slug = 'down-the-rabbit-hole'), (SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), 1, 1)");
+        // The about page rides every seed (QueryBudget/Builder want a real row):
+        // OR IGNORE on the slug PK because force mode does NOT clear pages, so
+        // an operator's or the import rider's pages survive a reseed untouched.
+        $db->query("INSERT OR IGNORE INTO pages (slug, title, body) VALUES ('about', 'About', 'This archive is *new*.')");
         } catch (\Throwable $e) {
             $db->rollBack();
             throw $e;

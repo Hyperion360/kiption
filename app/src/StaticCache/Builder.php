@@ -32,6 +32,11 @@ final class Builder
         foreach ($db->all('SELECT slug FROM series') as $ser) {
             $urls[] = '/series/view/' . $ser['slug'];
         }
+        // Custom pages: every non-empty body is a public cacheable page; an
+        // empty body renders the noindex shape and never fills the layer.
+        foreach ($db->all("SELECT slug FROM pages WHERE body <> ''") as $p) {
+            $urls[] = '/page/view/' . $p['slug'];
+        }
         // Profiles: every approvable member's view page; the stories and
         // favorites tabs only when they would list something (the tab gates:
         // validated, not deleted, not restricted; favorites additionally need

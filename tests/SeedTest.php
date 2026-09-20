@@ -33,6 +33,9 @@ final class SeedTest extends TestCase
         $this->assertSame(2, (int) $adult);
         $chapters = $db->one('SELECT COUNT(*) c FROM chapters')['c'];
         $this->assertSame(4, (int) $chapters);
+        $page = $db->one("SELECT title, body FROM pages WHERE slug = 'about'");
+        $this->assertNotNull($page, 'the seeded about page exists');
+        $this->assertSame('This archive is *new*.', $page['body'], 'markdown at rest, not pre-rendered');
     }
 
     public function test_seed_after_hours_chapter_row(): void
@@ -63,6 +66,9 @@ final class SeedTest extends TestCase
         \App\Seeder::run($db, force: true);
         $stories = $db->one('SELECT COUNT(*) c FROM stories')['c'];
         $this->assertSame(2, (int) $stories);
+        // force mode never clears pages (finding 12: operator/rider pages
+        // survive), so the about page seeds OR IGNORE and stays idempotent
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM pages WHERE slug = 'about'")['c']);
     }
 
     public function test_failed_seed_rolls_back_completely(): void

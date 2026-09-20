@@ -52,11 +52,12 @@ final class BuilderTest extends TestCase
                   '/story/read/the-rabbit-hole/2', '/story/read/the-rabbit-hole/3',
                   '/story/view/after-hours', '/story/read/after-hours/1',
                   '/series/view/down-the-rabbit-hole',
+                  '/page/view/about',
                   '/user/view/demo-author', '/user/stories/demo-author', '/user/view/betafriend',
                   '/browse/authors', '/browse/authors/b', '/browse/authors/d'] as $p) {
             $this->assertNotNull($cache->serve(new Request('GET', $p, [], [], [])), "{$p} built");
         }
-        $this->assertSame(18, $count); // 4 fixed (home, browse, recent, top hub) + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series + demo(view+stories) + beta(view) + directory(index + b for betafriend + d for demo-author); the adult read builds as its anonymous variant (the gate page, 200)
+        $this->assertSame(19, $count); // 4 fixed (home, browse, recent, top hub) + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series + 1 seeded about page + demo(view+stories) + beta(view) + directory(index + b for betafriend + d for demo-author); the adult read builds as its anonymous variant (the gate page, 200); news and its items join the enumeration in Task 4
     }
 
     public function test_prune_empties_the_layer(): void
