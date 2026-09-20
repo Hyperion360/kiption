@@ -236,10 +236,12 @@ canonical content. The home page's `SearchAction` JSON-LD now has a resolving
 target at `/search?q=`.
 
 `/top` lists the archive leaders on one page: most favorited, most kudos,
-most reviewed (root reviews only), and top rated (three ratings minimum,
-showing the average and count). It renders from a single query, fills the
-anonymous static cache like the other whitelisted pages, and every
-engagement write (kudos, favorites, reviews) purges it automatically.
+most reviewed (root reviews only), top rated (three ratings minimum,
+showing the average and count), and Trending over the last 7 days (see
+Reading retention for its approximate-reads and staleness semantics). It
+renders from a single query, fills the anonymous static cache like the
+other whitelisted pages, and every engagement write (kudos, favorites,
+reviews) purges it automatically.
 
 ## Accounts and writing
 
@@ -307,6 +309,56 @@ redirect costs zero queries), and notification toggles for reviews,
 replies, and favorites. Members contact each other through an
 auth-gated form (CSRF, three messages per sender per hour); the
 target's email address is never rendered, only mailed to.
+
+## Reading retention
+
+The read beacon. Every chapter page, including statically cached copies,
+embeds a 1x1 image at `/beacon/read/{story}/{chapter}`. Loading the page
+counts one read into `page_stats`, a day-keyed aggregate table (a row per
+chapter plus a story-level rollup). Reads are approximate and labeled as
+such: no bot filtering, and nothing about the reader is ever recorded,
+no account, no IP, no referrer. Restricted stories count too; the counts
+surface only on the author's own dashboard, which the author already
+gates. `php bin/kip logs:prune --days=N` prunes old `page_stats` days
+alongside the request log.
+
+Trending. `/top` carries a fifth section, Trending (last 7 days): reads
+plus kudos inside the window, top ten. It is batch-stale like the
+sitemaps: beacon hits never refresh it, while kudos, favorite, and
+review writes do (they already purge the hub), and so does
+`php bin/kip pages:build`. The section renders its own staleness note.
+
+Author stats. `/stats` (members only) lists your own stories with total
+reads, 30-day reads, kudos, and favorites. The scope is everything you
+author or coauthor that is not deleted, so your restricted and pending
+works appear here even though public surfaces hide them. All counts come
+from the rollup rows, aggregate only; there is no per-reader data to
+show because none is collected.
+
+Whole-work reading and printing. `/story/whole/{slug}` renders every
+validated chapter on one page behind the same gates as a chapter read
+(the age cookie for adult works, a login for restricted ones). It is
+noindex (chapters are the canonical units), never enters the static
+cache (whole works are large), and records no reading progress. The page
+doubles as the print view: a print-only stylesheet hides the site chrome
+and breaks the page after the table of contents, so printing is simply
+the browser print command, no JavaScript anywhere.
+
+Downloads. Every story page offers two exports behind the identical
+gates: a standalone HTML document that renders offline (its single
+outbound link is the "exported from" attribution), and an EPUB assembled
+by a pure-PHP zip writer, no zip extension or third-party tool needed,
+with `mimetype` stored first per the EPUB rule, the cover image when one
+exists, and chapter prose rendered through the same markdown pipeline.
+Exports are rate-unlimited; a download is a read with the same gates.
+
+Reading lists. Members curate lists at `/lists`: create, edit, add any
+validated story by slug, reorder, remove. Lists are private by default;
+only ticking the public box makes the list page (`/lists/view/{slug}`)
+visible to guests and anonymously cacheable. A listed restricted story
+renders for the owner and members but never for guests on a public
+list, and flipping a listed story restricted or deleting it purges every
+public list containing it, so no stale guest copy survives.
 
 ## Operating the archive
 
