@@ -398,6 +398,10 @@ return [
     'top.rated' => 'Top rated',
     'top.not_enough' => 'Not enough ratings yet',
     'top.average_from' => '{average} average from {n} ratings',
+    'top.trending' => 'Trending (last 7 days)',
+    'top.trending_stale' => 'Refreshed on engagement and rebuilds.',
+    'top.no_trending' => 'Nothing trending yet.',
+    'top.trending_count' => '{n} reads + kudos',
 
     // Profiles and contact.
     'user.avatar_of' => 'Avatar of {name}',

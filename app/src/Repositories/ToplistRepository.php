@@ -6,7 +6,7 @@ final class ToplistRepository
 {
     public function __construct(private Database $db) {}
 
-    /** The whole /top hub in ONE compound statement: four bounded 10-row
+    /** The whole /top hub in ONE compound statement: five bounded 10-row
      *  aggregate branches (the queue-fold precedent), guest gates only -
      *  this is the anonymous cached variant, so restricted works are
      *  EXCLUDED outright, never personalized (the 6b leak class).
@@ -25,7 +25,15 @@ final class ToplistRepository
      *  orders by bare aliases only. Reviews count ROOTS ONLY
      *  (parent_id IS NULL); Top rated requires >= 3 root ratings
      *  (rating IS NOT NULL) and carries the rounded average plus the count.
-     *  @return array{favorites:array,kudos:array,reviews:array,rated:array} */
+     *  Trending (k='v') is the 7-day velocity branch: reads summed from the
+     *  chapter_id = 0 ROLLUP rows only (finding 2: chapter rows too would
+     *  double-count every beacon hit) plus kudos counted in-window, anchored
+     *  on the UNION of read-stories and kudos-stories so a kudos-only story
+     *  surfaces (finding 7: page_stats starts empty at deployment). It is
+     *  BATCH-STALE like the sitemaps: beacons never purge (reads are an
+     *  approximation; the section is labeled), engagement writes and
+     *  pages:build refresh it.
+     *  @return array{favorites:array,kudos:array,reviews:array,rated:array,trending:array} */
     public function hub(): array
     {
         $rows = $this->db->all(
@@ -57,20 +65,39 @@ final class ToplistRepository
                    GROUP BY story_id HAVING COUNT(*) >= 3 ORDER BY Avg(rating) DESC, story_id LIMIT 10) x
              JOIN stories s ON s.id = x.story_id JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
              WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
+             UNION ALL
+             SELECT 'v' k, ROW_NUMBER() OVER (ORDER BY x.c DESC, x.story_id) rank,
+                    s.slug a, s.title b, u.penname c, u.profile_slug d, r.label e,
+                    CAST(x.c AS TEXT) f, NULL g
+             FROM (SELECT u.story_id,
+                          COALESCE((SELECT SUM(p.reads) FROM page_stats p
+                                    WHERE p.story_id = u.story_id AND p.chapter_id = 0
+                                      AND p.day >= date('now', '-7 days')), 0)
+                        + COALESCE((SELECT COUNT(*) FROM story_kudos wk
+                                    WHERE wk.story_id = u.story_id
+                                      AND wk.created_at >= date('now', '-7 days')), 0) c
+                   FROM (SELECT story_id FROM page_stats
+                         WHERE day >= date('now', '-7 days') AND chapter_id = 0
+                         UNION
+                         SELECT story_id FROM story_kudos
+                         WHERE created_at >= date('now', '-7 days')) u
+                   ORDER BY c DESC, u.story_id LIMIT 10) x
+             JOIN stories s ON s.id = x.story_id JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
+             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
              ORDER BY k, rank",
             []
         );
         return $this->partition($rows);
     }
 
-    /** Split the fold into its four sections; each row normalizes to named
+    /** Split the fold into its five sections; each row normalizes to named
      *  keys (the SearchRepository::partition precedent), count sections
      *  carrying the aggregate and the rated section the rounded average
      *  plus the rating count. Rows arrive rank-ordered per section (the
      *  compound's ORDER BY k, rank). */
     private function partition(array $rows): array
     {
-        $sections = ['favorites' => [], 'kudos' => [], 'reviews' => [], 'rated' => []];
+        $sections = ['favorites' => [], 'kudos' => [], 'reviews' => [], 'rated' => [], 'trending' => []];
         foreach ($rows as $r) {
             $base = [
                 'rank' => (int) $r['rank'],
@@ -83,6 +110,7 @@ final class ToplistRepository
             if ($r['k'] === 'f') { $sections['favorites'][] = $base + ['count' => (int) $r['f']]; continue; }
             if ($r['k'] === 'k') { $sections['kudos'][] = $base + ['count' => (int) $r['f']]; continue; }
             if ($r['k'] === 'r') { $sections['reviews'][] = $base + ['count' => (int) $r['f']]; continue; }
+            if ($r['k'] === 'v') { $sections['trending'][] = $base + ['count' => (int) $r['f']]; continue; }
             $sections['rated'][] = $base + ['average' => (string) $r['f'], 'ratings' => (int) $r['g']];
         }
         return $sections;
