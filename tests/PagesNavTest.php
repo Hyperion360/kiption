@@ -139,6 +139,12 @@ final class PagesNavTest extends TestCase
         // unknown ids 404
         $this->assertSame(404, $admin->get('/nav/edit/99999')->status);
         $this->assertSame(404, $admin->postWithToken('/nav/update/99999', ['label' => 'X', 'url' => '/x', 'position' => '1', 'is_hidden' => ''])->status);
+        $this->assertSame(404, $admin->postWithToken('/nav/delete/99999')->status, 'deleting an unknown id 404s');
+        // the bare create form renders and targets create (QA 10a: /nav/new
+        // was the one untested nav action)
+        $form = $admin->get('/nav/new');
+        $this->assertSame(200, $form->status);
+        $this->assertStringContainsString('action="/nav/create"', $form->body);
     }
 
     public function test_auth_page_renders_nav_free_at_200(): void

@@ -166,4 +166,21 @@ final class ImagesTest extends TestCase
         $this->assertSame(403, $this->client($this->memberId())->postWithToken('/images/upload', ['x' => 1])->status);
         $this->assertSame(403, $this->client($this->memberId())->postWithToken('/images/delete', ['name' => 'x.png'])->status);
     }
+
+    public function test_listing_formats_kib_and_mib_tiers(): void
+    {
+        // QA 10a: humanSize's KiB and MiB arms (the tiny PNG the upload tests
+        // store only ever exercises the B tier). The dir IS the catalog, so
+        // fixture files land directly in it; both sizes stay under the 2 MiB
+        // cap a real upload could have stored.
+        $dir = $this->root . '/upl';
+        mkdir($dir, 0775, true);
+        file_put_contents($dir . '/aaaaaaaaaaaaaaaa.png', str_repeat('x', 2048));
+        file_put_contents($dir . '/bbbbbbbbbbbbbbbb.png', str_repeat('x', 1572864));
+        $list = $this->client($this->adminId())->get('/images')->body;
+        $this->assertStringContainsString('2 KiB', $list, 'the KiB tier renders');
+        $this->assertStringContainsString('1.5 MiB', $list, 'the MiB tier renders');
+        $this->assertStringContainsString('2 files', $list);
+        $this->assertStringContainsString(round((2048 + 1572864) / 1048576, 1) . ' MiB', $list, 'the total renders in the top tier');
+    }
 }
