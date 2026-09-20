@@ -161,5 +161,61 @@ match ($argv[1] ?? 'help') {
             exit(1);
         }
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    'mail:users' => (function () use ($config, $argv) {
+        $rest = array_slice($argv, 2);
+        $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
+        $template = $mailLog = '';
+        $positional = [];
+        foreach ($rest as $a) {
+            if (str_starts_with($a, '--template=')) { $template = substr($a, 11); }
+            elseif (str_starts_with($a, '--mail-log=')) { $mailLog = substr($a, 11); }
+            elseif (!str_starts_with($a, '--')) { $positional[] = $a; }
+        }
+        $subject = $positional[0] ?? '';
+        $body = $positional[1] ?? '';
+        if ($mode === '' || $subject === '' || $body === '') {
+            fwrite(STDERR, "Usage: kip mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]\n");
+            fwrite(STDERR, "  --template=<name> wins over the literal pair when the name exists; a missing name falls back to the literals.\n");
+            exit(1);
+        }
+        $db = new Kip\Database($config['db']['dsn']);
+        if ($template !== '') {
+            // Reads what exists; seedDefaults is the admin editor's job, never the CLI's.
+            [$s, $b] = \App\Templates::get($db, $template, '', '');
+            if ($s === '' && $b === '') {
+                echo "Template '{$template}' not found, using the literal subject/body.\n";
+            } else {
+                $subject = $s;
+                $body = $b;
+            }
+        }
+        // Eligibility is the member directory gate (UserRepository::authorsDirectory):
+        // approved + verified + unlocked members with a penname.
+        $recipients = array_column($db->all(
+            'SELECT email FROM users WHERE penname IS NOT NULL AND is_locked = 0
+             AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL ORDER BY id'), 'email');
+        if ($mode === 'dry-run') {
+            $first = array_slice($recipients, 0, 5);
+            echo 'would mail ' . count($recipients) . ' recipient(s)'
+                . ($first === [] ? '' : ': ' . implode(', ', $first)) . "\n";
+            return;
+        }
+        $mail = $config['mail'] ?? [];
+        if ($mailLog !== '') { // operator-visible test seam: override the transport to log at the given path
+            $mail['transport'] = 'log';
+            $mail['log_path'] = $mailLog;
+        }
+        $mailer = new Kip\Mailer($mail);
+        $mailed = 0;
+        foreach ($recipients as $email) {
+            try { // the Digest idiom: one bad address never stops the batch
+                $mailer->send($email, $subject, $body);
+                $mailed++;
+            } catch (\Throwable $e) {
+                error_log("mail:users failed for {$email}: " . $e->getMessage());
+            }
+        }
+        echo "mailed {$mailed}\n";
+    })(),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };
