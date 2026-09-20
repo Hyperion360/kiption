@@ -37,6 +37,11 @@ final class Builder
         foreach ($db->all("SELECT slug FROM pages WHERE body <> ''") as $p) {
             $urls[] = '/page/view/' . $p['slug'];
         }
+        // News: the index plus every item's view page (public data only).
+        $urls[] = '/news';
+        foreach ($db->all('SELECT id FROM news') as $n) {
+            $urls[] = '/news/view/' . (int) $n['id'];
+        }
         // Profiles: every approvable member's view page; the stories and
         // favorites tabs only when they would list something (the tab gates:
         // validated, not deleted, not restricted; favorites additionally need

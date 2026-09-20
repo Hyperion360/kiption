@@ -13,7 +13,7 @@ final class Cache
     public function fileFor(string $path): ?string
     {
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $path)) return null;
-        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/top)$#', $path)) return null;
+        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top)$#', $path)) return null;
         $prefix = $path === '/' ? '' : $path;   // '/' must not become '//'
         return $this->dir . $prefix . '/index.html';
     }
@@ -106,6 +106,17 @@ final class Cache
     {
         $f = $this->fileFor('/page/view/' . $slug);
         if ($f !== null && is_file($f)) @unlink($f);
+    }
+
+    /** A news item's two cached surfaces: the item's own view file plus the
+     *  index (its listing row and the comment-count scalar both live there).
+     *  Admin writes and comment POSTs both change both surfaces. */
+    public function purgeNews(int $id): void
+    {
+        foreach (['/news', '/news/view/' . $id] as $p) {
+            $f = $this->fileFor($p);
+            if ($f !== null && is_file($f)) @unlink($f);
+        }
     }
 
     public function purgeUser(string $profileSlug): void

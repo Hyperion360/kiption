@@ -36,6 +36,11 @@
 <?php foreach (\App\NavLinks::all($navFile ?? '') as $l): ?>
     <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
 <?php endforeach; ?>
+    <?php if ($isAdmin ?? false): ?>
+    <a href="/admin">Admin</a>
+    <a href="/queue">Queue</a>
+    <a href="/news/new">Post news</a>
+    <?php endif; ?>
     </nav>
   </header>
   <main class="site-main"><?= $content ?></main>

@@ -1,7 +1,9 @@
 <?php // tests/HomeTest.php
 namespace App\Tests;
 use Kip\App;
+use Kip\Database;
 use Kip\Http\Request;
+use Kip\Migrations\Migrator;
 use Kip\Session;
 use PHPUnit\Framework\TestCase;
 
@@ -9,13 +11,21 @@ final class HomeTest extends TestCase
 {
     private function app(): App
     {
-        return new App([
+        // The home render reads users for the logged-in operator block (Task
+        // 4's isAdmin datum), so the app needs a schema: a migrated
+        // in-memory database shared into the container keeps this suite's
+        // no-files style. Guests never touch it.
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        $app = new App([
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite::memory:'],
             'log_db' => ['dsn' => 'sqlite::memory:'],
         ]);
+        $app->container->instance(Database::class, $db);
+        return $app;
     }
 
     public function test_home_page_renders_the_site_name(): void

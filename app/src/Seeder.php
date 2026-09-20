@@ -15,7 +15,7 @@ final class Seeder
         if ($force) {
             foreach (['reviews', 'favorites', 'page_stats', 'chapters', 'story_characters', 'story_tags',
                       'story_categories', 'coauthors', 'series', 'series_items', 'stories', 'characters', 'tags',
-                      'tag_types', 'categories', 'ratings'] as $t) {
+                      'tag_types', 'categories', 'ratings', 'news'] as $t) { // news last: its comments cascade (FK on, finding 12)
                 $db->query("DELETE FROM {$t}");
             }
             $db->query('DELETE FROM users WHERE email IN (?, ?)', ['demo@example.test', 'beta@example.test']); // only OUR fixture rows
@@ -71,6 +71,9 @@ final class Seeder
         // OR IGNORE on the slug PK because force mode does NOT clear pages, so
         // an operator's or the import rider's pages survive a reseed untouched.
         $db->query("INSERT OR IGNORE INTO pages (slug, title, body) VALUES ('about', 'About', 'This archive is *new*.')");
+        // The Welcome post rides every seed too (news renders need a real row):
+        // force mode cleared news above, so the plain insert cannot duplicate.
+        $db->query("INSERT INTO news (title, body) VALUES ('Welcome', 'First post.')");
         } catch (\Throwable $e) {
             $db->rollBack();
             throw $e;

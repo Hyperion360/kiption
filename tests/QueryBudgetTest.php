@@ -61,6 +61,9 @@ final class QueryBudgetTest extends TestCase
                 // The seeded about page: a real pages row so the budget row
                 // exercises the actual page render, not a 404.
                 ['/page/view/about'],
+                // News surfaces: the seeded Welcome row (id 1 on a fresh DB)
+                // backs the item row.
+                ['/news'], ['/news/view/1'],
                 ['/user/view/demo-author'], ['/user/stories/demo-author'], ['/user/favorites/demo-author'],
                 ['/browse/authors'], ['/browse/authors/b'],
                 // Query-string surfaces stay budget-1 shapes (one query each) but are

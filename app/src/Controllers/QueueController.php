@@ -30,6 +30,9 @@ final class QueueController
             'rows' => $rows,
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
+            // the gate row already carries the viewer's role (c): the layout's
+            // operator block costs no extra query here (the Task 4 ruling)
+            'isAdmin' => ($moderator['c'] ?? '') === 'admin',
         ]);
     }
 
