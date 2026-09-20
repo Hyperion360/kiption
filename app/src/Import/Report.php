@@ -48,6 +48,4 @@ final class Report
         $lines[] = 'Treat this bundle as a password file: it contained emails and legacy hashes.';
         return implode("\n", $lines) . "\n";
     }
-
-    public function verifyDiff(): string { return ''; } // implemented in Task 4 (recomputed counts vs manifest + wordcount drift)
 }

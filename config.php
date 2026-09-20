@@ -17,6 +17,6 @@ return [
     'validation_required' => true,     // false: authors self-publish
     'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),
     'maintenance_allow' => [],
-    'static_cache' => ['enabled' => true, 'dir' => __DIR__ . '/public/cache'],
+    'static_cache' => ['enabled' => true, 'dir' => getenv('KIP_STATIC_CACHE_DIR') ?: __DIR__ . '/public/cache'], // KIP_STATIC_CACHE_DIR: tests/imports point pages:build at a throwaway dir
     'items_per_page' => 20,
 ];

@@ -39,6 +39,13 @@ final class BundleReader
         return $this->manifestCache ??= json_decode((string) file_get_contents($this->dir . '/manifest.json'), true);
     }
 
+    /** Absolute path of the bundle file itself: the Importer writes its
+     *  pre-import snapshot next to it (finding 12). */
+    public function bundlePath(): string
+    {
+        return $this->bundlePath;
+    }
+
     /** @return \Generator<int, array{table: string, row: array}> */
     public function rows(): \Generator
     {

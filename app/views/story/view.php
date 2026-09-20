@@ -91,13 +91,13 @@
       <article class="review">
         <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? 'Anonymous') ?>
           <?= $r['rating'] !== null ? '| ' . (int) $r['rating'] . '/10' : '' ?> | <?= $this->e($r['created_at']) ?></p>
-        <div class="prose"><?= \App\Markdown::render($r['body']) ?></div>
+        <div class="prose"><?= \App\Markdown::render($r['body'] ?? '') ?></div>
         <?php if (!empty($r['replies'])): ?>
           <?php foreach ($r['replies'] as $rep): ?>
             <blockquote class="review-reply">
               <p class="chapter-meta"><?= $this->e($rep['penname'] ?? $rep['guest_name'] ?? 'Anonymous') ?>
                 <?= $rep['is_author_reply'] ? '| author' : '' ?></p>
-              <div class="prose"><?= \App\Markdown::render($rep['body']) ?></div>
+              <div class="prose"><?= \App\Markdown::render($rep['body'] ?? '') ?></div>
               <?php if (!empty($csrf)): ?>
                 <form method="post" action="/report/review/<?= (int) $rep['id'] ?>" class="inline">
                   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">

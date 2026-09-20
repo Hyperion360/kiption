@@ -142,5 +142,24 @@ match ($argv[1] ?? 'help') {
         echo "   and legacy password hashes. Delete export-token.php and efiction-export.php when done\n";
         echo "   (the exporter page has a self-delete button that removes both).\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|import:token|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    'import:efiction' => (function () use ($config, $argv) {
+        $bundle = $argv[2] ?? '';
+        $mode = in_array('--dry-run', $argv, true) ? 'dry-run' : (in_array('--commit', $argv, true) ? 'commit' : '');
+        $encoding = 'auto';
+        foreach ($argv as $i => $a) { if ($i > 2 && str_starts_with($a, '--encoding=')) { $encoding = substr($a, 11); } }
+        if ($bundle === '' || !is_file($bundle) || $mode === '') {
+            fwrite(STDERR, "Usage: kip import:efiction <bundle.tar.gz> (--dry-run|--commit) [--encoding=auto|latin1|utf8] [--allow-missing-text]\n");
+            exit(1);
+        }
+        try {
+            $db = new Kip\Database($config['db']['dsn']);
+            $reader = new \App\Import\BundleReader($bundle);
+            echo (new \App\Import\Importer($db, $reader, $mode, $encoding, in_array('--allow-missing-text', $argv, true), $config))->run();
+        } catch (\RuntimeException $e) {
+            // operator-facing failures print clean and exit 1, no stack trace
+            fwrite(STDERR, $e->getMessage() . "\n");
+            exit(1);
+        }
+    })(),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };

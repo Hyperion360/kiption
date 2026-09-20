@@ -35,8 +35,8 @@ final class EfictionMapper
             'bio' => (string) ($a['bio'] ?? ''),
             'legacy_md5' => ((string) $a['password'] !== '0' && strlen((string) $a['password']) === 32) ? (string) $a['password'] : null,
             'role' => $role,
-            'email_verified_at' => $ghost ? null : self::iso($a['date'] ?? null, '1970-01-01T00:00:00+00:00'),
-            'approved_at' => $ghost ? null : self::iso($a['date'] ?? null, '1970-01-01T00:00:00+00:00'),
+            'email_verified_at' => $ghost ? null : self::iso($a['date'] ?? null),
+            'approved_at' => $ghost ? null : self::iso($a['date'] ?? null),
             'created_at' => self::iso($a['date'] ?? null) ?? (new \DateTimeImmutable('now'))->format(DATE_ATOM),
         ];
     }
@@ -53,7 +53,8 @@ final class EfictionMapper
         ];
     }
 
-    /** @param array{categories:array<string,string>,ratings:array<string,string>,classes:array<string,string>} $ctx */
+    /** @param array{categories:array<string,string>,ratings:array<string,string>,classes:array<string,string>,characters?:array<string,string>} $ctx
+     *  Context values are the Importer's id maps: legacy CSV token -> new row id. */
     public static function mapStory(array $s, array $ctx, Report $r): array
     {
         $rids = self::csv((string) $s['rid']);
@@ -68,6 +69,11 @@ final class EfictionMapper
             if (isset($ctx['classes'][$clid])) { $tags[] = $ctx['classes'][$clid]; }
             else { $r->unresolvableTokens++; }
         }
+        $chars = [];
+        foreach (self::csv((string) $s['charid']) as $chid) {
+            if (isset($ctx['characters'][$chid])) { $chars[] = $ctx['characters'][$chid]; }
+            else { $r->unresolvableTokens++; }
+        }
         return [
             'legacy_sid' => (int) $s['sid'],
             'title' => mb_substr(trim((string) $s['title']), 0, 255),
@@ -75,8 +81,10 @@ final class EfictionMapper
             'notes' => (string) ($s['storynotes'] ?? ''),
             'categories' => array_values(array_unique($cats)),
             'tags' => array_values(array_unique($tags)),
+            'characters' => array_values(array_unique($chars)),
             'rating_label' => $ctx['ratings'][$rids[0] ?? ''] ?? null,
             'completed' => ($s['completed'] ?? '0') === '1' ? 1 : 0,
+            'featured' => ($s['featured'] ?? '0') === '1' ? 1 : 0,
             'validated' => ($s['validated'] ?? '0') === '1' ? 1 : 0,
             'round_robin' => ($s['rr'] ?? '0') === '1' ? 1 : 0,
             'legacy_reads' => (int) ($s['count'] ?? 0),
