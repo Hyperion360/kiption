@@ -60,4 +60,31 @@
       </li>
     <?php endforeach; ?>
   </ol>
+  <h2>Reviews (<?= number_format((int) $review_count) ?>)</h2>
+  <?php if ($reviews === []): ?><p class="chapter-meta">None yet.</p>
+  <?php else: ?>
+    <?php foreach ($reviews as $r): ?>
+      <article class="review">
+        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? 'Anonymous') ?>
+          <?= $r['rating'] !== null ? '| ' . (int) $r['rating'] . '/10' : '' ?> | <?= $this->e($r['created_at']) ?></p>
+        <div class="prose"><?= \App\Markdown::render($r['body']) ?></div>
+      </article>
+    <?php endforeach; ?>
+    <?php if ($review_count > count($reviews)): ?><p class="chapter-meta">Showing the 50 most recent reviews.</p><?php endif; ?>
+  <?php endif; ?>
+  <?php if (!empty($csrf)): ?>
+    <form method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <label>Review <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
+      <label>Rating (0-10, optional) <input name="rating" inputmode="numeric" maxlength="2"></label>
+      <button type="submit">Post review</button>
+    </form>
+  <?php else: ?>
+    <form method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
+      <label>Name <input name="guest_name" required maxlength="40"></label>
+      <label>Review <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
+      <label>Rating (0-10, optional) <input name="rating" inputmode="numeric" maxlength="2"></label>
+      <button type="submit">Post review as guest</button>
+    </form>
+  <?php endif; ?>
 </article>

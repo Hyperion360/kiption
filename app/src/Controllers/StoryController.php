@@ -26,6 +26,15 @@ final class StoryController
         }
         ksort($chapters);
         unset($story['chapters_blob']);
+        $reviews = [];
+        foreach (json_decode((string) $story['reviews_blob'], true) ?: [] as $r) {
+            if ($r['parent_id'] !== null) continue; // replies group under roots in Task 2
+            $r['id'] = (int) $r['id'];
+            $r['rating'] = $r['rating'] === null ? null : (int) $r['rating'];
+            $r['replies'] = []; // Task 2 fills and renders these
+            $reviews[] = $r;
+        }
+        unset($story['reviews_blob']);
         $head = $this->head()
             ->withTitle($story['title'] . ' by ' . $story['penname'])
             ->withDescription($story['meta_description'] ?? $story['summary'])
@@ -49,6 +58,8 @@ final class StoryController
             'favorite_by_me' => (int) $story['favorite_by_me'],
             'following_author' => (int) $story['following_author'],
             'marked_at_me' => $story['marked_at_me'],
+            'reviews' => $reviews,
+            'review_count' => (int) $story['review_count'],
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
     }

@@ -28,7 +28,12 @@ final class StoryRepository
                      WHERE sc.story_id = s.id) AS category_names,
                     (SELECT json_group_array(json_object(\'position\', ch.position, \'title\', ch.title, \'word_count\', ch.word_count))
                      FROM chapters ch WHERE ch.story_id = s.id AND ch.validated = 1
-                     ORDER BY ch.position) AS chapters_blob
+                     ORDER BY ch.position) AS chapters_blob,
+                    (SELECT json_group_array(json_object(\'id\', r.id, \'user_id\', r.user_id, \'penname\',
+                            (SELECT penname FROM users ru WHERE ru.id = r.user_id), \'guest_name\', r.guest_name,
+                            \'body\', r.body, \'rating\', r.rating, \'parent_id\', r.parent_id, \'created_at\', r.created_at))
+                     FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id ORDER BY r.created_at DESC LIMIT 50) r) AS reviews_blob,
+                    (SELECT COUNT(*) FROM reviews r2 WHERE r2.story_id = s.id) AS review_count
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
