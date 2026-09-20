@@ -115,3 +115,27 @@ set a support link shown on their story pages. Members whose follows
 are in digest mode (or who opted into favorite digests) receive one
 batched email; run `php bin/kip digest:send` from cron (say, hourly)
 to flush them. The app ships no scheduler of its own.
+
+## Series, coauthors, and members
+
+Authors assemble their works into series (`open`, `moderated`, or
+`closed` membership): anyone's story joins an open series at once,
+moderated series hold submissions as pending until the owner confirms,
+and closed series accept additions from the owner only. Owners reorder
+items with up/down swaps, and a story's author may pull their own work
+out of any series. Story owners add coauthors by penname; coauthors
+gain full authoring rights (story and chapter forms) and share the
+byline, may leave at any time, and can be removed by the owner or an
+admin. Reviews, kudos, and favorites notify the author and every
+coauthor, each gated by that recipient's own notify preference.
+
+Every member gets a public profile at `/user/view/{slug}` (bio in
+markdown, avatar, support link, story and series counts) with stories
+and favorites tabs, and a member directory at `/browse/authors` with
+letter filters and a beta-reader filter. Account preferences cover the
+bio and beta-reader flag, a default listing sort, a table-of-contents
+first reading mode (a cookie, so the bare `/story/read/{slug}`
+redirect costs zero queries), and notification toggles for reviews,
+replies, and favorites. Members contact each other through an
+auth-gated form (CSRF, three messages per sender per hour); the
+target's email address is never rendered, only mailed to.
