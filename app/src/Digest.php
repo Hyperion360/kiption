@@ -42,7 +42,11 @@ final class Digest
             try {
                 $this->mailer->send($m['email'], 'Your archive digest',
                     "Since {$since}:\n\n{$lines}\n--\nYou receive this because at least one follow is in digest mode.");
-                $this->db->query('UPDATE user_prefs SET digest_sent_at = ? WHERE user_id = ?', [date('c'), $m['id']]);
+                // Written in SQLite's own created_at format (UTC, milliseconds) so the
+                // next run's string comparison against notifications.created_at is exact:
+                // a PHP date('c') marker sorts around the '.mmmZ' suffix and re-mails rows
+                // batched in the same second.
+                $this->db->query("UPDATE user_prefs SET digest_sent_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE user_id = ?", [$m['id']]);
                 $mailed++;
             } catch (\Throwable $e) {
                 error_log("digest mail failed for user {$m['id']}: {$e->getMessage()}");

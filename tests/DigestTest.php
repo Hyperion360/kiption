@@ -73,4 +73,23 @@ final class DigestTest extends TestCase
         $row = $this->db->one('SELECT digest_sent_at FROM user_prefs WHERE user_id = ?', [$this->fanId]);
         $this->assertNotNull($row['digest_sent_at']);
     }
+
+    public function test_digest_marker_format_suppresses_remail(): void
+    {
+        $this->client($this->fanId)->postWithToken('/follow/author/1');
+        $this->client($this->fanId)->postWithToken('/follow/mode/1'); // email
+        $this->client($this->fanId)->postWithToken('/follow/mode/1'); // digest
+        $this->db->query('DELETE FROM notifications');
+        $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
+            ['title' => 'OnceOnly', 'content' => 'Batched exactly once.', 'notes_before' => '', 'notes_after' => '']);
+        $digest = new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']), 'https://archive.example');
+        $this->assertGreaterThanOrEqual(1, $digest->send());
+        $mail = (string) file_get_contents($this->mailLog);
+        $this->assertNotSame('', $mail); // something was really mailed
+        // No new notifications exist: the marker must be byte-comparable with
+        // notifications.created_at (SQLite's own strftime format) so the next
+        // run's string comparison filters the already-batched rows exactly.
+        $this->assertSame(0, $digest->send());
+        $this->assertSame($mail, (string) file_get_contents($this->mailLog));
+    }
 }
