@@ -172,6 +172,49 @@ final class EfictionExportTest extends TestCase
         }
     }
 
+    public function test_exporter_counts_invalid_utf8_lists_missing_files_and_keys_by_chapter_uid(): void
+    {
+        $fx = $this->install();
+        $fx->installShims();
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        // one author string carrying a lone latin1 byte: replaced AND counted
+        $fx->pdo->exec("UPDATE fx_fanfiction_authors SET bio = CAST(x'626164E962797465' AS TEXT) WHERE uid = 1");
+        // chapter filed under its OWN uid (2) while the story belongs to uid 1,
+        // plus a chapter whose file is missing entirely (uid 3, chapid 12)
+        $fx->pdo->exec("INSERT INTO fx_fanfiction_chapters (chapid, title, inorder, storytext, validated, wordcount, sid, uid) VALUES (11, 'Two', 2, NULL, '1', 10, 7, 2)");
+        $fx->pdo->exec("INSERT INTO fx_fanfiction_chapters (chapid, title, inorder, storytext, validated, wordcount, sid, uid) VALUES (12, 'Three', 3, NULL, '1', 10, 7, 3)");
+        mkdir($this->root . '/stories/2', 0775, true);
+        file_put_contents($this->root . '/stories/2/11.txt', "raw \xE9 byte file");
+        $outDir = $this->root . '/out';
+        mkdir($outDir, 0775, true);
+        $manifest = (new \EfictionExporter($this->root, 'fxs_', $outDir))->export();
+        $this->assertSame(1, $manifest['invalid_utf8_replaced'], 'exactly the one swampy string is counted');
+        $this->assertSame(['3/12.txt'], $manifest['missing_story_files'] ?? null, 'missing chapter file listed by uid/chapid, not fatal');
+        // store=files copies under the CHAPTER's uid, byte-for-byte (no utf8 surgery on files)
+        $this->assertFileExists($outDir . '/stories/2/11.txt', 'keyed by the chapter own uid, not the story owner');
+        $this->assertSame("raw \xE9 byte file", file_get_contents($outDir . '/stories/2/11.txt'));
+        // the DB row itself came through json_encode: the bad byte is gone, the JSON is valid
+        $lines = explode("\n", trim((string) gzdecode((string) file_get_contents($outDir . '/archive.jsonl.gz'))));
+        $first = json_decode($lines[0], true);
+        $this->assertNotSame("bad\xE9byte", $first['bio']);
+        $this->assertTrue(mb_check_encoding($first['bio'], 'UTF-8'));
+    }
+
+    public function test_runner_renders_export_ready_before_the_run(): void
+    {
+        $fx = $this->install();
+        $fx->installShims();
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        $token = str_repeat('f', 64);
+        file_put_contents($this->root . '/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
+        [$html, $code] = \EfictionExporter::runner($this->root, 'fxs_', $token, true, false, false, false);
+        $this->assertSame(200, $code);
+        $this->assertStringContainsString('Export ready', $html);
+        $this->assertStringContainsString(htmlspecialchars($token, ENT_QUOTES), $html, 'authenticated form re-carries the token hidden');
+    }
+
     public function test_export_gates_missing_settings_row_and_storiespath(): void
     {
         $fx = $this->install();
