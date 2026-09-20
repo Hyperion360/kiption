@@ -77,7 +77,9 @@ final class StoryRepository
         );
     }
 
-    /** @return list<array<string,mixed>> */
+    /** @return list<array<string,mixed>> Listings and feeds are guest surfaces and
+     *  cannot personalize per viewer, so restricted works never appear here; members
+     *  reach them by direct URL (the story queries gate per-viewer instead). */
     public function recentStories(int $perPage, int $offset): array
     {
         return $this->db->all(
@@ -86,7 +88,7 @@ final class StoryRepository
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
-             WHERE s.validated = 1 AND s.deleted_at IS NULL
+             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
              ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
             [$perPage, $offset]
@@ -104,7 +106,7 @@ final class StoryRepository
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
-             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.language = ?
+             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.language = ? AND s.is_restricted = 0
              ORDER BY s.updated_at DESC, s.id DESC
              LIMIT 50',
             [$language]
@@ -123,7 +125,7 @@ final class StoryRepository
              JOIN ratings r ON r.id = s.rating_id
              JOIN story_categories sc ON sc.story_id = s.id
              JOIN categories cc ON cc.id = sc.category_id
-             WHERE cc.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
+             WHERE cc.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
              ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
             [$slug, $perPage, $offset]

@@ -67,6 +67,25 @@ final class RestrictedTest extends TestCase
         @rmdir($tmpDir);
     }
 
+    public function test_restricted_story_hides_from_anonymous_listings_and_feeds(): void
+    {
+        // Listings and feeds are guest surfaces; a restricted story's title and
+        // summary are content, so they must not render there (the story page
+        // itself 404s, but the leak would also bake into cached listing files).
+        $this->db->query("UPDATE stories SET is_restricted = 1, language = 'en' WHERE slug = 'the-rabbit-hole'");
+        $this->db->query("UPDATE stories SET language = 'en' WHERE slug = 'after-hours'");
+        $guest = new TestClient($this->app());
+        foreach (['/browse/recent', '/browse/category/general', '/feed', '/rss'] as $page) {
+            $body = $guest->get($page)->body;
+            $this->assertStringNotContainsString('The Rabbit Hole', $body, "{$page} leaked a restricted story title");
+            $this->assertStringContainsString('After Hours', $body, "{$page} must still list unrestricted stories");
+        }
+        $body = $guest->get('/browse', ['language' => 'en'])->body;
+        $this->assertStringContainsString('Stories in en', $body); // the filter engaged the listing
+        $this->assertStringContainsString('After Hours', $body);
+        $this->assertStringNotContainsString('The Rabbit Hole', 'language-filtered browse leaked a restricted story title');
+    }
+
     public function test_toggle_restricts_purges_and_updates(): void
     {
         $client = (new TestClient($this->app()))->actingAs(1);
