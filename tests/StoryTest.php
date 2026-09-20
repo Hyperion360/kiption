@@ -59,6 +59,23 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('Chapter 2', $res->body);
     }
 
+    public function test_round_robin_story_shows_the_badge(): void
+    {
+        // The eFiction import preserves the rr flag as stories.round_robin;
+        // the landing page is where readers see the story is co-authored in turns.
+        (new Database($this->dsn))->query('UPDATE stories SET round_robin = 1 WHERE id = 1');
+        $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('Round robin', $res->body);
+    }
+
+    public function test_unflagged_story_shows_no_round_robin_badge(): void
+    {
+        $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
+        $this->assertSame(200, $res->status);
+        $this->assertStringNotContainsString('Round robin', $res->body);
+    }
+
     public function test_toc_renders_titles_with_delimiter_characters_intact(): void
     {
         // admin-CRUD-written chapter titles are free text; the TOC transport

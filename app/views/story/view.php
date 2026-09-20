@@ -8,6 +8,7 @@
     <?php if ((int) $story['is_adult'] === 1): ?><span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
     <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge"><?= \App\Lang::t('story.registered_only') ?></span><?php endif; ?>
     <?php if ($story['completed']): ?><span class="badge"><?= \App\Lang::t('story.complete') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('story.wip') ?></span><?php endif; ?>
+    <?php if ($story['round_robin']): ?><span class="badge"><?= \App\Lang::t('story.round_robin') ?></span><?php endif; ?>
     | <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?>
     | <?= \App\Lang::t('story.in') ?> <?= $this->e($story['category_names'] ?? \App\Lang::t('story.uncategorized')) ?>
     <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?>

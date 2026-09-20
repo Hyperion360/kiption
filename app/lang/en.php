@@ -94,6 +94,7 @@ return [
     'story.updated' => 'updated {date}',
     'story.complete' => 'Complete',
     'story.wip' => 'WIP',
+    'story.round_robin' => 'Round robin',
     'story.no_stories' => 'No stories yet.',
 
     // The story page (view), its gate, and the chapter reader.
