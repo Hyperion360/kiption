@@ -63,15 +63,161 @@ have not been validated on a real server. A tested webserver cookbook
 (nginx included) is a tracked TODO; until then, nginx users get the PHP
 fallback, which is fully correct.
 
+## Languages (interface packs)
+
+Every interface string renders through a zero-dependency language-pack
+layer: plain PHP arrays, no gettext and no intl extension. `app/lang/en.php`
+is the base inventory, a flat `'dotted.key' => 'Text'` map with keys
+namespaced per surface (`nav.*`, `auth.*`, `story.*`, `account.*`, and so
+on). To translate the interface, author a pack such as `app/lang/es.php`
+returning the same flat shape:
+
+    <?php // app/lang/es.php
+    return [
+        'nav.login' => 'Iniciar sesion',
+        'nav.browse' => 'Explorar',
+    ];
+
+A pack may override any subset of keys: it merges over English, and keys
+the pack leaves out fall back to the English text. A key missing from both
+renders the key itself, so a bad key is visible on the page, never fatal.
+Placeholders interpolate `{param}` tokens, for example
+`'story.chapter_of' => 'Chapter {n} of {m}'`.
+
+Enable a language site-wide with `ui_lang` in `config.php` (a two-letter
+code) or the `KIP_UI_LANG` environment variable. Packs under `app/lang/`
+are discovered by filename (`{code}.php`); a third-party pack living
+elsewhere registers itself with `App\Lang::addPackPath('xx',
+'/path/to/xx.php')` from its own bootstrap, ahead of autodiscovery. Pack
+files are code and run at load, so deploy only packs you trust (the same
+trust level as `config.php`); a pack that fails to load degrades to
+English with the failure recorded in the error log. Per-member language
+choice and right-to-left layouts are future work; today the language is
+site-wide.
+
 ## SEO
 
 Every page ships a unique title with the site name, a meta description
 (stories use the summary unless `meta_description` is set), Open Graph and
 Twitter tags, a self-canonical URL, and JSON-LD (`WebSite` on home, `Book`
-on stories, `BreadcrumbList` on categories, `ItemList` on listings). The
-Atom feed is at `/feed` with an RSS2 alias at `/rss` (autodiscovery is
-built in). Empty category listings are `noindex` and never cached. Crawlers
-are kept off faceted query-string permutations via `robots.txt`.
+on stories, `BreadcrumbList` on categories, `ItemList` on listings).
+Profiles carry h-card and chapter reads carry h-entry microformats. Empty
+category listings are `noindex` and never cached. Crawlers are kept off
+faceted query-string permutations via `robots.txt`.
+
+### Feeds
+
+The site feed is Atom at `/feed` with an RSS2 alias at `/rss`, plus
+per-author feeds at `/feed/author/{slug}` and per-category feeds at
+`/feed/category/{slug}`; the profile and category pages carry their own
+autodiscovery links alongside the layout-wide one. Each feed lists the
+twenty most recently updated eligible stories in a single query. An
+unknown, locked, or penname-less author 404s exactly like the profile
+page would; a known author with no eligible stories still gets a valid
+empty feed titled with the penname, and an empty category likewise
+renders an empty feed. Restricted, unvalidated, and deleted stories
+never appear. Full-text mode (`feeds_full_text => true` in `config.php`,
+or `KIP_FEEDS_FULL_TEXT=1`) makes every entry carry its first validated
+chapter, rendered from markdown into `<content type="html">`, instead of
+the summary-only default. External-canonical stories (below) never
+appear in any feed.
+
+### Story syndication
+
+The story form exposes two optional URL fields (Canonical URL and
+Cross-posted from; both must start with `http://` or `https://`, are
+capped at 200 characters, and only one may be set at a time), giving
+each story one of three syndication states:
+
+- Self (both empty, the default): the canonical URL points at this
+  archive's own page.
+- External original (`canonical_url` set): the story is a mirror whose
+  original lives elsewhere. The local page points its canonical at the
+  author's URL and deindexes itself (a `noindex` meta plus an
+  `X-Robots-Tag` header, on the story page and every chapter read), and
+  the story leaves the feeds and the sitemap, so the original can outrank
+  the mirror.
+- Cross-post (`crosspost_url` set): first published elsewhere, hosted
+  here by arrangement. The canonical link is suppressed (Open Graph's
+  `og:url` keeps the local URL) and readers see a "Cross-posted from the
+  original" note whose outbound link carries `rel="nofollow"`.
+
+### Sitemaps and robots.txt
+
+`/sitemap.xml` cannot route through the convention router (dot-paths are
+files, not routes), so the sitemap and `robots.txt` are generated real
+files in `public/`, rebuilt at the end of every `php bin/kip pages:build`
+(the eFiction import runs it too) and refreshed on demand with
+`php bin/kip robots`. The index `sitemap.xml` lists one segment file per
+non-empty group: `sitemap-stories-{n}.xml` (each story's view URL plus
+every validated chapter read URL, split at 45,000 URLs per segment,
+lastmod from the story's `updated_at`), and the authors, categories,
+series, pages, and news segments. Inclusion gates mirror the static
+cache builder: restricted, unvalidated, and deleted stories stay out,
+pages with empty bodies stay out, and external-canonical stories stay
+out. Sitemaps are batch artifacts and do not refresh on every write, so
+run `pages:build` after bulk imports; search engines tolerate lastmod
+staleness. The generated `robots.txt` keeps the hand-written file's
+root-relative `Sitemap: /sitemap.xml` line for byte-compatibility; major
+crawlers resolve it fine against the host root.
+
+### AI crawler toggle
+
+`ai_crawlers => false` in `config.php` (or `KIP_AI_CRAWLERS=0`) prepends
+an RFC 9309 group to `robots.txt` that disallows the named AI crawlers:
+GPTBot, CCBot, ClaudeBot, anthropic-ai, and Google-Extended. Apply it
+with `php bin/kip robots` (which regenerates `robots.txt` alone and
+prints the path it wrote) or let the next `pages:build` carry it. The
+permissive output stays byte-identical to the classic file. Note that
+robots.txt is a request, not a technical block: a crawler that ignores
+it will still fetch.
+
+### Content policy template
+
+The AI toggle decides what your server allows. A public policy page
+decides what your community expects. Create a custom page at `/page` and
+paste this markdown as a starting point; the bracketed options are yours
+to edit or delete.
+
+```markdown
+# [Archive name] content policy
+
+## Stance on AI-generated content
+
+[Choose and edit one:]
+
+- **Prohibited.** Works generated in whole or in part by large-language
+  models or other generative tools may not be posted. Authors are
+  responsible for what they submit; a first violation removes the work,
+  a second removes posting rights.
+- **Permitted with labeling.** AI-assisted works are welcome but must be
+  marked as such in the summary so readers can filter them.
+- **Permitted.** We do not screen for generative tooling; the usual
+  content rules still apply.
+
+## Stance on AI crawlers
+
+[Edit to match your `ai_crawlers` setting:]
+
+- We [allow / disallow] AI training crawlers (GPTBot, CCBot, ClaudeBot,
+  anthropic-ai, Google-Extended) via robots.txt. Using works hosted here
+  to train generative models [is / is not] consented to by this archive.
+  Authors who want a specific work excluded from any dataset should
+  [contact the admins]; we honor takedown requests at [contact address].
+
+## Stance on fundraiser and support links
+
+Authors may set one support link on their profile and story pages (tip
+platforms, project pages). [Choose and edit:]
+
+- Any personal fundraising platform is fine.
+- Only links funding the author's own creative work; charity drives and
+  third-party fundraisers are not.
+- Links to the author's own work only; no commercial advertising.
+
+The archive hosts these links as a courtesy and does not endorse,
+process, or guarantee any fundraiser. Report abuse to [contact address].
+```
 
 ## Search and toplists
 
