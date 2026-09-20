@@ -37,6 +37,7 @@ final class Importer
     private array $counts = [];
     private int $wcLegacy = 0;
     private int $wcRecomputed = 0;
+    private int $unratedCreated = 0;
     /** @var array<int, int> */
     private array $isopenSeen = [];
     /** @var string[] */
@@ -254,10 +255,26 @@ final class Importer
                     break;
             }
         }
-        if ($this->tally($this->counts, 'ratings') === 0 && $this->db->one("SELECT id FROM ratings WHERE label = 'Unrated'") === null) {
-            $this->db->query("INSERT INTO ratings (label, is_adult, warning_text, position) VALUES ('Unrated', 0, '', 0)");
-            $this->counts['ratings'] = 1;
+        if ($this->tally($this->counts, 'ratings') === 0 && $this->tally($this->skipped, 'fanfiction_ratings') === 0) {
+            $this->unratedId(); // empty taxonomy (nothing imported, nothing resumed): guarantee the fallback
         }
+    }
+
+    /** The 'Unrated' fallback rating id, creating the row on demand: a story
+     *  whose rid CSV resolves nothing (rid 0, or a rating deleted from the old
+     *  install) still needs a resolvable rating_id. Creation counts as a
+     *  fallback row in the report and the verification diff. */
+    private function unratedId(): int
+    {
+        $row = $this->db->one("SELECT id FROM ratings WHERE label = 'Unrated'");
+        if ($row === null) {
+            $this->db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, 0, ?, ?)',
+                ['Unrated', '', (int) $this->db->one('SELECT COUNT(*) c FROM ratings')['c']]);
+            $row = ['id' => $this->db->lastInsertId()];
+            $this->bump($this->counts, 'ratings');
+            $this->unratedCreated++;
+        }
+        return (int) $row['id'];
     }
 
     /** Sub-pass 2: users. Authorprefs indexed by uid; EAV: authorfields named
@@ -355,7 +372,6 @@ final class Importer
     {
         $r = $this->report;
         $ctx = ['categories' => $this->catMap, 'ratings' => $this->ratingMap, 'classes' => $this->tagMap, 'characters' => $this->charMap];
-        $unrated = $this->db->one("SELECT id FROM ratings WHERE label = 'Unrated'");
         $day = gmdate('Y-m-d');
         foreach ($this->reader->rows() as $e) {
             if ($e['table'] !== 'fanfiction_stories') continue;
@@ -372,7 +388,7 @@ final class Importer
             if ($authorId === null) { $r->reject('story author missing'); $this->bump($this->rejected, 'fanfiction_stories'); continue; }
             $ratingId = $s['rating_label'];
             if ($ratingId === null) {
-                $ratingId = (int) $unrated['id'];
+                $ratingId = $this->unratedId();
                 $r->drop('rating fallback: Unrated');
             }
             $slug = \App\Slug::unique(
@@ -752,6 +768,9 @@ final class Importer
                 // every imported author gets a prefs row; authors without a
                 // legacy prefs row import mapPrefs defaults
                 $note = ' (defaults fill authors with no legacy prefs row)';
+            } elseif ($legacy === 'fanfiction_ratings' && $this->unratedCreated > 0
+                && $imported === $m + $rej + $skip + $this->unratedCreated) {
+                $note = " (+{$this->unratedCreated} Unrated fallback)";
             } elseif ($imported + $rej + $skip !== $m) {
                 $note = ' MISMATCH';
             }
