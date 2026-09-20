@@ -90,4 +90,38 @@ final class QueryBudgetTest extends TestCase
         $this->assertSame(200, $res->status, $page);
         $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
     }
+
+    /** The language-filtered browse page renders its section ABOVE the categories,
+     *  so its budget is 2 content queries: one categoriesWithCounts plus one
+     *  storiesInLanguage (the plan text said 1, but the categories list stays on
+     *  the filtered page by design; probe-verified before pinning). The query
+     *  string keeps the shape cache-ineligible, which is covered elsewhere. */
+    public function test_language_filtered_browse_stays_inside_its_two_query_budget(): void
+    {
+        $this->seedLanguageOnOneStory();
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'demo@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
+             ON CONFLICT (user_id, story_id) DO UPDATE SET
+                last_position = MAX(last_position, excluded.last_position),
+                updated_at = excluded.updated_at') return; // progress upsert, the logged-in read shape's extra write
+            $queries++;
+        });
+        $res = $client->get('/browse', ['language' => 'en']);
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('Stories in en', $res->body); // the filter really engaged the listing
+        $this->assertLessThanOrEqual(2, $queries, "/browse?language=en ran {$queries} content queries, budget is 2");
+    }
+
+    private function seedLanguageOnOneStory(): void
+    {
+        (new Database('sqlite:' . $this->path))
+            ->query("UPDATE stories SET language = 'en' WHERE slug = 'the-rabbit-hole'");
+    }
 }

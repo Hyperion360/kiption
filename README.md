@@ -97,3 +97,21 @@ event lands in the notification inbox at `/notifications`. Counts on
 cached pages snapshot at fill time; per-reader state renders only on
 the dynamic (cookie-carrying) path, so the static layer never serves
 personal variants.
+
+## Reviews and moderation
+
+Members and guests review stories: markdown bodies with an optional
+0-10 rating (clamped server side), guests supply a name and are
+throttled to one review per story per day. Members can reply, and
+replies thread one level under the root review with the story's author
+marked. Members report stories and reviews; open reports land in the
+moderation queue at `/queue` (moderator and admin roles) alongside the
+validation work, where a moderator resolves or dismisses them. Authors
+can mark a work restricted to registered readers: guests get a 404
+before any content renders, so restricted pages never enter the static
+cache and are skipped by `pages:build`. Stories carry a language tag
+(filterable on `/browse`), an optional cover upload, and authors can
+set a support link shown on their story pages. Members whose follows
+are in digest mode (or who opted into favorite digests) receive one
+batched email; run `php bin/kip digest:send` from cron (say, hourly)
+to flush them. The app ships no scheduler of its own.
