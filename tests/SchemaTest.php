@@ -31,7 +31,7 @@ final class SchemaTest extends TestCase
         $tables = [
             'users', 'user_prefs', 'categories', 'characters', 'tag_types', 'tags',
             'ratings', 'stories', 'story_categories', 'story_tags', 'story_characters',
-            'coauthors', 'chapters', 'series', 'series_items', 'reviews', 'favorites',
+            'coauthors', 'chapters', 'series', 'series_items', 'reading_lists', 'reading_list_items', 'reviews', 'favorites',
             'news', 'news_comments', 'pages', 'mail_templates', 'page_stats',
             'login_attempts', 'password_resets', 'email_verifications', 'invites',
             'import_map', 'import_runs', 'legacy_urls', 'legacy_log',

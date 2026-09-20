@@ -33,6 +33,14 @@ final class Builder
         foreach ($db->all('SELECT slug FROM series') as $ser) {
             $urls[] = '/series/view/' . $ser['slug'];
         }
+        // Reading lists: public lists only, and only when the guest page would
+        // list something (the user-tab precedent: an all-restricted or empty
+        // list renders an empty page not worth filling).
+        foreach ($db->all("SELECT l.slug FROM reading_lists l WHERE l.is_public = 1 AND EXISTS (
+                SELECT 1 FROM reading_list_items li JOIN stories s ON s.id = li.story_id
+                WHERE li.list_id = l.id AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0)") as $l) {
+            $urls[] = '/lists/view/' . $l['slug'];
+        }
         // Custom pages: every non-empty body is a public cacheable page; an
         // empty body renders the noindex shape and never fills the layer.
         foreach ($db->all("SELECT slug FROM pages WHERE body <> ''") as $p) {

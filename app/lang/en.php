@@ -353,6 +353,14 @@ return [
     'series.add_yours' => 'Add your story',
     'series.meta_by' => 'A series by {name}.',
 
+    // Reading lists (Phase 11).
+    'lists.new' => 'New reading list',
+    'lists.edit' => 'Edit reading list',
+    'lists.public_label' => 'Public (visible to everyone)',
+    'lists.private_label' => 'Private',
+    'lists.empty' => 'This list is empty.',
+    'lists.meta_by' => 'A reading list by {name}.',
+
     // Mail templates admin.
     'templates.heading' => 'Mail templates',
     'templates.help' => 'Every mail falls back to its built-in default until you save an edit here.',
