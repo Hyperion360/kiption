@@ -19,6 +19,10 @@ final class Digest
              WHERE u.email_verified_at IS NOT NULL AND u.approved_at IS NOT NULL
                AND (EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = u.id AND f.notify_mode = 'digest')
                     OR p.notify_favorite_digest = 1)");
+        // One template fetch per digest run, not per member (mail sends are not
+        // page surfaces; the per-member values interpolate at send time).
+        [$subject, $body] = Templates::get($this->db, 'digest', 'Your archive digest',
+            "Since {since}:\n\n{lines}\n--\nYou receive this because at least one follow is in digest mode.");
         $mailed = 0;
         foreach ($members as $m) {
             $since = $m['digest_sent_at'] ?? '1970-01-01T00:00:00Z';
@@ -40,8 +44,8 @@ final class Digest
                 } . " (" . $r['created_at'] . ")\n";
             }
             try {
-                $this->mailer->send($m['email'], 'Your archive digest',
-                    "Since {$since}:\n\n{$lines}\n--\nYou receive this because at least one follow is in digest mode.");
+                $this->mailer->send($m['email'], $subject,
+                    strtr($body, ['{since}' => $since, '{lines}' => $lines]));
                 // Written in SQLite's own created_at format (UTC, milliseconds) so the
                 // next run's string comparison against notifications.created_at is exact:
                 // a PHP date('c') marker sorts around the '.mmmZ' suffix and re-mails rows

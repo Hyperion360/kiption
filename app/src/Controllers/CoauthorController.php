@@ -27,9 +27,11 @@ final class CoauthorController
         $coauthor = $this->db->one('SELECT email, penname, profile_slug FROM users WHERE id = ?', [$newUserId]);
         (new Notifications($this->db))->create($newUserId, 'coauthor', (int) $story['id'], $me, (string) $story['title']);
         $base = rtrim((string) $this->app->config('base_url', ''), '/');
+        [$subject, $body] = \App\Templates::get($this->db, 'coauthor_added', 'You were added as a coauthor on {title}',
+            "You were added as a coauthor on \"{title}\".\n\nView and manage the story:\n{url}");
+        $pairs = ['{title}' => (string) $story['title'], '{slug}' => $slug, '{url}' => "{$base}/story/view/{$slug}"];
         try {
-            $this->mailer->send((string) $coauthor['email'], 'You were added as a coauthor on ' . $story['title'],
-                "You were added as a coauthor on \"{$story['title']}\".\n\nView and manage the story:\n{$base}/story/view/{$slug}");
+            $this->mailer->send((string) $coauthor['email'], strtr($subject, $pairs), strtr($body, $pairs));
         } catch (\Throwable $e) {
             // the add already happened: mail is best-effort, never blocks the redirect
             error_log("Coauthor mail failed: {$e->getMessage()}");

@@ -83,10 +83,12 @@ final class AuthController
         if ($row === null || !hash_equals((string) $row['legacy_md5'], md5($password))) return false;
         $this->db->query('UPDATE users SET password_hash = ?, legacy_md5 = NULL WHERE id = ?',
             [password_hash($password, PASSWORD_DEFAULT), $row['id']]);
+        // we_moved carries no placeholders: the pair resolves straight from the row.
+        [$subject, $body] = \App\Templates::get($this->db, 'we_moved', 'The archive moved',
+            "The archive you were a member of has moved.\n\nGood news: the password you just used still works, "
+            . "and it is now stored with modern hashing. No action needed; this is just a heads up.");
         try {
-            $this->mailer->send($email, 'The archive moved',
-                "The archive you were a member of has moved.\n\nGood news: the password you just used still works, "
-                . "and it is now stored with modern hashing. No action needed; this is just a heads up.");
+            $this->mailer->send($email, $subject, $body);
         } catch (\Throwable $e) {
             error_log("Legacy-upgrade mail failed: {$e->getMessage()}");
         }
@@ -125,9 +127,10 @@ final class AuthController
         if ($mode === 'verify') {
             $raw = $this->users->createVerification($email);
             $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/auth/verify/' . $raw;
+            [$subject, $body] = \App\Templates::get($this->db, 'member_verify', 'Verify your account',
+                "Welcome to the archive. Confirm your address:\n\n{url}\n\nThe link is valid for 24 hours.");
             try {
-                $this->mailer->send($email, 'Verify your account',
-                    "Welcome to the archive. Confirm your address:\n\n{$url}\n\nThe link is valid for 24 hours.");
+                $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]));
             } catch (\Throwable $e) {
                 error_log("Verification mail failed: {$e->getMessage()}");
             }
@@ -177,10 +180,11 @@ final class AuthController
         $token = $this->auth->createReset($email, $this->request->ip);
         if ($token !== null) {
             $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . "/auth/reset/{$token}";
+            [$subject, $body] = \App\Templates::get($this->db, 'password_reset', 'Reset your password',
+                "Someone (hopefully you) asked to reset the password for this address.\n\n"
+                . "Reset link (valid 30 minutes):\n{url}\n\nIf this wasn't you, ignore this email.");
             try {
-                $this->mailer->send($email, 'Reset your password',
-                    "Someone (hopefully you) asked to reset the password for this address.\n\n"
-                    . "Reset link (valid 30 minutes):\n{$url}\n\nIf this wasn't you, ignore this email.");
+                $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]));
             } catch (\Throwable $e) {
                 // A mailer failure must not become an account-existence oracle: the page
                 // is identical either way, and the failure lands in the server log.

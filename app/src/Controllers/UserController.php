@@ -104,9 +104,17 @@ final class UserController
         }
         $sender = $this->db->one('SELECT penname, profile_slug FROM users WHERE id = ?', [$me]);
         $base = rtrim((string) $this->app->config('base_url', ''), '/');
+        // {message} is the member's typed body: it rides the interpolation pair,
+        // never the template text, so a message quoting a placeholder stays literal.
+        [$subject, $tpl] = \App\Templates::get($this->db, 'member_contact', 'Message from {penname}',
+            "{message}\n\nReply via {url}");
+        $pairs = [
+            '{message}' => $body, '{penname}' => (string) $sender['penname'],
+            '{sender_slug}' => (string) $sender['profile_slug'],
+            '{url}' => "{$base}/user/contact/{$sender['profile_slug']}",
+        ];
         try {
-            $this->mailer->send((string) $target['email'], 'Message from ' . $sender['penname'],
-                $body . "\n\nReply via {$base}/user/contact/{$sender['profile_slug']}");
+            $this->mailer->send((string) $target['email'], strtr($subject, $pairs), strtr($tpl, $pairs));
         } catch (\Throwable $e) {
             error_log("Contact mail failed: {$e->getMessage()}");
             return new Response($this->renderContactForm($slug, $target, 'The message could not be sent, try again later.', false), 500);

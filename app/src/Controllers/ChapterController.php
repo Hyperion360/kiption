@@ -127,10 +127,18 @@ final class ChapterController
             $notifications->create((int) $memberId, 'update', (int) $story['story_id'], (int) $story['author_id'], (string) $story['title']);
         }
         $base = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/');
+        // One template fetch per publish, not per recipient (the plan's no-cache
+        // ruling scopes to the send, never to a per-member query).
+        [$subject, $body] = \App\Templates::get($this->db, 'story_update', 'Story update: {title}',
+            "A story you follow has a new chapter:\n\n{title}\n{url}");
+        $pairs = [
+            '{title}' => (string) $story['title'], '{slug}' => (string) $story['slug'],
+            '{pos}' => (string) $story['latest_position'],
+            '{url}' => "{$base}/story/read/{$story['slug']}/{$story['latest_position']}",
+        ];
         foreach ($emails as $memberId => $email) {
             try {
-                $this->mailer->send($email, 'Story update: ' . $story['title'],
-                    "A story you follow has a new chapter:\n\n" . $story['title'] . "\n{$base}/story/read/{$story['slug']}/{$story['latest_position']}");
+                $this->mailer->send($email, strtr($subject, $pairs), strtr($body, $pairs));
             } catch (\Throwable $e) {
                 error_log("follower mail failed for member {$memberId}: {$e->getMessage()}");
             }
