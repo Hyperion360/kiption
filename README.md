@@ -161,3 +161,31 @@ redirect costs zero queries), and notification toggles for reviews,
 replies, and favorites. Members contact each other through an
 auth-gated form (CSRF, three messages per sender per hour); the
 target's email address is never rendered, only mailed to.
+
+## Migrating from eFiction
+
+Moving an archive off a live eFiction 3.5.5 install is a two-stage
+runbook: export a bundle from the old install, then import it here.
+Steps 1-3 (the export side) are available today; the importer that
+ingests the bundle (steps 4 onward) lands in the next release, so keep
+the downloaded bundle somewhere safe until then.
+
+1. On the new archive, run `php bin/kip import:token`. It prints a
+   one-time token plus the exact one-line contents for a file named
+   `export-token.php`.
+2. Upload `resources/efiction-export.php` from this repository to the
+   old install's webroot (it needs PHP 8.0+ with the zlib and phar
+   extensions), and create `export-token.php` beside it containing the
+   printed line.
+3. Open `efiction-export.php` in the browser and paste the token. Put
+   the old archive in maintenance mode (Admin > Settings) first so the
+   snapshot is consistent, or tick the force box to accept the risk,
+   then run the export and download `kiption-export.tar.gz`.
+
+Treat the downloaded bundle as a password file: it contains member
+email addresses and legacy password hashes. When you are done, use the
+exporter page's self-delete button (or delete by hand) to remove both
+`efiction-export.php` and `export-token.php` from the old webroot.
+
+Importing the bundle into Kiption (authors, stories, reviews, and the
+rest) arrives with the importer in the next release.
