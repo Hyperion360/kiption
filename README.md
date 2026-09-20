@@ -19,7 +19,11 @@ validation queues, and the static page cache arrive in the next milestones.
 
     composer install
     php bin/kip migrate
+    php bin/kip user:create you@example.com 'a strong password' --admin
     php bin/kip serve
+
+The `user:create` line creates your admin account; run it without a password
+argument to be prompted with hidden input instead.
 
 Tests:
 
