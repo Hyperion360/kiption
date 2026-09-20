@@ -140,4 +140,22 @@ final class ProfileTest extends TestCase
         $cache->purgeAuthors();
         $this->assertNull($cache->serve($req));
     }
+
+    public function test_empty_tab_renders_noindex(): void
+    {
+        // the empty-category precedent: an empty listing is meta-noindexed and
+        // carries the X-Robots-Tag header (and is therefore never cache-filled)
+        $res = $this->app->handle(new \Kip\Http\Request('GET', '/user/favorites/demo-author', [], [], []));
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('noindex', $res->body);
+        $this->assertSame('noindex', $res->headers['X-Robots-Tag'] ?? '');
+    }
+
+    public function test_hostile_page_param_stays_an_int(): void
+    {
+        // the offset guard keeps the LIMIT/OFFSET binds integral (a float there
+        // would TypeError the repository into a 500)
+        $res = $this->app->handle(new \Kip\Http\Request('GET', '/user/stories/demo-author', ['page' => '99999999999999999999'], [], []));
+        $this->assertSame(200, $res->status);
+    }
 }

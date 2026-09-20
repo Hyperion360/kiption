@@ -137,4 +137,17 @@ final class PrefsTest extends TestCase
             $this->assertStringNotContainsString('name="' . $field . '" value="1" checked', $after);
         }
     }
+
+    public function test_notify_response_off_silences_reply_notification(): void
+    {
+        $fan = $this->client($this->memberId());
+        $fan->postWithToken('/account/prefs', ['bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+            'notify_review' => '1', 'notify_response' => '0', 'notify_favorites' => '1', 'notify_favorite_digest' => '']);
+        $fan->postWithToken('/review/add/the-rabbit-hole', ['body' => 'Loved the descent.', 'rating' => '', 'guest_name' => '']);
+        $reviewId = (int) $this->db->one(
+            "SELECT id FROM reviews WHERE user_id = ? ORDER BY id DESC LIMIT 1", [$this->memberId()])['id'];
+        $this->client($this->authorId())->postWithToken('/review/reply/' . $reviewId, ['body' => 'Thanks for reading.']);
+        $inbox = $fan->get('/notifications')->body;
+        $this->assertStringNotContainsString('replied to a review', $inbox); // their pref, their silence
+    }
 }

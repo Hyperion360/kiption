@@ -220,4 +220,50 @@ final class SeriesTest extends TestCase
         $this->assertSame(302, $this->client()->get('/series/new')->status); // auth redirect
         $this->assertSame(403, $this->client()->post('/series/create', ['title' => 'Nope', 'summary' => '', 'membership' => 'open'])->status); // CSRF before auth: tokenless POST is 403
     }
+
+    public function test_item_actions_confirm_move_remove_with_gates(): void
+    {
+        // fixture: a second full member authoring a validated story
+        $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('ow@e.test', ?, 'otherwriter', ?, ?, 'otherwriter')",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+        $otherId = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO stories (title, slug, author_id, rating_id, validated) VALUES (?, ?, ?, (SELECT id FROM ratings LIMIT 1), 1)', ['Other Tale', 'other-tale', $otherId]);
+
+        $owner = $this->client($this->authorId());
+        $owner->postWithToken('/series/create', ['title' => 'Actions', 'summary' => '', 'membership' => 'moderated']);
+        $this->client($otherId)->postWithToken('/series/add/actions', ['story_slug' => 'other-tale']); // pending
+        $itemId = (int) $this->db->one(
+            "SELECT si.id FROM series_items si JOIN series ser ON ser.id = si.series_id JOIN stories s ON s.id = si.story_id
+             WHERE ser.slug = 'actions' AND s.slug = 'other-tale'")['id'];
+
+        // non-owner, non-admin, non-author: every item action 404s
+        $member = $this->client($this->memberId());
+        $this->assertSame(404, $member->postWithToken("/series/confirm/actions/{$itemId}", [])->status);
+        $this->assertSame(404, $member->postWithToken("/series/move/actions/{$itemId}/up", [])->status);
+        $this->assertSame(404, $member->postWithToken('/series/remove/actions/other-tale', [])->status);
+
+        // owner confirms: guest sees the item, the submitter is notified
+        $this->assertSame(302, $owner->postWithToken("/series/confirm/actions/{$itemId}", [])->status);
+        $this->assertStringContainsString('other-tale', $this->client()->get('/series/view/actions')->body);
+        $this->assertStringContainsString('was added to a series', $this->client($otherId)->get('/notifications')->body);
+
+        // owner adds a second item and swaps it upward
+        $owner->postWithToken('/series/add/actions', ['story_slug' => 'after-hours']);
+        $secondId = (int) $this->db->one(
+            "SELECT si.id FROM series_items si JOIN series ser ON ser.id = si.series_id JOIN stories s ON s.id = si.story_id
+             WHERE ser.slug = 'actions' AND s.slug = 'after-hours'")['id'];
+        $this->assertSame(302, $owner->postWithToken("/series/move/actions/{$secondId}/up", [])->status);
+        $positions = $this->db->all(
+            "SELECT s.slug, si.position FROM series_items si JOIN series ser ON ser.id = si.series_id JOIN stories s ON s.id = si.story_id
+             WHERE ser.slug = 'actions' ORDER BY si.position");
+        $this->assertSame('after-hours', $positions[0]['slug']); // swapped above other-tale
+
+        // junk direction coerces (the browse page-param philosophy), unknown item 404s
+        $this->assertSame(302, $owner->postWithToken("/series/move/actions/{$secondId}/sideways", [])->status);
+        $this->assertSame(404, $owner->postWithToken('/series/move/actions/999999/up', [])->status);
+
+        // owner removes the second item
+        $this->assertSame(302, $owner->postWithToken('/series/remove/actions/after-hours', [])->status);
+        $this->assertStringNotContainsString('after-hours', $owner->get('/series/view/actions')->body);
+    }
 }
