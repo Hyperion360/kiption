@@ -26,4 +26,6 @@
       <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= $next ?>"><?= \App\Lang::t('common.next') ?></a>
     <?php endif; ?>
   </nav>
+  <?php /* the read beacon: a zero-JS read counter into page_stats; the src carries the story id and the chapter's id (never the position) */ ?>
+  <img src="/beacon/read/<?= (int) $story['id'] ?>/<?= (int) $story['ch_id'] ?>" alt="" width="1" height="1" loading="lazy">
 </article>

@@ -74,6 +74,8 @@ final class StoryRepository
      *  Same restricted gate as findStoryBySlug (CAST is load-bearing). The
      *  syndication pair rides along so chapter reads apply the SAME Head
      *  branch as the story view (the deindex must cover both surfaces).
+     *  ch_id pivots the chapter's id for the read beacon img (finding 5:
+     *  the beacon wants chapters.id, never the position).
      *  @return array<string,mixed>|null */
     public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
     {
@@ -82,6 +84,7 @@ final class StoryRepository
             'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.created_at, s.updated_at, s.word_count,
                     s.canonical_url, s.crosspost_url,
                     u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
+                    MAX(CASE WHEN ch.position = ? THEN ch.id END) AS ch_id,
                     MAX(CASE WHEN ch.position = ? THEN ch.title END) AS ch_title,
                     MAX(CASE WHEN ch.position = ? THEN ch.notes_before END) AS ch_notes_before,
                     MAX(CASE WHEN ch.position = ? THEN ch.content END) AS ch_content,
@@ -96,7 +99,7 @@ final class StoryRepository
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)
              GROUP BY s.id',
-            [$position, $position, $position, $position, $position, $slug, $me]
+            [$position, $position, $position, $position, $position, $position, $slug, $me]
         );
     }
 

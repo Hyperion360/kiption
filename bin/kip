@@ -90,6 +90,11 @@ match ($argv[1] ?? 'help') {
         $days = (int) $m[1];
         $log = new Kip\RequestLog(new Kip\Database($config['log_db']['dsn']));
         printf("Pruned %d rows older than %d days.\n", $log->prune($days), $days);
+        // The page_stats day prune rides the SAME --days (finding 9: this arm
+        // otherwise only ever opens the log db; a fixed window would drift from
+        // the operator's retention choice). Day-keyed rows, one DELETE.
+        (new Kip\Database($config['db']['dsn']))
+            ->query("DELETE FROM page_stats WHERE day < date('now', '-' || ? || ' days')", [$days]);
     })(),
     'backup' => (function () use ($config) {
         $result = (new Kip\Backup(array_filter([
