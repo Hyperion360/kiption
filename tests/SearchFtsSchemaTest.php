@@ -47,4 +47,26 @@ final class SearchFtsSchemaTest extends TestCase
         $repo = new \App\Repositories\SearchRepository($db);
         $this->assertTrue($repo->ftsAvailable(), 'this build has FTS5 (probed)');
     }
+
+    public function test_migration_noops_when_the_virtual_table_cannot_be_created(): void
+    {
+        // The FTS5-less-build contract: when the CREATE VIRTUAL TABLE fails,
+        // migration 014 catches the PDOException and completes having created
+        // NOTHING (no chapters_fts, no sync triggers, no backfill), and the
+        // ledger still records it so later runs skip it. A full-FTS5 runtime
+        // can only reach that catch by making the statement fail (name taken).
+        $path = tempnam(sys_get_temp_dir(), 'kiption-fts-noop-') . '.sqlite';
+        $db = new Database('sqlite:' . $path);
+        // WITHOUT ROWID so the probe's "SELECT rowid FROM stories_fts" fails
+        // exactly as it does when the table is absent on an FTS5-less build
+        $db->query('CREATE TABLE stories_fts (x PRIMARY KEY) WITHOUT ROWID'); // occupy the name
+        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        \App\Seeder::run($db);
+        $names = array_column($db->all("SELECT name FROM sqlite_master WHERE name LIKE '%fts%'"), 'name');
+        $this->assertSame(['stories_fts'], $names, 'no chapters_fts and no fts triggers were created');
+        $ledger = array_column($db->all('SELECT name FROM _migrations'), 'name');
+        $this->assertContains('014_search_fts', $ledger, 'the no-op migration is recorded as applied');
+        $this->assertFalse((new \App\Repositories\SearchRepository(new Database('sqlite:' . $path)))->ftsAvailable());
+        @unlink($path); @unlink($path . '-wal'); @unlink($path . '-shm');
+    }
 }

@@ -130,6 +130,42 @@ final class SearchTest extends TestCase
         $this->assertSame([], $repo->searchLike('rabbit', ['language' => 'zz'], 20, 0, 0)['rows']);
     }
 
+    public function test_searchfts_seam_honors_filters_and_gates(): void
+    {
+        // The Task 2 FTS seam: every filter binds in the corrected order
+        // ([$match, $match, $me, ...filters...]) and the guest gates apply.
+        $repo = new \App\Repositories\SearchRepository($this->db());
+        $this->db()->query("UPDATE stories SET language = 'en' WHERE slug = 'the-rabbit-hole'");
+        $teen = (int) $this->db()->one("SELECT id FROM ratings WHERE label = 'Teen'")['id'];
+        $rows = $repo->searchFts('rabbit', ['category' => 'general', 'rating_id' => $teen, 'completed' => false, 'language' => 'en'], 20, 0, 0)['rows'];
+        $this->assertSame('the-rabbit-hole', $rows[0]['slug'] ?? null, 'all four filters set at once still finds the story');
+        $this->assertSame([], $repo->searchFts('rabbit', ['language' => 'zz'], 20, 0, 0)['rows'], 'filter alone can empty the seam');
+        $this->assertSame([], $repo->searchFts('shelves', ['completed' => true], 20, 0, 0)['rows'], 'chapter-content hit obeys filters');
+        $this->db()->query("UPDATE stories SET is_restricted = 1 WHERE slug = 'the-rabbit-hole'");
+        $this->assertSame([], $repo->searchFts('rabbit', [], 20, 0, 0)['rows'], 'restricted hidden from guests');
+        $this->assertSame('the-rabbit-hole', $repo->searchFts('rabbit', [], 20, 0, 1)['rows'][0]['slug'] ?? null, 'members see restricted');
+    }
+
+    public function test_dispatcher_falls_back_to_like_when_fts_tables_are_missing(): void
+    {
+        // An FTS5-less runtime shape: the virtual tables do not exist. The page
+        // path never probes (finding 6); the failed FTS prepare IS the probe,
+        // memoized negative, and the LIKE fold takes over in the same call.
+        $this->db()->query('DROP TABLE stories_fts');
+        $this->db()->query('DROP TABLE chapters_fts');
+        $this->db()->query("UPDATE stories SET language = 'en' WHERE slug = 'the-rabbit-hole'");
+        $repo = new \App\Repositories\SearchRepository($this->db());
+        $r = $repo->search('rabbit', [], 20, 0, 0);
+        $this->assertSame('like', $r['mode']);
+        $this->assertSame('the-rabbit-hole', $r['rows'][0]['slug'] ?? null);
+        $fold = $repo->searchWithTaxonomies('rabbit', ['language' => 'en'], 20, 0, 0);
+        $this->assertSame('like', $fold['mode'], 'the page fold fell back too');
+        $this->assertSame('the-rabbit-hole', $fold['rows'][0]['slug'] ?? null);
+        $this->assertNotSame([], $fold['ratings'], 'taxonomies still ride the fallback fold');
+        $this->assertNotSame([], $fold['categories']);
+        $this->assertFalse((new \App\Repositories\SearchRepository($this->db()))->ftsAvailable(), 'the probe reports the negative');
+    }
+
     public function test_search_page_renders_form_results_and_noindex(): void
     {
         $res = $this->client()->get('/search', ['q' => 'rabbit']);
