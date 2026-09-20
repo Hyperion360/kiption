@@ -13,9 +13,18 @@ final class HomeController
         // Only a request already carrying a cookie can belong to a logged-in user.
         $userId = $this->request->cookies !== [] ? $this->session->get('user_id') : null;
         $loggedIn = $userId !== null;
+        // The home page's FIRST content query (finding 3): the featured five.
+        // Guest-safe gates match browse (validated, not deleted, not
+        // restricted) so the anonymous render and its static cache file never
+        // leaks unreviewed, restricted or soft-deleted stories (adult BY
+        // RATING is not the restricted gate; those stories age-gate on their
+        // own pages, as in every listing); idx_stories_updated serves the
+        // ORDER BY. One query, the / budget row's pinned 1.
+        $featured = $this->db->all(
+            'SELECT slug, title, summary FROM stories WHERE featured = 1 AND validated = 1 AND deleted_at IS NULL AND is_restricted = 0 ORDER BY updated_at DESC, id DESC LIMIT 5');
         // The layout's operator block (Task 4's recorded scope): home passes
         // isAdmin where it is cheap, meaning only for a cookie-carrying viewer;
-        // the anonymous render stays query-free and cacheable.
+        // the anonymous render stays at its single content query.
         $isAdmin = $loggedIn
             && (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [(int) $userId])['c'] === 1;
         $head = \App\Seo\Head::make(
@@ -42,6 +51,7 @@ final class HomeController
             'path' => $this->request->path,
             'loggedIn' => $loggedIn,
             'isAdmin' => $isAdmin,
+            'featured' => $featured,
             'csrf' => $loggedIn ? $this->session->csrfToken() : null,
         ]);
     }

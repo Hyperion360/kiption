@@ -7,7 +7,10 @@ use Kip\Session;
 
 final class Adminness
 {
-    private const ROLES = ['member', 'validated_author', 'moderator', 'admin'];
+    /** The role enum (finding 10: PUBLIC so app controllers validate input
+     *  against it before dispatching through setRole, which stays the only
+     *  writer; an uncaught InvalidArgumentException would 500, not 422). */
+    public const ROLES = ['member', 'validated_author', 'moderator', 'admin'];
 
     /** The ONLY write path that may set role or is_admin (phase-1 invariant:
      *  role = 'admin' iff is_admin = 1). */
