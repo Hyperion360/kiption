@@ -76,6 +76,9 @@ final class EfictionExportTest extends TestCase
         $this->assertArrayHasKey('fanfiction_pagelinks', $manifest['counts']);
         // invalid UTF-8 replacements counted, bytes otherwise verbatim
         $this->assertArrayHasKey('invalid_utf8_replaced', $manifest);
+        // Task 3: the manifest carries the admins CSV so the importer can
+        // upgrade roles; installs without the column export an empty string
+        $this->assertArrayHasKey('admins', $manifest['settings']);
     }
 
     public function test_runner_token_gate_and_bundle_assembly(): void

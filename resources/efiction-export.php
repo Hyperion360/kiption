@@ -43,6 +43,7 @@ final class EfictionExporter
                 'storiespath' => (string) $settings['storiespath'],
                 'maintenance' => (int) $settings['maintenance'],
                 'language' => (string) ($settings['language'] ?? 'en'),
+                'admins' => (string) ($settings['admins'] ?? ''),
             ],
             'tableprefix' => (string) $settings['tableprefix'],
             'counts' => [],
