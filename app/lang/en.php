@@ -147,6 +147,14 @@ return [
     'story.gate_or' => 'or',
     'story.gate_go_back' => 'go back',
 
+    // The whole-work reading view (/story/whole/{slug}), which doubles as the print view.
+    'story.whole_link' => 'Whole story',
+    'story.download_link' => 'Download',
+    'story.whole_page_title' => '{title} - the complete work',
+    'story.whole_toc' => 'Contents',
+    'story.whole_toc_aria' => 'Table of contents',
+    'story.whole_print_hint' => 'To print, use your browser print command; site navigation is left out of the printed page.',
+
     // The story authoring form.
     'story.new_heading' => 'New story',
     'story.edit_heading' => 'Edit story',

@@ -170,6 +170,61 @@ final class StoryController
             : $rendered;
     }
 
+    /** The whole-work reading view, which doubles as the print view: every
+     *  validated chapter on one page behind the SAME gates as chapter reads
+     *  (the age cookie for adult stories, the SQL restricted gate for guests).
+     *  noindex ALWAYS with the canonical link suppressed: chapters are the
+     *  canonical reading units (recorded ruling), so the whole view never
+     *  offers itself as one; the syndication branch still applies so an
+     *  external canonical keeps its deindex (og:url) inheritance. Records NO
+     *  reading progress (note 15: a whole read has no single position) and is
+     *  NOT whitelisted in the static cache (size; live-rendered; the
+     *  framework page cache applies as usual for cookieless GETs). */
+    public function whole(string $slug): Response|string
+    {
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $story = $this->repo->wholeWork($slug, $me);
+        if ($story === null) return new Response('Page not found', 404);
+        $chapters = [];
+        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'content' => (string) $c['content'], 'word_count' => (int) $c['word_count']];
+        }
+        ksort($chapters);
+        unset($story['chapters_blob']);
+        if ($chapters === []) return new Response('Page not found', 404); // nothing validated to read
+        if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
+            return $this->view->render('story/gate', [
+                'title' => \App\Lang::t('story.gate_heading'),
+                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
+                'theme' => \App\Theme::current($this->request),
+                'navFile' => (string) $this->app->config('nav_file', ''),
+                'path' => $this->request->path,
+                'story' => $story,
+                'returnTo' => '/story/whole/' . $slug,
+            ]);
+        }
+        $wholeTitle = \App\Lang::t('story.whole_page_title', ['title' => $story['title']]);
+        $head = $this->head()
+            ->withTitle($wholeTitle)
+            ->withDescription($story['meta_description'] ?? $story['summary'])
+            ->withCanonical('/story/whole/' . $story['slug'])
+            ->withArticle($story['created_at'], $story['updated_at'])
+            ->withNoindex()
+            ->withCanonicalSuppressed();
+        $head = $this->applySyndication($head, $story); // the deindex state covers the whole surface too
+        $rendered = $this->view->render('story/whole', [
+            'title' => $wholeTitle,
+            'head' => $head,
+            'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'path' => $this->request->path,
+            'story' => $story,
+            'chapters' => array_values($chapters),
+        ]);
+        // noindex is unconditional, so the X-Robots-Tag belt rides every render.
+        return (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex');
+    }
+
     #[AuthAttr] #[Post]
     public function mark(string $slug): Response
     {

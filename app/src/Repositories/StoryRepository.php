@@ -67,6 +67,61 @@ final class StoryRepository
         );
     }
 
+    /** ONE query for the whole-work reading view: findStoryBySlug's fold
+     *  verbatim except that the chapter TOC blob is swapped for a
+     *  content-carrying blob (position, title, prose, word_count per validated
+     *  chapter; the derived table alias carries the ORDER BY, the Task 1
+     *  lesson). The WHERE and the bind list are therefore findStoryBySlug's
+     *  unchanged: validated + not-deleted + the CAST'd restricted gate, with
+     *  the four viewer subqueries ahead of the slug. Memory stance: a very
+     *  long work arrives as one string by design (the read IS the whole work)
+     *  and the view is never static-cached (size), so the cost is bounded by
+     *  the story itself.
+     *  @return array<string,mixed>|null */
+    public function wholeWork(string $slug, int $me = 0): ?array
+    {
+        if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
+        return $this->db->one(
+            'SELECT s.*, u.penname, u.profile_slug, r.label AS rating_label, r.is_adult, r.warning_text,
+                    (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count,
+                    (SELECT COUNT(*) FROM favorites f WHERE f.story_id = s.id) AS favorite_count,
+                    (SELECT COUNT(*) FROM story_kudos k2 WHERE k2.story_id = s.id AND k2.user_id = ?) AS kudos_by_me,
+                    (SELECT COUNT(*) FROM favorites f2 WHERE f2.story_id = s.id AND f2.user_id = ?) AS favorite_by_me,
+                    (SELECT COUNT(*) FROM follows fo WHERE fo.author_id = s.author_id AND fo.follower_id = ?) AS following_author,
+                    (SELECT rh.marked_at FROM reading_history rh WHERE rh.story_id = s.id AND rh.user_id = ?) AS marked_at_me,
+                    (SELECT GROUP_CONCAT(c.name, ", ") FROM story_categories sc
+                     JOIN categories c ON c.id = sc.category_id
+                     WHERE sc.story_id = s.id) AS category_names,
+                    (SELECT json_group_array(json_object(\'position\', c.position, \'title\', c.title, \'content\', c.content, \'word_count\', c.word_count))
+                     FROM (SELECT * FROM chapters WHERE story_id = s.id AND validated = 1 ORDER BY position) c) AS chapters_blob,
+                    (SELECT json_group_array(json_object(\'id\', r.id, \'user_id\', r.user_id, \'penname\',
+                            (SELECT penname FROM users ru WHERE ru.id = r.user_id), \'guest_name\', r.guest_name,
+                            \'body\', r.body, \'rating\', r.rating, \'created_at\', r.created_at))
+                     FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL
+                           ORDER BY r.created_at DESC, r.id DESC LIMIT 50) r) AS reviews_blob,
+                    (SELECT json_group_array(json_object(\'root_id\', r2.parent_id, \'id\', r2.id, \'user_id\', r2.user_id, \'penname\',
+                            (SELECT penname FROM users ru2 WHERE ru2.id = r2.user_id), \'guest_name\', r2.guest_name,
+                            \'body\', r2.body, \'created_at\', r2.created_at))
+                     FROM (SELECT r2.* FROM reviews r2 WHERE r2.parent_id IN (
+                               SELECT r.id FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL
+                               ORDER BY r.created_at DESC, r.id DESC LIMIT 50)
+                           ORDER BY r2.created_at DESC, r2.id DESC LIMIT 200) r2) AS replies_blob,
+                    (SELECT COUNT(*) FROM reviews r3 WHERE r3.story_id = s.id AND r3.parent_id IS NULL) AS review_count,
+                    (SELECT su.support_url FROM users su WHERE su.id = s.author_id) AS support_url,
+                    (SELECT json_group_array(json_object(\'s\', ser.slug, \'t\', ser.title))
+                     FROM series_items si JOIN series ser ON ser.id = si.series_id
+                     WHERE si.story_id = s.id AND si.confirmed = 1) AS series_blob,
+                    (SELECT json_group_array(json_object(\'i\', cu.id, \'n\', cu.penname, \'p\', cu.profile_slug))
+                     FROM coauthors ca JOIN users cu ON cu.id = ca.user_id WHERE ca.story_id = s.id) AS coauthors_blob
+             FROM stories s
+             JOIN users u ON u.id = s.author_id
+             JOIN ratings r ON r.id = s.rating_id
+             WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
+               AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)',
+            [$me, $me, $me, $me, $slug, $me]
+        );
+    }
+
     /** ONE query for the reading page: story meta plus the target chapter
      *  pivoted via conditional aggregation, plus the validated-position list
      *  for prev/next (positions can be non-contiguous when a middle chapter

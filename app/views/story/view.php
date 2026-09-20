@@ -79,6 +79,10 @@
     <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>
   <?php endif; ?>
   <h2><?= \App\Lang::t('story.chapters') ?></h2>
+  <p class="chapter-meta">
+    <a href="/story/whole/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.whole_link') ?></a>
+    | <a href="/story/download/<?= $this->e($story['slug']) ?>/html"><?= \App\Lang::t('story.download_link') ?></a>
+  </p>
   <ol>
     <?php foreach ($chapters as $c): ?>
       <li>

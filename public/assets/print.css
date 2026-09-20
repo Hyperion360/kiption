@@ -1,0 +1,16 @@
+/* public/assets/print.css
+ * Print styles for the whole-work view (/story/whole/{slug}): that page IS
+ * the print view (the recorded ruling folded the separate print route into
+ * it). Loaded via <link media="print"> so screen rendering never touches it;
+ * the affordance is the browser print command, no JavaScript anywhere.
+ */
+@media print {
+  /* Site chrome and engagement controls never reach paper. */
+  .site-head, .site-foot, .theme-toggle, .engagement-bar, .chapter-nav, .print-hint { display: none; }
+  /* Paper fidelity: black on white, full width, no screen typography. */
+  body { background: #fff; color: #000; }
+  .site-main { max-width: none; padding: 0; }
+  .prose { max-width: none; font-size: 12pt; line-height: 1.5; }
+  a { color: inherit; text-decoration: none; }
+  .whole-toc { break-after: page; }
+}

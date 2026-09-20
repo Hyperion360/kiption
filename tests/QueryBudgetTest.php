@@ -57,6 +57,9 @@ final class QueryBudgetTest extends TestCase
         return [['/'], ['/browse'], ['/browse/recent'], ['/browse/category/general'],
                 ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3'],
                 ['/story/read/after-hours/1'], // adult story, cookieless: the age-gate render is a page shape too
+                // The whole-work view rides the same one-query fold (finding 6:
+                // the seed story backs the row; no in-file probe needed).
+                ['/story/whole/the-rabbit-hole'],
                 ['/series/view/down-the-rabbit-hole'],
                 // The seeded about page: a real pages row so the budget row
                 // exercises the actual page render, not a 404.
