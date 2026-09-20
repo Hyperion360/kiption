@@ -22,31 +22,37 @@ final class AccountController
             "SELECT '0me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, u.support_url AS e,
                     (SELECT p.notify_favorite_digest FROM user_prefs p WHERE p.user_id = u.id) AS f,
                     u.bio AS g, CAST(u.is_beta AS TEXT) AS h,
-                    (SELECT p2.default_sort FROM user_prefs p2 WHERE p2.user_id = u.id) AS i
+                    (SELECT p2.default_sort FROM user_prefs p2 WHERE p2.user_id = u.id) AS i,
+                    COALESCE((SELECT p3.notify_review FROM user_prefs p3 WHERE p3.user_id = u.id), 1) AS j,
+                    COALESCE((SELECT p4.notify_response FROM user_prefs p4 WHERE p4.user_id = u.id), 1) AS l,
+                    COALESCE((SELECT p5.notify_favorites FROM user_prefs p5 WHERE p5.user_id = u.id), 1) AS m
              FROM users u WHERE u.id = ?
              UNION ALL
              SELECT '1follow', CAST(f.author_id AS TEXT), u2.penname, f.notify_mode,
-                     CAST((SELECT COUNT(*) FROM stories s WHERE s.author_id = f.author_id AND s.deleted_at IS NULL AND s.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL
+                     CAST((SELECT COUNT(*) FROM stories s WHERE s.author_id = f.author_id AND s.deleted_at IS NULL AND s.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM follows f JOIN users u2 ON u2.id = f.author_id WHERE f.follower_id = ?
              UNION ALL
              SELECT '2progress', s.slug, s.title, CAST(rh.last_position AS TEXT),
-                     CAST((SELECT COUNT(*) FROM chapters c WHERE c.story_id = s.id AND c.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL
+                     CAST((SELECT COUNT(*) FROM chapters c WHERE c.story_id = s.id AND c.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM reading_history rh JOIN stories s ON s.id = rh.story_id
              WHERE rh.user_id = ? AND rh.marked_at IS NULL AND s.deleted_at IS NULL
              UNION ALL
-             SELECT '3marked', s2.slug, s2.title, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+             SELECT '3marked', s2.slug, s2.title, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM reading_history rh2 JOIN stories s2 ON s2.id = rh2.story_id
              WHERE rh2.user_id = ? AND rh2.marked_at IS NOT NULL AND s2.deleted_at IS NULL
              UNION ALL
-             SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at, NULL, NULL, NULL, NULL
+             SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM stories s WHERE s.author_id = ? AND s.deleted_at IS NULL
              UNION ALL
              SELECT '5series' k, ser.slug a, ser.title b,
                     CAST((SELECT COUNT(*) FROM series_items si WHERE si.series_id = ser.id AND si.confirmed = 1) AS TEXT) c,
                     CAST((SELECT COUNT(*) FROM series_items si WHERE si.series_id = ser.id AND si.confirmed = 0) AS TEXT) d,
-                    ser.membership e, NULL f, NULL g, NULL h, NULL i
+                    ser.membership e, NULL f, NULL g, NULL h, NULL i, NULL j, NULL l, NULL m
              FROM series ser WHERE ser.owner_id = ?
              ORDER BY k, e LIMIT 250", [$userId, $userId, $userId, $userId, $userId, $userId]);
+        // New alias note: the notify toggles are j/l/m because k is already the
+        // branch discriminator; all three COALESCE to 1 so a prefs-less member
+        // fails safe ON, the same contract notifyRecipients enforces at send time.
         $me = null;
         $stories = [];
         $seriesList = [];

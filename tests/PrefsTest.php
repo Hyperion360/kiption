@@ -119,4 +119,22 @@ final class PrefsTest extends TestCase
         $this->assertStringContainsString('left kudos', $inbox);
         $this->assertStringNotContainsString('reviewed', $inbox);
     }
+
+    public function test_prefs_form_reflects_saved_notify_toggle_state(): void
+    {
+        $me = $this->client($this->memberId());
+        // before any save there is no prefs row: the toggles fail-safe ON (COALESCE)
+        $before = $me->get('/account')->body;
+        $this->assertStringContainsString('name="notify_review" value="1" checked', $before);
+        $this->assertStringContainsString('name="notify_response" value="1" checked', $before);
+        $this->assertStringContainsString('name="notify_favorites" value="1" checked', $before);
+        $me->postWithToken('/account/prefs', ['bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+            'notify_review' => '0', 'notify_response' => '0', 'notify_favorites' => '0', 'notify_favorite_digest' => '']);
+        $after = $me->get('/account')->body;
+        // the three inputs render without the checked attribute
+        foreach (['notify_review', 'notify_response', 'notify_favorites'] as $field) {
+            $this->assertStringContainsString('<input type="checkbox" name="' . $field . '" value="1">', $after);
+            $this->assertStringNotContainsString('name="' . $field . '" value="1" checked', $after);
+        }
+    }
 }
