@@ -166,7 +166,9 @@ final class SeriesRepository
         return true;
     }
 
-    /** Swap an item with its nearest lower/higher neighbour. Owner or admin. */
+    /** Swap an item with its nearest lower/higher neighbour. Owner or admin.
+     *  The sentinel restore is keyed on position AND series (the list-swap
+     *  form: the sentinel lives on position, never on id). */
     public function move(string $seriesSlug, int $itemId, string $dir, int $actorId, bool $isAdmin): void
     {
         $ser = $this->own($seriesSlug, $actorId, $isAdmin);
@@ -183,7 +185,7 @@ final class SeriesRepository
         try {
             $this->db->query('UPDATE series_items SET position = -1 WHERE id = ?', [$item['id']]);
             $this->db->query('UPDATE series_items SET position = ? WHERE id = ?', [$item['position'], $neighbour['id']]);
-            $this->db->query('UPDATE series_items SET position = ? WHERE id = -1', [$neighbour['position']]);
+            $this->db->query('UPDATE series_items SET position = ? WHERE series_id = ? AND position = -1', [$neighbour['position'], $ser['id']]);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
     }

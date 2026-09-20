@@ -107,6 +107,22 @@ final class SeriesRepositoryTest extends TestCase
         $this->assertSame(1, $adminView['series']['is_admin']);
     }
 
+    public function test_move_down_swaps_one_slot(): void
+    {
+        $slug = $this->repo->create($this->ownerId, 'Downhill', '', 'open');
+        $this->repo->addItem($slug, 'the-rabbit-hole', $this->ownerId, false);
+        $this->repo->addItem($slug, 'other-tale', $this->authorId, false);
+        $items = $this->repo->seriesPage($slug, $this->ownerId)['items'];
+        $this->repo->move($slug, (int) $items[0]['item_id'], 'down', $this->ownerId, false);
+        // one slot down, not a jump to the front
+        $moved = $this->repo->seriesPage($slug, $this->ownerId)['items'];
+        $this->assertSame('other-tale', $moved[0]['slug']);
+        $this->assertSame('the-rabbit-hole', $moved[1]['slug']);
+        // positions swap cleanly and neither item strands on the sentinel
+        $rows = $this->db->all('SELECT position FROM series_items WHERE series_id = (SELECT id FROM series WHERE slug = ?) ORDER BY position', [$slug]);
+        $this->assertSame([1, 2], array_map(fn (array $r): int => (int) $r['position'], $rows));
+    }
+
     public function test_remove_move_confirm(): void
     {
         $slug = $this->repo->create($this->ownerId, 'Ordered', '', 'open');
