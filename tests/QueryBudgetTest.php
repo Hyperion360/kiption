@@ -39,11 +39,14 @@ final class QueryBudgetTest extends TestCase
     /** @dataProvider pages */
     public function test_every_page_stays_inside_the_one_query_budget(string $page): void
     {
+        [$path, $query] = array_pad(explode('?', $page, 2), 2, '');
+        $get = [];
+        if ($query !== '') parse_str($query, $get);
         $app = new App($this->config());
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function () use (&$queries): void { $queries++; });
-        $res = $app->handle(new Request('GET', $page, [], [], []));
+        $res = $app->handle(new Request('GET', $path, $get, [], []));
         $db->onQuery(fn () => null);
         $this->assertSame(200, $res->status, $page);
         $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
@@ -57,6 +60,10 @@ final class QueryBudgetTest extends TestCase
                 ['/series/view/down-the-rabbit-hole'],
                 ['/user/view/demo-author'], ['/user/stories/demo-author'], ['/user/favorites/demo-author'],
                 ['/browse/authors'], ['/browse/authors/b'],
+                // Query-string surfaces stay budget-1 shapes (one query each) but are
+                // cache-ineligible by the queryless rule: the static whitelist matches
+                // paths only, so ?beta=/?sort= variants always render live.
+                ['/browse/authors?beta=1'], ['/user/stories/demo-author?sort=alpha'],
                 ['/feed'], ['/rss']];
     }
 
@@ -65,6 +72,10 @@ final class QueryBudgetTest extends TestCase
         return [['/story/new'], ['/story/edit/the-rabbit-hole'],
                 ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2'],
                 ['/story/read/the-rabbit-hole/1'],
+                ['/series/new'], ['/series/edit/down-the-rabbit-hole'],
+                // The contact form targets the OTHER seeded member: the shared login
+                // here is demo-author, and self-contact 404s on GET (Task 8 ruling).
+                ['/user/contact/betafriend'],
                 ['/queue'], ['/notifications'], ['/favorites']];
     }
 
