@@ -32,6 +32,7 @@ final class HomeController
             'title' => 'Kiption',
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->kip->config('nav_file', ''),
             'path' => $this->request->path,
             'loggedIn' => $loggedIn,
             'csrf' => $loggedIn ? $this->session->csrfToken() : null,

@@ -63,6 +63,7 @@ final class StoryController
             'title' => $story['title'] . ' by ' . $story['penname'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'story' => $story,
             'chapters' => array_values($chapters),
@@ -109,6 +110,7 @@ final class StoryController
                 'title' => 'Content warning',
                 'head' => $this->head()->withTitle('Content warning')->withCanonical($this->request->path),
                 'theme' => \App\Theme::current($this->request),
+                'navFile' => (string) $this->app->config('nav_file', ''),
                 'path' => $this->request->path,
                 'story' => $story,
                 'returnTo' => '/story/read/' . $slug . '/' . $position,
@@ -132,6 +134,7 @@ final class StoryController
             'title' => 'Chapter ' . $position . ': ' . $chapterTitle . ' - ' . $story['title'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'story' => $story,
             'chapter' => [
@@ -274,6 +277,7 @@ final class StoryController
             'head' => $this->head()->withTitle($story === null ? 'New story' : 'Edit story')
                 ->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'story' => $story === null ? null : [
                 'slug' => (string) $editSlug, 'title' => $story['b'], 'summary' => $story['c'],

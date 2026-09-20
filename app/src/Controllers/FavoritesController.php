@@ -21,6 +21,7 @@ final class FavoritesController
             'title' => 'Your favorites',
             'head' => $this->head()->withTitle('Your favorites')->withCanonical('/favorites')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,
             'loggedIn' => true,

@@ -25,6 +25,7 @@ final class QueueController
             'title' => 'Validation queue',
             'head' => $this->head()->withTitle('Validation queue')->withCanonical('/queue')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,
             'csrf' => $this->session->csrfToken(),

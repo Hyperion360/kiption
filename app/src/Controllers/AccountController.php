@@ -78,6 +78,7 @@ final class AccountController
             'title' => 'Your account',
             'head' => $this->head()->withTitle('Your account')->withCanonical('/account')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'me' => $me,
             'stories' => $stories,

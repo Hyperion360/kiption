@@ -33,6 +33,9 @@
       <a href="/browse/recent">Recent</a>
       <a href="/auth/login">Log in</a>
       <?php if ($loggedIn ?? false): ?><a href="/notifications">Notifications</a><?php endif; ?>
+<?php foreach (\App\NavLinks::all($navFile ?? '') as $l): ?>
+    <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
+<?php endforeach; ?>
     </nav>
   </header>
   <main class="site-main"><?= $content ?></main>

@@ -94,6 +94,7 @@ final class CoauthorController
             'title' => 'Edit story',
             'head' => $this->head()->withTitle('Edit story')->withCanonical('/story/edit/' . $slug)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => '/story/edit/' . $slug,
             'story' => [
                 'slug' => $slug, 'title' => $story['b'], 'summary' => $story['c'],

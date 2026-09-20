@@ -26,6 +26,7 @@ final class BrowseController
             'title' => 'Browse',
             'head' => $this->head()->withTitle('Browse')->withCanonical('/browse'),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'categories' => $this->stories->categoriesWithCounts(),
             'language' => $language,
             'langStories' => $language === '' ? [] : $this->stories->storiesInLanguage($language),
@@ -47,6 +48,7 @@ final class BrowseController
                 ->withCanonical($this->request->path)
                 ->withJsonLd(['@context' => 'https://schema.org', '@type' => 'ItemList', 'itemListElement' => $items]),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'stories' => $stories,
             'page' => $page,
@@ -74,6 +76,7 @@ final class BrowseController
             'title' => 'Category: ' . $slug,
             'head' => $stories === [] ? $head->withNoindex() : $head,
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'stories' => $stories,
             'page' => $page,
@@ -113,6 +116,7 @@ final class BrowseController
             'title' => $label,
             'head' => $betaOnly ? $head->withNoindex() : $head, // faceted pages are not canonical content
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'members' => $members,
             'letter' => $letter,
             'beta' => $betaOnly,

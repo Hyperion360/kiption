@@ -19,6 +19,7 @@ final class NotificationsController
             'title' => 'Notifications',
             'head' => $this->head()->withTitle('Notifications')->withCanonical('/notifications')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,
             'csrf' => $this->session->csrfToken(),

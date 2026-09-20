@@ -79,6 +79,7 @@ final class ChapterController
             'head' => $this->head()->withTitle($position === null ? 'New chapter' : 'Edit chapter')
                 ->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'story' => $row,
             'position' => $position,

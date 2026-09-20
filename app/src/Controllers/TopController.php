@@ -25,6 +25,7 @@ final class TopController
             'title' => 'Top lists',
             'head' => $this->head()->withTitle('Top lists')->withCanonical('/top'),
             'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'sections' => $this->toplists->hub(),
         ]);
     }
