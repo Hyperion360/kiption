@@ -12,6 +12,7 @@ return [
     'base_url' => getenv('KIP_BASE_URL') ?: 'http://localhost:8080',   // absolute links in emails
     'mail'     => ['transport' => 'log', 'log_path' => __DIR__ . '/app/mail.log', 'from' => 'noreply@localhost'],
     'site_name' => 'Kiption',
+    'ui_lang' => getenv('KIP_UI_LANG') ?: 'en', // UI language pack (App\Lang, app/lang/{code}.php); KIP_UI_LANG overrides
     'og_image' => '',   // absolute or root-relative path; renders og:image/twitter cards when set
     'feeds_full_text' => (bool) getenv('KIP_FEEDS_FULL_TEXT') ?: false, // Atom entries carry the first chapter in <content type="html">
     'ai_crawlers' => getenv('KIP_AI_CRAWLERS') === false || (bool) getenv('KIP_AI_CRAWLERS'), // robots.txt stance; KIP_AI_CRAWLERS=0 disallows GPTBot & co

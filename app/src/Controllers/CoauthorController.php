@@ -93,8 +93,8 @@ final class CoauthorController
         $chapters = ($story['h'] ?? null) !== null && $story['h'] !== '[]' ? json_decode((string) $story['h'], true) ?: [] : [];
         usort($chapters, static fn(array $x, array $y): int => (int) $x['position'] <=> (int) $y['position']);
         return $this->view->render('story/form', [
-            'title' => 'Edit story',
-            'head' => $this->head()->withTitle('Edit story')->withCanonical('/story/edit/' . $slug)->withNoindex(),
+            'title' => \App\Lang::t('story.edit_heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('story.edit_heading'))->withCanonical('/story/edit/' . $slug)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => '/story/edit/' . $slug,

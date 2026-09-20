@@ -30,9 +30,9 @@ final class SearchController
         [$perPage, $offset] = $this->paginate();
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me);
-        $head = $this->head()->withTitle('Search')->withCanonical('/search')->withNoindex();
+        $head = $this->head()->withTitle(\App\Lang::t('search.heading'))->withCanonical('/search')->withNoindex();
         $out = $this->view->render('search/index', [
-            'title' => 'Search', 'head' => $head, 'theme' => \App\Theme::current($this->request),
+            'title' => \App\Lang::t('search.heading'), 'head' => $head, 'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'q' => $q, 'filters' => $filters, 'result' => $result,
             'ratings' => $result['ratings'], 'categories' => $result['categories'],

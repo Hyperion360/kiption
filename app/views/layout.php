@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= $this->e(isset($head) && $head !== null ? $head->title() : ($title ?? 'Kiption')) ?></title>
+  <title><?= $this->e(isset($head) && $head !== null ? $head->title() : ($title ?? \App\Lang::t('nav.brand'))) ?></title>
   <?php if (isset($head) && $head !== null): ?>
   <?php foreach ($head->metaTags() as $t): ?>
   <meta name="<?= $this->e($t['name']) ?>" content="<?= $this->e($t['content']) ?>">
@@ -22,33 +22,33 @@
   <?php else: ?>
   <link rel="canonical" href="/">
   <?php endif; ?>
-  <link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? 'Feed') ?>" href="/feed">
+  <link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? \App\Lang::t('common.feed_title')) ?>" href="/feed">
   <link rel="stylesheet" href="/assets/reader.css">
 </head>
 <body>
   <header class="site-head">
-    <nav class="site-nav" aria-label="Site">
-      <a class="brand" href="/">Kiption</a>
-      <a href="/browse">Browse</a>
-      <a href="/browse/recent">Recent</a>
-      <a href="/auth/login">Log in</a>
-      <?php if ($loggedIn ?? false): ?><a href="/notifications">Notifications</a><?php endif; ?>
+    <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
+      <a class="brand" href="/"><?= \App\Lang::t('nav.brand') ?></a>
+      <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
+      <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
+      <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>
+      <?php if ($loggedIn ?? false): ?><a href="/notifications"><?= \App\Lang::t('nav.notifications') ?></a><?php endif; ?>
 <?php foreach (\App\NavLinks::all($navFile ?? '') as $l): ?>
     <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
 <?php endforeach; ?>
     <?php if ($isAdmin ?? false): ?>
-    <a href="/admin">Admin</a>
-    <a href="/queue">Queue</a>
-    <a href="/news/new">Post news</a>
+    <a href="/admin"><?= \App\Lang::t('nav.admin') ?></a>
+    <a href="/queue"><?= \App\Lang::t('nav.queue') ?></a>
+    <a href="/news/new"><?= \App\Lang::t('nav.post_news') ?></a>
     <?php endif; ?>
     </nav>
   </header>
   <main class="site-main"><?= $content ?></main>
   <footer class="site-foot">
-    Powered by Kiption
-    <span class="theme-toggle">Theme:
-      <a href="/theme/dark?return_to=<?= $this->e($path ?? '/') ?>">dark</a> |
-      <a href="/theme/light?return_to=<?= $this->e($path ?? '/') ?>">light</a>
+    <?= \App\Lang::t('footer.powered_by') ?>
+    <span class="theme-toggle"><?= \App\Lang::t('footer.theme') ?>
+      <a href="/theme/dark?return_to=<?= $this->e($path ?? '/') ?>"><?= \App\Lang::t('theme.dark') ?></a> |
+      <a href="/theme/light?return_to=<?= $this->e($path ?? '/') ?>"><?= \App\Lang::t('theme.light') ?></a>
     </span>
   </footer>
 </body>

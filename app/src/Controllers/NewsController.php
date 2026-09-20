@@ -21,9 +21,9 @@ final class NewsController
         [$perPage, $offset] = $this->paginate();
         [$items, $page] = [(new NewsRepository($this->db))->listing($perPage, $offset), $this->page()];
         return $this->view->render('news/index', [
-            'title' => 'News',
-            'head' => $this->head()->withTitle('News')->withCanonical('/news')
-                ->withDescription('Archive announcements and site news.'),
+            'title' => \App\Lang::t('news.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('news.heading'))->withCanonical('/news')
+                ->withDescription(\App\Lang::t('news.meta_description')),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
@@ -155,7 +155,7 @@ final class NewsController
      *  update (the PageController form idiom). */
     private function form(?array $row, ?string $error = null): string
     {
-        $title = $row === null ? 'New post' : 'Edit post';
+        $title = $row === null ? \App\Lang::t('news.new_post') : \App\Lang::t('news.edit_post');
         return $this->view->render('news/form', [
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),

@@ -73,7 +73,7 @@ final class Head
     public function description(): string
     {
         $d = trim((string) $this->descriptionText);
-        if ($d === '') return 'A self-hosted fiction archive.';
+        if ($d === '') return \App\Lang::t('site.meta_description');
         // The budget is 160 characters, never bytes: a byte cut splits multibyte
         // sequences, ships invalid UTF-8, and htmlspecialchars then blanks the
         // whole content attribute. PCRE /u counts characters and cannot split one.

@@ -44,7 +44,7 @@ final class HomeController
                 ],
             ]);
         return $this->view->render('home/index', [
-            'title' => 'Kiption',
+            'title' => \App\Lang::t('nav.brand'),
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->kip->config('nav_file', ''),

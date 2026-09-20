@@ -28,7 +28,7 @@ final class AuthController
 
     public function login(): string
     {
-        return $this->view->render('auth/login', ['title' => 'Log in', 'head' => $this->head()->withTitle('Log in')->withCanonical('/auth/login')->withNoindex(),
+        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'head' => $this->head()->withTitle(\App\Lang::t('auth.login.heading'))->withCanonical('/auth/login')->withNoindex(),
             'csrf' => $this->session->csrfToken(), 'error' => null,
             'verified' => isset($this->request->get['verified'])]);
     }
@@ -40,7 +40,7 @@ final class AuthController
         $password = $this->request->postStr('password');
         if ($this->auth->throttled($email, $this->request->ip)) {
             return new Response(
-                $this->view->render('auth/login', ['title' => 'Log in', 'csrf' => $this->session->csrfToken(),
+                $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                     'error' => 'Too many attempts, try again in 15 minutes.']),
                 429
             );
@@ -52,23 +52,23 @@ final class AuthController
             if ($user !== null) {
                 if ((int) $user['is_locked'] === 1) {
                     $this->auth->logout();
-                    return $this->view->render('auth/login', ['title' => 'Log in', 'csrf' => $this->session->csrfToken(),
+                    return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'error' => 'This account is locked.']);
                 }
                 if ($user['email_verified_at'] === null) {
                     $this->auth->logout();
-                    return $this->view->render('auth/login', ['title' => 'Log in', 'csrf' => $this->session->csrfToken(),
+                    return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'error' => 'Please verify your email first (check the link we sent).']);
                 }
                 if ($user['approved_at'] === null) {
                     $this->auth->logout();
-                    return $this->view->render('auth/login', ['title' => 'Log in', 'csrf' => $this->session->csrfToken(),
+                    return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'error' => 'Your account is awaiting approval.']);
                 }
             }
             return Response::redirect('/');
         }
-        return $this->view->render('auth/login', ['title' => 'Log in', 'csrf' => $this->session->csrfToken(), 'error' => 'Wrong email or password']);
+        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'error' => 'Wrong email or password']);
     }
 
     /** eFiction imports carry unsalted md5 hashes: on the first successful
@@ -98,8 +98,8 @@ final class AuthController
     public function register(): string
     {
         return $this->view->render('auth/register', [
-            'title' => 'Register',
-            'head' => $this->head()->withTitle('Register')->withCanonical('/auth/register')->withNoindex(),
+            'title' => \App\Lang::t('auth.register.title'),
+            'head' => $this->head()->withTitle(\App\Lang::t('auth.register.title'))->withCanonical('/auth/register')->withNoindex(),
             'csrf' => $this->session->csrfToken(),
             'error' => null,
             'mode' => (string) $this->app->config('registration_mode', 'verify'),
@@ -151,8 +151,8 @@ final class AuthController
     private function registerError(string $mode, string $error, string $penname, string $email): Response
     {
         return new Response($this->view->render('auth/register', [
-            'title' => 'Register',
-            'head' => $this->head()->withTitle('Register')->withCanonical('/auth/register')->withNoindex(),
+            'title' => \App\Lang::t('auth.register.title'),
+            'head' => $this->head()->withTitle(\App\Lang::t('auth.register.title'))->withCanonical('/auth/register')->withNoindex(),
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
             'mode' => $mode,
@@ -169,8 +169,8 @@ final class AuthController
 
     public function forgot(): string
     {
-        return $this->view->render('auth/forgot', ['title' => 'Reset password',
-            'head' => $this->head()->withTitle('Reset password')->withCanonical('/auth/forgot')->withNoindex(), 'sent' => false]);
+        return $this->view->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'),
+            'head' => $this->head()->withTitle(\App\Lang::t('auth.forgot.title'))->withCanonical('/auth/forgot')->withNoindex(), 'sent' => false]);
     }
 
     #[Post]
@@ -192,7 +192,7 @@ final class AuthController
             }
         }
         // Same page whether the account exists or not, no enumeration.
-        return $this->view->render('auth/forgot', ['title' => 'Reset password', 'sent' => true]);
+        return $this->view->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'), 'sent' => true]);
     }
 
     public function reset(string $token): string
@@ -216,8 +216,8 @@ final class AuthController
 
     private function resetView(string $token, ?string $error): string
     {
-        return $this->view->render('auth/reset', ['title' => 'Choose a new password',
-            'head' => $this->head()->withTitle('Choose a new password')->withCanonical($this->request->path)->withNoindex(),
+        return $this->view->render('auth/reset', ['title' => \App\Lang::t('auth.reset.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('auth.reset.heading'))->withCanonical($this->request->path)->withNoindex(),
             'token' => $token, 'error' => $error]);
     }
 }

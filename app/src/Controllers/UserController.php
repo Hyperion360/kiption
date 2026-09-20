@@ -23,7 +23,7 @@ final class UserController
         if ($profile === null) return new Response('Page not found', 404);
         $site = (string) $this->app->config('site_name', 'Kiption');
         $head = $this->head()->withTitle($profile['penname'])
-            ->withDescription(($profile['bio'] ?? '') !== '' ? (string) $profile['bio'] : 'Stories by ' . $profile['penname'] . ' on ' . $site . '.')
+            ->withDescription(($profile['bio'] ?? '') !== '' ? (string) $profile['bio'] : \App\Lang::t('user.meta_stories_by', ['name' => $profile['penname'], 'site' => $site]))
             ->withCanonical('/user/view/' . $slug);
         // Person JSON-LD url is absolute: Head.php's own rule, the series ruling
         $head = $head->withJsonLd(['@context' => 'https://schema.org', '@type' => 'Person',
@@ -52,7 +52,7 @@ final class UserController
         $sort = ($this->request->get['sort'] ?? '') === 'alpha' ? 'alpha' : 'recent';
         $tab = $this->users->storiesTab($slug, $sort, $perPage, $offset);
         if ($tab === null) return new Response('Page not found', 404);
-        return $this->renderTab($slug, $tab, 'Stories by ', '/user/stories/' . $slug);
+        return $this->renderTab($slug, $tab, \App\Lang::t('user.stories_by'), '/user/stories/' . $slug);
     }
 
     public function favorites(string $slug): Response|string
@@ -60,7 +60,7 @@ final class UserController
         [$perPage, $offset] = $this->paginate();
         $tab = $this->users->favoritesTab($slug, $perPage, $offset);
         if ($tab === null) return new Response('Page not found', 404);
-        return $this->renderTab($slug, $tab, 'Favorites of ', '/user/favorites/' . $slug);
+        return $this->renderTab($slug, $tab, \App\Lang::t('user.favorites_of'), '/user/favorites/' . $slug);
     }
 
     /** Both verbs share the /user/contact/{slug} action name (the router derives
@@ -126,9 +126,10 @@ final class UserController
      *  mail transport's business, never rendered. */
     private function renderContactForm(string $slug, array $target, ?string $error, bool $sent): string
     {
+        $contactTitle = \App\Lang::t('user.contact_heading', ['name' => $target['penname']]);
         return $this->view->render('user/contact', [
-            'title' => 'Contact ' . $target['penname'],
-            'head' => $this->head()->withTitle('Contact ' . $target['penname'])->withNoindex(),
+            'title' => $contactTitle,
+            'head' => $this->head()->withTitle($contactTitle)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
@@ -148,7 +149,7 @@ final class UserController
         $profile = $tab['profile'];
         $title = $prefix . $profile['penname'];
         $head = $this->head()->withTitle($title)
-            ->withDescription($title . ' on ' . (string) $this->app->config('site_name', 'Kiption') . '.')
+            ->withDescription(\App\Lang::t('user.listing_meta', ['title' => $title, 'site' => (string) $this->app->config('site_name', 'Kiption')]))
             ->withCanonical($baseUrl);
         $data = [
             'title' => $title,

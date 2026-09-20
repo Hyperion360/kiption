@@ -143,7 +143,7 @@ final class PageController
      *  update, and renders the slug read-only (immutable after create). */
     private function form(?array $row, ?string $error = null): string
     {
-        $title = $row === null ? 'New page' : 'Edit page';
+        $title = $row === null ? \App\Lang::t('page.new') : \App\Lang::t('page.edit');
         return $this->view->render('page/form', [
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),

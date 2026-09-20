@@ -1,6 +1,6 @@
 <?php // app/views/top/index.php ?>
 <?php $this->layout('layout'); ?>
-<h1>Top lists</h1>
+<h1><?= \App\Lang::t('top.heading') ?></h1>
 <?php
 // Four sections in a fixed order. Rows arrive rank-ordered per section (the
 // fold's ORDER BY k, rank); rank renumbers gated survivors contiguously, so
@@ -9,60 +9,60 @@
 // ratings yet" its only empty state.
 ?>
 <section>
-  <h2>Most favorited</h2>
+  <h2><?= \App\Lang::t('top.favorited') ?></h2>
 <?php if ($sections['favorites'] === []): ?>
-  <p class="meta">No favorites yet.</p>
+  <p class="meta"><?= \App\Lang::t('top.no_favorites') ?></p>
 <?php else: ?>
   <ol>
 <?php foreach ($sections['favorites'] as $row): ?>
     <li><a href="/story/view/<?= $this->e($row['slug']) ?>"><?= $this->e($row['title']) ?></a>
-      by <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
-      <span class="meta"><?= (int) $row['count'] ?> favorites</span></li>
+      <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
+      <span class="meta"><?= \App\Lang::t('top.favorites_count', ['n' => (int) $row['count']]) ?></span></li>
 <?php endforeach; ?>
   </ol>
 <?php endif; ?>
 </section>
 
 <section>
-  <h2>Most kudos</h2>
+  <h2><?= \App\Lang::t('top.kudos') ?></h2>
 <?php if ($sections['kudos'] === []): ?>
-  <p class="meta">No kudos yet.</p>
+  <p class="meta"><?= \App\Lang::t('top.no_kudos') ?></p>
 <?php else: ?>
   <ol>
 <?php foreach ($sections['kudos'] as $row): ?>
     <li><a href="/story/view/<?= $this->e($row['slug']) ?>"><?= $this->e($row['title']) ?></a>
-      by <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
-      <span class="meta"><?= (int) $row['count'] ?> kudos</span></li>
+      <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
+      <span class="meta"><?= \App\Lang::t('top.kudos_count', ['n' => (int) $row['count']]) ?></span></li>
 <?php endforeach; ?>
   </ol>
 <?php endif; ?>
 </section>
 
 <section>
-  <h2>Most reviewed</h2>
+  <h2><?= \App\Lang::t('top.reviewed') ?></h2>
 <?php if ($sections['reviews'] === []): ?>
-  <p class="meta">No reviews yet.</p>
+  <p class="meta"><?= \App\Lang::t('top.no_reviews') ?></p>
 <?php else: ?>
   <ol>
 <?php foreach ($sections['reviews'] as $row): ?>
     <li><a href="/story/view/<?= $this->e($row['slug']) ?>"><?= $this->e($row['title']) ?></a>
-      by <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
-      <span class="meta"><?= (int) $row['count'] ?> reviews</span></li>
+      <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
+      <span class="meta"><?= \App\Lang::t('top.reviews_count', ['n' => (int) $row['count']]) ?></span></li>
 <?php endforeach; ?>
   </ol>
 <?php endif; ?>
 </section>
 
 <section>
-  <h2>Top rated</h2>
+  <h2><?= \App\Lang::t('top.rated') ?></h2>
 <?php if ($sections['rated'] === []): ?>
-  <p class="meta">Not enough ratings yet</p>
+  <p class="meta"><?= \App\Lang::t('top.not_enough') ?></p>
 <?php else: ?>
   <ol>
 <?php foreach ($sections['rated'] as $row): ?>
     <li><a href="/story/view/<?= $this->e($row['slug']) ?>"><?= $this->e($row['title']) ?></a>
-      by <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
-      <span class="meta"><?= $this->e($row['average']) ?> average from <?= (int) $row['ratings'] ?> ratings</span></li>
+      <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($row['profile_slug']) ?>"><?= $this->e($row['penname']) ?></a>
+      <span class="meta"><?= \App\Lang::t('top.average_from', ['average' => $this->e($row['average']), 'n' => (int) $row['ratings']]) ?></span></li>
 <?php endforeach; ?>
   </ol>
 <?php endif; ?>

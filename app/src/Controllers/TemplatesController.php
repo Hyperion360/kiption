@@ -24,8 +24,8 @@ final class TemplatesController
         if (!$this->admin()) return new Response('Forbidden', 403);
         Templates::seedDefaults($this->db);
         return $this->view->render('templates/index', [
-            'title' => 'Mail templates',
-            'head' => $this->head()->withTitle('Mail templates')->withCanonical('/templates')->withNoindex(),
+            'title' => \App\Lang::t('templates.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('templates.heading'))->withCanonical('/templates')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'rows' => $this->db->all('SELECT name, subject FROM mail_templates ORDER BY name'),
@@ -78,8 +78,8 @@ final class TemplatesController
     private function form(string $name, string $subject, string $body, ?string $error): string
     {
         return $this->view->render('templates/form', [
-            'title' => 'Edit mail template',
-            'head' => $this->head()->withTitle('Edit mail template')->withCanonical($this->request->path)->withNoindex(),
+            'title' => \App\Lang::t('templates.edit_heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('templates.edit_heading'))->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'name' => $name, 'subject' => $subject, 'body' => $body, 'error' => $error,

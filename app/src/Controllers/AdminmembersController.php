@@ -41,8 +41,8 @@ final class AdminmembersController
              FROM users WHERE COALESCE(penname, '') LIKE ? ESCAPE '\\' ORDER BY penname COLLATE NOCASE, id LIMIT ? OFFSET ?",
             [$pattern, $perPage, $offset]);
         return $this->view->render('adminmembers/index', [
-            'title' => 'Members',
-            'head' => $this->head()->withTitle('Members')->withCanonical('/adminmembers')->withNoindex(),
+            'title' => \App\Lang::t('adminmembers.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('adminmembers.heading'))->withCanonical('/adminmembers')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,

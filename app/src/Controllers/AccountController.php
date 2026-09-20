@@ -75,8 +75,8 @@ final class AccountController
             usort($stories, static fn(array $x, array $y): int => strcasecmp((string) $x['b'], (string) $y['b']));
         }
         return $this->view->render('account/show', [
-            'title' => 'Your account',
-            'head' => $this->head()->withTitle('Your account')->withCanonical('/account')->withNoindex(),
+            'title' => \App\Lang::t('account.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('account.heading'))->withCanonical('/account')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,

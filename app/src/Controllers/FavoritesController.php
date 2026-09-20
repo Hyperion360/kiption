@@ -18,8 +18,8 @@ final class FavoritesController
     {
         $rows = (new EngagementRepository($this->db))->favoritesRows((int) $this->session->get('user_id'));
         return $this->view->render('favorites/index', [
-            'title' => 'Your favorites',
-            'head' => $this->head()->withTitle('Your favorites')->withCanonical('/favorites')->withNoindex(),
+            'title' => \App\Lang::t('favorites.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('favorites.heading'))->withCanonical('/favorites')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,

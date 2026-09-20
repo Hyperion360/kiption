@@ -1,13 +1,10 @@
 <?php // app/views/home/index.php ?>
 <?php $this->layout('layout'); ?>
-<h1>Kiption</h1>
-<p>
-  A self-hosted fiction archive. This instance is being set up; stories,
-  chapters, and the reading experience arrive with the next milestones.
-</p>
+<h1><?= \App\Lang::t('nav.brand') ?></h1>
+<p><?= \App\Lang::t('home.intro') ?></p>
 <?php if (($featured ?? []) !== []): ?>
 <section>
-  <h2>Featured</h2>
+  <h2><?= \App\Lang::t('home.featured') ?></h2>
   <ul>
 <?php foreach ($featured as $f): ?>
     <li>
@@ -21,6 +18,6 @@
 <?php if ($loggedIn): ?>
 <form method="post" action="/auth/logout">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-  <button>Log out</button>
+  <button><?= \App\Lang::t('nav.logout') ?></button>
 </form>
 <?php endif; ?>

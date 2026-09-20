@@ -1,11 +1,11 @@
 <?php $this->layout('layout'); ?>
-<h1>Log in</h1>
+<h1><?= \App\Lang::t('auth.login.heading') ?></h1>
 <?php if ($error): ?><p id="form-error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
-  <?php if (!empty($verified)): ?><p class="chapter-meta">Email verified, log in.</p><?php endif; ?>
+  <?php if (!empty($verified)): ?><p class="chapter-meta"><?= \App\Lang::t('auth.login.email_verified') ?></p><?php endif; ?>
 <form method="post" action="/auth/attempt">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-  <label>Email <input type="email" name="email" required autocomplete="email"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>
-  <label>Password <input type="password" name="password" required autocomplete="current-password"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>
-  <button>Log in</button>
+  <label><?= \App\Lang::t('auth.email') ?> <input type="email" name="email" required autocomplete="email"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>
+  <label><?= \App\Lang::t('auth.password') ?> <input type="password" name="password" required autocomplete="current-password"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>
+  <button><?= \App\Lang::t('auth.login.heading') ?></button>
 </form>
-<p><a href="/auth/forgot">Forgot your password?</a></p>
+<p><a href="/auth/forgot"><?= \App\Lang::t('auth.login.forgot') ?></a></p>

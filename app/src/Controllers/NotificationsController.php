@@ -16,8 +16,8 @@ final class NotificationsController
     {
         $rows = (new Notifications($this->db))->inboxRows((int) $this->session->get('user_id'));
         return $this->view->render('notifications/index', [
-            'title' => 'Notifications',
-            'head' => $this->head()->withTitle('Notifications')->withCanonical('/notifications')->withNoindex(),
+            'title' => \App\Lang::t('notifications.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('notifications.heading'))->withCanonical('/notifications')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,

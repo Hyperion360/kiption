@@ -75,8 +75,8 @@ final class ChapterController
         $row = $this->repo()->chapterFormData($slug, $position, $this->uid());
         if ($row === null) return new Response('Page not found', 404);
         return $this->view->render('chapter/form', [
-            'title' => $position === null ? 'New chapter' : 'Edit chapter',
-            'head' => $this->head()->withTitle($position === null ? 'New chapter' : 'Edit chapter')
+            'title' => $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'),
+            'head' => $this->head()->withTitle($position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'))
                 ->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),

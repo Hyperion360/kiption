@@ -23,8 +23,8 @@ final class BrowseController
             $language = '';
         }
         return $this->view->render('browse/index', [
-            'title' => 'Browse',
-            'head' => $this->head()->withTitle('Browse')->withCanonical('/browse'),
+            'title' => \App\Lang::t('browse.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('browse.heading'))->withCanonical('/browse'),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'categories' => $this->stories->categoriesWithCounts(),
@@ -43,8 +43,8 @@ final class BrowseController
             $items[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => '/story/view/' . $s['slug'], 'name' => $s['title']];
         }
         return $this->view->render('browse/recent', [
-            'title' => 'Recently updated',
-            'head' => $this->head()->withTitle('Recently updated')
+            'title' => \App\Lang::t('browse.recent_heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('browse.recent_heading'))
                 ->withCanonical($this->request->path)
                 ->withJsonLd(['@context' => 'https://schema.org', '@type' => 'ItemList', 'itemListElement' => $items]),
             'theme' => \App\Theme::current($this->request),
@@ -61,19 +61,20 @@ final class BrowseController
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
         $stories = $this->stories->storiesInCategory($slug, $perPage, $offset);
-        $head = $this->head()->withTitle('Category: ' . $slug)
+        $categoryTitle = \App\Lang::t('browse.category_title', ['name' => $slug]);
+        $head = $this->head()->withTitle($categoryTitle)
             ->withCanonical($this->request->path)
             ->withJsonLd([
                 '@context' => 'https://schema.org',
                 '@type' => 'BreadcrumbList',
                 'itemListElement' => [
-                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'Home', 'item' => '/'],
-                    ['@type' => 'ListItem', 'position' => 2, 'name' => 'Browse', 'item' => '/browse'],
-                    ['@type' => 'ListItem', 'position' => 3, 'name' => 'Category: ' . $slug, 'item' => '/browse/category/' . $slug],
+                    ['@type' => 'ListItem', 'position' => 1, 'name' => \App\Lang::t('nav.home'), 'item' => '/'],
+                    ['@type' => 'ListItem', 'position' => 2, 'name' => \App\Lang::t('browse.heading'), 'item' => '/browse'],
+                    ['@type' => 'ListItem', 'position' => 3, 'name' => $categoryTitle, 'item' => '/browse/category/' . $slug],
                 ],
             ]);
         $data = [
-            'title' => 'Category: ' . $slug,
+            'title' => $categoryTitle,
             'head' => $stories === [] ? $head->withNoindex() : $head,
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
@@ -110,11 +111,11 @@ final class BrowseController
         [$perPage, $offset] = $this->paginate();
         $members = $this->users->authorsDirectory($letter === '' ? null : $letter, $betaOnly, $perPage, $offset);
         $canonical = $letter === '' ? '/browse/authors' : '/browse/authors/' . $letter;
-        $label = $letter === '' ? 'Authors' : 'Authors: ' . strtoupper($letter);
+        $label = $letter === '' ? \App\Lang::t('browse.authors') : \App\Lang::t('browse.authors_letter', ['letter' => strtoupper($letter)]);
         $head = $this->head()->withTitle($label)->withCanonical($canonical)
             ->withDescription($betaOnly
-                ? 'Beta readers in the member directory.'
-                : 'All members of the archive, with story counts.');
+                ? \App\Lang::t('browse.meta_beta')
+                : \App\Lang::t('browse.meta_authors'));
         $data = [
             'title' => $label,
             'head' => $betaOnly ? $head->withNoindex() : $head, // faceted pages are not canonical content

@@ -33,8 +33,8 @@ final class ImagesController
             $files[] = ['name' => $name, 'human' => self::humanSize($bytes), 'inUse' => isset($inUse[$name])];
         }
         return $this->view->render('images/index', [
-            'title' => 'Image library',
-            'head' => $this->head()->withTitle('Image library')->withCanonical('/images')->withNoindex(),
+            'title' => \App\Lang::t('images.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('images.heading'))->withCanonical('/images')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,

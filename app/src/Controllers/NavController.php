@@ -139,7 +139,7 @@ final class NavController
      *  rides the same view. */
     private function form(?array $row, ?string $error = null): string
     {
-        $title = $row === null ? 'Nav links' : 'Edit nav link';
+        $title = $row === null ? \App\Lang::t('navlinks.heading') : \App\Lang::t('navlinks.edit_title');
         return $this->view->render('nav/form', [
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),

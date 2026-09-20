@@ -2,6 +2,7 @@
 <?php // bin/kip
 require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
+\App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // CLI renders too (pages:build); views render through the pack layer
 
 match ($argv[1] ?? 'help') {
     'migrate' => (function () use ($config) {

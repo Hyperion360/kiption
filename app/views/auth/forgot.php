@@ -1,10 +1,10 @@
 <?php $this->layout('layout'); ?>
-<h1>Reset your password</h1>
+<h1><?= \App\Lang::t('auth.forgot.heading') ?></h1>
 <?php if ($sent): ?>
-  <p>If that address has an account, a reset link is on its way. Check your email.</p>
+  <p><?= \App\Lang::t('auth.forgot.sent') ?></p>
 <?php else: ?>
   <form method="post" action="/auth/remind">
-    <label>Email <input type="email" name="email" required autocomplete="email"></label>
-    <button>Send reset link</button>
+    <label><?= \App\Lang::t('auth.email') ?> <input type="email" name="email" required autocomplete="email"></label>
+    <button><?= \App\Lang::t('auth.forgot.send') ?></button>
   </form>
 <?php endif; ?>

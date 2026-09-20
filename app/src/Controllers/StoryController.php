@@ -50,7 +50,7 @@ final class StoryController
         }
         unset($story['reviews_blob'], $story['replies_blob']);
         $head = $this->head()
-            ->withTitle($story['title'] . ' by ' . $story['penname'])
+            ->withTitle(\App\Lang::t('story.title_by', ['title' => $story['title'], 'name' => $story['penname']]))
             ->withDescription($story['meta_description'] ?? $story['summary'])
             ->withCanonical('/story/view/' . $story['slug'])
             ->withArticle($story['created_at'], $story['updated_at']);
@@ -61,7 +61,7 @@ final class StoryController
         }
         $head = $head->withJsonLd($this->bookJsonLd($head, $story, $hasPart));
         $rendered = $this->view->render('story/view', [
-            'title' => $story['title'] . ' by ' . $story['penname'],
+            'title' => \App\Lang::t('story.title_by', ['title' => $story['title'], 'name' => $story['penname']]),
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
@@ -111,11 +111,11 @@ final class StoryController
         if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
             return new Response('Page not found', 404);
         }
-        $chapterTitle = $story['ch_title'] !== '' && $story['ch_title'] !== null ? $story['ch_title'] : 'Chapter ' . $position;
+        $chapterTitle = $story['ch_title'] !== '' && $story['ch_title'] !== null ? $story['ch_title'] : \App\Lang::t('story.chapter_n', ['n' => $position]);
         if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
             return $this->view->render('story/gate', [
-                'title' => 'Content warning',
-                'head' => $this->head()->withTitle('Content warning')->withCanonical($this->request->path),
+                'title' => \App\Lang::t('story.gate_heading'),
+                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
                 'theme' => \App\Theme::current($this->request),
                 'navFile' => (string) $this->app->config('nav_file', ''),
                 'path' => $this->request->path,
@@ -129,8 +129,9 @@ final class StoryController
             if ($pn < $position) $prev = $pn;
             if ($next === null && $pn > $position) $next = $pn;
         }
+        $readTitle = \App\Lang::t('story.chapter_page_title', ['n' => $position, 'chapter' => $chapterTitle, 'story' => $story['title']]);
         $head = $this->head()
-            ->withTitle('Chapter ' . $position . ': ' . $chapterTitle . ' - ' . $story['title'])
+            ->withTitle($readTitle)
             ->withDescription($story['meta_description'] ?? $story['summary'])
             ->withCanonical('/story/read/' . $slug . '/' . $position)
             ->withArticle($story['created_at'], $story['updated_at']);
@@ -139,7 +140,7 @@ final class StoryController
             ['@type' => 'CreativeWork', 'position' => $position, 'name' => $chapterTitle],
         ]));
         $rendered = $this->view->render('story/read', [
-            'title' => 'Chapter ' . $position . ': ' . $chapterTitle . ' - ' . $story['title'],
+            'title' => $readTitle,
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
@@ -289,9 +290,10 @@ final class StoryController
             $chapters = json_decode((string) $story['h'], true) ?: [];
             usort($chapters, static fn(array $x, array $y): int => (int) $x['position'] <=> (int) $y['position']);
         }
+        $formTitle = $story === null ? \App\Lang::t('story.new_heading') : \App\Lang::t('story.edit_heading');
         return $this->view->render('story/form', [
-            'title' => $story === null ? 'New story' : 'Edit story',
-            'head' => $this->head()->withTitle($story === null ? 'New story' : 'Edit story')
+            'title' => $formTitle,
+            'head' => $this->head()->withTitle($formTitle)
                 ->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),

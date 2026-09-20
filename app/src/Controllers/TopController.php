@@ -22,8 +22,8 @@ final class TopController
     public function index(): string
     {
         return $this->view->render('top/index', [
-            'title' => 'Top lists',
-            'head' => $this->head()->withTitle('Top lists')->withCanonical('/top'),
+            'title' => \App\Lang::t('top.heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('top.heading'))->withCanonical('/top'),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
             'sections' => $this->toplists->hub(),

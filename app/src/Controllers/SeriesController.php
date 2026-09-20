@@ -25,7 +25,7 @@ final class SeriesController
         $isAdmin = $s['is_admin'] === 1;                  // (plan review findings 9+12: no
         $items = $page['items'];                          // Adminness call, no second query)
         $head = $this->head()->withTitle($s['title'])
-            ->withDescription($s['summary'] !== '' ? $s['summary'] : 'A series by ' . $s['owner_penname'] . '.')
+            ->withDescription($s['summary'] !== '' ? $s['summary'] : \App\Lang::t('series.meta_by', ['name' => $s['owner_penname']]))
             ->withCanonical('/series/view/' . $slug);
         $jsonLd = [];
         foreach ($items as $i => $it) {
@@ -101,7 +101,7 @@ final class SeriesController
     /** $row null renders the create form; the edit row prefills and targets update. */
     private function form(?array $row, ?string $error = null): string
     {
-        $title = $row === null ? 'New series' : 'Edit series';
+        $title = $row === null ? \App\Lang::t('series.new') : \App\Lang::t('series.edit');
         return $this->view->render('series/form', [
             'title' => $title, 'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
