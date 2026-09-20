@@ -38,9 +38,16 @@ final class AccountController
              UNION ALL
              SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at, NULL
              FROM stories s WHERE s.author_id = ? AND s.deleted_at IS NULL
-             ORDER BY k, e LIMIT 250", [$userId, $userId, $userId, $userId, $userId]);
+             UNION ALL
+             SELECT '5series' k, ser.slug a, ser.title b,
+                    CAST((SELECT COUNT(*) FROM series_items si WHERE si.series_id = ser.id AND si.confirmed = 1) AS TEXT) c,
+                    CAST((SELECT COUNT(*) FROM series_items si WHERE si.series_id = ser.id AND si.confirmed = 0) AS TEXT) d,
+                    ser.membership e, NULL f
+             FROM series ser WHERE ser.owner_id = ?
+             ORDER BY k, e LIMIT 250", [$userId, $userId, $userId, $userId, $userId, $userId]);
         $me = null;
         $stories = [];
+        $seriesList = [];
         $following = [];
         $progress = [];
         $marked = [];
@@ -49,6 +56,7 @@ final class AccountController
             elseif ($r['k'] === '1follow') { $following[] = $r; }
             elseif ($r['k'] === '2progress') { $progress[] = $r; }
             elseif ($r['k'] === '3marked') { $marked[] = $r; }
+            elseif ($r['k'] === '5series') { $seriesList[] = $r; }
             else { $stories[] = $r; }
         }
         return $this->view->render('account/show', [
@@ -58,6 +66,7 @@ final class AccountController
             'path' => $this->request->path,
             'me' => $me,
             'stories' => $stories,
+            'seriesList' => $seriesList,
             'following' => $following,
             'progress' => $progress,
             'marked' => $marked,

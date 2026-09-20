@@ -8,7 +8,7 @@
     | <?= $this->e($series['created_at']) ?>
   </p>
   <?php if ($series['summary'] !== ''): ?><p><?= $this->e($series['summary']) ?></p><?php endif; ?>
-  <?php if ($loggedIn && $isOwner): ?><p><a href="/series/edit/<?= $this->e($series['slug']) ?>">Edit series</a></p><?php endif; ?>
+  <?php if ($loggedIn && $isOwner): ?><p><a href="/series/edit/<?= $this->e($series['slug']) ?>">Edit series</a><span class="chapter-meta"> | membership: <?= $this->e($series['membership']) ?><?= $series['membership'] === 'moderated' ? ' (member submissions await your confirmation)' : '' ?></span></p><?php endif; ?>
   <ol>
     <?php foreach ($items as $it): ?>
       <li>

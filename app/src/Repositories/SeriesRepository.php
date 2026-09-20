@@ -24,6 +24,15 @@ final class SeriesRepository
         $this->db->query('UPDATE series SET title = ?, summary = ?, membership = ? WHERE id = ?', [$title, $summary, $membership, $row['id']]);
     }
 
+    /** The edit form's row (slug, title, summary, membership), gated through
+     *  own() like update(); own() itself returns only id + owner_id, and the
+     *  form needs the fields it prefills plus the POST target's slug. */
+    public function forEdit(string $slug, int $actorId, bool $isAdmin): array
+    {
+        $row = $this->own($slug, $actorId, $isAdmin);
+        return $this->db->one('SELECT slug, title, summary, membership FROM series WHERE id = ?', [$row['id']]);
+    }
+
     /** One query for EVERY viewer (guest, member, owner, admin): the series row
      *  (k='0') plus its item rows (k='1'), visibility-gated in SQL: confirmed
      *  AND (validated OR viewer is the story's author, the series owner, or

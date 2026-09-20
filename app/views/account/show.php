@@ -33,6 +33,19 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
+  <h2>Your series</h2>
+  <?php if ($seriesList === []): ?><p class="chapter-meta">None yet.</p>
+  <?php else: ?>
+  <ul>
+    <?php foreach ($seriesList as $s): ?>
+      <li>
+        <a href="/series/view/<?= $this->e($s['a']) ?>"><?= $this->e($s['b']) ?></a>
+        <span class="chapter-meta">(<?= (int) $s['c'] ?> works<?= (int) $s['d'] > 0 ? ', ' . (int) $s['d'] . ' pending' : '' ?>, <?= $this->e($s['e']) ?>)</span>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
+  <p><a href="/series/new">New series</a></p>
   <h2>Authors you follow</h2>
   <?php if ($following === []): ?><p class="chapter-meta">Nobody yet.</p>
   <?php else: ?>

@@ -165,4 +165,45 @@ final class SeriesTest extends TestCase
     {
         $this->assertSame(404, $this->client()->get('/series/view/nope')->status);
     }
+
+    public function test_create_edit_flow(): void
+    {
+        $owner = $this->client($this->authorId());
+        $res = $owner->postWithToken('/series/create',
+            ['title' => 'Night Works', 'summary' => 'Later things.', 'membership' => 'moderated']);
+        $this->assertSame(302, $res->status, $res->body);
+        $body = $owner->get('/series/view/night-works')->body;
+        $this->assertStringContainsString('Night Works', $body);
+        $this->assertStringContainsString('moderated', $body); // shown as pending-submission hint to owner
+        $res = $owner->postWithToken('/series/update/night-works',
+            ['title' => 'Night Works II', 'summary' => 'Later things.', 'membership' => 'closed']);
+        $this->assertSame(302, $res->status);
+        $this->assertStringContainsString('Night Works II', $owner->get('/series/view/night-works')->body);
+    }
+
+    public function test_create_validation(): void
+    {
+        $owner = $this->client($this->authorId());
+        $this->assertSame(422, $owner->postWithToken('/series/create', ['title' => '', 'summary' => '', 'membership' => 'open'])->status);
+        $this->assertSame(422, $owner->postWithToken('/series/create', ['title' => 'X' , 'summary' => '', 'membership' => 'sneaky'])->status);
+    }
+
+    public function test_edit_gate_is_owner_or_admin(): void
+    {
+        $member = $this->client($this->memberId());
+        $this->assertSame(404, $member->get('/series/edit/down-the-rabbit-hole')->status);
+    }
+
+    public function test_account_lists_your_series_with_pending_counts(): void
+    {
+        $body = $this->client($this->authorId())->get('/account')->body;
+        $this->assertStringContainsString('Your series', $body);
+        $this->assertStringContainsString('down-the-rabbit-hole', $body);
+    }
+
+    public function test_series_forms_require_auth(): void
+    {
+        $this->assertSame(302, $this->client()->get('/series/new')->status); // auth redirect
+        $this->assertSame(403, $this->client()->post('/series/create', ['title' => 'Nope', 'summary' => '', 'membership' => 'open'])->status); // CSRF before auth: tokenless POST is 403
+    }
 }
