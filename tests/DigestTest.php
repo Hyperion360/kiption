@@ -74,8 +74,7 @@ final class DigestTest extends TestCase
         $this->assertNotNull($row['digest_sent_at']);
     }
 
-    public function test_digest_marker_format_suppresses_remail(): void
-    {
+    public function test_digest_marker_format_suppresses_remail(): void    {
         $this->client($this->fanId)->postWithToken('/follow/author/1');
         $this->client($this->fanId)->postWithToken('/follow/mode/1'); // email
         $this->client($this->fanId)->postWithToken('/follow/mode/1'); // digest
@@ -91,5 +90,17 @@ final class DigestTest extends TestCase
         // run's string comparison filters the already-batched rows exactly.
         $this->assertSame(0, $digest->send());
         $this->assertSame($mail, (string) file_get_contents($this->mailLog));
+    }
+
+    public function test_prefs_toggle_creates_the_row_for_prefs_less_members(): void
+    {
+        // Seeder-era and user:create members carry no user_prefs row; a plain
+        // UPDATE would silently drop their digest opt-in (form says saved, DB says nothing).
+        $this->db->query('DELETE FROM user_prefs WHERE user_id = ?', [$this->fanId]);
+        $res = $this->client($this->fanId)->postWithToken('/account/prefs', ['notify_favorite_digest' => '1']);
+        $this->assertSame(302, $res->status, $res->body);
+        $row = $this->db->one('SELECT notify_favorite_digest FROM user_prefs WHERE user_id = ?', [$this->fanId]);
+        $this->assertNotNull($row, 'the toggle must create the prefs row, not just update it');
+        $this->assertSame(1, (int) $row['notify_favorite_digest']);
     }
 }

@@ -105,10 +105,13 @@ final class AccountController
     #[AuthAttr] #[Post]
     public function prefs(): Response
     {
-        // One UPDATE: prefs-less users no-op here (register() seeds the row; acceptable).
+        // Upsert: seeder-era and user:create members carry no user_prefs row, and a
+        // plain UPDATE would silently drop their choice (the form says saved either way).
         $on = isset($this->request->post['notify_favorite_digest']) ? 1 : 0;
-        $this->db->query('UPDATE user_prefs SET notify_favorite_digest = ? WHERE user_id = ?',
-            [$on, (int) $this->session->get('user_id')]);
+        $this->db->query(
+            'INSERT INTO user_prefs (user_id, notify_favorite_digest) VALUES (?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET notify_favorite_digest = excluded.notify_favorite_digest',
+            [(int) $this->session->get('user_id'), $on]);
         return Response::redirect('/account');
     }
 
