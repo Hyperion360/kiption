@@ -73,6 +73,28 @@ Atom feed is at `/feed` with an RSS2 alias at `/rss` (autodiscovery is
 built in). Empty category listings are `noindex` and never cached. Crawlers
 are kept off faceted query-string permutations via `robots.txt`.
 
+## Search and toplists
+
+`/search` runs full-text search across story titles, summaries, and chapter
+text, powered by SQLite FTS5 (porter stemming) whose sync triggers keep the
+index current on every story and chapter write; the migration backfill indexes
+existing content once. On builds whose SQLite lacks FTS5 (common on shared
+hosting) the migration completes as a no-op and search automatically falls
+back to an escaped LIKE query with the same gates and filters: category,
+rating, completed only, and language, ranked by relevance (recency in the
+fallback), paginated. Restricted works appear for members only; unvalidated
+and deleted works never appear. The query is sanitized (tokens quoted, capped
+at eight; `%` and `_` escaped in the fallback), and the surface renders
+`noindex` plus an `X-Robots-Tag` header since query permutations are not
+canonical content. The home page's `SearchAction` JSON-LD now has a resolving
+target at `/search?q=`.
+
+`/top` lists the archive leaders on one page: most favorited, most kudos,
+most reviewed (root reviews only), and top rated (three ratings minimum,
+showing the average and count). It renders from a single query, fills the
+anonymous static cache like the other whitelisted pages, and every
+engagement write (kudos, favorites, reviews) purges it automatically.
+
 ## Accounts and writing
 
 Registration supports four modes (`registration_mode` in `config.php`):
