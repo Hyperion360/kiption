@@ -71,13 +71,16 @@ final class StoryRepository
      *  pivoted via conditional aggregation, plus the validated-position list
      *  for prev/next (positions can be non-contiguous when a middle chapter
      *  is unvalidated). ch_title NULL means the chapter does not exist.
-     *  Same restricted gate as findStoryBySlug (CAST is load-bearing).
+     *  Same restricted gate as findStoryBySlug (CAST is load-bearing). The
+     *  syndication pair rides along so chapter reads apply the SAME Head
+     *  branch as the story view (the deindex must cover both surfaces).
      *  @return array<string,mixed>|null */
     public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
         return $this->db->one(
             'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.created_at, s.updated_at, s.word_count,
+                    s.canonical_url, s.crosspost_url,
                     u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
                     MAX(CASE WHEN ch.position = ? THEN ch.title END) AS ch_title,
                     MAX(CASE WHEN ch.position = ? THEN ch.notes_before END) AS ch_notes_before,

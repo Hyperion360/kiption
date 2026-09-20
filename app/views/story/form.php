@@ -28,6 +28,11 @@
     </fieldset>
     <label class="inline"><input type="checkbox" name="completed" value="1" <?= $story !== null && (int) $story['completed'] === 1 ? 'checked' : '' ?>> Completed</label>
     <label class="inline"><input type="checkbox" name="restricted" value="1" <?= $story !== null && (int) $story['restricted'] === 1 ? 'checked' : '' ?>> Registered readers only</label>
+    <?php if ($story !== null): ?>
+    <label>Canonical URL (must start with http:// or https://; when this archive mirrors a story whose original lives elsewhere) <input name="canonical_url" maxlength="200" value="<?= $this->e($story['canonical_url'] ?? '') ?>"></label>
+    <label>Cross-posted from (must start with http:// or https://; where this story was first published) <input name="crosspost_url" maxlength="200" value="<?= $this->e($story['crosspost_url'] ?? '') ?>"></label>
+    <p class="chapter-meta">Set one or the other, never both: a canonical URL points search engines at the original and deindexes the copy here; a cross-post URL tells readers where the story came from.</p>
+    <?php endif; ?>
     <button type="submit"><?= $story === null ? 'Create' : 'Save' ?></button>
   </form>
   <?php if ($story !== null): ?>

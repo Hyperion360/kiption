@@ -12,6 +12,9 @@
     | in <?= $this->e($story['category_names'] ?? 'Uncategorized') ?>
     <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?>
   </p>
+  <?php if (($story['crosspost_url'] ?? '') !== ''): ?>
+  <p class="chapter-meta">Cross-posted from <a href="<?= $this->e($story['crosspost_url']) ?>" rel="nofollow">the original</a>.</p>
+  <?php endif; ?>
   <?php if ($series !== []): ?>
   <p class="chapter-meta">Series:
     <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>

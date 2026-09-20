@@ -54,12 +54,13 @@ final class StoryController
             ->withDescription($story['meta_description'] ?? $story['summary'])
             ->withCanonical('/story/view/' . $story['slug'])
             ->withArticle($story['created_at'], $story['updated_at']);
+        $head = $this->applySyndication($head, $story);
         $hasPart = [];
         foreach ($chapters as $c) {
             $hasPart[] = ['@type' => 'CreativeWork', 'position' => $c['position'], 'name' => $c['title']];
         }
         $head = $head->withJsonLd($this->bookJsonLd($head, $story, $hasPart));
-        return $this->view->render('story/view', [
+        $rendered = $this->view->render('story/view', [
             'title' => $story['title'] . ' by ' . $story['penname'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
@@ -81,6 +82,12 @@ final class StoryController
             'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
+        // External-canonical stories deindex locally: meta noindex plus the
+        // X-Robots-Tag header, the belt-and-suspenders idiom whose header also
+        // keeps the deindexed page out of the static layer.
+        return $head->noindex
+            ? (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex')
+            : $rendered;
     }
 
     public function read(string $slug, ?string $n = null): Response|string
@@ -127,6 +134,7 @@ final class StoryController
             ->withDescription($story['meta_description'] ?? $story['summary'])
             ->withCanonical('/story/read/' . $slug . '/' . $position)
             ->withArticle($story['created_at'], $story['updated_at']);
+        $head = $this->applySyndication($head, $story); // the deindex covers chapter pages too (finding 10)
         $head = $head->withJsonLd($this->bookJsonLd($head, $story, [
             ['@type' => 'CreativeWork', 'position' => $position, 'name' => $chapterTitle],
         ]));
@@ -154,7 +162,11 @@ final class StoryController
                 // progress must never break a read
             }
         }
-        return $rendered;
+        // Same deindex wrap as the story view: an external canonical strips the
+        // chapter page from the index too, or half the story stays indexable.
+        return $head->noindex
+            ? (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex')
+            : $rendered;
     }
 
     #[AuthAttr] #[Post]
@@ -204,12 +216,17 @@ final class StoryController
     public function update(string $slug): Response|string
     {
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language] = $this->storyInput();
+        [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
         }
+        if ($syndicationError !== null) {
+            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, $syndicationError, null), 422);
+        }
         try {
             [$newSlug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->updateStory(
-                $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language);
+                $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
+                $canonicalUrl, $crosspostUrl);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -284,6 +301,8 @@ final class StoryController
                 'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
                 'restricted' => (int) $story['i'],
                 'language' => (string) $story['j'],
+                'canonical_url' => (string) ($story['n'] ?? ''),
+                'crosspost_url' => (string) ($story['o'] ?? ''),
             ],
             'selectedCategories' => $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
             'categories' => $categories,
@@ -354,6 +373,40 @@ final class StoryController
             ogImage: (string) $this->app->config('og_image', ''),
             baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
         );
+    }
+
+    /** The two syndication fields share the support_url rules: http(s) only and
+     *  200 characters max (the form's maxlength is client-side only), plus the
+     *  one-state-at-a-time law. @return array{0: string, 1: string, 2: ?string}
+     *  canonical, cross-post, error (null when the pair is valid). */
+    private function syndicationInput(): array
+    {
+        $canonical = trim((string) ($this->request->post['canonical_url'] ?? ''));
+        $crosspost = trim((string) ($this->request->post['crosspost_url'] ?? ''));
+        foreach ([$canonical, $crosspost] as $url) {
+            if ($url !== '' && (strlen($url) > 200 || !preg_match('#^https?://#', $url))) {
+                return ['', '', 'Syndication URLs must start with http:// or https:// (max 200 characters).'];
+            }
+        }
+        if ($canonical !== '' && $crosspost !== '') {
+            return ['', '', 'Choose one syndication state: fill either the canonical URL or the cross-post URL, not both.'];
+        }
+        return [$canonical, $crosspost, null];
+    }
+
+    /** The three syndication states shape the Head: an external canonical wins
+     *  and deindexes the local page; a cross-post suppresses the canonical link
+     *  (og:url keeps the self URL). Shared by the story view and chapter reads
+     *  so the state applies to every page of the story. */
+    private function applySyndication(\App\Seo\Head $head, array $story): \App\Seo\Head
+    {
+        if ((string) ($story['canonical_url'] ?? '') !== '') {
+            return $head->withCanonicalUrl((string) $story['canonical_url'])->withNoindex();
+        }
+        if ((string) ($story['crosspost_url'] ?? '') !== '') {
+            return $head->withCanonicalSuppressed();
+        }
+        return $head;
     }
 
     /** Book node shared by view (full TOC) and read (current chapter only). */
