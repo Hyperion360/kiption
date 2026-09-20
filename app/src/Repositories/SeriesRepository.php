@@ -202,17 +202,6 @@ final class SeriesRepository
         return [(int) $row['author_id'], (string) $row['title'], (string) $row['slug']];
     }
 
-    public function mySeries(int $userId): array
-    {
-        return $this->db->all(
-            'SELECT ser.slug, ser.title, ser.membership,
-                    (SELECT COUNT(*) FROM series_items si JOIN stories st ON st.id = si.story_id
-                      WHERE si.series_id = ser.id AND si.confirmed = 1) item_count,
-                    (SELECT COUNT(*) FROM series_items si WHERE si.series_id = ser.id AND si.confirmed = 0) pending_count
-             FROM series ser WHERE ser.owner_id = ? ORDER BY ser.title COLLATE NOCASE', [$userId]
-        );
-    }
-
     /** Slugs of confirmed series containing a story (cache purge + display). */
     public function seriesSlugsForStory(int $storyId): array
     {
@@ -220,13 +209,6 @@ final class SeriesRepository
             fn (array $r): string => (string) $r['slug'],
             $this->db->all('SELECT ser.slug FROM series_items si JOIN series ser ON ser.id = si.series_id WHERE si.story_id = ? AND si.confirmed = 1', [$storyId])
         );
-    }
-
-    /** Non-throwing own() for view rendering. */
-    public function ownership(string $slug, int $actorId, bool $isAdmin): bool
-    {
-        try { $this->own($slug, $actorId, $isAdmin); return true; }
-        catch (\RuntimeException) { return false; }
     }
 
     /** One-line role check for the controller's write guards (writes are not
