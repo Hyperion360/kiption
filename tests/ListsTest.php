@@ -212,6 +212,31 @@ final class ListsTest extends TestCase
         $this->assertSame(403, $this->client()->post('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => ''])->status);
     }
 
+    public function test_move_rollback_restores_positions_when_a_swap_write_fails(): void
+    {
+        // The transactional swap's undo path: a failure between the sentinel
+        // write and the restore must roll back cleanly, never stranding an
+        // item on position -1. A RAISE trigger aborts the neighbour write
+        // mid-swap; the repository rethrows and the positions survive intact.
+        $this->seedComfortReads();
+        $owner = $this->client($this->memberId());
+        $this->assertSame(302, $owner->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => ''])->status);
+        $item = $this->itemId('after-hours'); // position 2
+        $this->db()->query("CREATE TRIGGER swap_boom BEFORE UPDATE ON reading_list_items FOR EACH ROW WHEN NEW.id = $item BEGIN SELECT RAISE(ABORT, 'boom'); END");
+        try {
+            (new \App\Repositories\ListsRepository($this->db()))->move('comfort-reads', $item, 'up', $this->memberId());
+            $this->fail('the aborted swap must rethrow');
+        } catch (\PDOException) {
+            // the repository's rollback arm ran and rethrew the driver error
+        }
+        $this->assertSame(['the-rabbit-hole' => 1, 'after-hours' => 2], $this->positions(), 'the rollback restored both positions');
+        $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) FROM reading_list_items WHERE position = -1')['COUNT(*)'], 'no item strands on the sentinel');
+        // with the fault cleared the same swap goes through: the table is healthy
+        $this->db()->query('DROP TRIGGER swap_boom');
+        $this->assertSame(302, $owner->postWithToken('/lists/move/comfort-reads/' . $item . '/up')->status);
+        $this->assertSame(['after-hours' => 1, 'the-rabbit-hole' => 2], $this->positions());
+    }
+
     public function test_member_lists_index_lists_own_lists_with_counts(): void
     {
         $this->seedComfortReads();
