@@ -36,6 +36,28 @@
       <label>Cover (PNG/JPG/WEBP/GIF, max 2 MiB) <input type="file" name="cover" accept="image/png,image/jpeg,image/webp,image/gif"></label>
       <button type="submit">Upload cover</button>
     </form>
+    <?php if (!empty($canManageCoauthors)): ?>
+    <h2>Coauthors</h2>
+    <?php if ($coauthors === []): ?><p class="chapter-meta">None yet.</p>
+    <?php else: ?>
+    <ul>
+      <?php foreach ($coauthors as $co): ?>
+      <li>
+        <?= $this->e($co['penname']) ?>
+        <form method="post" action="/coauthor/remove/<?= $this->e($story['slug']) ?>/<?= (int) $co['id'] ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <button type="submit">Remove</button>
+        </form>
+      </li>
+      <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+    <form method="post" action="/coauthor/add/<?= $this->e($story['slug']) ?>">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <label>Add coauthor by penname <input name="penname" maxlength="30" required></label>
+      <button type="submit">Add coauthor</button>
+    </form>
+    <?php endif; ?>
     <?php if ($chapters !== []): ?>
       <h2>Chapters</h2>
       <ul>

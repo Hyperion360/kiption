@@ -3,7 +3,7 @@
 <article>
   <h1><?= $this->e($story['title']) ?></h1>
   <p class="chapter-meta">
-    by <?= $this->e($story['penname']) ?>
+    by <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?>
     | <?= $this->e($story['rating_label']) ?>
     <?php if ((int) $story['is_adult'] === 1): ?><span class="badge">Adult</span><?php endif; ?>
     <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge">Registered readers only</span><?php endif; ?>
@@ -51,6 +51,12 @@
       <?php endif; ?>
     <?php endif; ?>
     <?php if (!empty($csrf)): ?>
+      <?php if (!empty($amCoauthor)): ?>
+      <form method="post" action="/coauthor/leave/<?= $this->e($story['slug']) ?>" class="inline">
+        <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+        <button type="submit">Leave as coauthor</button>
+      </form>
+      <?php endif; ?>
       <form method="post" action="/story/mark/<?= $this->e($story['slug']) ?>" class="inline">
         <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
         <button type="submit"><?= $marked_at_me === null ? 'Mark for later' : 'Unmark' ?></button>

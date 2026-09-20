@@ -4,6 +4,7 @@ use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Notifications;
 use App\Repositories\EngagementRepository;
+use App\Repositories\UserRepository;
 
 final class FavoritesController
 {
@@ -32,9 +33,12 @@ final class FavoritesController
         $userId = (int) $this->session->get('user_id');
         [$added, $authorId, $title] = (new EngagementRepository($this->db))->toggleFavorite($slug, $userId);
         if ($authorId === 0) return new Response('Page not found', 404);
-        if ($added && $authorId !== $userId) {
-            (new Notifications($this->db))->create($authorId, 'favorite',
-                (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'], $userId, $title);
+        if ($added) {
+            $storyId = (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'];
+            $notifications = new Notifications($this->db);
+            foreach ((new UserRepository($this->db))->notifyRecipients($storyId, 'notify_favorites', $userId) as $recipientId) {
+                $notifications->create($recipientId, 'favorite', $storyId, $userId, $title);
+            }
         }
         // the anonymous page shows the favorite count: refresh it on either direction;
         // the favoriter's public shelf tab changed too

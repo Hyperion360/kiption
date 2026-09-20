@@ -27,6 +27,8 @@
           <span><?= $this->e($n['actor'] ?? 'Someone') ?> submitted <a href="/story/view/<?= $this->e($n['story_slug']) ?>"><?= $this->e($n['story_title']) ?></a> to your series</span>
         <?php elseif ($n['kind'] === 'series_confirm' && $n['story_id'] !== null): ?>
           <span>Your story <a href="/story/view/<?= $this->e($n['story_slug']) ?>"><?= $this->e($n['story_title']) ?></a> was added to a series</span>
+        <?php elseif ($n['kind'] === 'coauthor' && $n['story_id'] !== null): ?>
+          <span><?= $this->e($n['actor'] ?? 'Someone') ?> added you as coauthor on <a href="/story/view/<?= $this->e($n['story_slug']) ?>"><?= $this->e($n['story_title']) ?></a></span>
         <?php else: ?>
           <span><?= $this->e($n['kind']) ?></span>
         <?php endif; ?>

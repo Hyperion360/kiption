@@ -8,15 +8,18 @@ final class AuthoringRepository
     public function __construct(private Database $db) {}
 
     /** ONE query for the story form: taxonomy rows for every caller, plus the
-     *  story row (k='s') when editing. Ownership (author or admin) is enforced
-     *  in SQL. Output columns: k, a..j; d is the per-branch sort key (position).
+     *  story row (k='s') and its coauthors (k='co') when editing. Ownership
+     *  (author, coauthor, or admin) is enforced in SQL. Output columns:
+     *  k, a..j, l, m; d is the per-branch sort key (position). l/m ride only
+     *  on the 's' branch: the story's author_id and a viewer-admin scalar, so
+     *  the form can show coauthor management to the owner/admin alone.
      *  Compound SELECTs may only ORDER BY output columns. */
     public function formData(?string $slug, int $userId): array
     {
-        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j
+        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m
                      FROM categories c
                      UNION ALL
-                     SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL
+                     SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                      FROM ratings r";
         if ($slug === null) {
             return $this->db->all($taxonomy . ' ORDER BY k, d');
@@ -27,12 +30,26 @@ final class AuthoringRepository
                     s.rating_id AS f, s.completed AS g,
                     (SELECT json_group_array(json_object('position', ch.position, 'title', ch.title, 'validated', ch.validated))
                      FROM chapters ch WHERE ch.story_id = s.id) AS h,
-                    s.is_restricted AS i, s.language AS j
+                    s.is_restricted AS i, s.language AS j,
+                    s.author_id AS l,
+                    (SELECT COUNT(*) FROM users adm WHERE adm.id = ? AND adm.role = 'admin') AS m
              FROM stories s
              WHERE s.slug = ? AND s.deleted_at IS NULL
-               AND (s.author_id = ? OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))
-             UNION ALL " . $taxonomy . ' ORDER BY k, d',
-            [$slug, $userId, $userId]);
+               AND (s.author_id = ?
+                    OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = s.id AND ca.user_id = ?)
+                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))
+             UNION ALL " . $taxonomy . "
+             UNION ALL
+             SELECT 'co' AS k, cu.id AS a, cu.penname AS b, NULL AS c, cu.id AS d,
+                    NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m
+             FROM coauthors c2 JOIN stories s2 ON s2.id = c2.story_id JOIN users cu ON cu.id = c2.user_id
+             WHERE s2.slug = ?
+             ORDER BY k, d",
+            // SIX binds in text order: the 's' branch's SELECT-list admin scalar
+            // first (SELECT-list binds precede WHERE binds), then the 's' WHERE
+            // (slug + three gate binds), then the 'co' branch's slug. Count the
+            // ?s before touching this array.
+            [$userId, $slug, $userId, $userId, $userId, $slug]);
     }
 
     public function slugTaken(string $slug): bool
@@ -99,12 +116,17 @@ final class AuthoringRepository
         return [$slug, $cats, $seriesSlugs, $authorSlug];
     }
 
+    /** Author, coauthor, or admin (admin resolved SQL-side; a bound-bool admin
+     *  param would silently revoke admin access at the ($slug, $userId)-only
+     *  call sites, plan review finding 7). */
     public function ownStory(string $slug, int $userId): array
     {
         $story = $this->db->one(
             "SELECT id, title, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL
-              AND (author_id = ? OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))",
-            [$slug, $userId, $userId]);
+              AND (author_id = ?
+                   OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = stories.id AND ca.user_id = ?)
+                   OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))",
+            [$slug, $userId, $userId, $userId]);
         if ($story === null) throw new \RuntimeException('not found');
         return $story;
     }
@@ -142,8 +164,35 @@ final class AuthoringRepository
         ];
     }
 
-    /** Chapter row + story context, owner/admin gated; one query. For NEW
-     *  chapters ($position null) the next position rides along (NULL row). */
+    /** Story owner or admin (SQL-side gate via the extended ownStory) adds;
+     *  coauthor must be a full member, not the author, not already attached.
+     *  Returns the attached id. */
+    public function addCoauthor(string $slug, string $penname, int $actorId): int
+    {
+        $story = $this->ownStory($slug, $actorId); // extended gate: admin stays in SQL
+        $user = $this->db->one("SELECT id, email, penname, profile_slug FROM users WHERE penname = ? COLLATE NOCASE AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL AND is_locked = 0", [$penname]);
+        if ($user === null) throw new \RuntimeException('member not found');
+        if ((int) $user['id'] === (int) $story['author_id']) throw new \RuntimeException('already the author');
+        $guard = $this->db->query('INSERT OR IGNORE INTO coauthors (story_id, user_id) VALUES (?, ?)', [$story['id'], $user['id']]);
+        if ($guard->rowCount() === 0) throw new \RuntimeException('already a coauthor');
+        return (int) $user['id'];
+    }
+
+    /** Owner/admin may remove anyone; anyone may remove themselves (leave). */
+    public function removeCoauthor(string $slug, int $targetId, int $actorId): bool
+    {
+        $story = $this->db->one(
+            'SELECT s.id, s.author_id, (SELECT COUNT(*) FROM users v WHERE v.id = ? AND v.role = \'admin\') is_admin
+             FROM stories s WHERE s.slug = ?', [$actorId, $slug]);
+        if ($story === null) return false;
+        if ($targetId !== $actorId && (int) $story['author_id'] !== $actorId && (int) $story['is_admin'] === 0) return false;
+        $guard = $this->db->query('DELETE FROM coauthors WHERE story_id = ? AND user_id = ?', [$story['id'], $targetId]);
+        return $guard->rowCount() > 0;
+    }
+
+    /** Chapter row + story context, owner/coauthor/admin gated; one query.
+     *  For NEW chapters ($position null) the next position rides along
+     *  (NULL row). */
     public function chapterFormData(string $slug, ?int $position, int $userId): ?array
     {
         $chapterJoin = $position === null
@@ -153,8 +202,10 @@ final class AuthoringRepository
             "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.position
              FROM stories s {$chapterJoin}
              WHERE s.slug = ? AND s.deleted_at IS NULL
-               AND (s.author_id = ? OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))",
-            [$slug, $userId, $userId]);
+               AND (s.author_id = ?
+                    OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = s.id AND ca.user_id = ?)
+                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))",
+            [$slug, $userId, $userId, $userId]);
     }
 
     /** @return array{0: array, 1: array, 2: string} category slugs, series slugs,

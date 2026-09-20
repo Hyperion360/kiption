@@ -74,6 +74,7 @@ final class StoryController
             'review_count' => (int) $story['review_count'],
             'series' => $seriesLinks,
             'coauthors' => $coauthors,
+            'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
     }
@@ -244,9 +245,11 @@ final class StoryController
     {
         $categories = [];
         $ratings = [];
+        $coauthors = [];
         foreach ($rows as $r) {
             if ($r['k'] === 'cat') $categories[] = $r;
             if ($r['k'] === 'r') $ratings[] = $r;
+            if ($r['k'] === 'co') $coauthors[] = ['id' => (int) $r['a'], 'penname' => (string) $r['b']];
         }
         $chapters = [];
         if ($story !== null && ($story['h'] ?? null) !== null && $story['h'] !== '[]') {
@@ -269,6 +272,9 @@ final class StoryController
             'categories' => $categories,
             'ratings' => $ratings,
             'chapters' => $chapters,
+            // coauthor management is the owner/admin's; l/m ride the 's' row only
+            'coauthors' => $coauthors,
+            'canManageCoauthors' => $story !== null && ($this->uid() === (int) $story['l'] || (int) $story['m'] === 1),
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
             'loggedIn' => true,

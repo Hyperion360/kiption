@@ -17,7 +17,7 @@ final class StoryTest extends TestCase
         $this->dsn = 'sqlite:' . $path;
         $db = new Database($this->dsn);
         (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
-        $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)', ['a@x.test', 'h', 'Demo Author']);
+        $db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)', ['a@x.test', 'h', 'Demo Author', 'demo-author']);
         $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, 0, "", 1)', ['Teen']);
         $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, 1, "Adult content ahead.", 2)', ['Explicit']);
         $db->query('INSERT INTO categories (name, slug) VALUES (?, ?)', ['General', 'general']);
@@ -78,6 +78,13 @@ final class StoryTest extends TestCase
         $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
         $this->assertStringContainsString('href="/series/view/down-the-rabbit-hole"', $res->body);
         $this->assertStringContainsString('Down the Rabbit Hole', $res->body);
+    }
+
+    public function test_solo_story_byline_links_author_without_coauthor_comma(): void
+    {
+        $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
+        $this->assertStringContainsString('href="/user/view/demo-author">Demo Author</a>', $res->body);
+        $this->assertStringNotContainsString(', <a href="/user/view/', $res->body); // no comma join without coauthors
     }
 
     public function test_unknown_story_404(): void

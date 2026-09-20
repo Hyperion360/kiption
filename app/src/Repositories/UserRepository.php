@@ -160,6 +160,30 @@ final class UserRepository
         return $this->db->all($sql, $params);
     }
 
+    /** Author + coauthors, deduped, with the recipient's notify pref resolved
+     *  and the acting member excluded (a coauthor kudo-ing their own story
+     *  must not notify themselves, plan review finding 10; the solo-author call
+     *  sites already suppress self-notification today).
+     *  $prefColumn is one of notify_review|notify_response|notify_favorites
+     *  (whitelisted here, never interpolated unvalidated) or null for no gate.
+     *  A missing prefs row means ON (fail-safe for senders). */
+    public function notifyRecipients(int $storyId, ?string $prefColumn, int $exceptActorId = 0): array
+    {
+        if ($prefColumn !== null && !in_array($prefColumn, ['notify_review', 'notify_response', 'notify_favorites'], true)) {
+            throw new \InvalidArgumentException('pref');
+        }
+        $gate = $prefColumn === null ? '' : ' AND COALESCE(p.' . $prefColumn . ', 1) = 1';
+        $rows = $this->db->all(
+            "SELECT u.id FROM stories s JOIN users u ON u.id = s.author_id
+               LEFT JOIN user_prefs p ON p.user_id = u.id WHERE s.id = ? AND u.id != ? {$gate}
+             UNION
+             SELECT u.id FROM coauthors ca JOIN users u ON u.id = ca.user_id
+               LEFT JOIN user_prefs p ON p.user_id = u.id WHERE ca.story_id = ? AND u.id != ? {$gate}",
+            [$storyId, $exceptActorId, $storyId, $exceptActorId]
+        );
+        return array_map(fn (array $r): int => (int) $r['id'], $rows);
+    }
+
     /** The stories tab as ONE compound query (plan review finding 6): k='0' is
      *  the profile row, k='1' the validated stories (own + coauthored), paged
      *  inside a parenthesized subselect WITH its ORDER BY (paging without one

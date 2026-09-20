@@ -21,7 +21,7 @@ final class StoryRepository
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
         return $this->db->one(
-            'SELECT s.*, u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
+            'SELECT s.*, u.penname, u.profile_slug, r.label AS rating_label, r.is_adult, r.warning_text,
                     (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count,
                     (SELECT COUNT(*) FROM favorites f WHERE f.story_id = s.id) AS favorite_count,
                     (SELECT COUNT(*) FROM story_kudos k2 WHERE k2.story_id = s.id AND k2.user_id = ?) AS kudos_by_me,
@@ -43,7 +43,7 @@ final class StoryRepository
                     (SELECT json_group_array(json_object(\'s\', ser.slug, \'t\', ser.title))
                      FROM series_items si JOIN series ser ON ser.id = si.series_id
                      WHERE si.story_id = s.id AND si.confirmed = 1) AS series_blob,
-                    (SELECT json_group_array(json_object(\'n\', cu.penname, \'p\', cu.profile_slug))
+                    (SELECT json_group_array(json_object(\'i\', cu.id, \'n\', cu.penname, \'p\', cu.profile_slug))
                      FROM coauthors ca JOIN users cu ON cu.id = ca.user_id WHERE ca.story_id = s.id) AS coauthors_blob
              FROM stories s
              JOIN users u ON u.id = s.author_id

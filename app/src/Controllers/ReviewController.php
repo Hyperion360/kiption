@@ -4,6 +4,7 @@ use Kip\{Database, Http\Request, Http\Response, Session};
 use Kip\Routing\{Auth as AuthAttr, Post}; // the aliased Auth import ships FROM BIRTH: without it #[AuthAttr] resolves to a nonexistent class, PHP never validates attributes, and the member gate silently disables (OV finding 4)
 use App\Notifications;
 use App\Repositories\ReviewRepository;
+use App\Repositories\UserRepository;
 
 final class ReviewController
 {
@@ -24,12 +25,12 @@ final class ReviewController
             $status = str_starts_with($error, 'You already reviewed') ? 429 : 422;
             return new Response($error, $status);
         }
-        if ($added && (!is_int($userId) || $userId !== $authorId)) {
-            (new Notifications($this->db))->create($authorId, 'review',
-                (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'],
-                is_int($userId) ? $userId : null, $title);
-        }
         if ($added) {
+            $storyId = (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'];
+            $notifications = new Notifications($this->db);
+            foreach ((new UserRepository($this->db))->notifyRecipients($storyId, 'notify_review', is_int($userId) ? $userId : 0) as $recipientId) {
+                $notifications->create($recipientId, 'review', $storyId, is_int($userId) ? $userId : null, $title);
+            }
             (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, []);
         }
         return Response::redirect('/story/view/' . $slug . '#reviews');
@@ -44,7 +45,15 @@ final class ReviewController
         if ($error === 'not found') return new Response('Page not found', 404);
         if ($error !== null) return new Response($error, 422);
         if ($notifyUserId !== 0 && $notifyUserId !== $userId) {
-            (new Notifications($this->db))->create($notifyUserId, 'reply', $storyId, $userId, null);
+            // the reply path keeps its own one-query recipient lookup: the parent
+            // review's author, gated by their notify_response pref (missing row = ON)
+            $pref = $this->db->one(
+                'SELECT ru.id, COALESCE(p.notify_response, 1) on_ FROM reviews r
+                 JOIN users ru ON ru.id = r.user_id
+                 LEFT JOIN user_prefs p ON p.user_id = ru.id WHERE r.id = ?', [(int) $id]);
+            if ($pref === null || (int) $pref['on_'] === 1) {
+                (new Notifications($this->db))->create($notifyUserId, 'reply', $storyId, $userId, null);
+            }
         }
         (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, []);
         return Response::redirect('/story/view/' . $slug . '#reviews');
