@@ -11,6 +11,9 @@ final class StoryRepository
      *  today), so no hand-rolled delimiter scheme is safe to parse. json_group_array
      *  yields [] when the story has no validated chapters. Decode and ksort in
      *  PHP so ordering never depends on aggregation internals.
+     *  Restricted stories 404 for guests at the SQL level: the gate CASTs $me
+     *  because PDO binds int 0 as TEXT and a bare ? != 0 would compare across
+     *  storage classes TRUE, failing the gate OPEN for guests.
      *  @return array<string,mixed>|null */
     public function findStoryBySlug(string $slug, int $me = 0): ?array
     {
@@ -37,8 +40,9 @@ final class StoryRepository
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
-             WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL',
-            [$me, $me, $me, $me, $slug]
+             WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
+               AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)',
+            [$me, $me, $me, $me, $slug, $me]
         );
     }
 
@@ -46,8 +50,9 @@ final class StoryRepository
      *  pivoted via conditional aggregation, plus the validated-position list
      *  for prev/next (positions can be non-contiguous when a middle chapter
      *  is unvalidated). ch_title NULL means the chapter does not exist.
+     *  Same restricted gate as findStoryBySlug (CAST is load-bearing).
      *  @return array<string,mixed>|null */
-    public function findStoryWithChapter(string $slug, int $position): ?array
+    public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
         return $this->db->one(
@@ -65,8 +70,9 @@ final class StoryRepository
              JOIN ratings r ON r.id = s.rating_id
              LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.validated = 1
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
+               AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)
              GROUP BY s.id',
-            [$position, $position, $position, $position, $position, $slug]
+            [$position, $position, $position, $position, $position, $slug, $me]
         );
     }
 

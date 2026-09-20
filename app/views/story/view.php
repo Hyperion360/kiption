@@ -6,6 +6,7 @@
     by <?= $this->e($story['penname']) ?>
     | <?= $this->e($story['rating_label']) ?>
     <?php if ((int) $story['is_adult'] === 1): ?><span class="badge">Adult</span><?php endif; ?>
+    <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge">Registered readers only</span><?php endif; ?>
     <?= $story['completed'] ? '<span class="badge">Complete</span>' : '<span class="badge">WIP</span>' ?>
     | <?= number_format((int) $story['word_count']) ?> words
     | in <?= $this->e($story['category_names'] ?? 'Uncategorized') ?>

@@ -26,6 +26,7 @@
       <?php endforeach; ?>
     </fieldset>
     <label class="inline"><input type="checkbox" name="completed" value="1" <?= $story !== null && (int) $story['completed'] === 1 ? 'checked' : '' ?>> Completed</label>
+    <label class="inline"><input type="checkbox" name="restricted" value="1" <?= $story !== null && (int) $story['restricted'] === 1 ? 'checked' : '' ?>> Registered readers only</label>
     <button type="submit"><?= $story === null ? 'Create' : 'Save' ?></button>
   </form>
   <?php if ($story !== null): ?>

@@ -74,7 +74,8 @@ final class StoryController
     public function read(string $slug, string $n = '1'): Response|string
     {
         $position = max(1, (int) $n);
-        $story = $this->repo->findStoryWithChapter($slug, $position);
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $story = $this->repo->findStoryWithChapter($slug, $position, $me);
         if ($story === null) return new Response('Page not found', 404);
         $positions = array_values(array_filter(array_map('intval', explode('~', (string) $story['positions_blob'])), static fn(int $p): bool => $p > 0));
         sort($positions);
@@ -122,7 +123,6 @@ final class StoryController
             'prev' => $prev,
             'next' => $next,
         ]);
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         if ($me !== 0) {
             try {
                 (new \App\Repositories\EngagementRepository($this->db))->recordProgress($me, (int) $story['id'], (int) $position);
@@ -151,7 +151,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
         }
@@ -159,7 +159,7 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         [$id, $slug, $cats] = $this->authoring()->createStory(
-            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates());
+            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted);
         $this->staticCache()->purgeStory($slug, $cats);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -179,13 +179,13 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted] = $this->storyInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         try {
             [$newSlug, $cats] = $this->authoring()->updateStory(
-                $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed);
+                $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -231,6 +231,7 @@ final class StoryController
             'story' => $story === null ? null : [
                 'slug' => (string) $editSlug, 'title' => $story['b'], 'summary' => $story['c'],
                 'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
+                'restricted' => (int) $story['i'],
             ],
             'selectedCategories' => $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
             'categories' => $categories,
@@ -271,7 +272,7 @@ final class StoryController
         return new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
     }
 
-    /** @return array{string,string,string,int,array,bool} */
+    /** @return array{string,string,string,int,array,bool,bool} */
     private function storyInput(): array
     {
         $post = $this->request->post;
@@ -282,6 +283,7 @@ final class StoryController
             (int) ($post['rating_id'] ?? 0),
             array_values(array_filter((array) ($post['categories'] ?? []), 'is_numeric')),
             isset($post['completed']),
+            isset($post['restricted']),
         ];
     }
 

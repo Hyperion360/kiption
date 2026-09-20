@@ -22,7 +22,7 @@ final class Builder
         foreach ($db->all('SELECT slug FROM categories') as $c) {
             $urls[] = '/browse/category/' . $c['slug'];
         }
-        foreach ($db->all('SELECT slug FROM stories WHERE validated = 1 AND deleted_at IS NULL') as $s) {
+        foreach ($db->all('SELECT slug FROM stories WHERE validated = 1 AND deleted_at IS NULL AND is_restricted = 0') as $s) {
             $urls[] = '/story/view/' . $s['slug'];
             $n = (int) $db->one('SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND validated = 1', [$s['slug']])['c'];
             for ($i = 1; $i <= $n; $i++) {
