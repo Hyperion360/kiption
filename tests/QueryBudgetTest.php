@@ -97,7 +97,11 @@ final class QueryBudgetTest extends TestCase
                 // The contact form targets the OTHER seeded member: the shared login
                 // here is demo-author, and self-contact 404s on GET (Task 8 ruling).
                 ['/user/contact/betafriend'],
-                ['/queue'], ['/notifications'], ['/favorites']];
+                ['/queue'], ['/notifications'], ['/favorites'],
+                // The author stats dashboard: the acting user (demo-author) owns
+                // both seeded stories, so the row exercises the real render; the
+                // four scalar subqueries ride the single own-works query.
+                ['/stats']];
     }
 
     /** @dataProvider authPages */

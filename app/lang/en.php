@@ -435,6 +435,18 @@ return [
     'user.meta_stories_by' => 'Stories by {name} on {site}.',
     'user.listing_meta' => '{title} on {site}.',
 
+    // The author stats dashboard (member-only, tables and no charts).
+    'stats.heading' => 'Your statistics',
+    'stats.approx_note' => 'Reads are approximate beacon counts (no bot filtering); kudos and favorites are exact.',
+    'stats.empty' => 'You have no stories yet. Statistics appear once you start one.',
+    'stats.story' => 'Story',
+    'stats.status' => 'Status',
+    'stats.reads' => 'Reads',
+    'stats.reads_30' => 'Reads (30 days)',
+    'stats.kudos' => 'Kudos',
+    'stats.favorites' => 'Favorites',
+    'stats.link' => 'View your statistics',
+
     // The maintenance page (rendered standalone, without the layout).
     'maintenance.title' => 'Scheduled maintenance',
     'maintenance.body' => 'The archive is temporarily closed for scheduled maintenance. Nothing is lost; please check back shortly.',
