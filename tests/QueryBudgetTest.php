@@ -56,6 +56,7 @@ final class QueryBudgetTest extends TestCase
                 ['/story/read/after-hours/1'], // adult story, cookieless: the age-gate render is a page shape too
                 ['/series/view/down-the-rabbit-hole'],
                 ['/user/view/demo-author'], ['/user/stories/demo-author'], ['/user/favorites/demo-author'],
+                ['/browse/authors'], ['/browse/authors/b'],
                 ['/feed'], ['/rss']];
     }
 

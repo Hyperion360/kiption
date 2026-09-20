@@ -68,6 +68,9 @@ final class QueueController
         } elseif ($op === 'reject') {
             $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $id]);
         }
+        // Both ops change directory membership: approve completes an
+        // approval-mode member, reject locks them out of the listing.
+        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors();
         return Response::redirect('/queue');
     }
 

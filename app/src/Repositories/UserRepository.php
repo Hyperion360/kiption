@@ -135,6 +135,31 @@ final class UserRepository
         );
     }
 
+    /** The member directory page: approved+verified unlocked members with a
+     *  penname, authored works only (the directory's count excludes coauthored
+     *  works by design, plan review finding 17). $letter: null = all members,
+     *  a single [a-z] char = exact first-char bucket, '0' = the non-letter
+     *  bucket (digits/underscore, i.e. NOT GLOB '[a-z]*'). Placeholder count:
+     *  the dynamic letter WHERE adds ONE ? only in the single-letter branch,
+     *  and LIMIT ? OFFSET ? always add two, so params grow in lockstep with
+     *  the branches that append them (max three: letter, perPage, offset). */
+    public function authorsDirectory(?string $letter, bool $betaOnly, int $perPage, int $offset): array
+    {
+        $sql = 'SELECT u.profile_slug, u.penname, u.is_beta, u.created_at,
+                       (SELECT COUNT(*) FROM stories st WHERE st.author_id = u.id AND st.validated = 1 AND st.deleted_at IS NULL) story_count
+                FROM users u
+                WHERE u.penname IS NOT NULL AND u.is_locked = 0 AND u.approved_at IS NOT NULL AND u.email_verified_at IS NOT NULL';
+        $params = [];
+        if ($letter !== null) {
+            if ($letter === '0') { $sql .= " AND u.profile_slug NOT GLOB '[a-z]*'"; }
+            else { $sql .= ' AND substr(u.profile_slug, 1, 1) = ?'; $params[] = $letter; }
+        }
+        if ($betaOnly) $sql .= ' AND u.is_beta = 1';
+        $sql .= ' ORDER BY u.penname COLLATE NOCASE LIMIT ? OFFSET ?';
+        $params[] = $perPage; $params[] = $offset;
+        return $this->db->all($sql, $params);
+    }
+
     /** The stories tab as ONE compound query (plan review finding 6): k='0' is
      *  the profile row, k='1' the validated stories (own + coauthored), paged
      *  inside a parenthesized subselect WITH its ORDER BY (paging without one

@@ -2,6 +2,7 @@
 namespace App\Controllers;
 use Kip\{App, Http\Request, Http\Response, View};
 use App\Repositories\StoryRepository;
+use App\Repositories\UserRepository;
 
 final class BrowseController
 {
@@ -10,6 +11,7 @@ final class BrowseController
         private Request $request,
         private App $app,
         private StoryRepository $stories,
+        private UserRepository $users,
     ) {}
 
     public function index(): string
@@ -82,6 +84,44 @@ final class BrowseController
         return $stories === []
             ? (new Response($this->view->render('browse/recent', $data), 200))->withHeader('X-Robots-Tag', 'noindex')
             : $this->view->render('browse/recent', $data);
+    }
+
+    /** The member directory. The router already whitelists [a-z0-9_-] segments,
+     *  so $letter arrives lowercase if it arrives at all; the documented
+     *  coercion rule: a bare single [a-z] is itself, otherwise the segment is
+     *  read by its FIRST character (that char when it is [a-z], the '0'
+     *  non-letter bucket when it is a digit or underscore), matching the
+     *  repository's bucket semantics. '?beta=1' is a query-string surface:
+     *  cache-ineligible by the queryless rule and additionally noindexed
+     *  (meta + X-Robots-Tag, the empty-category precedent). */
+    public function authors(string $letter = ''): Response|string
+    {
+        $letter = trim($letter);
+        if ($letter !== '' && !preg_match('/^[a-z]$/', $letter)) {
+            $letter = preg_match('/^[a-z]/', $letter) ? $letter[0] : '0';
+        }
+        $betaOnly = ($this->request->get['beta'] ?? '') === '1';
+        [$perPage, $offset] = $this->paginate();
+        $members = $this->users->authorsDirectory($letter === '' ? null : $letter, $betaOnly, $perPage, $offset);
+        $canonical = $letter === '' ? '/browse/authors' : '/browse/authors/' . $letter;
+        $label = $letter === '' ? 'Authors' : 'Authors: ' . strtoupper($letter);
+        $head = $this->head()->withTitle($label)->withCanonical($canonical)
+            ->withDescription($betaOnly
+                ? 'Beta readers in the member directory.'
+                : 'All members of the archive, with story counts.');
+        $data = [
+            'title' => $label,
+            'head' => $betaOnly ? $head->withNoindex() : $head, // faceted pages are not canonical content
+            'theme' => \App\Theme::current($this->request),
+            'members' => $members,
+            'letter' => $letter,
+            'beta' => $betaOnly,
+            'page' => $this->page(),
+            'baseUrl' => $canonical,
+        ];
+        return $betaOnly
+            ? (new Response($this->view->render('browse/authors', $data), 200))->withHeader('X-Robots-Tag', 'noindex')
+            : $this->view->render('browse/authors', $data);
     }
 
     private function head(): \App\Seo\Head

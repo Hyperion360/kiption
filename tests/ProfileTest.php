@@ -103,4 +103,41 @@ final class ProfileTest extends TestCase
     {
         $this->assertSame(404, $this->client()->get('/user/view/ghost')->status);
     }
+
+    public function test_directory_lists_members_with_links(): void
+    {
+        $res = $this->client()->get('/browse/authors');
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('href="/user/view/demo-author"', $res->body);
+        $this->assertStringContainsString('Beta reader', $res->body); // betafriend badge
+        $this->assertStringContainsString('href="/user/view/betafriend"', $res->body);
+    }
+
+    public function test_directory_letter_filter_and_beta_filter(): void
+    {
+        $this->assertStringContainsString('betafriend', $this->client()->get('/browse/authors/b')->body);
+        $this->assertStringNotContainsString('demo-author', $this->client()->get('/browse/authors/b')->body);
+        $beta = $this->client()->get('/browse/authors', ['beta' => '1'])->body;
+        $this->assertStringContainsString('betafriend', $beta);
+        $this->assertStringNotContainsString('/user/view/demo-author"', $beta);
+        $this->assertStringContainsString('noindex', $this->client()->get('/browse/authors', ['beta' => '1'])->body); // faceted
+    }
+
+    public function test_directory_junk_letter_coerces(): void
+    {
+        $this->assertSame(200, $this->client()->get('/browse/authors/zz9')->status); // arity 404s zz9? one arg only: 200 with coerced 'z'
+    }
+
+    public function test_directory_cacheable(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-dir-cache-' . uniqid('', true);
+        $cache = new \App\StaticCache\Cache($dir);
+        $req = new \Kip\Http\Request('GET', '/browse/authors', [], [], []);
+        $res = $this->app->handle($req);
+        $this->assertSame(200, $res->status);
+        $cache->maybeStore($req, $res);
+        $this->assertNotNull($cache->serve($req));
+        $cache->purgeAuthors();
+        $this->assertNull($cache->serve($req));
+    }
 }

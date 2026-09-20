@@ -43,6 +43,18 @@ final class Builder
             $fav = $db->one('SELECT (SELECT COUNT(*) FROM favorites f JOIN stories st ON st.id = f.story_id WHERE f.user_id = (SELECT id FROM users WHERE profile_slug = ?) AND st.deleted_at IS NULL AND st.validated = 1 AND st.is_restricted = 0) c', [$u['profile_slug']])['c'];
             if ((int) $fav > 0) $urls[] = '/user/favorites/' . $u['profile_slug'];
         }
+        // Directory: the index plus one letter page per distinct first character
+        // among directory members (same membership gates as the page itself);
+        // non-[a-z] first chars fold into the '0' bucket and dedupe there.
+        $urls[] = '/browse/authors';
+        $letters = [];
+        foreach ($db->all('SELECT DISTINCT lower(substr(profile_slug, 1, 1)) c FROM users WHERE profile_slug IS NOT NULL AND penname IS NOT NULL AND is_locked = 0 AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL') as $r) {
+            $c = (string) $r['c'];
+            $letters[preg_match('/^[a-z]$/', $c) ? $c : '0'] = true;
+        }
+        foreach (array_keys($letters) as $l) {
+            $urls[] = '/browse/authors/' . $l;
+        }
         $written = 0;
         foreach ($urls as $url) {
             $request = new Request('GET', $url, [], [], []);
