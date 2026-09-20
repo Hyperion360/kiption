@@ -72,4 +72,16 @@ final class HeadTest extends TestCase
         $this->assertFalse(Head::make(siteName: 'S')->noindex);
         $this->assertTrue(Head::make(siteName: 'S')->withNoindex()->noindex);
     }
+
+    public function test_with_og_image_overrides_per_page_and_keeps_clone_purity(): void
+    {
+        $h = Head::make(siteName: 'S', ogImage: '/assets/site.png')->withTitle('T');
+        $this->assertContains(['property' => 'og:image', 'content' => '/assets/site.png'], $h->ogTags());
+        $override = $h->withOgImage('https://archive.example/uploads/avatar.png');
+        $this->assertContains(['property' => 'og:image', 'content' => 'https://archive.example/uploads/avatar.png'], $override->ogTags());
+        $this->assertContains(['name' => 'twitter:card', 'content' => 'summary_large_image'], $override->twitterTags());
+        // the clone treatment: the original head keeps the site-level card
+        $this->assertContains(['property' => 'og:image', 'content' => '/assets/site.png'], $h->ogTags());
+        $this->assertSame('/assets/site.png', $h->ogImage);
+    }
 }

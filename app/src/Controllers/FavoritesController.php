@@ -36,8 +36,12 @@ final class FavoritesController
             (new Notifications($this->db))->create($authorId, 'favorite',
                 (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'], $userId, $title);
         }
-        // the anonymous page shows the favorite count: refresh it on either direction
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, []);
+        // the anonymous page shows the favorite count: refresh it on either direction;
+        // the favoriter's public shelf tab changed too
+        $cache = new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
+        $cache->purgeStory($slug, []);
+        $favoriter = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$userId]);
+        if ($favoriter !== null) $cache->purgeUser((string) $favoriter['profile_slug']);
         return Response::redirect('/story/view/' . $slug);
     }
 

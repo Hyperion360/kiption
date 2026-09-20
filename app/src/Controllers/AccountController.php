@@ -95,6 +95,7 @@ final class AccountController
             $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
             @unlink($dir . '/' . basename((string) $old['avatar_path']));
         }
+        $this->purgeOwnProfile($userId);
         return Response::redirect('/account');
     }
 
@@ -108,6 +109,7 @@ final class AccountController
         }
         $userId = (int) $this->session->get('user_id');
         $this->db->query('UPDATE users SET support_url = ? WHERE id = ?', [$url === '' ? null : $url, $userId]);
+        $this->purgeOwnProfile($userId);
         return Response::redirect('/account');
     }
 
@@ -117,11 +119,22 @@ final class AccountController
         // Upsert: seeder-era and user:create members carry no user_prefs row, and a
         // plain UPDATE would silently drop their choice (the form says saved either way).
         $on = isset($this->request->post['notify_favorite_digest']) ? 1 : 0;
+        $userId = (int) $this->session->get('user_id');
         $this->db->query(
             'INSERT INTO user_prefs (user_id, notify_favorite_digest) VALUES (?, ?)
              ON CONFLICT(user_id) DO UPDATE SET notify_favorite_digest = excluded.notify_favorite_digest',
-            [(int) $this->session->get('user_id'), $on]);
+            [$userId, $on]);
+        $this->purgeOwnProfile($userId);
         return Response::redirect('/account');
+    }
+
+    /** Any account-side change (avatar, support link, prefs) refreshes the
+     *  member's three public profile pages. */
+    private function purgeOwnProfile(int $userId): void
+    {
+        $slug = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$userId]);
+        if ($slug === null) return;
+        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeUser((string) $slug['profile_slug']);
     }
 
     private function head(): \App\Seo\Head

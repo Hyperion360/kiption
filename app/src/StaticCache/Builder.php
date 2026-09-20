@@ -32,6 +32,17 @@ final class Builder
         foreach ($db->all('SELECT slug FROM series') as $ser) {
             $urls[] = '/series/view/' . $ser['slug'];
         }
+        // Profiles: every approvable member's view page; the stories and
+        // favorites tabs only when they would list something (the tab gates:
+        // validated, not deleted, not restricted; favorites additionally need
+        // a visible shelf row).
+        foreach ($db->all("SELECT profile_slug FROM users WHERE penname IS NOT NULL AND is_locked = 0 AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL") as $u) {
+            $urls[] = '/user/view/' . $u['profile_slug'];
+            $has = $db->one('SELECT (SELECT COUNT(*) FROM stories st WHERE st.deleted_at IS NULL AND st.validated = 1 AND (st.author_id = (SELECT id FROM users WHERE profile_slug = ?) OR EXISTS (SELECT 1 FROM coauthors ca JOIN users u2 ON u2.id = ca.user_id WHERE ca.story_id = st.id AND u2.profile_slug = ?))) c', [$u['profile_slug'], $u['profile_slug']])['c'];
+            if ((int) $has > 0) $urls[] = '/user/stories/' . $u['profile_slug'];
+            $fav = $db->one('SELECT (SELECT COUNT(*) FROM favorites f JOIN stories st ON st.id = f.story_id WHERE f.user_id = (SELECT id FROM users WHERE profile_slug = ?) AND st.deleted_at IS NULL AND st.validated = 1 AND st.is_restricted = 0) c', [$u['profile_slug']])['c'];
+            if ((int) $fav > 0) $urls[] = '/user/favorites/' . $u['profile_slug'];
+        }
         $written = 0;
         foreach ($urls as $url) {
             $request = new Request('GET', $url, [], [], []);

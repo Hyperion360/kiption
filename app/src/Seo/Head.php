@@ -5,7 +5,7 @@ final class Head
 {
     private function __construct(
         public readonly string $siteName,
-        public readonly string $ogImage,
+        public string $ogImage, // mutated by withOgImage(): readonly props cannot be written after clone on PHP 8.4
         private string $baseUrl,
         public bool $noindex, // mutated by withNoindex(): readonly props cannot be written after clone on PHP 8.4
         private ?string $titleText,
@@ -44,6 +44,11 @@ final class Head
     public function withNoindex(): self
     {
         $c = clone $this; $c->noindex = true; return $c;
+    }
+    /** Per-page og:image override (a member's avatar on their profile). */
+    public function withOgImage(string $path): self
+    {
+        $c = clone $this; $c->ogImage = $path; return $c;
     }
 
     public function title(): string

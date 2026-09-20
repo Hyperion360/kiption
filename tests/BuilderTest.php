@@ -48,10 +48,11 @@ final class BuilderTest extends TestCase
                   '/story/view/the-rabbit-hole', '/story/read/the-rabbit-hole/1',
                   '/story/read/the-rabbit-hole/2', '/story/read/the-rabbit-hole/3',
                   '/story/view/after-hours', '/story/read/after-hours/1',
-                  '/series/view/down-the-rabbit-hole'] as $p) {
+                  '/series/view/down-the-rabbit-hole',
+                  '/user/view/demo-author', '/user/stories/demo-author', '/user/view/betafriend'] as $p) {
             $this->assertNotNull($cache->serve(new Request('GET', $p, [], [], [])), "{$p} built");
         }
-        $this->assertSame(11, $count); // 3 fixed + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series; the adult read builds as its anonymous variant (the gate page, 200)
+        $this->assertSame(14, $count); // 3 fixed + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series + demo(view+stories) + beta(view); the adult read builds as its anonymous variant (the gate page, 200)
     }
 
     public function test_prune_empties_the_layer(): void
