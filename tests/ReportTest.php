@@ -81,4 +81,14 @@ final class ReportTest extends TestCase
         $id = (int) $this->db->one('SELECT id FROM reports')['id'];
         $this->assertSame(403, $this->client($this->fanId)->postWithToken('/report/resolve/' . $id . '/dismiss')->status);
     }
+
+    public function test_report_guards_unknown_targets_and_empty_reason(): void
+    {
+        $client = $this->client($this->fanId);
+        $this->assertSame(404, $client->postWithToken('/report/story/nope', ['reason' => 'x'])->status);
+        $this->assertSame(404, $client->postWithToken('/report/review/99999', ['reason' => 'x'])->status);
+        $this->assertSame(422, $client->postWithToken('/report/story/the-rabbit-hole', ['reason' => '   '])->status);
+        $this->assertSame(422, $client->postWithToken('/report/review/' . $this->reviewId, ['reason' => ''])->status);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM reports')['c'], 'guarded intakes must store nothing');
+    }
 }

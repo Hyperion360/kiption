@@ -103,4 +103,50 @@ final class DigestTest extends TestCase
         $this->assertNotNull($row, 'the toggle must create the prefs row, not just update it');
         $this->assertSame(1, (int) $row['notify_favorite_digest']);
     }
+
+    public function test_favorite_digest_only_member_batches_without_immediate_mail(): void
+    {
+        // The members query must reach members whose ONLY digest channel is the
+        // favorite opt-in (no digest-mode follow): no immediate publish mail,
+        // then the digest carries the update.
+        $this->client($this->fanId)->postWithToken('/favorites/toggle/the-rabbit-hole');
+        $this->client($this->fanId)->postWithToken('/account/prefs', ['notify_favorite_digest' => '1']);
+        $this->db->query('DELETE FROM notifications');
+        $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
+            ['title' => 'DigestOnly', 'content' => 'No immediate mail for opt-ins.', 'notes_before' => '', 'notes_after' => '']);
+        $this->assertSame('', (string) file_get_contents($this->mailLog), 'digest opt-ins get no immediate favorite-update mail');
+        $sent = (new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']), 'https://archive.example'))->send();
+        $this->assertSame(1, $sent);
+        $this->assertStringContainsString('The Rabbit Hole', (string) file_get_contents($this->mailLog));
+    }
+
+    public function test_follower_who_also_favorited_gets_one_notification_row(): void
+    {
+        $this->client($this->fanId)->postWithToken('/follow/author/1');
+        $this->client($this->fanId)->postWithToken('/favorites/toggle/the-rabbit-hole');
+        $this->db->query('DELETE FROM notifications');
+        $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
+            ['title' => 'OnceOnlyPlease', 'content' => 'One row, two channels.', 'notes_before' => '', 'notes_after' => '']);
+        $this->assertSame(1, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM notifications WHERE kind = 'update' AND user_id = ?", [$this->fanId])['c'],
+            'a member in both channels gets exactly one row, never two');
+    }
+
+    public function test_digest_mail_failure_never_breaks_the_batch(): void
+    {
+        $this->client($this->fanId)->postWithToken('/follow/author/1');
+        $this->client($this->fanId)->postWithToken('/follow/mode/1'); // email
+        $this->client($this->fanId)->postWithToken('/follow/mode/1'); // digest
+        $this->db->query('DELETE FROM notifications');
+        $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
+            ['title' => 'MailFails', 'content' => 'The log transport will throw.', 'notes_before' => '', 'notes_after' => '']);
+        $broken = new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => '/nonexistent-dir/kip-qa-digest/nope.log', 'from' => 'noreply@localhost']), 'https://archive.example');
+        // @ on the call: the log transport's failed write warns before it throws; the
+        // exception path under test is the Digest catch, not the transport diagnostic.
+        $this->assertSame(0, @$broken->send(), 'a failing mail transport is skipped, not fatal');
+        $this->assertNull($this->db->one('SELECT digest_sent_at FROM user_prefs WHERE user_id = ?', [$this->fanId])['digest_sent_at'],
+            'the marker only advances on a successful mail');
+        $recovered = new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']), 'https://archive.example');
+        $this->assertSame(1, $recovered->send(), 'the same batch mails once the transport works again');
+    }
 }

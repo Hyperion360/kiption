@@ -93,4 +93,21 @@ final class ReviewTest extends TestCase
     {
         $this->assertSame(404, $this->client($this->fanId)->postWithToken('/review/add/nope', ['body' => 'x', 'rating' => '', 'guest_name' => ''])->status);
     }
+
+    public function test_negative_rating_clamps_to_zero(): void
+    {
+        $res = $this->client($this->fanId)->postWithToken('/review/add/the-rabbit-hole',
+            ['body' => 'Rough.', 'rating' => '-7', 'guest_name' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(0, (int) $this->db->one('SELECT rating FROM reviews WHERE story_id = ?', [$this->storyId()])['rating']);
+    }
+
+    public function test_guest_name_required_and_capped(): void
+    {
+        $res = $this->client()->post('/review/add/the-rabbit-hole', ['body' => 'Hi.', 'rating' => '', 'guest_name' => '   ']);
+        $this->assertSame(422, $res->status);
+        $res = $this->client()->post('/review/add/the-rabbit-hole', ['body' => 'Hi.', 'rating' => '', 'guest_name' => str_repeat('n', 41)]);
+        $this->assertSame(422, $res->status);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM reviews')['c'], 'guarded intakes must store nothing');
+    }
 }
