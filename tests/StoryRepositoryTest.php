@@ -130,6 +130,25 @@ final class StoryRepositoryTest extends TestCase
         $this->assertStringNotContainsString('SCAN', $text);
     }
 
+    public function test_story_landing_reviews_blob_is_sort_free(): void
+    {
+        // The reviews blob sorts a story's reviews created_at DESC LIMIT 50 inside
+        // the hottest page query; the project standard bans TEMP B-TREE sorts on
+        // page-serving shapes. Pin the plan: the ordered walk must come from an index.
+        for ($i = 0; $i < 60; $i++) {
+            $this->db->query('INSERT INTO reviews (story_id, user_id, guest_name, body, ip) VALUES (1, NULL, ?, ?, ?)',
+                ['g' . $i, 'b', '127.0.0.1']);
+        }
+        $sql = null;
+        $this->db->onQuery(function (string $s) use (&$sql): void { $sql = $s; });
+        (new StoryRepository($this->db))->findStoryBySlug('the-rabbit-hole');
+        $this->db->onQuery(fn () => null);
+        $plan = $this->db->all('EXPLAIN QUERY PLAN ' . (string) $sql, [0, 0, 0, 0, 'the-rabbit-hole', 0]);
+        $text = implode(' ', array_column($plan, 'detail'));
+        $this->assertStringNotContainsString('TEMP B-TREE', $text,
+            'the reviews blob ordered itself with a TEMP B-TREE; add/keep an ordered index on reviews (story_id, created_at)');
+    }
+
     public function test_recent_validated_first_page(): void
     {
         $rows = (new StoryRepository($this->db))->recentStories(20, 0);
