@@ -1,7 +1,7 @@
 <?php
 namespace App\Controllers;
 use App\Repositories\UserRepository;
-use Kip\{App, Auth, Mailer, Http\Request, Http\Response, Session, View};
+use Kip\{App, Auth, Database, Mailer, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class AuthController
@@ -14,6 +14,7 @@ final class AuthController
         private Mailer $mailer,
         private App $app,
         private UserRepository $users,
+        private Database $db,
     ) {}
 
     private function head(): \App\Seo\Head
@@ -36,6 +37,7 @@ final class AuthController
     public function attempt(): Response|string
     {
         $email = $this->request->postStr('email');
+        $password = $this->request->postStr('password');
         if ($this->auth->throttled($email, $this->request->ip)) {
             return new Response(
                 $this->view->render('auth/login', ['title' => 'Log in', 'csrf' => $this->session->csrfToken(),
@@ -43,7 +45,9 @@ final class AuthController
                 429
             );
         }
-        if ($this->auth->attempt($email, $this->request->postStr('password'), $this->request->ip)) {
+        $ok = $this->auth->attempt($email, $password, $this->request->ip)
+            || ($this->tryLegacyUpgrade($email, $password) && $this->auth->attempt($email, $password, $this->request->ip));
+        if ($ok) {
             $user = $this->users->findByEmail($email);
             if ($user !== null) {
                 if ((int) $user['is_locked'] === 1) {
@@ -65,6 +69,28 @@ final class AuthController
             return Response::redirect('/');
         }
         return $this->view->render('auth/login', ['title' => 'Log in', 'csrf' => $this->session->csrfToken(), 'error' => 'Wrong email or password']);
+    }
+
+    /** eFiction imports carry unsalted md5 hashes: on the first successful
+     *  legacy verify, rehash to the modern algorithm, clear the legacy column,
+     *  and send the we-moved note. Runs after the throttle gate, so guessing
+     *  burns login_attempts rows exactly like a normal login failure.
+     *  Returns whether an upgrade happened; the retry only runs then, so a
+     *  wrong password still costs exactly one login_attempts row. */
+    private function tryLegacyUpgrade(string $email, string $password): bool
+    {
+        $row = $this->db->one('SELECT id, legacy_md5 FROM users WHERE email = ? AND legacy_md5 IS NOT NULL', [$email]);
+        if ($row === null || !hash_equals((string) $row['legacy_md5'], md5($password))) return false;
+        $this->db->query('UPDATE users SET password_hash = ?, legacy_md5 = NULL WHERE id = ?',
+            [password_hash($password, PASSWORD_DEFAULT), $row['id']]);
+        try {
+            $this->mailer->send($email, 'The archive moved',
+                "The archive you were a member of has moved.\n\nGood news: the password you just used still works, "
+                . "and it is now stored with modern hashing. No action needed; this is just a heads up.");
+        } catch (\Throwable $e) {
+            error_log("Legacy-upgrade mail failed: {$e->getMessage()}");
+        }
+        return true;
     }
 
     public function register(): string
