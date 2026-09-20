@@ -36,6 +36,9 @@ final class BuilderTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => $this->dsn],
             'log_db' => ['dsn' => 'sqlite::memory:'],
+            // the standing convention (mail + uploads on every test App): the
+            // Builder renders /user/... pages and UserController needs its Mailer
+            'mail' => ['transport' => 'log', 'log_path' => $this->cacheDir . '/mail.log', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-build-upl'],
         ];
     }

@@ -79,8 +79,18 @@ final class StoryController
         ]);
     }
 
-    public function read(string $slug, string $n = '1'): Response|string
+    public function read(string $slug, ?string $n = null): Response|string
     {
+        if ($n === null || $n === '') {
+            // toc_first rides a cookie (the Theme pattern): the bare chapter-1 URL
+            // defers to the table of contents for members who chose it. An explicit
+            // /story/read/{slug}/{n} never checks the cookie, so the Builder's
+            // cached chapter URLs and anonymous chapter-1 reads stay byte-identical.
+            if (($this->request->cookies['toc'] ?? '') === '1') {
+                return Response::redirect('/story/view/' . $slug);
+            }
+            $n = '1';
+        }
         $position = max(1, (int) $n);
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $story = $this->repo->findStoryWithChapter($slug, $position, $me);

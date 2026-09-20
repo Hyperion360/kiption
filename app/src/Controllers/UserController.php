@@ -1,6 +1,7 @@
 <?php // app/src/Controllers/UserController.php
 namespace App\Controllers;
-use Kip\{App, Http\Request, Http\Response, Session, View};
+use Kip\{App, Database, Http\Request, Http\Response, Mailer, Session, View};
+use Kip\Routing\{Auth as AuthAttr, Get, Post};
 use App\Repositories\UserRepository;
 
 final class UserController
@@ -11,6 +12,8 @@ final class UserController
         private Session $session,
         private App $app,
         private UserRepository $users,
+        private Database $db,
+        private Mailer $mailer,
     ) {}
 
     public function view(string $slug): Response|string
@@ -57,6 +60,70 @@ final class UserController
         $tab = $this->users->favoritesTab($slug, $perPage, $offset);
         if ($tab === null) return new Response('Page not found', 404);
         return $this->renderTab($slug, $tab, 'Favorites of ', '/user/favorites/' . $slug);
+    }
+
+    /** Both verbs share the /user/contact/{slug} action name (the router derives
+     *  it from the URL segment), so one multi-verb action dispatches: GET renders
+     *  the form, POST runs the send path. */
+    #[AuthAttr] #[Get] #[Post]
+    public function contact(string $slug): Response|string
+    {
+        if ($this->request->method === 'POST') return $this->send($slug);
+        $target = $this->users->findByProfileSlug($slug);
+        if ($target === null || (int) $target['id'] === (int) $this->session->get('user_id')) {
+            return new Response('Page not found', 404);
+        }
+        return $this->renderContactForm($slug, $target, null, false);
+    }
+
+    /** Mailbombing guard: 3 messages per sender per hour, counted from
+     *  contact_log inside the send path (the log row is spent even when the
+     *  transport fails, so a flaky mailer cannot be used to probe the limit). */
+    private function send(string $slug): Response|string
+    {
+        $me = (int) $this->session->get('user_id');
+        $target = $this->users->findByProfileSlug($slug);
+        if ($target === null || (int) $target['id'] === $me) return new Response('Page not found', 404);
+        $body = trim($this->request->postStr('body'));
+        if ($body === '' || strlen($body) > 5000) {
+            return new Response($this->renderContactForm($slug, $target, 'Message must be 1 to 5000 characters.', false), 422);
+        }
+        $recent = (int) $this->db->one(
+            "SELECT COUNT(*) c FROM contact_log WHERE sender_id = ? AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')",
+            [$me]
+        )['c'];
+        if ($recent >= 3) {
+            return new Response($this->renderContactForm($slug, $target, 'You have sent several messages recently, try again later.', false), 429);
+        }
+        $this->db->query('INSERT INTO contact_log (sender_id, target_id) VALUES (?, ?)', [$me, (int) $target['id']]);
+        $sender = $this->db->one('SELECT penname, profile_slug FROM users WHERE id = ?', [$me]);
+        $base = rtrim((string) $this->app->config('base_url', ''), '/');
+        try {
+            $this->mailer->send((string) $target['email'], 'Message from ' . $sender['penname'],
+                $body . "\n\nReply via {$base}/user/contact/{$sender['profile_slug']}");
+        } catch (\Throwable $e) {
+            error_log("Contact mail failed: {$e->getMessage()}");
+            return new Response($this->renderContactForm($slug, $target, 'The message could not be sent, try again later.', false), 500);
+        }
+        return $this->renderContactForm($slug, $target, null, true);
+    }
+
+    /** The form and the sent page share one view; the target's address is the
+     *  mail transport's business, never rendered. */
+    private function renderContactForm(string $slug, array $target, ?string $error, bool $sent): string
+    {
+        return $this->view->render('user/contact', [
+            'title' => 'Contact ' . $target['penname'],
+            'head' => $this->head()->withTitle('Contact ' . $target['penname'])->withNoindex(),
+            'theme' => \App\Theme::current($this->request),
+            'path' => $this->request->path,
+            'slug' => $slug,
+            'target' => $target,
+            'error' => $error,
+            'sent' => $sent,
+            'csrf' => $this->session->csrfToken(),
+            'loggedIn' => true,
+        ]);
     }
 
     /** Both tabs reuse browse/recent.php verbatim; an empty tab is the

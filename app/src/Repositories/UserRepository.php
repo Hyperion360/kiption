@@ -127,7 +127,7 @@ final class UserRepository
     {
         if (!preg_match('#^[a-z0-9_-]+$#', $slug)) return null;
         return $this->db->one(
-            'SELECT u.id, u.penname, u.bio, u.avatar_path, u.support_url, u.is_beta, u.role, u.created_at,
+            'SELECT u.id, u.penname, u.bio, u.avatar_path, u.support_url, u.is_beta, u.role, u.created_at, u.email,
                     (SELECT COUNT(*) FROM stories st WHERE st.deleted_at IS NULL AND st.validated = 1
                        AND (st.author_id = u.id OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = st.id AND ca.user_id = u.id))) story_count,
                     (SELECT COUNT(*) FROM series ser WHERE ser.owner_id = u.id) series_count

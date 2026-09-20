@@ -18,6 +18,17 @@
   </form>
   <form method="post" action="/account/prefs">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <label>Bio (markdown, shown on your profile) <textarea name="bio" maxlength="2000" rows="4"><?= $this->e($me['g'] ?? '') ?></textarea></label>
+    <label><input type="checkbox" name="is_beta" value="1"<?= (int) ($me['h'] ?? 0) === 1 ? ' checked' : '' ?>> Show the Beta reader badge on my profile</label>
+    <fieldset>
+      <legend>Default listing sort</legend>
+      <label><input type="radio" name="default_sort" value="recent"<?= ($me['i'] ?? 'recent') !== 'alpha' ? ' checked' : '' ?>> Recently updated</label>
+      <label><input type="radio" name="default_sort" value="alpha"<?= ($me['i'] ?? '') === 'alpha' ? ' checked' : '' ?>> Alphabetical by title</label>
+    </fieldset>
+    <label><input type="checkbox" name="toc_first" value="1"<?= !empty($tocOn) ? ' checked' : '' ?>> Open the table of contents first when I start a story</label>
+    <label><input type="checkbox" name="notify_review" value="1" checked> Notify me about reviews on my works</label>
+    <label><input type="checkbox" name="notify_response" value="1" checked> Notify me about replies to my reviews</label>
+    <label><input type="checkbox" name="notify_favorites" value="1" checked> Notify me when someone favorites my works</label>
     <label><input type="checkbox" name="notify_favorite_digest" value="1"<?= (int) ($me['f'] ?? 0) === 1 ? ' checked' : '' ?>> Batch updates to my favorited stories into the email digest instead of immediate mail</label>
     <button type="submit">Save preferences</button>
   </form>
