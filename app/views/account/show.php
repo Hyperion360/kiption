@@ -16,6 +16,11 @@
     <label>Support link (http(s) only, shown on your stories) <input name="support_url" maxlength="200" value="<?= $this->e($me['e'] ?? '') ?>"></label>
     <button type="submit">Save support link</button>
   </form>
+  <form method="post" action="/account/prefs">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <label><input type="checkbox" name="notify_favorite_digest" value="1"<?= (int) ($me['f'] ?? 0) === 1 ? ' checked' : '' ?>> Batch updates to my favorited stories into the email digest instead of immediate mail</label>
+    <button type="submit">Save preferences</button>
+  </form>
   <h2>Your stories</h2>
   <?php if ($stories === []): ?><p class="chapter-meta">None yet. <a href="/story/new">Start one</a>.</p>
   <?php else: ?>

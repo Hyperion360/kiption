@@ -82,6 +82,26 @@ final class EngagementRepository
         return [$ids, $emails];
     }
 
+    /** @return array{0: int[], 1: array<int, string>} favoriter ids (inbox) and user_id => email
+     *  (immediate mode only: notify_favorite_digest = 0; digest opt-ins get no immediate mail).
+     *  LEFT JOIN user_prefs: a prefs-less favoriter counts as immediate (only an explicit opt-in suppresses). */
+    public function favoritersToNotify(int $storyId): array
+    {
+        $rows = $this->db->all(
+            "SELECT f.user_id, CASE WHEN COALESCE(p.notify_favorite_digest, 0) = 0 THEN u.email ELSE NULL END AS email
+             FROM favorites f
+             JOIN users u ON u.id = f.user_id
+             LEFT JOIN user_prefs p ON p.user_id = f.user_id
+             WHERE f.story_id = ?", [$storyId]);
+        $ids = [];
+        $emails = [];
+        foreach ($rows as $r) {
+            $ids[] = (int) $r['user_id'];
+            if ($r['email'] !== null) $emails[(int) $r['user_id']] = (string) $r['email'];
+        }
+        return [$ids, $emails];
+    }
+
     /** Site-inbox notification targets: every follower regardless of mode (email/digest ADD delivery, never replace). */
     public function followerIds(int $authorId): array
     {

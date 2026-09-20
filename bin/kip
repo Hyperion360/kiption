@@ -124,5 +124,11 @@ match ($argv[1] ?? 'help') {
         \App\StaticCache\Builder::prune($dir, $config['app_dir']);
         echo "Static layer and framework page cache pruned.\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    'digest:send' => (function () use ($config) {
+        $db = new Kip\Database($config['db']['dsn']);
+        $mailer = new Kip\Mailer($config['mail'] ?? []);
+        $digest = new \App\Digest($db, $mailer, rtrim((string) ($config['base_url'] ?? ''), '/'));
+        printf("Digest mailed to %d members.\n", $digest->send());
+    })(),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };

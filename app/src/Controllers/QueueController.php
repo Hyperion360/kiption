@@ -85,18 +85,30 @@ final class QueueController
         $repo = new AuthoringRepository($this->db);
         $story = $repo->storyForNotify($slug);
         if ($story === null || (int) $story['live_chapters'] === 0) return;
-        [$ids, $emails] = (new \App\Repositories\EngagementRepository($this->db))->followersToNotify((int) $story['author_id']);
+        $engagement = new \App\Repositories\EngagementRepository($this->db);
+        [$followerIds, $followerEmails] = $engagement->followersToNotify((int) $story['author_id']);
+        [$favoriterIds, $favoriterEmails] = $engagement->favoritersToNotify((int) $story['story_id']);
+        // Union with dedupe by id: a member who both follows the author and favorited
+        // the story gets ONE notification row, never two.
+        $uniqueIds = [];
+        foreach ($followerIds as $id) { $uniqueIds[$id] = true; }
+        foreach ($favoriterIds as $id) { $uniqueIds[$id] = true; }
+        // One immediate email per member across both channels: merging the two
+        // user_id-keyed email maps dedupes by construction (entries are the same
+        // users.email either way).
+        $emails = $favoriterEmails;
+        foreach ($followerEmails as $id => $email) { $emails[$id] = $email; }
         $notifications = new \App\Notifications($this->db);
-        foreach ($ids as $followerId) {
-            $notifications->create($followerId, 'update', (int) $story['story_id'], (int) $story['author_id'], (string) $story['title']);
+        foreach (array_keys($uniqueIds) as $memberId) {
+            $notifications->create((int) $memberId, 'update', (int) $story['story_id'], (int) $story['author_id'], (string) $story['title']);
         }
         $base = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/');
-        foreach ($emails as $email) {
+        foreach ($emails as $memberId => $email) {
             try {
                 $this->mailer->send($email, 'Story update: ' . $story['title'],
                     "A story you follow has a new chapter:\n\n" . $story['title'] . "\n{$base}/story/read/{$story['slug']}/{$story['latest_position']}");
             } catch (\Throwable $e) {
-                error_log("follower mail failed: {$e->getMessage()}");
+                error_log("follower mail failed for member {$memberId}: {$e->getMessage()}");
             }
         }
     }
