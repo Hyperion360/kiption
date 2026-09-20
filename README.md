@@ -166,9 +166,7 @@ target's email address is never rendered, only mailed to.
 
 Moving an archive off a live eFiction 3.5.5 install is a two-stage
 runbook: export a bundle from the old install, then import it here.
-Steps 1-3 (the export side) are available today; the importer that
-ingests the bundle (steps 4 onward) lands in the next release, so keep
-the downloaded bundle somewhere safe until then.
+Steps 1-3 run on the old install, steps 4-7 on the new one.
 
 1. On the new archive, run `php bin/kip import:token`. It prints a
    one-time token plus the exact one-line contents for a file named
@@ -187,5 +185,65 @@ email addresses and legacy password hashes. When you are done, use the
 exporter page's self-delete button (or delete by hand) to remove both
 `efiction-export.php` and `export-token.php` from the old webroot.
 
-Importing the bundle into Kiption (authors, stories, reviews, and the
-rest) arrives with the importer in the next release.
+4. On the new archive (after `php bin/kip migrate`), dry-run the
+   import and read the report it prints:
+   `php bin/kip import:efiction kiption-export.tar.gz --dry-run`.
+   Nothing is written; the counts are real. Read it end to end:
+   per-table counts, rejects with reasons, dropped features, missing
+   chapter files, and extracted author responses. Chapters
+   whose files are missing from the bundle reject by default; pass
+   `--allow-missing-text` to import visible placeholder chapters
+   instead.
+5. If the samples show substituted characters or garbled text, the
+   charset heuristic guessed wrong: pass `--encoding=latin1` (or
+   `--encoding=utf8`) and repeat the dry run until the samples read
+   clean. Both dry-runs and commits under the same options are one
+   family; the importer refuses to mix families.
+6. Commit: `php bin/kip import:efiction kiption-export.tar.gz
+   --commit`. A `pre-import-*.sqlite` snapshot of the database is
+   written next to the bundle before anything else happens, then the
+   whole import lands in one transaction. The command prints the
+   report again plus a verification section (per-table manifest
+   versus imported counts, and wordcount drift), writes the legacy
+   301 map, and runs pages:build so the static cache comes up warm.
+   An interrupted or partially failed commit can simply be re-run:
+   already-imported rows are recognized and skipped.
+7. Cutover checklist: spot-check story, profile, and series pages
+   against the old archive (titles, chapter text, author notes,
+   reviews); log in once with an old eFiction password (it works, is
+   immediately rehashed the modern way, clears the legacy hash, and
+   the member gets a short heads-up email); test one legacy link such
+   as `viewstory.php?sid=<a real id>` and confirm the 301; swap DNS
+   or the docroot to the new install; decommission the old install
+   once you are confident, and delete the bundle (it is a password
+   file for as long as it exists).
+
+Rollback: put the site in maintenance mode, copy the
+`pre-import-*.sqlite` snapshot over the database file, run
+`php bin/kip pages:prune`, and lift maintenance.
+
+What lands where: authors become members with pennames, bios, and
+notification preferences (validated authors keep direct publishing;
+legacy read counts import as page-stats baselines); categories,
+classes (as tags), characters, and ratings import as taxonomy;
+stories, chapters, series and their items, coauthors, reviews (with
+author response blocks split out), favorites, news, and the old
+moderation log all import. Chapter and note HTML is converted to the
+markdown subset and word counts are recomputed. Dropped features are
+counted in the report rather than silently lost: custom profile
+fields beyond bio, news author name strings, series challenges, and
+pagelinks and mail templates (both stay in the bundle for a later
+phase). Legacy URL redirects (301, GET requests only) cover
+`viewstory.php?sid=`, `viewuser.php?uid=`, `viewseries.php?seriesid=`,
+`browse.php?catid=`, and `reviews.php?type=ST&item=` (also `type=SE`
+for series); `browse.php` links that use `id=` and `type=categories`
+instead of `catid=` do not redirect.
+
+Admin roles: the importer upgrades members listed in the old
+install's admins setting, which the exporter only began including
+when the `admins` manifest key was added. Bundles exported by older
+copies of `efiction-export.php` import zero admins (the report line
+`admins upgraded from the manifest CSV: 0` says so); promote a member
+through the built-in admin panel afterwards, or create a fresh
+administrator with `php bin/kip user:create <email> [password]
+--admin`.
