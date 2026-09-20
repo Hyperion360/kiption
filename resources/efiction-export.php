@@ -183,9 +183,15 @@ final class EfictionExporter
     private static function formHtml(string $token): string
     {
         $t = htmlspecialchars($token, ENT_QUOTES);
+        // Gate form (empty token): a VISIBLE entry field, or the runbook's
+        // "paste the token" step has no field to paste into. Authenticated
+        // form (token already validated): keep the token hidden.
+        $field = $token === ''
+            ? '<label>Token: <input type="password" name="token" value="" autocomplete="off"></label><br>'
+            : '<input type="hidden" name="token" value="' . $t . '">';
         return <<<HTML
         <form method="post">
-          <input type="hidden" name="token" value="{$t}">
+          {$field}
           <label><input type="checkbox" name="force" value="1"> export without maintenance mode (risk an inconsistent snapshot)</label><br>
           <button name="run" value="1">Run export</button>
         </form>

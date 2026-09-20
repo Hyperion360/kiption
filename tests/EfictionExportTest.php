@@ -128,6 +128,23 @@ final class EfictionExportTest extends TestCase
         $this->assertFileExists(dirname(__DIR__) . '/resources/efiction-export.php', 'the repo file must survive');
     }
 
+    public function test_gate_page_offers_a_token_entry_field_without_oracle(): void
+    {
+        $fx = $this->install();
+        $fx->installShims();
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        file_put_contents($this->root . '/export-token.php', "<?php return '" . hash('sha256', str_repeat('d', 64)) . "';");
+        [$none, $c1] = \EfictionExporter::runner($this->root, 'fxs_', '', false, false, false, false);
+        [$wrong, $c2] = \EfictionExporter::runner($this->root, 'fxs_', str_repeat('e', 64), false, false, false, false);
+        $this->assertSame(200, $c1);
+        $this->assertSame(200, $c2);
+        $this->assertSame($none, $wrong, 'no oracle: the two gate pages must be byte-identical');
+        // the runbook says "paste the token": the gate form needs a visible
+        // entry field or the browser flow cannot authenticate at all
+        $this->assertMatchesRegularExpression('/<input[^>]*type="password"[^>]*name="token"[^>]*>/', $none);
+        $this->assertStringNotContainsString('Download ready', $none);
+    }
     public function test_export_gates_missing_settings_row_and_storiespath(): void
     {
         $fx = $this->install();
