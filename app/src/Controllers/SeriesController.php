@@ -64,7 +64,7 @@ final class SeriesController
     #[AuthAttr]
     public function edit(string $slug): Response|string
     {
-        try { $row = $this->series->forEdit($slug, (int) $this->session->get('user_id'), $this->isAdmin((int) $this->session->get('user_id'))); }
+        try { $row = $this->series->forEdit($slug, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response('Page not found', 404); }
         return $this->form($row);
     }

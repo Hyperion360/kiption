@@ -24,13 +24,23 @@ final class SeriesRepository
         $this->db->query('UPDATE series SET title = ?, summary = ?, membership = ? WHERE id = ?', [$title, $summary, $membership, $row['id']]);
     }
 
-    /** The edit form's row (slug, title, summary, membership), gated through
-     *  own() like update(); own() itself returns only id + owner_id, and the
-     *  form needs the fields it prefills plus the POST target's slug. */
-    public function forEdit(string $slug, int $actorId, bool $isAdmin): array
+    /** The edit form's row (slug, title, summary, membership) in ONE query with
+     *  the owner/admin gate folded in as a may_edit scalar (the formData idiom:
+     *  /series/edit is a budget-pinned page, so no separate role query; the
+     *  Task 4 two-step own()+select and the controller's viewerIsAdmin call
+     *  would cost 3 queries against the pinned 1). */
+    public function forEdit(string $slug, int $actorId): array
     {
-        $row = $this->own($slug, $actorId, $isAdmin);
-        return $this->db->one('SELECT slug, title, summary, membership FROM series WHERE id = ?', [$row['id']]);
+        $row = $this->db->one(
+            "SELECT slug, title, summary, membership,
+                    (owner_id = CAST(? AS INTEGER)
+                     OR EXISTS (SELECT 1 FROM users v WHERE v.id = CAST(? AS INTEGER) AND v.role = 'admin')) may_edit
+             FROM series WHERE slug = ?",
+            [$actorId, $actorId, $slug]
+        );
+        if ($row === null || (int) $row['may_edit'] !== 1) throw new \RuntimeException('not found');
+        unset($row['may_edit']);
+        return $row;
     }
 
     /** One query for EVERY viewer (guest, member, owner, admin): the series row
