@@ -32,4 +32,26 @@ final class ReviewRepository
             [$story['id'], $userId, $body, $rating, $ip]);
         return [true, (int) $story['author_id'], (string) $story['title'], null];
     }
+
+    /** @return array{0: bool added, 1: int notifyUserId, 2: int storyId, 3: string slug, 4: string|null error}
+     *  Replies flatten to the ROOT's thread (one level); the root's author is notified. */
+    public function addReply(int $reviewId, ?int $userId, string $body): array
+    {
+        $row = $this->db->one(
+            'SELECT r.id, r.parent_id, r.story_id, r.user_id AS poster, s.slug, s.author_id AS story_author
+             FROM reviews r JOIN stories s ON s.id = r.story_id
+             WHERE r.id = ? AND s.deleted_at IS NULL', [$reviewId]);
+        if ($row === null) return [false, 0, 0, '', 'not found'];
+        $body = trim($body);
+        if ($body === '' || strlen($body) > 5000) return [false, 0, 0, '', 'Reply text is required (max 5000 characters).'];
+        $rootId = $row['parent_id'] !== null ? (int) $row['parent_id'] : (int) $row['id'];
+        $root = $rootId === (int) $row['id'] ? $row
+            : $this->db->one('SELECT r.id, r.story_id, r.user_id AS poster, s.slug, s.author_id AS story_author, r.parent_id FROM reviews r JOIN stories s ON s.id = r.story_id WHERE r.id = ?', [$rootId]);
+        $posterId = $userId === null ? null : $userId;
+        $guestName = $userId === null ? 'Guest' : null;
+        $this->db->query('INSERT INTO reviews (story_id, user_id, guest_name, body, parent_id, ip) VALUES (?, ?, ?, ?, ?, ?)',
+            [$row['story_id'], $posterId, $guestName, $body, $rootId, '']);
+        $notify = $root['poster'] !== null ? (int) $root['poster'] : 0;
+        return [true, $notify, (int) $row['story_id'], (string) $row['slug'], null];
+    }
 }

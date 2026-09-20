@@ -34,4 +34,19 @@ final class ReviewController
         }
         return Response::redirect('/story/view/' . $slug . '#reviews');
     }
+
+    #[AuthAttr] #[Post]
+    public function reply(string $id): Response
+    {
+        $userId = (int) $this->session->get('user_id');
+        [$added, $notifyUserId, $storyId, $slug, $error] = (new ReviewRepository($this->db))
+            ->addReply((int) $id, $userId, $this->request->postStr('body'));
+        if ($error === 'not found') return new Response('Page not found', 404);
+        if ($error !== null) return new Response($error, 422);
+        if ($notifyUserId !== 0 && $notifyUserId !== $userId) {
+            (new Notifications($this->db))->create($notifyUserId, 'reply', $storyId, $userId, null);
+        }
+        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, []);
+        return Response::redirect('/story/view/' . $slug . '#reviews');
+    }
 }

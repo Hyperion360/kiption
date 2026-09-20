@@ -60,7 +60,7 @@
       </li>
     <?php endforeach; ?>
   </ol>
-  <h2>Reviews (<?= number_format((int) $review_count) ?>)</h2>
+  <h2 id="reviews">Reviews (<?= number_format((int) $review_count) ?>)</h2>
   <?php if ($reviews === []): ?><p class="chapter-meta">None yet.</p>
   <?php else: ?>
     <?php foreach ($reviews as $r): ?>
@@ -68,6 +68,22 @@
         <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? 'Anonymous') ?>
           <?= $r['rating'] !== null ? '| ' . (int) $r['rating'] . '/10' : '' ?> | <?= $this->e($r['created_at']) ?></p>
         <div class="prose"><?= \App\Markdown::render($r['body']) ?></div>
+        <?php if (!empty($r['replies'])): ?>
+          <?php foreach ($r['replies'] as $rep): ?>
+            <blockquote class="review-reply">
+              <p class="chapter-meta"><?= $this->e($rep['penname'] ?? $rep['guest_name'] ?? 'Anonymous') ?>
+                <?= $rep['is_author_reply'] ? '| author' : '' ?></p>
+              <div class="prose"><?= \App\Markdown::render($rep['body']) ?></div>
+            </blockquote>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        <?php if (!empty($csrf)): ?>
+          <form method="post" action="/review/reply/<?= (int) $r['id'] ?>" class="inline">
+            <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+            <input name="body" required maxlength="5000" placeholder="Reply to this review" aria-label="Reply to this review">
+            <button type="submit">Reply</button>
+          </form>
+        <?php endif; ?>
       </article>
     <?php endforeach; ?>
     <?php if ($review_count > count($reviews)): ?><p class="chapter-meta">Showing the 50 most recent reviews.</p><?php endif; ?>

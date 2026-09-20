@@ -26,12 +26,19 @@ final class StoryController
         }
         ksort($chapters);
         unset($story['chapters_blob']);
+        $reviewRows = json_decode((string) $story['reviews_blob'], true) ?: [];
+        $repliesByRoot = []; // blob is newest-first, so replies meet their roots only on a second pass
+        foreach ($reviewRows as $r) {
+            if ($r['parent_id'] === null) continue;
+            $r['is_author_reply'] = (int) $r['user_id'] === (int) $story['author_id'];
+            $repliesByRoot[(int) $r['parent_id']][] = $r;
+        }
         $reviews = [];
-        foreach (json_decode((string) $story['reviews_blob'], true) ?: [] as $r) {
-            if ($r['parent_id'] !== null) continue; // replies group under roots in Task 2
+        foreach ($reviewRows as $r) {
+            if ($r['parent_id'] !== null) continue;
             $r['id'] = (int) $r['id'];
             $r['rating'] = $r['rating'] === null ? null : (int) $r['rating'];
-            $r['replies'] = []; // Task 2 fills and renders these
+            $r['replies'] = $repliesByRoot[(int) $r['id']] ?? [];
             $reviews[] = $r;
         }
         unset($story['reviews_blob']);

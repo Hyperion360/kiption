@@ -15,6 +15,10 @@
           <span><?= $this->e($n['actor'] ?? 'A reader') ?> left kudos on <a href="/story/view/<?= $this->e($n['story_slug']) ?>"><?= $this->e($n['story_title']) ?></a></span>
         <?php elseif ($n['kind'] === 'favorite' && $n['story_id'] !== null): ?>
           <span><?= $this->e($n['actor'] ?? 'A reader') ?> favorited <a href="/story/view/<?= $this->e($n['story_slug']) ?>"><?= $this->e($n['story_title']) ?></a></span>
+        <?php elseif ($n['kind'] === 'review' && $n['story_id'] !== null): ?>
+          <span><?= $this->e($n['actor'] ?? 'A reader') ?> reviewed <a href="/story/view/<?= $this->e($n['story_slug']) ?>"><?= $this->e($n['story_title']) ?></a></span>
+        <?php elseif ($n['kind'] === 'reply' && $n['story_id'] !== null): ?>
+          <span><?= $this->e($n['actor'] ?? 'Someone') ?> replied to a review on <a href="/story/view/<?= $this->e($n['story_slug']) ?>"><?= $this->e($n['story_title']) ?></a></span>
         <?php elseif ($n['kind'] === 'follow'): ?>
           <span><?= $this->e($n['actor'] ?? 'Someone') ?> followed you</span>
         <?php elseif ($n['kind'] === 'update' && $n['story_id'] !== null): ?>
