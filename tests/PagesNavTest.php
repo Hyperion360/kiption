@@ -37,6 +37,7 @@ final class PagesNavTest extends TestCase
         exec('rm -rf ' . escapeshellarg($this->root));
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
         @unlink(substr($this->path, 0, -7)); // the bare tempnam stub under the .sqlite suffix
+        @unlink(dirname(__DIR__) . '/public/cache/index.html'); // the staleness test's planted file
     }
 
     private function db(): Database
@@ -150,6 +151,22 @@ final class PagesNavTest extends TestCase
         $form = $admin->get('/nav/new');
         $this->assertSame(200, $form->status);
         $this->assertStringContainsString('action="/nav/create"', $form->body);
+    }
+
+    public function test_nav_write_purges_stale_static_pages(): void
+    {
+        // QA 10a live smoke: a page cached BEFORE a nav write kept serving
+        // the old menu indefinitely (X-Static-Cache HIT with zero links while
+        // the live render carried them). Chrome is on every page, so a nav
+        // write must wipe the static layer and the framework page cache (the
+        // Builder::prune idiom), not just rebuild the artifact.
+        $stale = dirname(__DIR__) . '/public/cache/index.html';
+        @mkdir(dirname($stale), 0775, true);
+        file_put_contents($stale, 'stale chrome');
+        $admin = $this->client($this->adminId());
+        $this->assertSame(302, $admin->postWithToken('/nav/create', ['label' => 'About', 'url' => '/page/view/about', 'position' => '1', 'is_hidden' => ''])->status);
+        $this->assertFileDoesNotExist($stale, 'a nav write invalidates every statically cached page');
+        $this->assertSame([['label' => 'About', 'url' => '/page/view/about']], \App\NavLinks::all($this->navFile()), 'the artifact still rebuilt');
     }
 
     public function test_auth_page_renders_nav_free_at_200(): void

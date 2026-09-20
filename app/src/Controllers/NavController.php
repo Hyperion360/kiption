@@ -124,6 +124,14 @@ final class NavController
     private function rebuild(): void
     {
         NavLinks::rebuild($this->db, (string) $this->app->config('nav_file', ''));
+        // Chrome rides EVERY page, so a nav write invalidates the whole static
+        // layer and the framework page cache (the Builder::prune idiom), not
+        // just the artifact: without this, pages cached before the write serve
+        // the old menu indefinitely (the QA 10a live-smoke finding). The dirs
+        // come from config so the KIP_STATIC_CACHE_DIR override (tests,
+        // imports, alternate deploys) purges the layer actually in front.
+        $cacheDir = (string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache');
+        \App\StaticCache\Builder::prune($cacheDir, (string) $this->app->config('app_dir', dirname(__DIR__, 2)));
     }
 
     /** $row null renders the create form; the edit row prefills and targets
