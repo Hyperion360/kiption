@@ -109,6 +109,19 @@ final class LangTest extends TestCase
         $this->assertStringContainsString('Log in', $this->client()->get('/auth/login')->body);
     }
 
+    public function test_html_lang_attribute_follows_the_pack(): void
+    {
+        // Under any non-en pack the document itself must stop claiming to be
+        // English: screen readers pick their voice from <html lang>.
+        file_put_contents($this->root . '/xx.php', '<?php return ["nav.login" => "Ensalida"];');
+        \App\Lang::addPackPath('xx', $this->root . '/xx.php');
+        \App\Lang::setCurrent('xx');
+        $this->assertSame('xx', \App\Lang::current());
+        $this->assertStringContainsString('<html lang="xx">', $this->client()->get('/auth/login')->body);
+        \App\Lang::setCurrent('en');
+        $this->assertStringContainsString('<html lang="en">', $this->client()->get('/auth/login')->body);
+    }
+
     public function test_every_view_string_is_extracted(): void
     {
         // The completeness contract: no hardcoded English UI literals remain in

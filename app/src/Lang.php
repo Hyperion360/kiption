@@ -41,6 +41,13 @@ final class Lang
         unset(self::$cache[$lang]);
     }
 
+    /** The active code, as validated by setCurrent (so always [a-z]{2} or en).
+     *  Views emit it as <html lang> so screen readers pick the right voice. */
+    public static function current(): string
+    {
+        return self::$current;
+    }
+
     /** Translate a key under the current pack, interpolating {param} via strtr. */
     public static function t(string $key, array $params = []): string
     {

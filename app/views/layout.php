@@ -1,6 +1,6 @@
 <?php // app/views/layout.php ?>
 <!doctype html>
-<html lang="en"<?= ($theme ?? null) !== null ? ' data-theme="' . $this->e($theme) . '"' : '' ?>>
+<html lang="<?= $this->e(\App\Lang::current()) ?>"<?= ($theme ?? null) !== null ? ' data-theme="' . $this->e($theme) . '"' : '' ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
