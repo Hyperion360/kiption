@@ -15,7 +15,7 @@
   <?php foreach ($head->twitterTags() as $t): ?>
   <meta name="<?= $this->e($t['name']) ?>" content="<?= $this->e($t['content']) ?>">
   <?php endforeach; ?>
-  <link rel="canonical" href="<?= $this->e($head->canonical()) ?>">
+  <?php if ($head->rendersCanonicalLink()): ?><link rel="canonical" href="<?= $this->e($head->canonical()) ?>"><?php endif; ?>
   <?php if ($head->jsonLd() !== ''): ?>
   <script type="application/ld+json"><?= $head->jsonLd() /* JSON_HEX_TAG makes this safe */ ?></script>
   <?php endif; ?>

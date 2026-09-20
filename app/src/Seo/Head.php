@@ -14,11 +14,13 @@ final class Head
         private ?string $articlePublished,
         private ?string $articleModified,
         private array $jsonLdData,
+        private ?string $canonicalAbsolute, // set by withCanonicalUrl(): the syndication external state
+        private bool $canonicalSuppressed, // set by withCanonicalSuppressed(): the cross-post state
     ) {}
 
     public static function make(string $siteName, string $ogImage = '', string $baseUrl = ''): self
     {
-        return new self($siteName, $ogImage, $baseUrl, false, null, null, '/', null, null, []);
+        return new self($siteName, $ogImage, $baseUrl, false, null, null, '/', null, null, [], null, false);
     }
 
     public function withTitle(?string $title): self
@@ -32,6 +34,16 @@ final class Head
     public function withCanonical(string $path): self
     {
         $c = clone $this; $c->canonicalPath = $path; return $c;
+    }
+    /** External canonical (syndication): an absolute URL used verbatim, never baseUrl-prefixed. */
+    public function withCanonicalUrl(string $absoluteUrl): self
+    {
+        $c = clone $this; $c->canonicalAbsolute = $absoluteUrl; return $c;
+    }
+    /** Cross-post state: the canonical LINK disappears, but canonical() (og:url's source) keeps the self URL (finding 5). */
+    public function withCanonicalSuppressed(): self
+    {
+        $c = clone $this; $c->canonicalSuppressed = true; return $c;
     }
     public function withArticle(string $published, string $modified): self
     {
@@ -77,7 +89,16 @@ final class Head
 
     public function canonical(): string
     {
+        // The external absolute wins (og:url carries the author's chosen home per the OG spec);
+        // suppression never reaches here: og:url keeps the self URL in the cross-post state.
+        if ($this->canonicalAbsolute !== null) return $this->canonicalAbsolute;
         return $this->baseUrl . $this->canonicalPath; // absolute: og:url and JSON-LD urls require it
+    }
+
+    /** Gates the layout's <link rel="canonical"> element; false only in the cross-post state. */
+    public function rendersCanonicalLink(): bool
+    {
+        return !$this->canonicalSuppressed;
     }
 
     public function url(string $path): string
