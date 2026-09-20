@@ -25,6 +25,10 @@ final class CharsetTest extends TestCase
         $bad = Charset::toUtf8("bad \xB1byte", 'utf8', $r);
         $this->assertNotSame("bad \xB1byte", $bad);
         $this->assertSame(1, $r->substitutions);
+        // the substituted value lands in the samples the report tells the
+        // operator to spot-check (README step 5)
+        $this->assertCount(1, $r->samples);
+        $this->assertStringContainsString('samples (spot-check these):', $r->render());
     }
 
     public function test_repaired_double_encoding_stays_honest(): void

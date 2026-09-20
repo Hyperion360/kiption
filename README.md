@@ -194,9 +194,10 @@ exporter page's self-delete button (or delete by hand) to remove both
    whose files are missing from the bundle reject by default; pass
    `--allow-missing-text` to import visible placeholder chapters
    instead.
-5. If the samples show substituted characters or garbled text, the
-   charset heuristic guessed wrong: pass `--encoding=latin1` (or
-   `--encoding=utf8`) and repeat the dry run until the samples read
+5. If the report counts substituted characters (the samples section
+   lists the affected text), the charset heuristic guessed wrong: pass
+   `--encoding=latin1` (or `--encoding=utf8`) and repeat the dry run
+   until the substituted-chars count reads zero and the samples read
    clean. Both dry-runs and commits under the same options are one
    family; the importer refuses to mix families.
 6. Commit: `php bin/kip import:efiction kiption-export.tar.gz

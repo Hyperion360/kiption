@@ -16,12 +16,14 @@ final class Charset
 
     /** latin1 mode converts wholesale. In utf8 mode already-valid input returns
      *  untouched; invalid bytes are substituted by mb_convert_encoding ('?' on
-     *  this build: the substitution COUNT is the contract, not the glyph). */
+     *  this build) and the ORIGINAL value is sampled into the report so the
+     *  operator can spot-check what got mangled (the runbook's step 5). */
     public static function toUtf8(string $value, string $mode, Report $r): string
     {
         if ($mode === 'utf8') {
             if (mb_check_encoding($value, 'UTF-8')) return $value;
             $r->substitutions++;
+            $r->sample($value);
             return mb_convert_encoding($value, 'UTF-8', 'UTF-8'); // substitution char
         }
         return mb_convert_encoding($value, 'UTF-8', 'ISO-8859-1');
