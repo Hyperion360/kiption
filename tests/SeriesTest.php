@@ -201,6 +201,19 @@ final class SeriesTest extends TestCase
         $this->assertStringContainsString('down-the-rabbit-hole', $body);
     }
 
+    public function test_account_series_counts_exclude_soft_deleted_stories(): void
+    {
+        $owner = $this->client($this->authorId());
+        $owner->postWithToken('/series/create', ['title' => 'Counted', 'summary' => '', 'membership' => 'closed']);
+        $owner->postWithToken('/series/add/counted', ['story_slug' => 'after-hours']);
+        $this->db->query("UPDATE stories SET deleted_at = ? WHERE slug = 'after-hours'", [date('c')]);
+        $body = $owner->get('/account')->body;
+        // the series page hides the deleted item; the account counts must agree
+        // (membership 'closed' distinguishes this row from the seeded open series)
+        $this->assertStringContainsString('(0 works, closed)', $body);
+        $this->assertStringNotContainsString('(1 works, closed)', $body);
+    }
+
     public function test_series_forms_require_auth(): void
     {
         $this->assertSame(302, $this->client()->get('/series/new')->status); // auth redirect

@@ -45,8 +45,10 @@ final class AccountController
              FROM stories s WHERE s.author_id = ? AND s.deleted_at IS NULL
              UNION ALL
              SELECT '5series' k, ser.slug a, ser.title b,
-                    CAST((SELECT COUNT(*) FROM series_items si WHERE si.series_id = ser.id AND si.confirmed = 1) AS TEXT) c,
-                    CAST((SELECT COUNT(*) FROM series_items si WHERE si.series_id = ser.id AND si.confirmed = 0) AS TEXT) d,
+                    CAST((SELECT COUNT(*) FROM series_items si JOIN stories st ON st.id = si.story_id
+                          WHERE si.series_id = ser.id AND si.confirmed = 1 AND st.deleted_at IS NULL) AS TEXT) c,
+                    CAST((SELECT COUNT(*) FROM series_items si JOIN stories st ON st.id = si.story_id
+                          WHERE si.series_id = ser.id AND si.confirmed = 0 AND st.deleted_at IS NULL) AS TEXT) d,
                     ser.membership e, NULL f, NULL g, NULL h, NULL i, NULL j, NULL l, NULL m
              FROM series ser WHERE ser.owner_id = ?
              ORDER BY k, e LIMIT 250", [$userId, $userId, $userId, $userId, $userId, $userId]);
