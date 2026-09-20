@@ -130,5 +130,17 @@ match ($argv[1] ?? 'help') {
         $digest = new \App\Digest($db, $mailer, rtrim((string) ($config['base_url'] ?? ''), '/'));
         printf("Digest mailed to %d members.\n", $digest->send());
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    'import:token' => (function () use ($argv) {
+        $token = bin2hex(random_bytes(32));
+        $hash = hash('sha256', $token);
+        echo "1. Create a file named export-token.php next to efiction-export.php on the OLD install,\n";
+        echo "   containing exactly this one line (no leading space, no newline before <?php):\n";
+        echo "   <?php return '{$hash}';\n";
+        echo "2. Open efiction-export.php in the browser and paste this token:\n";
+        echo "   token: {$token}\n";
+        echo "3. Treat the downloaded bundle as a password file: it contains member email addresses\n";
+        echo "   and legacy password hashes. Delete export-token.php and efiction-export.php when done\n";
+        echo "   (the exporter page has a self-delete button that removes both).\n";
+    })(),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|digest:send|import:token|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };

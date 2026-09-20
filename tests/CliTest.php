@@ -57,4 +57,24 @@ final class CliTest extends TestCase
         $res = (new TestClient($app))->post('/auth/attempt', ['email' => 'cli@e.test', 'password' => 'password123']);
         $this->assertSame(302, $res->status, 'CLI-created admin must pass the login gates: ' . substr($res->body, 0, 200));
     }
+
+    public function test_import_token_prints_token_and_hash_file_line(): void
+    {
+        [$code, $out] = $this->kip('import:token'); // CliTest's kip() returns [exit, stdout]
+        $this->assertSame(0, $code);
+        $this->assertStringContainsString('export-token.php', $out);
+        $this->assertMatchesRegularExpression('/token: [a-f0-9]{64}/', $out);
+        $this->assertMatchesRegularExpression("/<\?php return '[a-f0-9]{64}';/", $out);
+        // the printed hash is the sha256 of the printed token
+        preg_match('/token: ([a-f0-9]{64})/', $out, $m);
+        preg_match("/return '([a-f0-9]{64})';/", $out, $h);
+        $this->assertSame(hash('sha256', $m[1]), $h[1]);
+    }
+
+    public function test_import_token_is_random_per_invocation(): void
+    {
+        [, $a] = $this->kip('import:token');
+        [, $b] = $this->kip('import:token');
+        $this->assertNotSame($a, $b);
+    }
 }
