@@ -29,6 +29,9 @@ final class Builder
                 $urls[] = '/story/read/' . $s['slug'] . '/' . $i;
             }
         }
+        foreach ($db->all('SELECT slug FROM series') as $ser) {
+            $urls[] = '/series/view/' . $ser['slug'];
+        }
         $written = 0;
         foreach ($urls as $url) {
             $request = new Request('GET', $url, [], [], []);

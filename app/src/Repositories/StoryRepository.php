@@ -6,8 +6,10 @@ final class StoryRepository
 {
     public function __construct(private Database $db) {}
 
-    /** ONE query: story + author + rating + categories + chapter TOC blob.
-     *  The blob is JSON: titles are free text (admin CRUD writes chapters
+    /** ONE query: story + author + rating + categories + chapter TOC blob,
+     *  plus the series membership and coauthor byline blobs (param-free scalar
+     *  subqueries, so the bind order below is unchanged).
+     *  The blobs are JSON: titles are free text (admin CRUD writes chapters
      *  today), so no hand-rolled delimiter scheme is safe to parse. json_group_array
      *  yields [] when the story has no validated chapters. Decode and ksort in
      *  PHP so ordering never depends on aggregation internals.
@@ -37,7 +39,12 @@ final class StoryRepository
                             \'body\', r.body, \'rating\', r.rating, \'parent_id\', r.parent_id, \'created_at\', r.created_at))
                      FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id ORDER BY r.created_at DESC LIMIT 50) r) AS reviews_blob,
                     (SELECT COUNT(*) FROM reviews r2 WHERE r2.story_id = s.id) AS review_count,
-                    (SELECT su.support_url FROM users su WHERE su.id = s.author_id) AS support_url
+                    (SELECT su.support_url FROM users su WHERE su.id = s.author_id) AS support_url,
+                    (SELECT json_group_array(json_object(\'s\', ser.slug, \'t\', ser.title))
+                     FROM series_items si JOIN series ser ON ser.id = si.series_id
+                     WHERE si.story_id = s.id AND si.confirmed = 1) AS series_blob,
+                    (SELECT json_group_array(json_object(\'n\', cu.penname, \'p\', cu.profile_slug))
+                     FROM coauthors ca JOIN users cu ON cu.id = ca.user_id WHERE ca.story_id = s.id) AS coauthors_blob
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id

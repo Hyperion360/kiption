@@ -13,7 +13,7 @@ final class Cache
     public function fileFor(string $path): ?string
     {
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $path)) return null;
-        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?)$#', $path)) return null;
+        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+)$#', $path)) return null;
         $prefix = $path === '/' ? '' : $path;   // '/' must not become '//'
         return $this->dir . $prefix . '/index.html';
     }
@@ -68,8 +68,11 @@ final class Cache
 
     /** Purge a story's pages plus the collection pages its updates affect.
      *  $categorySlugs are the story's categories (caller reads them from the
-     *  DB before deleting/changing the row). */
-    public function purgeStory(string $slug, array $categorySlugs): void
+     *  DB before deleting/changing the row). $seriesSlugs are the confirmed
+     *  series containing it and $authorProfileSlug the author's profile key:
+     *  a member story changing refreshes its series pages and the author's
+     *  profile pages (the master plan's invalidation contract). */
+    public function purgeStory(string $slug, array $categorySlugs, array $seriesSlugs = [], string $authorProfileSlug = ''): void
     {
         foreach (['/story/view/' . $slug, '/browse', '/browse/recent', '/'] as $p) {
             $f = $this->fileFor($p);
@@ -81,6 +84,29 @@ final class Cache
             $f = $this->fileFor('/browse/category/' . $catSlug);
             if ($f !== null && is_file($f)) @unlink($f);
         }
+        foreach ($seriesSlugs as $ss) $this->purgeSeries($ss);
+        if ($authorProfileSlug !== '') $this->purgeUser($authorProfileSlug);
+    }
+
+    public function purgeSeries(string $slug): void
+    {
+        $f = $this->fileFor('/series/view/' . $slug);
+        if ($f !== null && is_file($f)) @unlink($f);
+    }
+
+    public function purgeUser(string $profileSlug): void
+    {
+        foreach (['view', 'stories', 'favorites'] as $tab) {
+            $f = $this->fileFor('/user/' . $tab . '/' . $profileSlug);
+            if ($f !== null && is_file($f)) @unlink($f);
+        }
+    }
+
+    /** The whole authors directory (index + every letter page). */
+    public function purgeAuthors(): void
+    {
+        $dir = $this->dir . '/browse/authors';
+        if (is_dir($dir)) exec('rm -rf ' . escapeshellarg($dir));
     }
 
     /** Phase 1 contract: the moment maintenance blocks the first request, the

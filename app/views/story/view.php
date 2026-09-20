@@ -12,6 +12,11 @@
     | in <?= $this->e($story['category_names'] ?? 'Uncategorized') ?>
     <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?>
   </p>
+  <?php if ($series !== []): ?>
+  <p class="chapter-meta">Series:
+    <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>
+  </p>
+  <?php endif; ?>
   <?php if (!empty($story['cover_path'])): ?>
     <img class="cover" src="<?= $this->e($story['cover_path']) ?>" alt="Story cover">
   <?php endif; ?>

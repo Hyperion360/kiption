@@ -26,6 +26,8 @@ final class StoryTest extends TestCase
         $db->query('INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count) VALUES (1, 1, "Down", "A/N before.", "<p>Falling <em>down</em>.</p>", "", 1, 100)');
         $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (1, 2, "Through", "<p>Through the door.</p>", 1, 200)');
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (1, 1)');
+        $db->query("INSERT INTO series (title, slug, summary, owner_id, membership) VALUES ('Down the Rabbit Hole', 'down-the-rabbit-hole', 'The complete descent, chapter by chapter.', 1, 'open')");
+        $db->query("INSERT INTO series_items (series_id, story_id, position, confirmed) VALUES (1, 1, 1, 1)");
         $db->query('INSERT INTO stories (title, slug, author_id, rating_id, validated, completed, word_count) VALUES (?, ?, 1, 2, 1, 1, 100)',
             ['After Hours', 'after-hours']);
         $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (2, 1, "One", "<p>Body.</p>", 1, 100)');
@@ -69,6 +71,13 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('Chapter 3: A|B~C', $res->body);
         $this->assertStringContainsString('444 words', $res->body);
         $this->assertStringNotContainsString('Chapter 0', $res->body);
+    }
+
+    public function test_story_view_links_its_series(): void
+    {
+        $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
+        $this->assertStringContainsString('href="/series/view/down-the-rabbit-hole"', $res->body);
+        $this->assertStringContainsString('Down the Rabbit Hole', $res->body);
     }
 
     public function test_unknown_story_404(): void

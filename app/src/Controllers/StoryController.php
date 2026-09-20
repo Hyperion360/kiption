@@ -27,6 +27,10 @@ final class StoryController
         }
         ksort($chapters);
         unset($story['chapters_blob']);
+        $seriesLinks = json_decode((string) $story['series_blob'], true) ?: [];
+        unset($story['series_blob']);
+        $coauthors = json_decode((string) $story['coauthors_blob'], true) ?: [];
+        unset($story['coauthors_blob']);
         $reviewRows = json_decode((string) $story['reviews_blob'], true) ?: [];
         $repliesByRoot = []; // blob is newest-first, so replies meet their roots only on a second pass
         foreach ($reviewRows as $r) {
@@ -68,6 +72,8 @@ final class StoryController
             'marked_at_me' => $story['marked_at_me'],
             'reviews' => $reviews,
             'review_count' => (int) $story['review_count'],
+            'series' => $seriesLinks,
+            'coauthors' => $coauthors,
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
     }
@@ -159,9 +165,9 @@ final class StoryController
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
-        [$id, $slug, $cats] = $this->authoring()->createStory(
+        [$id, $slug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language);
-        $this->staticCache()->purgeStory($slug, $cats);
+        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
         return Response::redirect('/story/edit/' . $slug);
     }
 
@@ -185,14 +191,14 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         try {
-            [$newSlug, $cats] = $this->authoring()->updateStory(
+            [$newSlug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->staticCache()->purgeStory($newSlug, $cats);
+        $this->staticCache()->purgeStory($newSlug, $cats, $seriesSlugs, $authorSlug);
         if ($newSlug !== $slug) {
-            $this->staticCache()->purgeStory($slug, $cats); // old URLs' files too
+            $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug); // old URLs' files too
         }
         return Response::redirect('/story/edit/' . $newSlug);
     }
@@ -201,11 +207,12 @@ final class StoryController
     public function delete(string $slug): Response
     {
         try {
-            [$slug, $cats] = $this->authoring()->deleteStory($slug, $this->uid());
+            [$slug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->deleteStory($slug, $this->uid());
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->staticCache()->purgeStory($slug, $cats);
+        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
+        $this->staticCache()->purgeAuthors(); // the directory's story counts changed
         return Response::redirect('/account');
     }
 
@@ -227,7 +234,8 @@ final class StoryController
             return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
         }
         $this->db->query('UPDATE stories SET cover_path = ? WHERE id = ?', [$path, $story['id']]);
-        $this->staticCache()->purgeStory($slug, $this->authoring()->categorySlugs((int) $story['id']));
+        [$seriesSlugs, $authorSlug] = $this->authoring()->purgeData((int) $story['id'], (int) $story['author_id']);
+        $this->staticCache()->purgeStory($slug, $this->authoring()->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug);
         return Response::redirect('/story/edit/' . $slug);
     }
 

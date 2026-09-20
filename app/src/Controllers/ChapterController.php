@@ -32,11 +32,11 @@ final class ChapterController
         }
         $auto = $this->autoValidates();
         try {
-            [$cats] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto);
+            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
         }
-        $this->purge($slug, $cats);
+        $this->purge($slug, $cats, $seriesSlugs, $authorSlug);
         if ($auto) $this->notifyPublish($slug);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -46,11 +46,11 @@ final class ChapterController
     {
         [$title, $content, $before, $after] = $this->chapterInput();
         try {
-            [$cats] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after);
+            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->purge($slug, $cats);
+        $this->purge($slug, $cats, $seriesSlugs, $authorSlug);
         $wasLive = (int) ($this->db->one(
             'SELECT validated FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
             [$slug, $position])['validated'] ?? 0);
@@ -62,11 +62,11 @@ final class ChapterController
     public function delete(string $slug, int $position): Response
     {
         try {
-            [$cats] = $this->repo()->deleteChapter($slug, $position, $this->uid());
+            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->deleteChapter($slug, $position, $this->uid());
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->purge($slug, $cats);
+        $this->purge($slug, $cats, $seriesSlugs, $authorSlug);
         return Response::redirect('/story/edit/' . $slug);
     }
 
@@ -98,9 +98,9 @@ final class ChapterController
             || in_array($role, ['validated_author', 'moderator', 'admin'], true);
     }
 
-    private function purge(string $slug, array $cats): void
+    private function purge(string $slug, array $cats, array $seriesSlugs = [], string $authorSlug = ''): void
     {
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, $cats);
+        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
     }
 
     private function notifyPublish(string $slug): void

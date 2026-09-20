@@ -197,6 +197,13 @@ final class SeriesRepository
         catch (\RuntimeException) { return false; }
     }
 
+    /** One-line role check for the controller's write guards (writes are not
+     *  budget-pinned, plan review finding 12: no Adminness::isAdmin exists). */
+    public function viewerIsAdmin(int $userId): bool
+    {
+        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$userId])['c'] === 1;
+    }
+
     private function own(string $slug, int $actorId, bool $isAdmin): array
     {
         $row = $this->db->one('SELECT id, owner_id FROM series WHERE slug = ?', [$slug]);

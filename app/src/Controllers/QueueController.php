@@ -39,7 +39,8 @@ final class QueueController
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveStory((int) $id) : $repo->removeStory((int) $id);
         if ($coords !== null) {
-            $this->purge($coords[0], $coords[1]);
+            $this->purge($coords[0], $coords[1], $coords[2], $coords[3]);
+            (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors(); // story counts changed
             if ($op === 'approve') $this->notifyPublish($coords[0]);
         }
         return Response::redirect('/queue');
@@ -52,7 +53,7 @@ final class QueueController
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveChapter((int) $id) : $repo->removeChapter((int) $id);
         if ($coords !== null) {
-            $this->purge($coords[0], $coords[1]);
+            $this->purge($coords[0], $coords[1], $coords[2], $coords[3]);
             if ($op === 'approve') $this->notifyPublish($coords[0]);
         }
         return Response::redirect('/queue');
@@ -75,9 +76,9 @@ final class QueueController
         return !(Adminness::requireModerator($this->db, $this->session) instanceof Response);
     }
 
-    private function purge(string $slug, array $cats): void
+    private function purge(string $slug, array $cats, array $seriesSlugs = [], string $authorSlug = ''): void
     {
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, $cats);
+        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
     }
 
     private function notifyPublish(string $slug): void
