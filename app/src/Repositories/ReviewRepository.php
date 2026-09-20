@@ -10,13 +10,16 @@ final class ReviewRepository
     /** @return array{0: bool added, 1: int authorId, 2: string title, 3: string|null error} */
     public function addReview(string $slug, ?int $userId, ?string $guestName, string $body, ?int $rating, string $ip): array
     {
-        $story = $this->db->one('SELECT id, author_id, title FROM stories WHERE slug = ? AND deleted_at IS NULL AND validated = 1', [$slug]);
+        $story = $this->db->one('SELECT id, author_id, title, is_restricted FROM stories WHERE slug = ? AND deleted_at IS NULL AND validated = 1', [$slug]);
         if ($story === null) return [false, 0, '', null];
         $body = trim($body);
         if ($body === '' || strlen($body) > 5000) return [false, 0, '', 'Review text is required (max 5000 characters).'];
         if ($rating !== null && $rating > 10) $rating = 10; // clamp high; negatives clamp to 0
         if ($rating !== null && $rating < 0) $rating = 0;
         if ($userId === null) {
+            // Restricted works are registered-readers-only: a guest POST must draw
+            // the same 404 as the story page, never a 302 existence oracle.
+            if ((int) $story['is_restricted'] === 1) return [false, 0, '', null];
             $guestName = trim((string) $guestName);
             if ($guestName === '' || strlen($guestName) > 40) return [false, 0, '', 'Guest name is required (max 40 characters).'];
             $today = date('Y-m-d');

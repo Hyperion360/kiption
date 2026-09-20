@@ -13,8 +13,10 @@ final class EngagementRepository
      *  inserted-or-not signal. One statement, race-free. */
     public function addKudos(string $slug, ?int $userId, string $ip): array
     {
-        $story = $this->db->one('SELECT id, author_id, title FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
-        if ($story === null) return [false, 0, ''];
+        $story = $this->db->one('SELECT id, author_id, title, is_restricted FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
+        // Restricted works are registered-readers-only: guests draw the same 404 as
+        // the story page, never a 302 existence oracle or a guest count bump.
+        if ($story === null || ($userId === null && (int) $story['is_restricted'] === 1)) return [false, 0, ''];
         $stmt = $this->db->query('INSERT OR IGNORE INTO story_kudos (story_id, user_id, ip) VALUES (?, ?, ?)',
             [$story['id'], $userId, $ip]);
         return [$stmt->rowCount() === 1, (int) $story['author_id'], (string) $story['title']];

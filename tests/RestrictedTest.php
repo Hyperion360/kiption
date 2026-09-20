@@ -86,6 +86,26 @@ final class RestrictedTest extends TestCase
         $this->assertStringNotContainsString('The Rabbit Hole', 'language-filtered browse leaked a restricted story title');
     }
 
+    public function test_guest_writes_to_restricted_story_404(): void
+    {
+        // The story page 404s for guests; the write paths must agree, or a
+        // guest POST is an existence oracle (302 vs 404) and injects guest
+        // content into a members-only review section / kudos count.
+        $this->db->query("UPDATE stories SET is_restricted = 1 WHERE slug = 'the-rabbit-hole'");
+        $guest = new TestClient($this->app());
+        $res = $guest->post('/review/add/the-rabbit-hole', ['body' => 'Sneak.', 'rating' => '', 'guest_name' => 'Gatecrash']);
+        $this->assertSame(404, $res->status, $res->body);
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM reviews WHERE body = 'Sneak.'")['c']);
+        $res = $guest->post('/kudos/add/the-rabbit-hole', []);
+        $this->assertSame(404, $res->status, $res->body);
+        $this->assertSame(0, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM story_kudos k JOIN stories s ON s.id = k.story_id WHERE s.slug = 'the-rabbit-hole'")['c']);
+        // Members still can: registered readers may review and kudos what they can read.
+        $res = (new TestClient($this->app()))->actingAs(1)
+            ->postWithToken('/review/add/the-rabbit-hole', ['body' => 'Member view.', 'rating' => '', 'guest_name' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+    }
+
     public function test_toggle_restricts_purges_and_updates(): void
     {
         $client = (new TestClient($this->app()))->actingAs(1);
