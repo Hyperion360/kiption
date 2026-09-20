@@ -76,9 +76,13 @@ final class UserController
         return $this->renderContactForm($slug, $target, null, false);
     }
 
-    /** Mailbombing guard: 3 messages per sender per hour, counted from
-     *  contact_log inside the send path (the log row is spent even when the
-     *  transport fails, so a flaky mailer cannot be used to probe the limit). */
+    /** Mailbombing guard: 3 messages per sender per hour, enforced by ONE
+     *  guarded INSERT (the report-intake pattern): the hour-window count rides
+     *  inside the INSERT..SELECT, and rowCount() is the throttle signal, so two
+     *  concurrent sends cannot both pass a check-then-act count (the exact race
+     *  the Phase 6b pass fixed for the guest review throttle). The log row is
+     *  spent even when the transport fails, so a flaky mailer cannot be used to
+     *  probe the limit. */
     private function send(string $slug): Response|string
     {
         $me = (int) $this->session->get('user_id');
@@ -88,14 +92,15 @@ final class UserController
         if ($body === '' || strlen($body) > 5000) {
             return new Response($this->renderContactForm($slug, $target, 'Message must be 1 to 5000 characters.', false), 422);
         }
-        $recent = (int) $this->db->one(
-            "SELECT COUNT(*) c FROM contact_log WHERE sender_id = ? AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')",
-            [$me]
-        )['c'];
-        if ($recent >= 3) {
+        $guard = $this->db->query(
+            "INSERT INTO contact_log (sender_id, target_id)
+             SELECT ?, ? WHERE (SELECT COUNT(*) FROM contact_log
+                                WHERE sender_id = ? AND created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour')) < 3",
+            [$me, (int) $target['id'], $me]
+        );
+        if ($guard->rowCount() === 0) {
             return new Response($this->renderContactForm($slug, $target, 'You have sent several messages recently, try again later.', false), 429);
         }
-        $this->db->query('INSERT INTO contact_log (sender_id, target_id) VALUES (?, ?)', [$me, (int) $target['id']]);
         $sender = $this->db->one('SELECT penname, profile_slug FROM users WHERE id = ?', [$me]);
         $base = rtrim((string) $this->app->config('base_url', ''), '/');
         try {
