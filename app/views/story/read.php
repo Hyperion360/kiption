@@ -1,13 +1,15 @@
 <?php // app/views/story/read.php ?>
 <?php $this->layout('layout'); ?>
-<article>
+<article class="h-entry">
   <header class="chapter-meta">
-    <a href="/story/view/<?= $this->e($story['slug']) ?>"><?= $this->e($story['title']) ?></a>
-    by <?= $this->e($story['penname']) ?>
+    <a class="u-url" href="/story/view/<?= $this->e($story['slug']) ?>"><?= $this->e($story['title']) ?></a>
+    by <span class="p-author h-card"><?= $this->e($story['penname']) ?></span>
     | Chapter <?= $position ?> of <?= $total ?>
+    | Published <time class="dt-published" datetime="<?= $this->e($story['created_at']) ?>"><?= $this->e(substr((string) $story['created_at'], 0, 10)) ?></time>
+    | Updated <time class="dt-updated" datetime="<?= $this->e($story['updated_at']) ?>"><?= $this->e(substr((string) $story['updated_at'], 0, 10)) ?></time>
   </header>
-  <div class="prose">
-    <h1><?= $this->e($chapter['title'] !== '' ? $chapter['title'] : 'Chapter ' . $position) ?></h1>
+  <div class="prose e-content">
+    <h1 class="p-name"><?= $this->e($chapter['title'] !== '' ? $chapter['title'] : 'Chapter ' . $position) ?></h1>
     <?php if (($chapter['notes_before'] ?? '') !== ''): ?>
       <div class="chapter-meta"><?= \App\Markdown::render($chapter['notes_before']) ?></div>
     <?php endif; ?>
