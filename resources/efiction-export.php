@@ -101,8 +101,16 @@ final class EfictionExporter
      *  BY REFERENCE (finding 5): missing_story_files must land in the manifest. */
     private function copyStoryFiles(array &$manifest): void
     {
+        $installRoot = realpath($this->installRoot);
         $srcRoot = realpath($this->installRoot . '/' . $manifest['settings']['storiespath']);
         if ($srcRoot === false) throw new RuntimeException('storiespath missing on disk');
+        // realpath alone only resolves traversal, it does not refuse it: a
+        // settings row like ../../ would read chapter files from outside the
+        // install. Containment check on the resolved paths (trailing slash so
+        // a sibling like /root-evil cannot prefix-match /root).
+        if ($installRoot === false || strpos($srcRoot . '/', $installRoot . '/') !== 0) {
+            throw new RuntimeException('storiespath escapes the install root');
+        }
         $q = dbquery('SELECT chapid, uid FROM ' . TABLEPREFIX . 'fanfiction_chapters');
         $dest = $this->outDir . '/stories';
         while (($row = dbassoc($q)) !== null) {

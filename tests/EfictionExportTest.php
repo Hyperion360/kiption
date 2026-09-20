@@ -145,6 +145,33 @@ final class EfictionExportTest extends TestCase
         $this->assertMatchesRegularExpression('/<input[^>]*type="password"[^>]*name="token"[^>]*>/', $none);
         $this->assertStringNotContainsString('Download ready', $none);
     }
+
+    public function test_storiespath_escape_is_refused(): void
+    {
+        $fx = $this->install();
+        $fx->installShims();
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        // a settings row whose storiespath climbs out of the install root
+        $outside = sys_get_temp_dir() . '/kiption-efi-outside-' . uniqid('', true);
+        mkdir($outside . '/1', 0775, true);
+        file_put_contents($outside . '/1/10.txt', 'SECRET OUTSIDE ROOT');
+        try {
+            $fx->pdo->exec("UPDATE fxs_fanfiction_settings SET storiespath = '../" . basename($outside) . "'");
+            $out = $this->root . '/out3';
+            mkdir($out, 0775, true);
+            try {
+                (new \EfictionExporter($this->root, 'fxs_', $out))->export();
+                $this->fail('expected RuntimeException for an escaping storiespath');
+            } catch (\RuntimeException $e) {
+                $this->assertStringContainsString('install root', $e->getMessage());
+            }
+            $this->assertFileDoesNotExist($out . '/stories/1/10.txt', 'nothing from outside the root may enter the bundle');
+        } finally {
+            exec('rm -rf ' . escapeshellarg($outside));
+        }
+    }
+
     public function test_export_gates_missing_settings_row_and_storiespath(): void
     {
         $fx = $this->install();
