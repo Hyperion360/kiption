@@ -85,7 +85,7 @@ final class Importer
             $this->db->commit();
             if ($sync !== null) $this->db->exec("PRAGMA synchronous = {$sync}");
             $this->finishRun();
-            $this->writeLegacyUrls();
+            (new LegacyRedirects())->writeForImport($this->db);
             \App\StaticCache\Builder::build($this->config, $this->config['static_cache']['dir'] ?? dirname(__DIR__, 3) . '/public/cache');
             return $this->renderReport() . $this->verifyDiff($manifest)
                 . "snapshot: see pre-import-*.sqlite next to the bundle; restore = copy it over the DB\n";
@@ -722,30 +722,6 @@ final class Importer
             $this->record('fanfiction_comments', $cid, 'news_comments', (int) $this->db->lastInsertId());
             $this->bump($this->counts, 'news_comments');
             $this->tick();
-        }
-    }
-
-    /** Fills legacy_urls from import_map for the four single-param shapes plus
-     *  reviews.php's item+type shape. Task 5 extracts this body into
-     *  LegacyRedirects::writeForImport and re-points this call. */
-    private function writeLegacyUrls(): void
-    {
-        foreach (['viewstory.php' => ['sid', 'fanfiction_stories', 'story'],
-                  'viewuser.php' => ['uid', 'fanfiction_authors', 'user'],
-                  'viewseries.php' => ['seriesid', 'fanfiction_series', 'series'],
-                  'browse.php' => ['catid', 'fanfiction_categories', 'category']] as $path => [$param, $table, $type]) {
-            foreach ($this->db->all('SELECT legacy_id, new_id FROM import_map WHERE legacy_table = ?', [$table]) as $m) {
-                $this->db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, ?, ?, ?)',
-                    [$path, $param . '=' . $m['legacy_id'], $type, (int) $m['new_id']]);
-            }
-        }
-        foreach ($this->db->all('SELECT legacy_id, new_id FROM import_map WHERE legacy_table = ?', ['fanfiction_stories']) as $m) {
-            $this->db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, ?, ?, ?)',
-                ['reviews.php', 'item=' . $m['legacy_id'] . '&type=ST', 'story', (int) $m['new_id']]);
-        }
-        foreach ($this->db->all('SELECT legacy_id, new_id FROM import_map WHERE legacy_table = ?', ['fanfiction_series']) as $m) {
-            $this->db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, ?, ?, ?)',
-                ['reviews.php', 'item=' . $m['legacy_id'] . '&type=SE', 'series', (int) $m['new_id']]);
         }
     }
 

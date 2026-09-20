@@ -72,6 +72,11 @@ final class ImportCliTest extends TestCase
         $this->assertSame('Unrated', $db->one('SELECT label FROM ratings')['label'], 'empty taxonomy fell back to Unrated');
         // 301 map written (story shape; reviews.php carries its own item+type shape per Task 5)
         $this->assertNotNull($db->one("SELECT * FROM legacy_urls WHERE legacy_path = 'viewstory.php' AND params = 'sid=7'"));
+        $this->assertNotNull($db->one("SELECT * FROM legacy_urls WHERE legacy_path = 'reviews.php' AND params = 'item=7&type=ST'"), 'reviews.php rides the canonical ksort form');
+        // the index.php-equivalent consult drive over the imported DB (the HTTP smoke is Task 7's)
+        $slug = (string) $db->one('SELECT slug FROM stories')['slug'];
+        $this->assertSame('/story/view/' . $slug,
+            (new \App\Import\LegacyRedirects())->lookup(new \Kip\Http\Request('GET', '/viewstory.php', ['sid' => '7'], [], []), $db));
         $this->assertStringContainsString('verification', $out);
         $this->assertStringContainsString('password file', $out);
         // pages:build ran against the TEST cache dir, never the repo's (finding 6)

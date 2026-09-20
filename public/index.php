@@ -13,12 +13,13 @@ public/index.php
   |      \-- no  --> static cache maintenancePurge(false)
   |-- static cache serve(request)?  (GET, no cookies, no query, whitelisted path)
   |      |-- HIT  --> send --> exit            (App never boots)
-  |      \-- miss --> new Kip\App(config, lazy session)
-  |                     |-- App::handle(request)
-  |                     |     |-- route to App\Controllers\*
-  |                     |     \-- Response (200/404/...)
-  |                     |-- static cache maybeStore(request, response)  (anonymous 200 only)
-  |                     \-- send
+  |      \-- miss --> legacy .php URL in the 301 map? --> Location 301 --> exit
+  |                     \-- no --> new Kip\App(config, lazy session)
+  |                                    |-- App::handle(request)
+  |                                    |     |-- route to App\Controllers\*
+  |                                    |     \-- Response (200/404/...)
+  |                                    |-- static cache maybeStore(request, response)  (anonymous 200 only)
+  |                                    \-- send
 */
 declare(strict_types=1);
 
@@ -55,6 +56,16 @@ if (!($config['maintenance'] ?? false)) {
 if ($static !== null && ($hit = $static->serve($request)) !== null) {
     $hit->send();
     exit;
+}
+
+// Legacy eFiction URLs: consult the import's 301 map before routing. Only GET
+// requests whose path ends in .php reach the database here; app pages are .php-free.
+if ($request->method === 'GET' && preg_match('#\.php$#', $request->path)) {
+    $target = (new \App\Import\LegacyRedirects())->lookup($request, new \Kip\Database($config['db']['dsn']));
+    if ($target !== null) {
+        header('Location: ' . $target, true, 301);
+        exit;
+    }
 }
 
 ob_start(); // lazy session may start mid-render; nothing may flush before headers

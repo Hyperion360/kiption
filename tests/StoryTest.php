@@ -87,6 +87,18 @@ final class StoryTest extends TestCase
         $this->assertStringNotContainsString(', <a href="/user/view/', $res->body); // no comma join without coauthors
     }
 
+    public function test_story_view_renders_null_body_review_with_rating(): void
+    {
+        // eFiction imports carry rating-only reviews (the 'No Review' sentinel
+        // maps to a NULL body): the view must render them, not error.
+        $db = new Database($this->dsn);
+        $db->query("INSERT INTO reviews (story_id, guest_name, body, rating, created_at) VALUES (1, 'Guest Reader', NULL, 7, '2026-09-01T00:00:00Z')");
+        $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('Guest Reader', $res->body);
+        $this->assertStringContainsString('7/10', $res->body, 'the rating renders');
+    }
+
     public function test_unknown_story_404(): void
     {
         $res = $this->app->handle(new Request('GET', '/story/view/nope', [], [], []));
