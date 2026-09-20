@@ -114,22 +114,104 @@ final class EfictionExporter
         }
     }
 
-    /** The browser runner (token gate, maintenance check, bundle assembly,
-     *  self-delete) lands with Task 4 and replaces this stub. It must answer
-     *  501 in situ until then so nothing half-works before the real runner. */
+    /** The browser runner, as a pure function so tests drive it without a
+     *  server. In situ the file's bottom maps $_POST to these booleans.
+     *  @return array{0: string, 1: int} html + HTTP status */
     public static function runner(string $installRoot, string $settingsPrefix, string $token, bool $force, bool $run, bool $selfdelete, bool $buildBundle, ?string $selfFile = null): array
     {
-        return ['not implemented', 501];
+        $hashFile = $installRoot . '/export-token.php';
+        if (!is_file($hashFile)) {
+            return [self::page('Export not authorized', '<p>Create <code>export-token.php</code> next to this file first (see the token command on your new archive), then reload.</p>'), 403];
+        }
+        $expected = trim((string) require $hashFile); // finding 11: admin-added whitespace must not break the compare
+        if ($token === '' || !hash_equals($expected, hash('sha256', $token))) {
+            return [self::page('Export not authorized', self::formHtml('')), 200]; // no oracle: same page shape
+        }
+        if ($selfdelete) {
+            @unlink($hashFile);
+            @unlink($selfFile ?? __FILE__); // finding 4: injected path so tests never unlink the repo file
+            return [self::page('Cleaned up', '<p>Exporter and token file deleted. You can close this page.</p>'), 200];
+        }
+        $settings = dbquery('SELECT maintenance FROM ' . escapestring($settingsPrefix) . "fanfiction_settings WHERE sitekey = '" . escapestring(SITEKEY) . "'");
+        $maintenance = (int) (dbassoc($settings)['maintenance'] ?? 0);
+        if ($maintenance !== 1 && !$force) {
+            return [self::page('Enable maintenance mode', '<p>Your archive is live and writable, so the export could capture an inconsistent snapshot. Enable maintenance mode (Admin &gt; Settings), then reload, or tick the force box if you accept the risk.</p>'), 409];
+        }
+        if (!$run) {
+            return [self::page('Export ready', self::formHtml($token)), 200];
+        }
+        $outDir = $installRoot . '/out-' . bin2hex(random_bytes(6));
+        mkdir($outDir, 0775, true);
+        $exporter = new self($installRoot, $settingsPrefix, $outDir);
+        $manifest = $exporter->export();
+        if ($buildBundle) {
+            // Staging dir so the tar's entry paths carry the bundle-relative
+            // names exactly (archive.jsonl.gz, manifest.json, stories/...).
+            $stage = $outDir . '/bundle';
+            mkdir($stage . '/stories', 0775, true);
+            rename($outDir . '/archive.jsonl.gz', $stage . '/archive.jsonl.gz');
+            rename($outDir . '/manifest.json', $stage . '/manifest.json');
+            if (is_dir($outDir . '/stories')) {
+                // move stories/ contents into the stage (files are small chapter texts)
+                foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($outDir . '/stories', \FilesystemIterator::SKIP_DOTS)) as $f) {
+                    $rel = substr((string) $f->getPathname(), strlen($outDir . '/stories/'));
+                    @mkdir(dirname($stage . '/stories/' . $rel), 0775, true);
+                    rename((string) $f->getPathname(), $stage . '/stories/' . $rel);
+                }
+            }
+            $tar = new \PharData($outDir . '/kiption-export.tar');
+            $tar->buildFromDirectory($stage);
+            $tar->compress(\Phar::GZ);
+            unlink($outDir . '/kiption-export.tar');
+        }
+        $counts = htmlspecialchars(json_encode($manifest['counts'], JSON_UNESCAPED_SLASHES), ENT_QUOTES);
+        return [self::page('Download ready', "<p>Rows exported: <code>{$counts}</code></p>"
+            . '<p>Download: <a href="out-' . basename($outDir) . '/kiption-export.tar.gz">kiption-export.tar.gz</a> '
+            . '(treat it as a password file: it contains emails and legacy hashes).</p>'
+            . '<form method="post"><input type="hidden" name="token" value="' . htmlspecialchars($token, ENT_QUOTES) . '">'
+            . '<button name="selfdelete" value="1">Delete exporter and token now</button></form>'), 200];
+    }
+
+    private static function formHtml(string $token): string
+    {
+        $t = htmlspecialchars($token, ENT_QUOTES);
+        return <<<HTML
+        <form method="post">
+          <input type="hidden" name="token" value="{$t}">
+          <label><input type="checkbox" name="force" value="1"> export without maintenance mode (risk an inconsistent snapshot)</label><br>
+          <button name="run" value="1">Run export</button>
+        </form>
+        HTML;
+    }
+
+    private static function page(string $title, string $body): string
+    {
+        $title = htmlspecialchars($title, ENT_QUOTES);
+        return "<!doctype html><meta charset=\"utf-8\"><title>Kiption export: {$title}</title><h1>{$title}</h1>{$body}";
     }
 }
 
-// The directly-executed entry (browser). Task 4 replaces this placeholder with
-// the in-situ bootstrap (config.php include, _BASEDIR, SITEKEY/TABLEPREFIX
-// derivation per finding 2) and the real runner call; until then the stub
-// answers 501. Never fires under CLI or phpunit (PHP_SAPI guard first).
-if (!defined('PHPUNIT_KIP_TEST') && isset($_SERVER['REQUEST_URI']) && PHP_SAPI !== 'cli'
+if (PHP_SAPI !== 'cli' && !defined('PHPUNIT_KIP_TEST')
     && realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
-    [$html, $status] = EfictionExporter::runner(dirname(__FILE__), '', $_POST['token'] ?? '', isset($_POST['force']), isset($_POST['run']), isset($_POST['selfdelete']), false);
+    if (!defined('_BASEDIR')) define('_BASEDIR', dirname(__FILE__) . '/'); // finding 2: dbfunctions needs it
+    $config = _BASEDIR . 'config.php';
+    if (!is_file($config)) { http_response_code(500); echo "config.php not found; upload this file to the eFiction webroot."; exit; }
+    require $config; // defines $dbconnect, $sitekey, $settingsprefix; pulls in dbfunctions
+    // Finding 2: TABLEPREFIX/SITEKEY are header.php-derived in eFiction, NOT in
+    // config.php; derive them here from the settings row or every query fatals.
+    if (!defined('SITEKEY')) define('SITEKEY', (string) ($sitekey ?? ''));
+    $pref = escapestring((string) ($settingsprefix ?? ''));
+    $tpRow = dbassoc(dbquery("SELECT tableprefix FROM {$pref}fanfiction_settings WHERE sitekey = '" . escapestring(SITEKEY) . "'"));
+    if (!defined('TABLEPREFIX')) define('TABLEPREFIX', (string) ($tpRow['tableprefix'] ?? ''));
+    [$html, $status] = EfictionExporter::runner(
+        dirname(__FILE__),
+        $settingsprefix ?? '',
+        $_POST['token'] ?? '',
+        isset($_POST['force']),
+        isset($_POST['run']),
+        isset($_POST['selfdelete']),
+        true,
+    );
     http_response_code($status);
     echo $html;
 }

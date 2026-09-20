@@ -77,4 +77,80 @@ final class EfictionExportTest extends TestCase
         // invalid UTF-8 replacements counted, bytes otherwise verbatim
         $this->assertArrayHasKey('invalid_utf8_replaced', $manifest);
     }
+
+    public function test_runner_token_gate_and_bundle_assembly(): void
+    {
+        $fx = $this->install();
+        $fx->installShims();
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        $token = str_repeat('a', 64);
+        file_put_contents($this->root . '/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
+        [$html, $code] = \EfictionExporter::runner($this->root, 'fxs_', $token, true, true, false, true);
+        $this->assertStringContainsString('Download ready', $html);
+        // PharData bundle carries all three parts (runner writes out-*/ under the install root)
+        $bundles = glob($this->root . '/out-*/kiption-export.tar.gz');
+        $this->assertNotEmpty($bundles);
+        $phar = new \PharData($bundles[0]);
+        $names = array_map('basename', array_keys(iterator_to_array(new \RecursiveIteratorIterator($phar))));
+        $this->assertContains('archive.jsonl.gz', $names);
+        $this->assertContains('manifest.json', $names);
+        $this->assertContains('10.txt', $names);
+        // wrong token: identical form page, no oracle, no bundle
+        [$html2, $code2] = \EfictionExporter::runner($this->root, 'fxs_', str_repeat('b', 64), true, true, false, true);
+        $this->assertSame(200, $code2);
+        $this->assertStringNotContainsString('Download ready', $html2);
+        // maintenance off + no force: refuses with instructions
+        $fx->pdo->exec('UPDATE fxs_fanfiction_settings SET maintenance = 0');
+        [$html3, $code3] = \EfictionExporter::runner($this->root, 'fxs_', $token, false, true, false, false);
+        $this->assertStringContainsString('maintenance', strtolower($html3));
+    }
+
+    public function test_runner_gates_missing_token_file_and_selfdelete(): void
+    {
+        $this->install()->installShims();
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        $token = str_repeat('c', 64);
+        // no token file: 403 with instructions
+        [$html, $code] = \EfictionExporter::runner($this->root, 'fxs_', $token, true, true, false, true);
+        $this->assertSame(403, $code);
+        $this->assertStringContainsString('export-token.php', $html);
+        // selfdelete via the injected path (finding 4): both files gone, repo untouched
+        file_put_contents($this->root . '/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
+        $exporterCopy = $this->root . '/efiction-export.php';
+        copy(dirname(__DIR__) . '/resources/efiction-export.php', $exporterCopy);
+        [$html2, $code2] = \EfictionExporter::runner($this->root, 'fxs_', $token, true, false, true, false, $exporterCopy);
+        $this->assertSame(200, $code2);
+        $this->assertStringContainsString('Cleaned up', $html2);
+        $this->assertFileDoesNotExist($this->root . '/export-token.php');
+        $this->assertFileDoesNotExist($exporterCopy);
+        $this->assertFileExists(dirname(__DIR__) . '/resources/efiction-export.php', 'the repo file must survive');
+    }
+
+    public function test_export_gates_missing_settings_row_and_storiespath(): void
+    {
+        $fx = $this->install();
+        $fx->installShims();
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        // store=files but storiespath missing on disk: RuntimeException
+        $fx->pdo->exec("UPDATE fxs_fanfiction_settings SET storiespath = 'gone'");
+        $out = $this->root . '/out2';
+        mkdir($out, 0775, true);
+        try {
+            (new \EfictionExporter($this->root, 'fxs_', $out))->export();
+            $this->fail('expected RuntimeException for missing storiespath');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('storiespath', $e->getMessage());
+        }
+        // settings row gone: RuntimeException, no query loop runs
+        $fx->pdo->exec("DELETE FROM fxs_fanfiction_settings");
+        try {
+            (new \EfictionExporter($this->root, 'fxs_', $out))->export();
+            $this->fail('expected RuntimeException for missing settings row');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('settings', $e->getMessage());
+        }
+    }
 }
