@@ -32,21 +32,23 @@ final class StoryController
         $coauthors = json_decode((string) $story['coauthors_blob'], true) ?: [];
         unset($story['coauthors_blob']);
         $reviewRows = json_decode((string) $story['reviews_blob'], true) ?: [];
-        $repliesByRoot = []; // blob is newest-first, so replies meet their roots only on a second pass
-        foreach ($reviewRows as $r) {
-            if ($r['parent_id'] === null) continue;
+        $replyRows = json_decode((string) $story['replies_blob'], true) ?: [];
+        // A full 200-row blob means the reply cap may have dropped older replies
+        // of the window roots; the overflow note must fire on that alone (finding 14).
+        $repliesDropped = count($replyRows) >= 200;
+        $repliesByRoot = []; // both blobs arrive newest-first; replies bucket onto their root
+        foreach ($replyRows as $r) {
             $r['is_author_reply'] = (int) $r['user_id'] === (int) $story['author_id'];
-            $repliesByRoot[(int) $r['parent_id']][] = $r;
+            $repliesByRoot[(int) $r['root_id']][] = $r;
         }
         $reviews = [];
         foreach ($reviewRows as $r) {
-            if ($r['parent_id'] !== null) continue;
             $r['id'] = (int) $r['id'];
             $r['rating'] = $r['rating'] === null ? null : (int) $r['rating'];
             $r['replies'] = $repliesByRoot[(int) $r['id']] ?? [];
             $reviews[] = $r;
         }
-        unset($story['reviews_blob']);
+        unset($story['reviews_blob'], $story['replies_blob']);
         $head = $this->head()
             ->withTitle($story['title'] . ' by ' . $story['penname'])
             ->withDescription($story['meta_description'] ?? $story['summary'])
@@ -72,6 +74,7 @@ final class StoryController
             'marked_at_me' => $story['marked_at_me'],
             'reviews' => $reviews,
             'review_count' => (int) $story['review_count'],
+            'repliesDropped' => $repliesDropped,
             'series' => $seriesLinks,
             'coauthors' => $coauthors,
             'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),

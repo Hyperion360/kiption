@@ -130,11 +130,13 @@ final class StoryRepositoryTest extends TestCase
         $this->assertStringNotContainsString('SCAN', $text);
     }
 
-    public function test_story_landing_reviews_blob_is_sort_free(): void
+    public function test_story_landing_roots_window_is_index_walked(): void
     {
-        // The reviews blob sorts a story's reviews created_at DESC LIMIT 50 inside
-        // the hottest page query; the project standard bans TEMP B-TREE sorts on
-        // page-serving shapes. Pin the plan: the ordered walk must come from an index.
+        // Ruling (plan review findings 12/13): the replies-of-window
+        // materialization is bounded by construction (a TEMP B-TREE over at
+        // most the replies of the 50 window roots, capped at 200); the roots
+        // window itself is index-walked via the partial idx_reviews_roots.
+        // The 6b blanket sort-free pin is superseded by this scoped pin.
         for ($i = 0; $i < 60; $i++) {
             $this->db->query('INSERT INTO reviews (story_id, user_id, guest_name, body, ip) VALUES (1, NULL, ?, ?, ?)',
                 ['g' . $i, 'b', '127.0.0.1']);
@@ -145,8 +147,10 @@ final class StoryRepositoryTest extends TestCase
         $this->db->onQuery(fn () => null);
         $plan = $this->db->all('EXPLAIN QUERY PLAN ' . (string) $sql, [0, 0, 0, 0, 'the-rabbit-hole', 0]);
         $text = implode(' ', array_column($plan, 'detail'));
-        $this->assertStringNotContainsString('TEMP B-TREE', $text,
-            'the reviews blob ordered itself with a TEMP B-TREE; add/keep an ordered index on reviews (story_id, created_at)');
+        $this->assertStringContainsString('USING INDEX idx_reviews_roots', $text,
+            'the roots window must walk idx_reviews_roots (alias-tolerant: SQLite emits the table alias)');
+        $this->assertStringNotContainsString('SCAN TABLE reviews', $text,
+            'no review-table scan may back the story landing fold');
     }
 
     public function test_recent_validated_first_page(): void

@@ -35,7 +35,12 @@ final class ReviewThreadTest extends TestCase
 
     private function client(int $as): TestClient
     {
-        return (new TestClient(new App([
+        return (new TestClient($this->guestApp()))->actingAs($as);
+    }
+
+    private function guestApp(): App
+    {
+        return new App([
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -43,7 +48,7 @@ final class ReviewThreadTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-revth-mail-') . '.log', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-revth-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-        ])))->actingAs($as);
+        ]);
     }
 
     public function test_author_reply_threads_and_highlights(): void
@@ -84,11 +89,34 @@ final class ReviewThreadTest extends TestCase
     public function test_guest_cannot_reply(): void
     {
         // tokenless guest POST to the #[Auth]+#[Post] reply: kernel CSRF check first -> 403
-        $this->assertSame(403, (new TestClient(new App([
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
-            'views' => dirname(__DIR__) . '/app/views',
-            'db' => ['dsn' => 'sqlite:' . $this->path],
-            'log_db' => ['dsn' => 'sqlite::memory:'],
-        ])))->post('/review/reply/' . $this->rootId, ['body' => 'x'])->status);
+        $this->assertSame(403, (new TestClient($this->guestApp()))->post('/review/reply/' . $this->rootId, ['body' => 'x'])->status);
+    }
+
+    public function test_reply_flood_cannot_hide_the_root(): void
+    {
+        $storyId = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        // 1 root older than 55 replies with distinct timestamps - the closure's
+        // exact failure shape under the shipped mixed-stream window
+        $this->db->query('INSERT INTO reviews (story_id, user_id, body, created_at) VALUES (?, ?, ?, ?)',
+            [$storyId, $this->fanId, 'The original root.', date('c', time() - 3600)]);
+        $rootId = (int) $this->db->lastInsertId();
+        for ($i = 0; $i < 55; $i++) {
+            $this->db->query('INSERT INTO reviews (story_id, user_id, body, parent_id, created_at) VALUES (?, ?, ?, ?, ?)',
+                [$storyId, $this->fanId, 'reply ' . $i, $rootId, date('c', time() - 1800 + $i)]);
+        }
+        $guest = (new TestClient($this->guestApp()))->get('/story/view/the-rabbit-hole');
+        $this->assertStringContainsString('The original root.', $guest->body, 'the root must survive any reply flood');
+        $this->assertStringContainsString('reply 54', $guest->body, 'newest replies render under it');
+    }
+
+    public function test_headline_counts_roots_only(): void
+    {
+        $storyId = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $this->db->query('INSERT INTO reviews (story_id, user_id, body) VALUES (?, ?, ?)', [$storyId, $this->fanId, 'A root.']);
+        $rootId = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO reviews (story_id, user_id, body, parent_id) VALUES (?, ?, ?, ?)', [$storyId, $this->fanId, 'A reply.', $rootId]);
+        $body = (new TestClient($this->guestApp()))->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('Reviews (2)', $body); // setUp seeds one root; headline counts ROOTS
+        $this->assertStringContainsString('A reply.', $body);
     }
 }

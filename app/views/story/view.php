@@ -122,7 +122,7 @@
         <?php endif; ?>
       </article>
     <?php endforeach; ?>
-    <?php if ($review_count > count($reviews)): ?><p class="chapter-meta">Showing the 50 most recent reviews.</p><?php endif; ?>
+    <?php if ($review_count > count($reviews) || $repliesDropped): ?><p class="chapter-meta">Showing the 50 most recent reviews and their 200 most recent replies.</p><?php endif; ?>
   <?php endif; ?>
   <?php if (!empty($csrf)): ?>
     <form method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
