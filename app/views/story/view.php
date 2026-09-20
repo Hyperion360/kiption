@@ -50,6 +50,11 @@
         <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
         <button type="submit"><?= $marked_at_me === null ? 'Mark for later' : 'Unmark' ?></button>
       </form>
+      <form method="post" action="/report/story/<?= $this->e($story['slug']) ?>" class="inline">
+        <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+        <input name="reason" required maxlength="500" placeholder="Report this story" aria-label="Report this story">
+        <button type="submit">Report story</button>
+      </form>
     <?php endif; ?>
     <?php if (!empty($story['support_url'])): ?>
       <a href="<?= $this->e($story['support_url']) ?>" rel="noopener nofollow">Support the author</a>
@@ -82,6 +87,13 @@
               <p class="chapter-meta"><?= $this->e($rep['penname'] ?? $rep['guest_name'] ?? 'Anonymous') ?>
                 <?= $rep['is_author_reply'] ? '| author' : '' ?></p>
               <div class="prose"><?= \App\Markdown::render($rep['body']) ?></div>
+              <?php if (!empty($csrf)): ?>
+                <form method="post" action="/report/review/<?= (int) $rep['id'] ?>" class="inline">
+                  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+                  <input name="reason" required maxlength="500" placeholder="Report this reply" aria-label="Report this reply">
+                  <button type="submit">Report</button>
+                </form>
+              <?php endif; ?>
             </blockquote>
           <?php endforeach; ?>
         <?php endif; ?>
@@ -90,6 +102,11 @@
             <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
             <input name="body" required maxlength="5000" placeholder="Reply to this review" aria-label="Reply to this review">
             <button type="submit">Reply</button>
+          </form>
+          <form method="post" action="/report/review/<?= (int) $r['id'] ?>" class="inline">
+            <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+            <input name="reason" required maxlength="500" placeholder="Report this review" aria-label="Report this review">
+            <button type="submit">Report</button>
           </form>
         <?php endif; ?>
       </article>

@@ -208,19 +208,23 @@ final class AuthoringRepository
     public function queueRows(int $userId): array
     {
         return $this->db->all(
-            "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e
+            "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e, NULL AS f
              FROM users u WHERE u.id = ? AND u.role IN ('moderator', 'admin')
              UNION ALL
-             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at
+             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, NULL
              FROM stories s JOIN users au ON au.id = s.author_id
              WHERE s.validated = 0 AND s.deleted_at IS NULL
              UNION ALL
-             SELECT 'chapter', ch.id, ch.title, s.slug, au2.penname, ch.updated_at
+             SELECT 'chapter', ch.id, ch.title, s.slug, au2.penname, ch.updated_at, NULL
              FROM chapters ch JOIN stories s ON s.id = ch.story_id JOIN users au2 ON au2.id = s.author_id
              WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1
              UNION ALL
-             SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at
+             SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at, NULL
              FROM users us WHERE us.approved_at IS NULL AND us.email_verified_at IS NOT NULL
+             UNION ALL
+             SELECT 'report', rp.id, rp.reason, COALESCE(st.slug, ''), (SELECT body FROM reviews rb WHERE rb.id = rp.review_id), rp.created_at, NULL
+             FROM reports rp LEFT JOIN stories st ON st.id = rp.story_id
+             WHERE rp.resolved_at IS NULL
              ORDER BY k, e LIMIT 151", [$userId]);
     }
 

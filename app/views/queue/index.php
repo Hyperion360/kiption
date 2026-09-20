@@ -3,7 +3,7 @@
 <section>
   <h1>Validation queue</h1>
   <?php
-  $groups = ['story' => [], 'chapter' => [], 'member' => []];
+  $groups = ['story' => [], 'chapter' => [], 'member' => [], 'report' => []];
   foreach ($rows as $r) { if ($r['k'] !== '0gate') $groups[$r['k']][] = $r; }
   ?>
   <h2>Stories</h2>
@@ -49,6 +49,21 @@
         </form>
         <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit">Reject</button>
+        </form>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
+  <h2>Reports</h2>
+  <?php if ($groups['report'] === []): ?><p class="chapter-meta">Nothing reported.</p><?php else: ?>
+  <ul>
+    <?php foreach ($groups['report'] as $r): ?>
+      <li>
+        <strong><?= $this->e($r['b']) ?></strong>
+        <?php if ($r['d'] !== null): ?><blockquote class="chapter-meta"><?= $this->e($r['d']) ?></blockquote><?php endif; ?>
+        <?php if ($r['c'] !== ''): ?>on <a href="/story/view/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a><?php endif; ?>
+        <form method="post" action="/report/resolve/<?= (int) $r['a'] ?>/dismiss" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit">Dismiss</button>
         </form>
       </li>
     <?php endforeach; ?>
