@@ -32,4 +32,15 @@ final class MaintenanceGuardTest extends TestCase
             ['maintenance' => true, 'env' => 'prod', 'maintenance_allow' => ['/admin']],
             '/story/x'));
     }
+
+    public function test_blocked_response_is_503_with_retry_after_hint(): void
+    {
+        // A bare 503 invites crawlers to retry immediately; Retry-After: 300
+        // tells them to back off for five minutes while the page body
+        // handles the humans.
+        $res = MaintenanceGuard::response(['views' => dirname(__DIR__) . '/app/views']);
+        $this->assertSame(503, $res->status);
+        $this->assertSame('300', $res->headers['Retry-After']);
+        $this->assertStringContainsString('Scheduled maintenance', $res->body);
+    }
 }

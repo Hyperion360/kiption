@@ -24,4 +24,13 @@ final class MaintenanceGuard
         }
         return true;
     }
+
+    /** The blocking response the front controller sends when blocks() is true:
+     *  the maintenance view as a 503 plus Retry-After: 300, a five-minute
+     *  back-off hint for crawlers (the page body already covers humans). */
+    public static function response(array $config): \Kip\Http\Response
+    {
+        $body = (new \Kip\View($config['views']))->render('maintenance');
+        return new \Kip\Http\Response($body, 503, ['Retry-After' => '300']);
+    }
 }

@@ -45,8 +45,7 @@ $static = ($config['static_cache']['enabled'] ?? false)
 
 if (\App\MaintenanceGuard::blocks($config, $request->path)) {
     $static?->maintenancePurge(true);
-    $body = (new Kip\View($config['views']))->render('maintenance');
-    (new Kip\Http\Response($body, 503))->send();
+    \App\MaintenanceGuard::response($config)->send();
     exit;
 }
 
