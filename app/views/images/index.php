@@ -4,7 +4,7 @@
 <p class="meta"><?= $count === 1 ? '1 file' : $count . ' files' ?>, <?= $this->e($totalHuman) ?> total.</p>
 <form method="post" action="/images/upload" enctype="multipart/form-data" class="inline">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-  <input type="file" name="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif">
+  <input type="file" name="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Upload an image file">
   <button type="submit">Upload</button>
 </form>
 <p class="meta">PNG, JPG, WEBP, or GIF under 2 MiB. Files an avatar or story cover still uses cannot be deleted.</p>

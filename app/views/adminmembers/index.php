@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <h1>Members</h1>
 <form method="get" action="/adminmembers" class="inline">
-  <input type="search" name="q" value="<?= $this->e($q) ?>" placeholder="Penname prefix">
+  <input type="search" name="q" value="<?= $this->e($q) ?>" placeholder="Penname prefix" aria-label="Search members by penname prefix">
   <button type="submit">Search</button>
 </form>
 <table>
