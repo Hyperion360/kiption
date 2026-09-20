@@ -785,6 +785,15 @@ final class Importer
     {
         $r = $this->report;
         $counted = []; // message_names whose outcome is tallied exactly once
+        // The rider tables ALWAYS read their imported count from the
+        // per-legacy-row tally (see verifyDiff). Initialize the keys to 0 up
+        // front so a run where no row imports (every page collided with
+        // operator pages, say) never falls back to the unrelated new-side
+        // INSERT tally and prints a false MISMATCH on a legal import (QA 10a:
+        // a collided first label plus a fresh second label sharing the message
+        // borrowed the second page's insert count).
+        if ($messages !== []) $this->riderImported['fanfiction_messages'] ??= 0;
+        if ($pagelinks !== []) $this->riderImported['fanfiction_pagelinks'] ??= 0;
         foreach ($pagelinks as $row) {
             $this->bump($this->seen, 'fanfiction_pagelinks');
             if (!preg_match('#^viewpage\.php\?page=([a-z0-9_]{3,30})$#', (string) ($row['link_url'] ?? ''), $m)) {

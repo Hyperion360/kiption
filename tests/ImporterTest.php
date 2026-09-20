@@ -386,6 +386,34 @@ final class ImporterTest extends TestCase
         $this->assertStringContainsString('fanfiction_messages        manifest 2, imported 0, rejected 1, skipped 1', $again);
     }
 
+    public function test_rider_collision_keeps_verifydiff_honest(): void
+    {
+        // QA 10a: two pagelinks share one messages row, and the first label's
+        // page slug already exists in the target (an operator page or a
+        // seeded demo archive). The message tallies SKIPPED and never bumps
+        // riderImported, so verifyDiff used to fall back to the unrelated
+        // pages-INSERT tally for its imported count and printed a false
+        // MISMATCH on a perfectly legal import (the watchdog is reserved for
+        // corrupt manifests; the 9b contract).
+        $this->migrate();
+        $b = $this->bundle(function (\EfictionInstall $fx): void {
+            $p = $fx->prefix;
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (4, 'about2_link', 'About Us', 'viewpage.php?page=about', '0', 0)");
+        });
+        $this->db()->query("INSERT INTO pages (slug, title, body) VALUES ('about', 'Operator About', 'Pre-existing.')");
+        $out = $this->import($b, 'commit');
+        $db = $this->db();
+        // both labels still land: the collision keeps the operator page, the
+        // second label gets its own slug; the message row stays the body source
+        $this->assertSame('Pre-existing.', $db->one("SELECT body FROM pages WHERE slug = 'about'")['body']);
+        $this->assertSame('Welcome to the archive.', $db->one("SELECT body FROM pages WHERE slug = 'about-us'")['body']);
+        $this->assertSame(2, (int) $db->one("SELECT COUNT(*) c FROM nav_links")['c']);
+        // the honest per-legacy-row outcome: skipped, no phantom imported
+        // count borrowed from the pages insert tally, no MISMATCH
+        $this->assertStringContainsString('fanfiction_messages        manifest 1, imported 0, rejected 0, skipped 1', $out);
+        $this->assertStringNotContainsString('MISMATCH', $out);
+    }
+
     public function test_mixed_options_refuse_in_process(): void
     {
         $this->migrate();
