@@ -99,4 +99,22 @@ final class ImporterTest extends TestCase
         $this->assertStringContainsString('fanfiction_ratings         manifest 1, imported 2, rejected 0, skipped 0 (+1 Unrated fallback)', $out, 'verification stays honest, no MISMATCH');
     }
 
+    public function test_resume_adds_chapter_to_previously_imported_story(): void
+    {
+        $this->migrate();
+        $this->import($this->bundle(), 'commit');
+        // second bundle from the same legacy ids plus one new chapter (file present)
+        $second = $this->bundle(function (\EfictionInstall $fx, string $root): void {
+            $p = $fx->prefix;
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_chapters (chapid, title, inorder, storytext, validated, wordcount, sid, uid) VALUES (14, 'Late Chapter', 2, 'Added <i>later</i>.', '1', 3, 7, 1)");
+            file_put_contents($root . '/src/stories/1/14.txt', 'Added <i>later</i>.');
+        });
+        $out = $this->import($second, 'commit');
+        $db = $this->db();
+        $row = $db->one("SELECT c.created_at, s.created_at s_created FROM chapters c JOIN stories s ON s.id = c.story_id WHERE c.title = 'Late Chapter'");
+        $this->assertNotNull($row, 'the new chapter must import');
+        $this->assertSame($row['s_created'], $row['created_at'], 'the chapter inherits the existing story dates');
+        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM chapters')['c'], 'no duplicates');
+        $this->assertStringContainsString('already mapped', $out);
+    }
 }

@@ -381,6 +381,11 @@ final class Importer
             if (($id = $this->mappedId('fanfiction_stories', (string) $sid)) !== null) {
                 $r->alreadyMapped++; $this->bump($this->skipped, 'fanfiction_stories');
                 $this->storyMap[$sid] = $id;
+                // hydrate the meta so chapters added in a LATER run (a story
+                // imported by a previous run gaining a chapter) still inherit
+                // the story's dates instead of dying on chapters.created_at
+                $story = $this->db->one('SELECT created_at, updated_at FROM stories WHERE id = ?', [$id]);
+                $this->storyMeta[$id] = ['created' => (string) $story['created_at'], 'updated' => (string) $story['updated_at'], 'fallback' => false];
                 continue;
             }
             $s = EfictionMapper::mapStory($row, $ctx, $r);
