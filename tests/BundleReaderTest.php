@@ -95,4 +95,28 @@ final class BundleReaderTest extends TestCase
         // missing-parts path itself must clean the extracted temp dir
         $this->assertSame($before, glob(sys_get_temp_dir() . '/kiption-read-*'));
     }
+
+    public function test_rows_reject_corrupt_archive_lines_in_a_controlled_way(): void
+    {
+        $stage = $this->root . '/stage2';
+        mkdir($stage, 0775, true);
+        file_put_contents($stage . '/manifest.json', '{"counts":{}}');
+        file_put_contents($stage . '/archive.jsonl.gz', gzencode("{\"_table\":\"ok\",\"a\":1}\nnot json\n"));
+        $tarPath = $this->root . '/bad.tar';
+        $tar = new \PharData($tarPath);
+        $tar->buildFromDirectory($stage);
+        unset($tar);
+        $bundle = $this->root . '/bad.tar.gz';
+        file_put_contents($bundle, gzencode((string) file_get_contents($tarPath), 9));
+        unlink($tarPath);
+        $reader = new BundleReader($bundle);
+        $seen = [];
+        try {
+            foreach ($reader->rows() as $entry) $seen[] = $entry['table'];
+            $this->fail('expected RuntimeException on the corrupt line');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('corrupt', $e->getMessage());
+        }
+        $this->assertSame(['ok'], $seen, 'rows before the corrupt line were yielded');
+    }
 }

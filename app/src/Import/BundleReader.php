@@ -44,10 +44,17 @@ final class BundleReader
     {
         $h = gzopen($this->dir . '/archive.jsonl.gz', 'rb');
         try {
+            $n = 0;
             while (($line = gzgets($h)) !== false) {
                 $line = trim($line);
                 if ($line === '') continue;
+                $n++;
                 $obj = json_decode($line, true);
+                // a truncated or doctored archive must fail loudly but as a
+                // controlled error, not a TypeError deep in the generator
+                if (!is_array($obj) || !array_key_exists('_table', $obj)) {
+                    throw new \RuntimeException("corrupt archive row #{$n}: " . substr($line, 0, 60));
+                }
                 yield ['table' => (string) $obj['_table'], 'row' => array_diff_key($obj, ['_table' => 1])];
             }
         } finally { gzclose($h); }
