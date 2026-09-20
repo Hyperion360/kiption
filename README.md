@@ -162,6 +162,60 @@ replies, and favorites. Members contact each other through an
 auth-gated form (CSRF, three messages per sender per hour); the
 target's email address is never rendered, only mailed to.
 
+## Operating the archive
+
+The built-in panel at `/admin` edits database tables generically. It is a
+power tool: it knows nothing about the app's invariants, so some rows are
+dangerous to touch raw. Kiption ships targeted surfaces for exactly those
+rows; use them first and the panel for everything else.
+
+Member roles are the clearest case. The `users` table carries a `role`
+string and an `is_admin` flag that must always agree (`role = 'admin'`
+exactly when the flag is 1); every permission check leans on that
+agreement, and editing either column raw in the panel can desync them.
+`/adminmembers` (admin only) lists members in a searchable, paged table
+with a role selector, writes through the one code path that keeps the
+pair consistent, and rejects unknown roles with a 422 instead of a
+crash. Moderators get no access: only admins change roles, so a
+moderator can never mint an admin.
+
+Story tools live at `/adminstories` (admin only): reassigning a story to
+another author by penname (the move also cleans up both authors'
+coauthor rows and purges every cached page it touches) and toggling the
+featured flag that puts the story in the home page's Featured list.
+
+News and pages: admins post and edit news at `/news` (markdown bodies;
+members comment, throttled to one comment per member per item per hour)
+and custom pages at `/page`, served at `/page/view/{slug}` with markdown
+bodies. Nav links (`/nav`, admin only) are the menu entries that point
+at pages or any other internal path; every write rebuilds a small JSON
+artifact the layout reads, so no page pays a database query to render
+the menu.
+
+Mail: the transactional mails (verification, password reset, coauthor
+invites, member contact, story updates, digests) render from editable
+templates, and names you have not edited fall back to the built-in
+literals, so mail works before you touch anything. Batch announcements
+go through the CLI: `php bin/kip mail:users "Subject" "Body" --dry-run`
+prints the eligible member count and the first five addresses (eligible
+means approved, verified, unlocked, and carrying a penname); `--commit`
+sends, and `--template=<name>` uses a saved template instead of the
+literal pair.
+
+Images (`/images`, admin only): upload PNG, JPG, WEBP, or GIF up to
+2 MiB into the shared uploads directory, browse the library with sizes
+and totals, and delete what nothing references; a file still used as an
+avatar or cover refuses deletion with a 409.
+
+Backups: `php bin/kip backup` snapshots every SQLite database online
+(VACUUM INTO, safe while the archive serves traffic) into a dated zip
+in `app/backups/` holding `data.sqlite`, `logs.sqlite`, and
+`cache.sqlite`; restoring is unzipping the files back into place. Each
+run prunes archives older than `backups.keep_days` (14 by default), so
+it is safe in cron, and the `KIP_BACKUP_DIR` environment variable
+redirects the archive directory. The archive name has one-second
+resolution: two runs in the same second overwrite the same zip.
+
 ## Migrating from eFiction
 
 Moving an archive off a live eFiction 3.5.5 install is a two-stage
@@ -228,17 +282,27 @@ notification preferences (validated authors keep direct publishing;
 legacy read counts import as page-stats baselines); categories,
 classes (as tags), characters, and ratings import as taxonomy;
 stories, chapters, series and their items, coauthors, reviews (with
-author response blocks split out), favorites, news, and the old
-moderation log all import. Chapter and note HTML is converted to the
-markdown subset and word counts are recomputed. Dropped features are
+author response blocks split out), favorites, news, the old
+moderation log, and custom pages all import. Chapter and note HTML is
+converted to the markdown subset and word counts are recomputed.
+Custom pages (eFiction custpages) land as markdown pages and their
+menu links as nav links, with the nav rebuilt on commit; re-running
+the import never duplicates either. Note that eFiction menu links
+could be marked members-only (their `link_access` flag), and Kiption
+pages are public, so every custpage link imports visible: after the
+import, review the nav at `/nav` and hide anything that was meant to
+stay off the public menu. Dropped features are
 counted in the report rather than silently lost: custom profile
 fields beyond bio, news author name strings, series challenges, and
-pagelinks and mail templates (both stay in the bundle for a later
-phase). Legacy URL redirects (301, GET requests only) cover
+the old install's mail texts (Kiption ships its own editable template
+set instead). Legacy URL redirects (301, GET requests only) cover
 `viewstory.php?sid=`, `viewuser.php?uid=`, `viewseries.php?seriesid=`,
 `browse.php?catid=`, and `reviews.php?type=ST&item=` (also `type=SE`
 for series); `browse.php` links that use `id=` and `type=categories`
-instead of `catid=` do not redirect.
+instead of `catid=` do not redirect, and old `viewpage.php?page=`
+custpage URLs 404 rather than redirect (the pages live at
+`/page/view/{slug}` now; a redirect rider is a recorded future
+option).
 
 Admin roles: the importer upgrades members listed in the old
 install's admins setting, which the exporter only began including
