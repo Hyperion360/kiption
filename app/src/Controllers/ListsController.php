@@ -41,6 +41,20 @@ final class ListsController
     }
 
     #[AuthAttr]
+    public function index(): string
+    {
+        $title = \App\Lang::t('lists.index');
+        return $this->view->render('lists/index', [
+            'title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical('/lists')->withNoindex(),
+            'theme' => \App\Theme::current($this->request),
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'rows' => $this->lists->indexFor((int) $this->session->get('user_id')),
+            'loggedIn' => true,
+        ]);
+    }
+
+    #[AuthAttr]
     public function new(): string
     {
         return $this->form(null);
@@ -87,6 +101,56 @@ final class ListsController
         return Response::redirect('/lists'); // the member's lists index (Task 2)
     }
 
+    /** Add-by-slug: any validated, non-deleted story joins the owner's list
+     *  (restricted included: their list, their eyes). Honest 422s re-render
+     *  the management form with the reason; a stranger's list is own()'s 404. */
+    #[AuthAttr] #[Post]
+    public function item(string $slug): Response|string
+    {
+        $me = (int) $this->session->get('user_id');
+        $note = substr(trim($this->request->postStr('note')), 0, 500);
+        try {
+            $this->lists->addItem($slug, trim($this->request->postStr('story_slug')), $note, $me);
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'not found') return new Response('Page not found', 404);
+            try { $row = $this->lists->own($slug, $me); }
+            catch (\RuntimeException) { return new Response('Page not found', 404); }
+            return new Response($this->form($row, $this->itemError($e->getMessage())), 422);
+        }
+        $this->staticCache()->purgeList($slug); // every list write path (finding 4)
+        return Response::redirect('/lists/edit/' . $slug);
+    }
+
+    #[AuthAttr] #[Post]
+    public function remove(string $slug, string $storySlug): Response
+    {
+        if (!$this->lists->removeItem($slug, $storySlug, (int) $this->session->get('user_id'))) {
+            return new Response('Page not found', 404);
+        }
+        $this->staticCache()->purgeList($slug);
+        return Response::redirect('/lists/edit/' . $slug);
+    }
+
+    #[AuthAttr] #[Post]
+    public function move(string $slug, string $itemId, string $dir): Response
+    {
+        $dir = $dir === 'down' ? 'down' : 'up'; // junk coerces, the browse page-param philosophy
+        try { $this->lists->move($slug, (int) $itemId, $dir, (int) $this->session->get('user_id')); }
+        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        $this->staticCache()->purgeList($slug); // positions live on the list page
+        return Response::redirect('/lists/edit/' . $slug);
+    }
+
+    /** The repository's reject codes as Lang-keyed form errors. */
+    private function itemError(string $code): string
+    {
+        return match ($code) {
+            'unvalidated' => \App\Lang::t('lists.err_unvalidated'),
+            'duplicate' => \App\Lang::t('lists.err_duplicate'),
+            default => \App\Lang::t('lists.err_unknown_story'),
+        };
+    }
+
     /** Title 1-120, summary clamped to 500 (plain text at rest, never
      *  markdown: lists are metadata surfaces, recorded). is_public coerces:
      *  only the literal '1' is public, anything else (absent checkbox, junk)
@@ -102,7 +166,8 @@ final class ListsController
         return [$title, $summary, $isPublic, null];
     }
 
-    /** $row null renders the create form; the edit row prefills and targets update. */
+    /** $row null renders the create form; the edit row prefills, targets
+     *  update, and carries the item management section. */
     private function form(?array $row, ?string $error = null): string
     {
         $title = $row === null ? \App\Lang::t('lists.new') : \App\Lang::t('lists.edit');
@@ -110,13 +175,18 @@ final class ListsController
             'title' => $title, 'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'navFile' => (string) $this->app->config('nav_file', ''),
-            'row' => $row, 'error' => $error, 'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+            'row' => $row, 'error' => $error,
+            'items' => $row === null ? [] : $this->lists->itemsForEdit((int) $row['id']),
+            'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
         ]);
     }
 
     private function staticCache(): \App\StaticCache\Cache
     {
-        return new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
+        // Config-injected dir when present (the AdminstoriesController/Importer
+        // pattern), the tree's public/cache otherwise: tests pin
+        // through-controller purges without ever writing into the real dir.
+        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
     }
 
     private function head(): \App\Seo\Head

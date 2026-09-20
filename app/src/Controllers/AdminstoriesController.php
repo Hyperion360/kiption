@@ -51,7 +51,9 @@ final class AdminstoriesController
         [$seriesSlugs, $newSlug] = $repo->purgeData($storyId, $newId);
         $oldSlug = (string) ($this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$oldId])['profile_slug'] ?? '');
         $cache = new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
-        $cache->purgeStory($slug, $cats, $seriesSlugs, $newSlug);
+        // The list rider (finding 4) rides the reassignment too: the belt-and-
+        // braces set for every derived surface the story feeds.
+        $cache->purgeStory($slug, $cats, $seriesSlugs, $newSlug, (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($storyId));
         if ($oldSlug !== '') $cache->purgeUser($oldSlug);
         if ($newSlug !== '') $cache->purgeUser($newSlug); // belt-and-braces with purgeStory's pass
         $cache->purgeAuthors();

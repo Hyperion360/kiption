@@ -85,7 +85,13 @@ final class QueueController
 
     private function purge(string $slug, array $cats, array $seriesSlugs = [], string $authorSlug = ''): void
     {
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
+        // The list rider (finding 4): approve flips validated (a story joins
+        // every public list's guest render), remove soft-deletes (it leaves).
+        // Caller-side lookup: Cache stays DB-free.
+        $storyId = (int) ($this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'] ?? 0);
+        $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($storyId);
+        (new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache')))
+            ->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs);
     }
 
     private function notifyPublish(string $slug): void

@@ -71,8 +71,12 @@ final class Cache
      *  DB before deleting/changing the row). $seriesSlugs are the confirmed
      *  series containing it and $authorProfileSlug the author's profile key:
      *  a member story changing refreshes its series pages and the author's
-     *  profile pages (the master plan's invalidation contract). */
-    public function purgeStory(string $slug, array $categorySlugs, array $seriesSlugs = [], string $authorProfileSlug = ''): void
+     *  profile pages (the master plan's invalidation contract). $listSlugs
+     *  are the PUBLIC reading lists containing the story (finding 4's rider:
+     *  the caller looks them up before the write lands here, Cache stays
+     *  DB-free): a listed story flipping restricted or deleting must not
+     *  leave a stale guest-cached list (the restricted lesson). */
+    public function purgeStory(string $slug, array $categorySlugs, array $seriesSlugs = [], string $authorProfileSlug = '', array $listSlugs = []): void
     {
         foreach (['/story/view/' . $slug, '/browse', '/browse/recent', '/'] as $p) {
             $f = $this->fileFor($p);
@@ -86,6 +90,7 @@ final class Cache
         }
         foreach ($seriesSlugs as $ss) $this->purgeSeries($ss);
         if ($authorProfileSlug !== '') $this->purgeUser($authorProfileSlug);
+        foreach ($listSlugs as $ls) $this->purgeList($ls);
         // The toplists hub aggregates every story's engagement, so any story's
         // kudos/favorites/reviews/visibility change can reorder it: every
         // engagement and visibility write path already calls purgeStory, and

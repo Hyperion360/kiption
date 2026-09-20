@@ -231,9 +231,13 @@ final class StoryController
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->staticCache()->purgeStory($newSlug, $cats, $seriesSlugs, $authorSlug);
+        // The list rider (finding 4): a title change re-renders the blob, a
+        // restricted flip changes what guests see on public lists containing
+        // the story. Caller-side lookup: Cache stays DB-free.
+        $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($this->storyId($newSlug));
+        $this->staticCache()->purgeStory($newSlug, $cats, $seriesSlugs, $authorSlug, $listSlugs);
         if ($newSlug !== $slug) {
-            $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug); // old URLs' files too
+            $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs); // old URLs' files too
         }
         return Response::redirect('/story/edit/' . $newSlug);
     }
@@ -246,7 +250,9 @@ final class StoryController
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
+        // A soft-deleted story leaves every public list's guest render (the rider).
+        $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($this->storyId($slug));
+        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs);
         $this->staticCache()->purgeAuthors(); // the directory's story counts changed
         return Response::redirect('/account');
     }
@@ -329,6 +335,13 @@ final class StoryController
         return (int) $this->session->get('user_id');
     }
 
+    /** The story's id for the purge rider's list lookup; 0 when the row is
+     *  gone (a hard miss that publicListSlugsForStory turns into no slugs). */
+    private function storyId(string $slug): int
+    {
+        return (int) ($this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'] ?? 0);
+    }
+
     private function autoValidates(): bool
     {
         $role = (string) ($this->db->one('SELECT role FROM users WHERE id = ?', [$this->uid()])['role'] ?? 'member');
@@ -345,7 +358,10 @@ final class StoryController
 
     private function staticCache(): \App\StaticCache\Cache
     {
-        return new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
+        // Config-injected dir when present (the AdminstoriesController/Importer
+        // pattern), the tree's public/cache otherwise: tests pin
+        // through-controller purges without ever writing into the real dir.
+        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
     }
 
     /** @return array{string,string,string,int,array,bool,bool,string} */

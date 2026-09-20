@@ -73,6 +73,7 @@
     <?php if (!empty($story['support_url'])): ?>
       <a href="<?= $this->e($story['support_url']) ?>" rel="noopener nofollow"><?= \App\Lang::t('story.support') ?></a>
     <?php endif; ?>
+    <span><a href="/lists"><?= \App\Lang::t('story.lists_link') ?></a></span>
   </div>
   <?php if (($story['notes'] ?? '') !== ''): ?>
     <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>

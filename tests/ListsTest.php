@@ -9,12 +9,14 @@ use PHPUnit\Framework\TestCase;
 final class ListsTest extends TestCase
 {
     private string $path = '';
+    private string $cacheDir = '';
     private Database $db;
     private App $app;
 
     protected function setUp(): void
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-lists-') . '.sqlite';
+        $this->cacheDir = sys_get_temp_dir() . '/kiption-lists-cfg-' . uniqid('', true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
         \App\Seeder::run($this->db);
@@ -24,6 +26,7 @@ final class ListsTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
+        exec('rm -rf ' . escapeshellarg($this->cacheDir));
     }
 
     private function newApp(): App
@@ -36,6 +39,10 @@ final class ListsTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-lists-mail-') . '.log', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-lists-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+            // Config-injected static cache dir (the AdminstoriesController/Importer
+            // pattern): the controllers' purge writes land here in tests, never in
+            // the repo's public/cache, so through-controller purges are pinnable.
+            'static_cache' => ['dir' => $this->cacheDir],
         ]);
     }
 
@@ -73,6 +80,220 @@ final class ListsTest extends TestCase
             [$this->memberId(), 'Comfort reads', 'comfort-reads', 'Stories for bad days.']);
         $this->db->query('INSERT INTO reading_list_items (list_id, story_id, position, note) VALUES ((SELECT id FROM reading_lists WHERE slug = ?), ?, 1, ?)',
             ['comfort-reads', $sid, 'Start here.']);
+    }
+
+    /** betafriend's second list (private, empty) for the index and rider tests. */
+    private function seedSecretList(): void
+    {
+        $this->db->query('INSERT INTO reading_lists (owner_id, title, slug, summary, is_public) VALUES (?, ?, ?, ?, 0)',
+            [$this->memberId(), 'Secret', 'secret-list', '']);
+    }
+
+    /** An unvalidated story row (the add-by-slug reject fixture). */
+    private function seedDraftTale(): void
+    {
+        $this->db->query(
+            "INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, created_at, updated_at)
+             SELECT 'Draft Tale', 'draft-tale', '', author_id, rating_id, 0, 0, 0, created_at, updated_at
+             FROM stories WHERE slug = 'the-rabbit-hole'");
+    }
+
+    /** Fill the config-injected cache with the public list page (guest render). */
+    private function fillListCache(): \App\StaticCache\Cache
+    {
+        $cache = new \App\StaticCache\Cache($this->cacheDir);
+        $req = new \Kip\Http\Request('GET', '/lists/view/comfort-reads', [], [], []);
+        $cache->maybeStore($req, $this->app->handle($req));
+        return $cache;
+    }
+
+    /** @return array<string,int> story slug => position on comfort-reads,
+     *  ordered by position so assertSame reads top-to-bottom */
+    private function positions(): array
+    {
+        $out = [];
+        foreach ($this->db->all(
+            "SELECT s.slug, li.position FROM reading_list_items li JOIN stories s ON s.id = li.story_id
+             JOIN reading_lists l ON l.id = li.list_id WHERE l.slug = 'comfort-reads'") as $r) {
+            $out[(string) $r['slug']] = (int) $r['position'];
+        }
+        asort($out);
+        return $out;
+    }
+
+    private function itemId(string $storySlug): int
+    {
+        return (int) $this->db->one(
+            "SELECT li.id FROM reading_list_items li JOIN stories s ON s.id = li.story_id
+             JOIN reading_lists l ON l.id = li.list_id WHERE l.slug = 'comfort-reads' AND s.slug = ?",
+            [$storySlug])['id'];
+    }
+
+    public function test_owner_adds_items_by_slug_with_honest_rejects(): void
+    {
+        $this->seedComfortReads();
+        $this->seedDraftTale();
+        $owner = $this->client($this->memberId());
+        // any validated, non-deleted story adds; restricted is fine (the owner's
+        // list, the owner's eyes; the PUBLIC page's blob hides it from guests)
+        $this->db->query("UPDATE stories SET is_restricted = 1 WHERE slug = 'after-hours'");
+        $res = $owner->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => 'Second.']);
+        $this->assertSame(302, $res->status, $res->body);
+        $row = $this->db->one(
+            "SELECT li.position, li.note FROM reading_list_items li JOIN stories s ON s.id = li.story_id
+             JOIN reading_lists l ON l.id = li.list_id WHERE l.slug = 'comfort-reads' AND s.slug = 'after-hours'");
+        $this->assertSame(2, (int) $row['position'], 'appends after the last item');
+        $this->assertSame('Second.', $row['note']);
+        $this->assertStringContainsString('Second.', $this->client($this->memberId())->get('/lists/view/comfort-reads')->body);
+        // honest 422s: unknown slug, unvalidated slug, duplicate item (the UNIQUE)
+        $res = $owner->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'nope', 'note' => '']);
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString('No story with that slug exists.', $res->body);
+        $res = $owner->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'draft-tale', 'note' => '']);
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString('That story is not validated yet.', $res->body);
+        $res = $owner->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => '']);
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString('That story is already on this list.', $res->body);
+        // a soft-deleted story reads as unknown (it is gone from every surface)
+        $this->db->query(
+            "INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, created_at, updated_at, deleted_at)
+             SELECT 'Gone Tale', 'gone-tale', '', author_id, rating_id, 1, 0, 0, created_at, updated_at, ?
+             FROM stories WHERE slug = 'the-rabbit-hole'", [date('c')]);
+        $res = $owner->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'gone-tale', 'note' => '']);
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString('No story with that slug exists.', $res->body);
+        // ownership: another member's add (valid token) is own()'s 404; unknown
+        // list slug is a 404 even for the owner
+        $this->assertSame(404, $this->client($this->authorId())->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'the-rabbit-hole', 'note' => ''])->status);
+        $this->assertSame(404, $owner->postWithToken('/lists/item/nope', ['story_slug' => 'after-hours', 'note' => ''])->status);
+        // the first item on a fresh, empty list lands at position 1 (MAX over
+        // zero rows is one NULL row; the COALESCE idiom must not misreport
+        // the insert as a duplicate)
+        $this->assertSame(302, $owner->postWithToken('/lists/create', ['title' => 'Empty start', 'summary' => '', 'is_public' => ''])->status);
+        $this->assertSame(302, $owner->postWithToken('/lists/item/empty-start', ['story_slug' => 'after-hours', 'note' => ''])->status);
+        $first = $this->db->one(
+            "SELECT li.position FROM reading_list_items li JOIN reading_lists l ON l.id = li.list_id WHERE l.slug = 'empty-start'");
+        $this->assertSame(1, (int) $first['position']);
+    }
+
+    public function test_owner_removes_and_reorders_items(): void
+    {
+        $this->seedComfortReads();
+        $owner = $this->client($this->memberId());
+        $this->assertSame(302, $owner->postWithToken('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => ''])->status);
+        $this->assertSame(['the-rabbit-hole' => 1, 'after-hours' => 2], $this->positions());
+        // the edit page carries the management section (add-by-slug lives there)
+        $edit = $owner->get('/lists/edit/comfort-reads')->body;
+        $this->assertStringContainsString('action="/lists/item/comfort-reads"', $edit);
+        // swap up (the series swap idiom): after-hours rises over the rabbit hole
+        $this->assertSame(302, $owner->postWithToken('/lists/move/comfort-reads/' . $this->itemId('after-hours') . '/up')->status);
+        $this->assertSame(['after-hours' => 1, 'the-rabbit-hole' => 2], $this->positions());
+        // and back down
+        $this->assertSame(302, $owner->postWithToken('/lists/move/comfort-reads/' . $this->itemId('after-hours') . '/down')->status);
+        $this->assertSame(['the-rabbit-hole' => 1, 'after-hours' => 2], $this->positions());
+        // boundary: moving the top item up is a calm no-op
+        $this->assertSame(302, $owner->postWithToken('/lists/move/comfort-reads/' . $this->itemId('the-rabbit-hole') . '/up')->status);
+        $this->assertSame(['the-rabbit-hole' => 1, 'after-hours' => 2], $this->positions());
+        // junk direction coerces (the browse page-param philosophy)
+        $this->assertSame(302, $owner->postWithToken('/lists/move/comfort-reads/' . $this->itemId('after-hours') . '/sideways')->status);
+        // the item write purges the cached public page (through-controller, config dir)
+        $cache = $this->fillListCache();
+        $req = new \Kip\Http\Request('GET', '/lists/view/comfort-reads', [], [], []);
+        $this->assertNotNull($cache->serve($req));
+        $this->assertSame(302, $owner->postWithToken('/lists/remove/comfort-reads/after-hours')->status);
+        $this->assertNull($cache->serve($req), 'item removal purged the list page');
+        $this->assertSame(['the-rabbit-hole' => 2], $this->positions(), 'removal keeps gaps: ordering is by position');
+        // ownership: another member's item ops (valid token) are own()'s 404;
+        // a tokenless POST is the CSRF 403, before ownership
+        $author = $this->client($this->authorId());
+        $this->assertSame(404, $author->postWithToken('/lists/move/comfort-reads/' . $this->itemId('the-rabbit-hole') . '/up')->status);
+        $this->assertSame(404, $author->postWithToken('/lists/remove/comfort-reads/the-rabbit-hole')->status);
+        $this->assertSame(403, $this->client()->post('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => ''])->status);
+    }
+
+    public function test_member_lists_index_lists_own_lists_with_counts(): void
+    {
+        $this->seedComfortReads();
+        $this->seedSecretList();
+        $body = $this->client($this->memberId())->get('/lists')->body;
+        $this->assertStringContainsString('href="/lists/view/comfort-reads"', $body);
+        $this->assertStringContainsString('href="/lists/view/secret-list"', $body);
+        $this->assertStringContainsString('Comfort reads', $body);
+        $this->assertStringContainsString('Secret', $body);
+        $this->assertStringContainsString('1 works', $body);  // comfort-reads holds one story
+        $this->assertStringContainsString('0 works', $body);  // the private list is empty
+        $this->assertStringContainsString('href="/lists/new"', $body);
+        // own lists only: the author's index shows the honest empty state
+        $mine = $this->client($this->authorId())->get('/lists')->body;
+        $this->assertStringNotContainsString('comfort-reads', $mine);
+        $this->assertStringContainsString('You have no reading lists yet.', $mine);
+        // guests hit the auth redirect
+        $this->assertSame(302, $this->client()->get('/lists')->status);
+    }
+
+    public function test_member_lists_index_is_one_query(): void
+    {
+        $this->seedComfortReads();
+        $app = $this->newApp();
+        $db = $app->container->make(\Kip\Database::class);
+        $store = [];
+        $session = new \Kip\Session($store);
+        $session->set('user_id', $this->memberId());
+        $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$this->memberId()])['password_hash'];
+        $session->set('pwd_epoch', substr($hash, 0, \Kip\Auth::EPOCH_LEN));
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if (!str_contains($sql, 'password_hash')) $queries++; // the auth gate's epoch SELECT is not content
+        });
+        $res = $app->handle(new \Kip\Http\Request('GET', '/lists', [], [], ['kip_test_session' => '1']), $session);
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertLessThanOrEqual(1, $queries, "lists index ran {$queries} content queries, budget is 1");
+    }
+
+    public function test_story_page_links_the_lists_page(): void
+    {
+        $body = $this->client()->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('href="/lists"', $body);
+        $this->assertStringContainsString('Reading lists', $body);
+    }
+
+    public function test_restricted_flip_purges_the_cached_public_list(): void
+    {
+        // THE rider pin (finding 4): a story-side guest-visibility change must
+        // purge every PUBLIC list containing the story, looked up caller-side
+        // and passed through purgeStory's listSlugs.
+        $this->seedComfortReads();
+        $cache = $this->fillListCache();
+        $req = new \Kip\Http\Request('GET', '/lists/view/comfort-reads', [], [], []);
+        $this->assertNotNull($cache->serve($req));
+        // without list slugs a story purge leaves the containing list file alone:
+        // the parameter is load-bearing, not a blanket purgeAll
+        $cache->purgeStory('the-rabbit-hole', []);
+        $this->assertNotNull($cache->serve($req), 'no list slugs passed, no list unlink');
+        // the real write path flips the story restricted; the rider purges the list
+        $author = $this->client($this->authorId());
+        $this->assertSame(302, $author->postWithToken('/story/update/the-rabbit-hole',
+            ['title' => 'The Rabbit Hole', 'summary' => 'A slow fall into a stranger world.',
+             'rating_id' => (string) $this->db->one("SELECT id FROM ratings WHERE label = 'Teen'")['id'],
+             'categories' => [(string) $this->db->one("SELECT id FROM categories WHERE slug = 'general'")['id']],
+             'restricted' => '1'])->status);
+        $this->assertNull($cache->serve($req), 'the story-side visibility change purged the public list');
+        // stale-CORRECT, not just stale-gone: the rebuilt guest page hides the story
+        $this->assertStringNotContainsString('href="/story/view/the-rabbit-hole"', $this->client()->get('/lists/view/comfort-reads')->body);
+    }
+
+    public function test_public_list_slugs_for_story_is_public_only(): void
+    {
+        $this->seedComfortReads();
+        $this->seedSecretList();
+        $sid = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $this->db->query('INSERT INTO reading_list_items (list_id, story_id, position) VALUES ((SELECT id FROM reading_lists WHERE slug = ?), ?, 1)',
+            ['secret-list', $sid]);
+        $repo = new \App\Repositories\ListsRepository($this->db);
+        $this->assertSame(['comfort-reads'], $repo->publicListSlugsForStory($sid), 'private lists never cache, so never purge');
+        $this->assertSame([], $repo->publicListSlugsForStory($sid + 1000000));
     }
 
     public function test_public_list_page_lists_stories(): void
