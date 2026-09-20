@@ -30,7 +30,8 @@ final class SeriesRepository
      *  admin); owner, story author, and admin additionally see pending items.
      *  Soft-deleted stories never appear (everyone), and restricted member
      *  titles only for logged-in viewers, the findStoryBySlug gate pattern
-     *  (coordinator ruling, follow-up to Task 3).
+     *  (coordinator ruling, follow-up to Task 3); item_count (column h)
+     *  carries the same gates so the badge never outruns the list.
      *  The series branch carries owner_id and a viewer-admin scalar so the
      *  controller computes isOwner/isAdmin without extra queries. Returns
      *  ['series' => ..., 'items' => ...] or null when the slug is unknown.
@@ -44,7 +45,9 @@ final class SeriesRepository
         $rows = $this->db->all(
             "SELECT '0' AS k, ser.title a, ser.summary b, ser.membership c, ser.slug d,
                     u.penname e, u.profile_slug f, ser.created_at g,
-                    CAST((SELECT COUNT(*) FROM series_items x WHERE x.series_id = ser.id AND x.confirmed = 1) AS TEXT) h,
+                    CAST((SELECT COUNT(*) FROM series_items x JOIN stories xs ON xs.id = x.story_id
+                          WHERE x.series_id = ser.id AND x.confirmed = 1 AND xs.deleted_at IS NULL
+                            AND (xs.is_restricted = 0 OR CAST(? AS INTEGER) != 0)) AS TEXT) h,
                     CAST((SELECT COUNT(*) FROM users v WHERE v.id = ? AND v.role = 'admin') AS TEXT) i,
                     CAST(ser.owner_id AS TEXT) j
              FROM series ser JOIN users u ON u.id = ser.owner_id WHERE ser.slug = ?
@@ -63,11 +66,12 @@ final class SeriesRepository
                     OR ser.owner_id = CAST(? AS INTEGER) OR s.author_id = CAST(? AS INTEGER)
                     OR EXISTS (SELECT 1 FROM users v3 WHERE v3.id = CAST(? AS INTEGER) AND v3.role = 'admin'))
              ORDER BY k, c",
-            // TEN binds, in order of appearance (SELECT-list first): is_admin
-            // scalar, series slug (twice), the restricted gate, then the six
+            // ELEVEN binds, in order of appearance (SELECT-list first, left to
+            // right): the count's restricted gate, the is_admin scalar, the
+            // series slug (twice), the list's restricted gate, then the six
             // viewer-gate binds. The Task 2 draft shipped eight of nine and PDO
             // silently left the ninth unbound; count the question marks.
-            [$me, $slug, $slug, $me, $me, $me, $me, $me, $me, $me]
+            [$me, $me, $slug, $slug, $me, $me, $me, $me, $me, $me, $me]
         );
         if ($rows === []) return null;
         $series = [

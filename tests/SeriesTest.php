@@ -137,6 +137,30 @@ final class SeriesTest extends TestCase
         $this->assertStringContainsString('"url":"https://archive.example/story/view/the-rabbit-hole"', $body);
     }
 
+    public function test_item_count_matches_the_visible_items_for_guests(): void
+    {
+        // the only /story/view/ links on a series page are its item rows
+        $normal = $this->client()->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertSame(1, substr_count($normal, 'href="/story/view/'));
+        $this->assertStringContainsString('1 works', $normal);
+
+        // restricted-only fixture: the guest count must drop with the list
+        $this->db->query("UPDATE stories SET is_restricted = 1 WHERE slug = 'the-rabbit-hole'");
+        $restricted = $this->client()->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertSame(0, substr_count($restricted, 'href="/story/view/'));
+        $this->assertStringContainsString('0 works', $restricted);
+        // a member still sees both the row and the count
+        $member = $this->client($this->memberId())->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertSame(1, substr_count($member, 'href="/story/view/'));
+        $this->assertStringContainsString('1 works', $member);
+
+        // soft-deleted items count for nobody
+        $this->db->query("UPDATE stories SET is_restricted = 0, deleted_at = ? WHERE slug = 'the-rabbit-hole'", [date('c')]);
+        $deleted = $this->client()->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertSame(0, substr_count($deleted, 'href="/story/view/'));
+        $this->assertStringContainsString('0 works', $deleted);
+    }
+
     public function test_unknown_series_404s(): void
     {
         $this->assertSame(404, $this->client()->get('/series/view/nope')->status);
