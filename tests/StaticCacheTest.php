@@ -101,6 +101,7 @@ final class StaticCacheTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => $dsn],
             'log_db' => ['dsn' => 'sqlite::memory:'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-static-upl'],
         ]);
         $req = new Request('GET', '/story/view/the-rabbit-hole', [], [], []);
         $res = $app->handle($req);

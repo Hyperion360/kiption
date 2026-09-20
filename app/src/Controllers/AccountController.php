@@ -19,7 +19,7 @@ final class AccountController
     {
         $userId = (int) $this->session->get('user_id');
         $rows = $this->db->all(
-            "SELECT '0me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, NULL AS e
+            "SELECT '0me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, u.support_url AS e
              FROM users u WHERE u.id = ?
              UNION ALL
              SELECT '1follow', CAST(f.author_id AS TEXT), u2.penname, f.notify_mode,
@@ -85,6 +85,18 @@ final class AccountController
             $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
             @unlink($dir . '/' . basename((string) $old['avatar_path']));
         }
+        return Response::redirect('/account');
+    }
+
+    #[AuthAttr] #[Post]
+    public function support(): Response
+    {
+        $url = trim($this->request->postStr('support_url'));
+        if ($url !== '' && !preg_match('#^https?://#', $url)) {
+            return new Response('Support link must start with http:// or https://.', 422);
+        }
+        $userId = (int) $this->session->get('user_id');
+        $this->db->query('UPDATE users SET support_url = ? WHERE id = ?', [$url === '' ? null : $url, $userId]);
         return Response::redirect('/account');
     }
 

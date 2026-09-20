@@ -32,6 +32,7 @@ final class AuthoringTest extends TestCase
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-authoring-test.log', 'from' => 'noreply@kiption.test'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-authoring-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ], $overrides);
     }

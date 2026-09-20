@@ -1,6 +1,6 @@
 <?php // app/src/Controllers/StoryController.php
 namespace App\Controllers;
-use Kip\{App, Database, Http\Request, Http\Response, Session, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, Storage, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\StoryRepository;
 
@@ -13,6 +13,7 @@ final class StoryController
         private App $app,
         private Database $db,
         private Session $session,
+        private Storage $storage,
     ) {}
 
     public function view(string $slug): Response|string
@@ -151,7 +152,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
         }
@@ -159,7 +160,7 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         [$id, $slug, $cats] = $this->authoring()->createStory(
-            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted);
+            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language);
         $this->staticCache()->purgeStory($slug, $cats);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -179,13 +180,13 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language] = $this->storyInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         try {
             [$newSlug, $cats] = $this->authoring()->updateStory(
-                $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted);
+                $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -206,6 +207,28 @@ final class StoryController
         }
         $this->staticCache()->purgeStory($slug, $cats);
         return Response::redirect('/account');
+    }
+
+    #[AuthAttr] #[Post]
+    public function cover(string $slug): Response
+    {
+        try {
+            $story = $this->authoring()->ownStory($slug, $this->uid());
+        } catch (\RuntimeException) {
+            return new Response('Page not found', 404);
+        }
+        $file = $this->request->file('cover');
+        if ($file === null) {
+            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+        }
+        try {
+            $path = $this->storage->put($file);
+        } catch (\Kip\UploadException) {
+            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+        }
+        $this->db->query('UPDATE stories SET cover_path = ? WHERE id = ?', [$path, $story['id']]);
+        $this->staticCache()->purgeStory($slug, $this->authoring()->categorySlugs((int) $story['id']));
+        return Response::redirect('/story/edit/' . $slug);
     }
 
     /** @param array[] $rows formData output; $story null on the create form */
@@ -232,6 +255,7 @@ final class StoryController
                 'slug' => (string) $editSlug, 'title' => $story['b'], 'summary' => $story['c'],
                 'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
                 'restricted' => (int) $story['i'],
+                'language' => (string) $story['j'],
             ],
             'selectedCategories' => $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
             'categories' => $categories,
@@ -272,10 +296,14 @@ final class StoryController
         return new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
     }
 
-    /** @return array{string,string,string,int,array,bool,bool} */
+    /** @return array{string,string,string,int,array,bool,bool,string} */
     private function storyInput(): array
     {
         $post = $this->request->post;
+        $language = trim((string) ($post['language'] ?? ''));
+        if ($language !== '' && (strlen($language) > 10 || !preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $language))) {
+            $language = ''; // junk never reaches the browse filter's regex
+        }
         return [
             trim((string) ($post['title'] ?? '')),
             trim((string) ($post['summary'] ?? '')),
@@ -284,6 +312,7 @@ final class StoryController
             array_values(array_filter((array) ($post['categories'] ?? []), 'is_numeric')),
             isset($post['completed']),
             isset($post['restricted']),
+            $language,
         ];
     }
 

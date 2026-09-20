@@ -36,7 +36,8 @@ final class StoryRepository
                             (SELECT penname FROM users ru WHERE ru.id = r.user_id), \'guest_name\', r.guest_name,
                             \'body\', r.body, \'rating\', r.rating, \'parent_id\', r.parent_id, \'created_at\', r.created_at))
                      FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id ORDER BY r.created_at DESC LIMIT 50) r) AS reviews_blob,
-                    (SELECT COUNT(*) FROM reviews r2 WHERE r2.story_id = s.id) AS review_count
+                    (SELECT COUNT(*) FROM reviews r2 WHERE r2.story_id = s.id) AS review_count,
+                    (SELECT su.support_url FROM users su WHERE su.id = s.author_id) AS support_url
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
@@ -89,6 +90,24 @@ final class StoryRepository
              ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
             [$perPage, $offset]
+        );
+    }
+
+    /** Language-filtered listing for the browse filter (recentStories' shape,
+     *  capped at 50, no pagination). The query string that drives it makes
+     *  these pages cache-ineligible: Cache refuses queryful GETs. */
+    public function storiesInLanguage(string $language): array
+    {
+        return $this->db->all(
+            'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, s.created_at,
+                    u.penname, r.label AS rating_label
+             FROM stories s
+             JOIN users u ON u.id = s.author_id
+             JOIN ratings r ON r.id = s.rating_id
+             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.language = ?
+             ORDER BY s.updated_at DESC, s.id DESC
+             LIMIT 50',
+            [$language]
         );
     }
 

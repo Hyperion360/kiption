@@ -8,6 +8,7 @@
     <label>Title <input name="title" required maxlength="200" value="<?= $this->e($story['title'] ?? '') ?>"></label>
     <label>Summary <textarea name="summary" maxlength="1000" rows="3"><?= $this->e($story['summary'] ?? '') ?></textarea></label>
     <label>Notes <textarea name="notes" rows="2"><?= $this->e($story['notes'] ?? '') ?></textarea></label>
+    <label>Language (e.g. en, pt-BR) <input name="language" maxlength="10" value="<?= $this->e($story['language'] ?? '') ?>"></label>
     <label>Rating
       <select name="rating_id">
         <?php foreach ($ratings as $r): ?>
@@ -30,6 +31,11 @@
     <button type="submit"><?= $story === null ? 'Create' : 'Save' ?></button>
   </form>
   <?php if ($story !== null): ?>
+    <form method="post" action="/story/cover/<?= $this->e($story['slug']) ?>" enctype="multipart/form-data">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <label>Cover (PNG/JPG/WEBP/GIF, max 2 MiB) <input type="file" name="cover" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      <button type="submit">Upload cover</button>
+    </form>
     <?php if ($chapters !== []): ?>
       <h2>Chapters</h2>
       <ul>

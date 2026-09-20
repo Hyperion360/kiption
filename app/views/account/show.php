@@ -11,6 +11,11 @@
     <label>Avatar (PNG/JPG/WEBP/GIF, max 2 MiB) <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif"></label>
     <button type="submit">Upload</button>
   </form>
+  <form method="post" action="/account/support">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <label>Support link (http(s) only, shown on your stories) <input name="support_url" maxlength="200" value="<?= $this->e($me['e'] ?? '') ?>"></label>
+    <button type="submit">Save support link</button>
+  </form>
   <h2>Your stories</h2>
   <?php if ($stories === []): ?><p class="chapter-meta">None yet. <a href="/story/new">Start one</a>.</p>
   <?php else: ?>

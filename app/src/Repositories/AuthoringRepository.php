@@ -9,14 +9,14 @@ final class AuthoringRepository
 
     /** ONE query for the story form: taxonomy rows for every caller, plus the
      *  story row (k='s') when editing. Ownership (author or admin) is enforced
-     *  in SQL. Output columns: k, a..i; d is the per-branch sort key (position).
+     *  in SQL. Output columns: k, a..j; d is the per-branch sort key (position).
      *  Compound SELECTs may only ORDER BY output columns. */
     public function formData(?string $slug, int $userId): array
     {
-        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i
+        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j
                      FROM categories c
                      UNION ALL
-                     SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL
+                     SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL
                      FROM ratings r";
         if ($slug === null) {
             return $this->db->all($taxonomy . ' ORDER BY k, d');
@@ -27,7 +27,7 @@ final class AuthoringRepository
                     s.rating_id AS f, s.completed AS g,
                     (SELECT json_group_array(json_object('position', ch.position, 'title', ch.title, 'validated', ch.validated))
                      FROM chapters ch WHERE ch.story_id = s.id) AS h,
-                    s.is_restricted AS i
+                    s.is_restricted AS i, s.language AS j
              FROM stories s
              WHERE s.slug = ? AND s.deleted_at IS NULL
                AND (s.author_id = ? OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))
@@ -41,14 +41,14 @@ final class AuthoringRepository
     }
 
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
-                                array $categoryIds, bool $validated, bool $restricted): array
+                                array $categoryIds, bool $validated, bool $restricted, string $language): array
     {
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
         try {
             $this->db->query(
-                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0]);
+                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language]);
             $storyId = (int) $this->db->lastInsertId();
             $this->writeCategories($storyId, $categoryIds);
             $this->db->commit();
@@ -61,7 +61,7 @@ final class AuthoringRepository
 
     /** @return array{0: string, 1: array} new slug, category slugs before+after */
     public function updateStory(string $slug, int $userId, string $title, string $summary, string $notes,
-                                int $ratingId, array $categoryIds, bool $completed, bool $restricted): array
+                                int $ratingId, array $categoryIds, bool $completed, bool $restricted, string $language): array
     {
         $story = $this->ownStory($slug, $userId);
         $newSlug = $slug;
@@ -72,8 +72,8 @@ final class AuthoringRepository
         $this->db->begin();
         try {
             $this->db->query('UPDATE stories SET title = ?, slug = ?, summary = ?, notes = ?, rating_id = ?,
-                              completed = ?, is_restricted = ?, updated_at = ? WHERE id = ?',
-                [$title, $newSlug, $summary, $notes, $ratingId, $completed ? 1 : 0, $restricted ? 1 : 0, date('c'), $story['id']]);
+                              completed = ?, is_restricted = ?, language = ?, updated_at = ? WHERE id = ?',
+                [$title, $newSlug, $summary, $notes, $ratingId, $completed ? 1 : 0, $restricted ? 1 : 0, $language, date('c'), $story['id']]);
             $this->writeCategories((int) $story['id'], $categoryIds);
             $this->db->commit();
             return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id']))))];
@@ -92,7 +92,7 @@ final class AuthoringRepository
         return [$slug, $cats];
     }
 
-    private function ownStory(string $slug, int $userId): array
+    public function ownStory(string $slug, int $userId): array
     {
         $story = $this->db->one(
             "SELECT id, title FROM stories WHERE slug = ? AND deleted_at IS NULL

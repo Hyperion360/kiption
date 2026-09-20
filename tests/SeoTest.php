@@ -23,6 +23,7 @@ final class SeoTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-seo-upl'],
             'site_name' => 'Kiption',
             'base_url' => 'https://archive.example',
         ]);
@@ -92,6 +93,7 @@ final class SeoTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-seo-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'og_image' => '/assets/card.png',
         ]);

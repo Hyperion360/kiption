@@ -14,11 +14,19 @@ final class BrowseController
 
     public function index(): string
     {
+        // Same regex the story form stores by: junk reads as unfiltered, like
+        // the junk page param. The query string makes these pages cache-ineligible.
+        $language = trim((string) ($this->request->get['language'] ?? ''));
+        if ($language !== '' && !preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $language)) {
+            $language = '';
+        }
         return $this->view->render('browse/index', [
             'title' => 'Browse',
             'head' => $this->head()->withTitle('Browse')->withCanonical('/browse'),
             'theme' => \App\Theme::current($this->request),
             'categories' => $this->stories->categoriesWithCounts(),
+            'language' => $language,
+            'langStories' => $language === '' ? [] : $this->stories->storiesInLanguage($language),
         ]);
     }
 

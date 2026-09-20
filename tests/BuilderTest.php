@@ -36,6 +36,7 @@ final class BuilderTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => $this->dsn],
             'log_db' => ['dsn' => 'sqlite::memory:'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-build-upl'],
         ];
     }
 

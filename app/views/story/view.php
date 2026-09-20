@@ -10,7 +10,11 @@
     <?= $story['completed'] ? '<span class="badge">Complete</span>' : '<span class="badge">WIP</span>' ?>
     | <?= number_format((int) $story['word_count']) ?> words
     | in <?= $this->e($story['category_names'] ?? 'Uncategorized') ?>
+    <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?>
   </p>
+  <?php if (!empty($story['cover_path'])): ?>
+    <img class="cover" src="<?= $this->e($story['cover_path']) ?>" alt="Story cover">
+  <?php endif; ?>
   <p><?= $this->e($story['summary']) ?></p>
   <div class="engagement-bar chapter-meta">
     <span>Kudos: <?= number_format((int) $kudos_count) ?></span>
@@ -46,6 +50,9 @@
         <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
         <button type="submit"><?= $marked_at_me === null ? 'Mark for later' : 'Unmark' ?></button>
       </form>
+    <?php endif; ?>
+    <?php if (!empty($story['support_url'])): ?>
+      <a href="<?= $this->e($story['support_url']) ?>" rel="noopener nofollow">Support the author</a>
     <?php endif; ?>
   </div>
   <?php if (($story['notes'] ?? '') !== ''): ?>

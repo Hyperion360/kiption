@@ -35,6 +35,7 @@ final class FavoritesTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-fav-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ]);
         $client = new TestClient($app);
