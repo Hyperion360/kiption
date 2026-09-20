@@ -93,8 +93,9 @@ final class AccountController
     public function support(): Response
     {
         $url = trim($this->request->postStr('support_url'));
-        if ($url !== '' && !preg_match('#^https?://#', $url)) {
-            return new Response('Support link must start with http:// or https://.', 422);
+        // The form's maxlength=200 is client-side only; the server enforces both rules.
+        if ($url !== '' && (strlen($url) > 200 || !preg_match('#^https?://#', $url))) {
+            return new Response('Support link must start with http:// or https:// (max 200 characters).', 422);
         }
         $userId = (int) $this->session->get('user_id');
         $this->db->query('UPDATE users SET support_url = ? WHERE id = ?', [$url === '' ? null : $url, $userId]);

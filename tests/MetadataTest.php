@@ -101,5 +101,8 @@ final class MetadataTest extends TestCase
         $this->assertStringContainsString('https://ko-fi.example/demo', $body);
         $res = $this->client()->postWithToken('/account/support', ['support_url' => 'javascript:alert(1)']);
         $this->assertSame(422, $res->status); // http/https only
+        $res = $this->client()->postWithToken('/account/support', ['support_url' => 'https://' . str_repeat('a', 5000)]);
+        $this->assertSame(422, $res->status, 'the form maxlength=200 is client-side only; the server must cap');
+        $this->assertLessThanOrEqual(200, (int) $this->db->one('SELECT LENGTH(support_url) n FROM users WHERE id = 1')['n']);
     }
 }
