@@ -111,4 +111,42 @@ final class SearchTest extends TestCase
         $this->assertSame([], $repo->searchLike('%%%', [], 20, 0, 0)['rows']);
         $this->assertSame([], $repo->searchLike('rabbit', ['language' => 'zz'], 20, 0, 0)['rows']);
     }
+
+    public function test_search_page_renders_form_results_and_noindex(): void
+    {
+        $res = $this->client()->get('/search', ['q' => 'rabbit']);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('href="/story/view/the-rabbit-hole"', $res->body);
+        $this->assertStringContainsString('name="q"', $res->body); // the form persists
+        $this->assertStringContainsString('noindex', $res->body); // meta
+        $this->assertSame('noindex', $res->headers['X-Robots-Tag'] ?? '');
+    }
+
+    public function test_search_page_empty_and_junk_states(): void
+    {
+        $bare = $this->client()->get('/search');
+        $this->assertSame(200, $bare->status);
+        $this->assertStringContainsString('Search', $bare->body);
+        $junk = $this->client()->get('/search', ['q' => '   ', 'category' => 'nope', 'rating' => 'abc', 'completed' => 'maybe', 'language' => '!!!', 'sort' => 'sideways', 'page' => '0']);
+        $this->assertSame(200, $junk->status); // coerced, not a 500
+        $this->assertStringContainsString('no stories matched', strtolower($junk->body)); // finding 16: the real empty-state copy
+    }
+
+    public function test_search_filters_via_query_string(): void
+    {
+        $body = $this->client()->get('/search', ['q' => 'rabbit', 'completed' => '1'])->body;
+        $this->assertStringNotContainsString('href="/story/view/the-rabbit-hole"', $body, 'WIP story filtered out');
+    }
+
+    public function test_search_page_is_one_query(): void
+    {
+        $app = $this->app;
+        $db = $app->container->make(\Kip\Database::class);
+        $queries = 0;
+        $db->onQuery(function () use (&$queries): void { $queries++; });
+        $res = $app->handle(new \Kip\Http\Request('GET', '/search', ['q' => 'rabbit'], [], []));
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        $this->assertLessThanOrEqual(1, $queries, "search ran {$queries} content queries, budget is 1");
+    }
 }

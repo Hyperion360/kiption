@@ -64,6 +64,9 @@ final class QueryBudgetTest extends TestCase
                 // cache-ineligible by the queryless rule: the static whitelist matches
                 // paths only, so ?beta=/?sort= variants always render live.
                 ['/browse/authors?beta=1'], ['/user/stories/demo-author?sort=alpha'],
+                // The search fold carries the filter taxonomies AND the results
+                // in ONE compound statement, query string and all.
+                ['/search?q=wonderland'],
                 ['/feed'], ['/rss']];
     }
 
