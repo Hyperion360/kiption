@@ -69,4 +69,19 @@ final class LegacyLoginTest extends TestCase
         $res2 = $this->client()->post('/auth/attempt', ['email' => 'demo@example.test', 'password' => 'password123']);
         $this->assertSame(302, $res2->status);
     }
+
+    public function test_throttle_semantics_one_row_per_failure_upgrade_nets_zero(): void
+    {
+        $client = $this->client();
+        // wrong password: the conditional retry never fires, so exactly ONE
+        // login_attempts row burns (the md5 hook cannot be driven for free)
+        $client->post('/auth/attempt', ['email' => 'legacy@e.test', 'password' => 'wrong']);
+        $db = new Database('sqlite:' . $this->path);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM login_attempts')['c'], 'a modern failure costs exactly one row');
+        // successful upgrade: the successful second attempt clears the first
+        // failure's row, so the whole upgrade nets ZERO throttle rows
+        $res = $client->post('/auth/attempt', ['email' => 'legacy@e.test', 'password' => 'oldpassword']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM login_attempts')['c'], 'the upgrade nets zero rows');
+    }
 }

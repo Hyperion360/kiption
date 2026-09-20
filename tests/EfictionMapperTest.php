@@ -94,4 +94,49 @@ final class EfictionMapperTest extends TestCase
         $this->assertSame(1, $r->responseMisses);
         $this->assertNotNull($miss['series_item']); // SE -> series target
     }
+
+    public function test_prefs_mapping_defaults_and_values(): void
+    {
+        $this->assertSame(
+            ['notify_review' => 1, 'notify_response' => 1, 'notify_favorites' => 1, 'notify_favorite_digest' => 0, 'default_sort' => 'recent', 'toc_first' => 0],
+            EfictionMapper::mapPrefs(null),
+            'authors without a legacy prefs row get the mapPrefs defaults'
+        );
+        $this->assertSame(
+            ['notify_review' => 0, 'notify_response' => 0, 'notify_favorites' => 1, 'notify_favorite_digest' => 1, 'default_sort' => 'alpha', 'toc_first' => 1],
+            EfictionMapper::mapPrefs(['newreviews' => 0, 'newrespond' => 0, 'alertson' => 1, 'sortby' => 2, 'storyindex' => 2])
+        );
+    }
+
+    public function test_series_membership_and_news_mapping(): void
+    {
+        $r = new Report();
+        $this->assertSame('open', EfictionMapper::mapSeries(['seriesid' => 1, 'title' => ' S ', 'summary' => null, 'uid' => 3, 'isopen' => 2], $r)['membership']);
+        $this->assertSame('moderated', EfictionMapper::mapSeries(['seriesid' => 1, 'title' => 'S', 'summary' => null, 'uid' => 3, 'isopen' => 1], $r)['membership']);
+        $this->assertSame('closed', EfictionMapper::mapSeries(['seriesid' => 1, 'title' => 'S', 'summary' => null, 'uid' => 3, 'isopen' => 0], $r)['membership']);
+        $this->assertSame('moderated', EfictionMapper::mapSeries(['seriesid' => 1, 'title' => 'S', 'summary' => null, 'uid' => 3], $r)['membership'], 'unknown isopen -> moderated');
+        $this->assertSame('S', EfictionMapper::mapSeries(['seriesid' => 1, 'title' => ' S ', 'summary' => null, 'uid' => 3, 'isopen' => 2], $r)['title'], 'trimmed');
+        $n = EfictionMapper::mapNews(['nid' => 5, 'author' => 'Old Admin', 'title' => ' T ', 'story' => 'body', 'time' => '2010-06-01 00:00:00'], $r);
+        $this->assertSame('T', $n['title']);
+        $this->assertSame('2010-06-01T00:00:00+00:00', $n['published_at']);
+        $this->assertSame(1, $r->dropped['news author string (no column)'] ?? 0, 'the author STRING drops with a count');
+    }
+
+    public function test_story_unresolvable_tokens_featured_and_characters(): void
+    {
+        $r = new Report();
+        $ctx = ['categories' => ['1' => 7], 'ratings' => [], 'classes' => ['3' => 9], 'characters' => ['30' => 11]];
+        $s = EfictionMapper::mapStory(
+            ['sid' => 8, 'title' => 'T', 'summary' => null, 'catid' => '1,77', 'classes' => '3,88', 'charid' => '30,99', 'rid' => '0',
+             'date' => '2011-01-01 00:00:00', 'updated' => '2011-01-02 00:00:00', 'uid' => 1, 'validated' => '1', 'completed' => '0',
+             'featured' => '1', 'rr' => '1', 'wordcount' => 0, 'count' => 0, 'storynotes' => null],
+            $ctx, $r);
+        $this->assertSame([7], $s['categories'], 'resolvable catid maps, 77 does not');
+        $this->assertSame([9], $s['tags']);
+        $this->assertSame([11], $s['characters'], 'characters resolve through their own map');
+        $this->assertSame(1, $s['featured']);
+        $this->assertSame(1, $s['round_robin']);
+        $this->assertNull($s['rating_label'], 'rid 0 resolves to nothing');
+        $this->assertSame(3, $r->unresolvableTokens, 'one each for catid 77, classes 88, charid 99');
+    }
 }

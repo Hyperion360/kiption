@@ -884,12 +884,14 @@ final class Importer
     }
 
     /** Legacy MySQL datetime or null; anything unparseable drops to null
-     *  (ageconsent flags like '1' have no date meaning to carry). */
+     *  (ageconsent flags like '1' have no date meaning to carry). Date-only
+     *  strings never reach the fallback: createFromFormat returns a
+     *  warning-object rather than false, so a second format arm would be
+     *  dead code (probe-verified during QA). */
     private static function dateOrNull(?string $value): ?string
     {
         if ($value === null || trim($value) === '' || str_starts_with($value, '0000-00-00')) return null;
-        $d = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', trim($value))
-            ?: \DateTimeImmutable::createFromFormat('Y-m-d', trim($value));
+        $d = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', trim($value));
         return $d === false ? null : $d->format(DATE_ATOM);
     }
 }

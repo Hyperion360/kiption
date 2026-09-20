@@ -32,6 +32,12 @@ final class HtmlToMarkdownTest extends TestCase
         $this->assertSame("Word pasta\n", HtmlToMarkdown::convert('<font face="x">Word <font>pasta</font></font>'));
     }
 
+    public function test_lists_map_to_dash_items(): void
+    {
+        $this->assertSame("- one\n- two\n", HtmlToMarkdown::convert('<ul><li>one</li><li>two</li></ul>'));
+        $this->assertSame("- a\n- b\n", HtmlToMarkdown::convert('<ol><li>a</li><li>b</li></ol>'), 'ordered lists lose their numbers (the subset has no ordered form)');
+    }
+
     public function test_word_paste_torture_collapses_cleanly(): void
     {
         $in = '<p class="MsoNormal"><span style="font-size:12.0pt">Chapter begins</span></p>'
