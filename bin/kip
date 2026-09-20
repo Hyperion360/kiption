@@ -95,7 +95,8 @@ match ($argv[1] ?? 'help') {
             'data'  => $config['db']['dsn'] ?? null,
             'logs'  => $config['log_db']['dsn'] ?? null,
             'cache' => $config['cache_db']['dsn'] ?? null,
-        ]), $config['app_dir'] . '/backups'))->run(date('Ymd-His'));
+        ]), $config['backups']['dir'] ?? $config['app_dir'] . '/backups',
+            (int) ($config['backups']['keep_days'] ?? 14)))->run(date('Ymd-His'));
         echo "Backup written: {$result}\n";
     })(),
     'db:seed' => (function () use ($config, $argv) {

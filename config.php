@@ -19,5 +19,6 @@ return [
     'maintenance_allow' => [],
     'static_cache' => ['enabled' => true, 'dir' => getenv('KIP_STATIC_CACHE_DIR') ?: __DIR__ . '/public/cache'], // KIP_STATIC_CACHE_DIR: tests/imports point pages:build at a throwaway dir
     'nav_file' => getenv('KIP_NAV_FILE') ?: __DIR__ . '/app/nav.json', // KIP_NAV_FILE: tests/imports point the nav artifact at a throwaway path
+    'backups' => ['dir' => getenv('KIP_BACKUP_DIR') ?: __DIR__ . '/app/backups', 'keep_days' => 14], // KIP_BACKUP_DIR: tests/CLI point kip backup at a throwaway dir
     'items_per_page' => 20,
 ];
