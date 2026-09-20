@@ -22,13 +22,18 @@ final class ReviewRepository
             if ((int) $story['is_restricted'] === 1) return [false, 0, '', null];
             $guestName = trim((string) $guestName);
             if ($guestName === '' || strlen($guestName) > 40) return [false, 0, '', 'Guest name is required (max 40 characters).'];
+            // One statement, the report-intake pattern: a count-check followed by a
+            // separate INSERT is check-then-act (two concurrent guests both counted 0
+            // and both stored, probe-verified); INSERT..SELECT WHERE NOT EXISTS is
+            // atomic under SQLite write serialization.
             $today = date('Y-m-d');
-            $count = (int) $this->db->one(
-                "SELECT COUNT(*) c FROM reviews WHERE story_id = ? AND user_id IS NULL AND ip = ? AND substr(created_at, 1, 10) = ?",
-                [$story['id'], $ip, $today])['c'];
-            if ($count >= 1) return [false, 0, '', 'You already reviewed this story today.'];
-            $this->db->query('INSERT INTO reviews (story_id, user_id, guest_name, body, rating, ip) VALUES (?, NULL, ?, ?, ?, ?)',
-                [$story['id'], $guestName, $body, $rating, $ip]);
+            $stmt = $this->db->query(
+                "INSERT INTO reviews (story_id, user_id, guest_name, body, rating, ip)
+                 SELECT ?, NULL, ?, ?, ?, ?
+                 WHERE NOT EXISTS (SELECT 1 FROM reviews
+                                   WHERE story_id = ? AND user_id IS NULL AND ip = ? AND substr(created_at, 1, 10) = ?)",
+                [$story['id'], $guestName, $body, $rating, $ip, $story['id'], $ip, $today]);
+            if ($stmt->rowCount() !== 1) return [false, 0, '', 'You already reviewed this story today.'];
             return [true, (int) $story['author_id'], (string) $story['title'], null];
         }
         $this->db->query('INSERT INTO reviews (story_id, user_id, body, rating, ip) VALUES (?, ?, ?, ?, ?)',
