@@ -225,6 +225,83 @@ final class StoryController
         return (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex');
     }
 
+    /** The whole-work exports: the standalone HTML document or the EPUB,
+     *  behind the read() gates verbatim (validated + not-deleted + the
+     *  CAST'd restricted gate in wholeWork's SQL, the age cookie for adult
+     *  stories - the download IS reading). Both formats reuse wholeWork's
+     *  single query (finding 16: a one-query render; the html variant is a
+     *  QueryBudgetTest pages() row). File names derive from the story slug
+     *  only, which the repository's regex already confines to [a-z0-9-], so
+     *  the Content-Disposition filename needs no further escaping. Exports
+     *  are rate-unlimited: they are renders with the same gates as reading
+     *  (recorded ruling). */
+    public function download(string $slug, string $format): Response|string
+    {
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $story = $this->repo->wholeWork($slug, $me);
+        if ($story === null) return new Response('Page not found', 404);
+        $chapters = [];
+        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'content' => (string) $c['content'], 'word_count' => (int) $c['word_count']];
+        }
+        ksort($chapters);
+        unset($story['chapters_blob']);
+        if ($chapters === []) return new Response('Page not found', 404); // nothing validated to export
+        if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
+            return $this->view->render('story/gate', [
+                'title' => \App\Lang::t('story.gate_heading'),
+                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
+                'theme' => \App\Theme::current($this->request),
+                'navFile' => (string) $this->app->config('nav_file', ''),
+                'path' => $this->request->path,
+                'story' => $story,
+                'returnTo' => '/story/download/' . $slug . '/' . $format,
+            ]);
+        }
+        if (!in_array($format, ['html', 'epub'], true)) return new Response('Page not found', 404);
+        $baseUrl = rtrim((string) $this->app->config('base_url', ''), '/');
+        if ($format === 'epub') {
+            // The cover rides along as bytes (basename-confined read), so the
+            // builder itself never touches the filesystem.
+            $cover = $this->coverBytes($story);
+            if ($cover !== null) {
+                [$story['cover_data'], $story['cover_type'], $story['cover_ext']] = $cover;
+            }
+            $body = (new \App\Export\Epub())->build($story, array_values($chapters), $baseUrl);
+            $type = 'application/epub+zip';
+        } else {
+            $body = (new \App\Export\Html())->build($story, array_values($chapters), $baseUrl);
+            $type = 'text/html; charset=utf-8';
+        }
+        return (new Response($body, 200))
+            ->withHeader('Content-Type', $type)
+            ->withHeader('Content-Disposition', 'attachment; filename="' . $story['slug'] . '.' . $format . '"')
+            ->withHeader('Content-Length', (string) strlen($body));
+    }
+
+    /** The cover bytes for the EPUB, basename-confined to the uploads dir:
+     *  the column stores a public /uploads/{name}.{ext} path, so only the
+     *  BASENAME ever reaches the filesystem (no traversal, no absolute
+     *  escape) and only known image extensions map to a media type. A file
+     *  that is missing or unreadable skips gracefully; the export still
+     *  builds without the cover.
+     *  @return array{0: string, 1: string, 2: string}|null [bytes, MIME type, extension] */
+    private function coverBytes(array $story): ?array
+    {
+        $path = (string) ($story['cover_path'] ?? '');
+        if ($path === '') return null;
+        $types = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+                  'gif' => 'image/gif', 'webp' => 'image/webp'];
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (!isset($types[$ext])) return null;
+        $dir = (string) (($this->app->config('uploads', []) ?? [])['dir'] ?? '');
+        if ($dir === '') return null;
+        $file = rtrim($dir, '/') . '/' . basename($path);
+        if (!is_file($file)) return null;
+        $data = @file_get_contents($file);
+        return $data === false || $data === '' ? null : [$data, $types[$ext], $ext];
+    }
+
     #[AuthAttr] #[Post]
     public function mark(string $slug): Response
     {

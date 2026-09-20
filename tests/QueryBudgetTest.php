@@ -60,6 +60,10 @@ final class QueryBudgetTest extends TestCase
                 // The whole-work view rides the same one-query fold (finding 6:
                 // the seed story backs the row; no in-file probe needed).
                 ['/story/whole/the-rabbit-hole'],
+                // The download reuses wholeWork for both formats (finding 16:
+                // a one-query render); the html variant joins pages() and the
+                // epub variant rides the identical query path.
+                ['/story/download/the-rabbit-hole/html'],
                 ['/series/view/down-the-rabbit-hole'],
                 // The seeded about page: a real pages row so the budget row
                 // exercises the actual page render, not a 404.
