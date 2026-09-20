@@ -18,7 +18,7 @@ use App\Repositories\AuthoringRepository;
 final class AdminstoriesController
 {
     public function __construct(
-        private Request $request, private Database $db, private Session $session,
+        private Request $request, private Database $db, private Session $session, private \Kip\App $app,
     ) {}
 
     /** Move a story to a new author by penname. The lookup is the coauthor
@@ -50,7 +50,7 @@ final class AdminstoriesController
         $cats = $repo->categorySlugs($storyId);
         [$seriesSlugs, $newSlug] = $repo->purgeData($storyId, $newId);
         $oldSlug = (string) ($this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$oldId])['profile_slug'] ?? '');
-        $cache = new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
+        $cache = new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
         $cache->purgeStory($slug, $cats, $seriesSlugs, $newSlug);
         if ($oldSlug !== '') $cache->purgeUser($oldSlug);
         if ($newSlug !== '') $cache->purgeUser($newSlug); // belt-and-braces with purgeStory's pass
@@ -72,7 +72,7 @@ final class AdminstoriesController
         $this->db->query('UPDATE stories SET featured = 1 - featured WHERE id = ?', [(int) $story['id']]);
         $repo = new AuthoringRepository($this->db);
         [$seriesSlugs, $authorSlug] = $repo->purgeData((int) $story['id'], (int) $story['author_id']);
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))
+        (new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache')))
             ->purgeStory($slug, [], $seriesSlugs, $authorSlug);
         return Response::redirect('/story/view/' . $slug);
     }

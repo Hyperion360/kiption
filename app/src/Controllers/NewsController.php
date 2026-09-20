@@ -77,7 +77,7 @@ final class NewsController
         }
         // The comment moves both cached surfaces: the item's list and the
         // index's comment-count scalar.
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeNews((int) $id);
+        $this->cache()->purgeNews((int) $id);
         return Response::redirect('/news/view/' . (int) $id . '#comments');
     }
 
@@ -97,7 +97,7 @@ final class NewsController
         $this->db->query('INSERT INTO news (author_id, title, body) VALUES (?, ?, ?)',
             [(int) ($this->session->get('user_id') ?? 0), $title, $body]);
         $id = (int) $this->db->lastInsertId();
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeNews($id);
+        $this->cache()->purgeNews($id);
         return Response::redirect('/news/view/' . $id);
     }
 
@@ -122,7 +122,7 @@ final class NewsController
         if ($error !== null) return new Response($this->form($row, $error), 422);
         // published_at stays put: no re-dating on edit (no scheduled publishing either)
         $this->db->query('UPDATE news SET title = ?, body = ? WHERE id = ?', [$title, $body, (int) $id]);
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeNews((int) $id);
+        $this->cache()->purgeNews((int) $id);
         return Response::redirect('/news/view/' . (int) $id);
     }
 
@@ -135,6 +135,14 @@ final class NewsController
         if ($title === '' || mb_strlen($title) > 255) return [$title, $body, 'Title must be 1 to 255 characters.'];
         if ($body === '') return [$title, $body, 'Body is required.'];
         return [$title, $body, null];
+    }
+
+    /** The static layer from config: the KIP_STATIC_CACHE_DIR override (the
+     *  documented seam for tests, imports, and alternate deploys) must purge
+     *  the layer actually serving, never a hardcoded default (QA 10a). */
+    private function cache(): \App\StaticCache\Cache
+    {
+        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
     }
 
     private function admin(): bool

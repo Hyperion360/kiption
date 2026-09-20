@@ -76,7 +76,7 @@ final class PageController
         if ($error !== null) return new Response($this->form($row, $error), 422);
         $this->db->query("UPDATE pages SET title = ?, body = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE slug = ?",
             [$title, $body, $slug]);
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgePage($slug);
+        $this->cache()->purgePage($slug);
         return Response::redirect('/page/view/' . $slug);
     }
 
@@ -123,6 +123,14 @@ final class PageController
     {
         $text = trim(html_entity_decode(strip_tags(\App\Markdown::render($body)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         return preg_replace('/\s+/u', ' ', $text) ?? $text;
+    }
+
+    /** The static layer from config: the KIP_STATIC_CACHE_DIR override (the
+     *  documented seam for tests, imports, and alternate deploys) must purge
+     *  the layer actually serving, never a hardcoded default (QA 10a). */
+    private function cache(): \App\StaticCache\Cache
+    {
+        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
     }
 
     private function admin(): bool
