@@ -83,6 +83,35 @@ final class SchemaTest extends TestCase
             ['b@x.test', 'h', 'Other', 'author']);
     }
 
+    /** Task 9 EXPLAIN sweep pins: the story->series blob and the series count
+     *  subqueries must resolve as index SEARCHes, the reason migration 013
+     *  exists. Without the indexes both shapes full-scanned series_items on
+     *  every /story/view and /account render. */
+    public function test_series_items_query_indexes_exist_and_are_used(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $this->seedStory($db);
+        $db->query('INSERT INTO series (title, slug, owner_id) VALUES (?, ?, 1)', ['S', 's']);
+        $db->query('INSERT INTO series_items (series_id, story_id, position, confirmed) VALUES (1, 1, 1, 1)');
+        foreach (['idx_series_items_by_story', 'idx_series_items_counts'] as $idx) {
+            $n = $db->one("SELECT COUNT(*) c FROM sqlite_master WHERE type = 'index' AND name = ?", [$idx]);
+            $this->assertSame(1, (int) $n['c'], "index {$idx} missing");
+        }
+        $blobPlan = implode("\n", array_map(
+            static fn(array $r): string => $r['detail'],
+            $db->all('EXPLAIN QUERY PLAN SELECT COUNT(*) c FROM series_items si JOIN series ser ON ser.id = si.series_id WHERE si.story_id = 1 AND si.confirmed = 1')
+        ));
+        $this->assertStringContainsString('idx_series_items_by_story', $blobPlan);
+        $this->assertStringNotContainsString('SCAN si', $blobPlan);
+        $countPlan = implode("\n", array_map(
+            static fn(array $r): string => $r['detail'],
+            $db->all('EXPLAIN QUERY PLAN SELECT COUNT(*) c FROM series_items WHERE series_id = 1 AND confirmed = 0')
+        ));
+        $this->assertStringContainsString('idx_series_items_counts', $countPlan);
+        $this->assertStringNotContainsString('SCAN', $countPlan);
+    }
+
     private function seedStory(Database $db): void
     {
         $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)', ['a@x.test', 'h', 'Author']);
