@@ -13,6 +13,7 @@ return [
     'mail'     => ['transport' => 'log', 'log_path' => __DIR__ . '/app/mail.log', 'from' => 'noreply@localhost'],
     'site_name' => 'Kiption',
     'og_image' => '',   // absolute or root-relative path; renders og:image/twitter cards when set
+    'feeds_full_text' => (bool) getenv('KIP_FEEDS_FULL_TEXT') ?: false, // Atom entries carry the first chapter in <content type="html">
     'registration_mode' => 'verify',   // open | verify | approval | invite
     'validation_required' => true,     // false: authors self-publish
     'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),

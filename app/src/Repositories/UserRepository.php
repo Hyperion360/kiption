@@ -135,6 +135,36 @@ final class UserRepository
         );
     }
 
+    /** The per-author Atom feed as ONE anchor-row query: the member row is the
+     *  anchor and the LEFT JOIN carries their visible stories. Zero rows means
+     *  the slug is unknown (or the member locked/penname-less): the controller
+     *  404s, exactly when the profile page would. A row with NULL story columns
+     *  is a zero-story member: a valid EMPTY feed titled with the penname.
+     *  The story gates mirror the listing surfaces (validated, not deleted, not
+     *  restricted, no external canonical) and the author-or-coauthor fold is
+     *  storiesTab's. In full-text mode the first validated chapter rides along
+     *  as a param-free subselect so both variants stay ONE statement (the
+     *  one-query law; adult-by-rating works stay included, the /feed pins).
+     *  @return list<array<string,mixed>>|null null on a junk slug */
+    public function authorFeed(string $slug, int $perPage, int $offset, bool $fullText = false): ?array
+    {
+        if (!preg_match('#^[a-z0-9_-]+$#', $slug)) return null;
+        $chapter = $fullText ? ',
+                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 ORDER BY c.position LIMIT 1) AS first_chapter' : '';
+        return $this->db->all(
+            "SELECT u.penname AS feed_title, s.slug, s.title, s.summary, s.updated_at, s.created_at,
+                    (SELECT su.penname FROM users su WHERE su.id = s.author_id) AS penname{$chapter}
+             FROM users u
+             LEFT JOIN stories s ON s.deleted_at IS NULL AND s.validated = 1 AND s.is_restricted = 0
+                   AND s.canonical_url IS NULL
+                   AND (s.author_id = u.id OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = s.id AND ca.user_id = u.id))
+             WHERE u.profile_slug = ? AND u.is_locked = 0 AND u.penname IS NOT NULL
+             ORDER BY s.updated_at DESC, s.id DESC
+             LIMIT ? OFFSET ?",
+            [$slug, $perPage, $offset]
+        );
+    }
+
     /** The member directory page: approved+verified unlocked members with a
      *  penname, authored works only (the directory's count excludes coauthored
      *  works by design, plan review finding 17). $letter: null = all members,

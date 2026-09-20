@@ -14,7 +14,7 @@ final class Feed
         return htmlspecialchars($s, self::X, 'UTF-8');
     }
 
-    public static function atom(string $siteName, string $baseUrl, array $stories): string
+    public static function atom(string $siteName, string $baseUrl, array $stories, bool $fullText = false): string
     {
         $items = '';
         foreach ($stories as $s) {
@@ -27,6 +27,14 @@ final class Feed
                 . '    <published>' . self::e($s['created_at']) . "</published>\n"
                 . '    <author><name>' . self::e($s['penname']) . "</name></author>\n"
                 . '    <summary>' . self::e($s['summary']) . "</summary>\n"
+                // Full-text mode: the first validated chapter, rendered from its
+                // markdown-at-rest source, then the single Feed::e pass. Atom's
+                // content default is text, so the element must declare type="html";
+                // one escape over already-rendered HTML round-trips exactly once
+                // under that type (finding 9). Summary mode emits nothing here.
+                . ($fullText
+                    ? '    <content type="html">' . self::e(\App\Markdown::render((string) ($s['first_chapter'] ?? ''))) . "</content>\n"
+                    : '')
                 . "  </entry>\n";
         }
         $updated = $stories[0]['updated_at'] ?? date('c');

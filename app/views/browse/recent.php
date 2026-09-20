@@ -1,5 +1,8 @@
 <?php // app/views/browse/recent.php ?>
 <?php $this->layout('layout'); ?>
+<?php if (!empty($feedHref)): ?>
+<link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? 'Feed') ?>" href="<?= $this->e($feedHref) ?>">
+<?php endif; ?>
 <h1><?= $this->e($title ?? 'Recently updated') ?></h1>
 <ul class="story-list">
 <?php foreach ($stories as $s): ?>

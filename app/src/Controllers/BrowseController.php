@@ -81,6 +81,9 @@ final class BrowseController
             'stories' => $stories,
             'page' => $page,
             'baseUrl' => '/browse/category/' . $slug,
+            // Feed autodiscovery: this category's Atom feed (the layout line's
+            // idiom, rendered by browse/recent only when set).
+            'feedHref' => '/feed/category/' . $slug,
         ];
         // Empty category pages have no unique content to rank; belt (meta) and
         // suspenders (header) so no cache or crawler ever indexes them.

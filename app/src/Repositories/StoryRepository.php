@@ -118,6 +118,29 @@ final class StoryRepository
         );
     }
 
+    /** The shared base for every site-level feed surface (/feed and /rss):
+     *  recentStories' shape plus the syndication exclusion (external-canonical
+     *  stories belong to their author's chosen home, not to our feeds). In
+     *  full-text mode the first validated chapter rides along as a param-free
+     *  subselect so both variants stay ONE statement (the one-query law).
+     *  @return list<array<string,mixed>> */
+    public function feedStories(int $perPage, int $offset, bool $fullText = false): array
+    {
+        $chapter = $fullText ? ',
+                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 ORDER BY c.position LIMIT 1) AS first_chapter' : '';
+        return $this->db->all(
+            "SELECT s.slug, s.title, s.summary, s.updated_at, s.created_at, u.penname{$chapter}
+             FROM stories s
+             JOIN users u ON u.id = s.author_id
+             JOIN ratings r ON r.id = s.rating_id
+             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
+               AND s.canonical_url IS NULL
+             ORDER BY s.updated_at DESC, s.id DESC
+             LIMIT ? OFFSET ?",
+            [$perPage, $offset]
+        );
+    }
+
     /** Language-filtered listing for the browse filter (recentStories' shape,
      *  capped at 50, no pagination). The query string that drives it makes
      *  these pages cache-ineligible: Cache refuses queryful GETs. */
@@ -151,6 +174,35 @@ final class StoryRepository
              WHERE cc.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
              ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
+            [$slug, $perPage, $offset]
+        );
+    }
+
+    /** The per-category Atom feed as ONE anchor-row query: the category row is
+     *  the anchor and the LEFT JOIN carries its visible stories. Zero rows
+     *  means the slug is unknown: the controller 404s. A row with NULL story
+     *  columns is an empty category: a valid EMPTY feed titled with the
+     *  category name. The story gates match storiesInCategory plus the
+     *  syndication exclusion, and the membership fold is an IN subselect so
+     *  the LEFT JOIN never multiplies rows on multi-category stories. In
+     *  full-text mode the first validated chapter rides along as above.
+     *  storiesInCategory itself stays untouched (the HTML page's query).
+     *  @return list<array<string,mixed>> */
+    public function categoryFeed(string $slug, int $perPage, int $offset, bool $fullText = false): array
+    {
+        if (!preg_match('/^[a-z0-9-]+$/', $slug)) return [];
+        $chapter = $fullText ? ',
+                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 ORDER BY c.position LIMIT 1) AS first_chapter' : '';
+        return $this->db->all(
+            "SELECT cc.name AS feed_title, s.slug, s.title, s.summary, s.updated_at, s.created_at,
+                    (SELECT su.penname FROM users su WHERE su.id = s.author_id) AS penname{$chapter}
+             FROM categories cc
+             LEFT JOIN stories s ON s.id IN (SELECT sc.story_id FROM story_categories sc WHERE sc.category_id = cc.id)
+                   AND s.deleted_at IS NULL AND s.validated = 1 AND s.is_restricted = 0
+                   AND s.canonical_url IS NULL
+             WHERE cc.slug = ?
+             ORDER BY s.updated_at DESC, s.id DESC
+             LIMIT ? OFFSET ?",
             [$slug, $perPage, $offset]
         );
     }

@@ -1,5 +1,6 @@
 <?php // app/views/user/view.php ?>
 <?php $this->layout('layout'); ?>
+<link rel="alternate" type="application/atom+xml" title="<?= $this->e($profile['penname']) ?>" href="/feed/author/<?= $this->e($slug) ?>">
 <section class="profile-card">
   <?php if (!empty($profile['avatar_path'])): ?>
     <img class="avatar" src="<?= $this->e($profile['avatar_path']) ?>" alt="Avatar of <?= $this->e($profile['penname']) ?>">

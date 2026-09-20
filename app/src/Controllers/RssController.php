@@ -9,7 +9,10 @@ final class RssController
 
     public function index(): Response
     {
-        $stories = (new StoryRepository($this->db))->recentStories(20, 0);
+        // The shared feed base (finding 14): /rss carries the same gates as
+        // /feed, syndication exclusion included; RSS stays summary-mode (its
+        // description element is plain text, no content counterpart specced).
+        $stories = (new StoryRepository($this->db))->feedStories(20, 0);
         return new Response(\App\Seo\Feed::rss(
             (string) $this->app->config('site_name', 'Kiption'),
             rtrim((string) $this->app->config('base_url', 'http://localhost'), '/'),

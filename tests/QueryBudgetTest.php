@@ -75,7 +75,10 @@ final class QueryBudgetTest extends TestCase
                 ['/search?q=wonderland'],
                 // The toplists hub: all four sections ride one zero-bind compound.
                 ['/top'],
-                ['/feed'], ['/rss']];
+                ['/feed'], ['/rss'],
+                // The anchor-row feeds: ONE flat query each (the config read
+                // never touches the database).
+                ['/feed/author/demo-author'], ['/feed/category/general']];
     }
 
     public static function authPages(): array
