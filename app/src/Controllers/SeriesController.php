@@ -24,15 +24,16 @@ final class SeriesController
         $isOwner = $me !== 0 && $me === $s['owner_id'];   // folded into the one query
         $isAdmin = $s['is_admin'] === 1;                  // (plan review findings 9+12: no
         $items = $page['items'];                          // Adminness call, no second query)
-        $jsonLd = [];
-        foreach ($items as $i => $it) {
-            if ($it['confirmed'] === 1) $jsonLd[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => '/story/view/' . $it['slug'], 'name' => $it['title']];
-        }
         $head = $this->head()->withTitle($s['title'])
             ->withDescription($s['summary'] !== '' ? $s['summary'] : 'A series by ' . $s['owner_penname'] . '.')
-            ->withCanonical('/series/view/' . $slug)
-            ->withJsonLd(['@context' => 'https://schema.org', '@type' => 'CollectionPage', 'name' => $s['title'],
-                'itemListElement' => $jsonLd]);
+            ->withCanonical('/series/view/' . $slug);
+        $jsonLd = [];
+        foreach ($items as $i => $it) {
+            // absolute urls: Head.php's own rule for JSON-LD, the bookJsonLd precedent
+            if ($it['confirmed'] === 1) $jsonLd[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => $head->url('/story/view/' . $it['slug']), 'name' => $it['title']];
+        }
+        $head = $head->withJsonLd(['@context' => 'https://schema.org', '@type' => 'CollectionPage', 'name' => $s['title'],
+            'itemListElement' => $jsonLd]);
         return $this->view->render('series/view', [
             'title' => $s['title'],
             'head' => $head,

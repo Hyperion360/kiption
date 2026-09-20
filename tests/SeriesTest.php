@@ -110,6 +110,33 @@ final class SeriesTest extends TestCase
         // real cache dir; tests never write into it).
     }
 
+    public function test_soft_deleted_story_leaves_the_series_page(): void
+    {
+        $this->db->query("UPDATE stories SET deleted_at = ? WHERE slug = 'the-rabbit-hole'", [date('c')]);
+        $guest = $this->client()->get('/series/view/down-the-rabbit-hole');
+        $this->assertSame(200, $guest->status);
+        $this->assertStringNotContainsString('href="/story/view/the-rabbit-hole"', $guest->body);
+        $owner = $this->client($this->authorId())->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('href="/story/view/the-rabbit-hole"', $owner); // everyone, not just guests
+    }
+
+    public function test_restricted_member_story_hidden_from_guests_on_series(): void
+    {
+        $this->db->query("UPDATE stories SET is_restricted = 1 WHERE slug = 'after-hours'");
+        $this->client($this->authorId())->postWithToken('/series/add/down-the-rabbit-hole', ['story_slug' => 'after-hours']);
+        $guest = $this->client()->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('href="/story/view/after-hours"', $guest);
+        $this->assertStringNotContainsString('After Hours', $guest);
+        $member = $this->client($this->memberId())->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringContainsString('href="/story/view/after-hours"', $member); // members still see it
+    }
+
+    public function test_series_json_ld_urls_are_absolute(): void
+    {
+        $body = $this->client()->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringContainsString('"url":"https://archive.example/story/view/the-rabbit-hole"', $body);
+    }
+
     public function test_unknown_series_404s(): void
     {
         $this->assertSame(404, $this->client()->get('/series/view/nope')->status);

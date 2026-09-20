@@ -28,6 +28,9 @@ final class SeriesRepository
      *  (k='0') plus its item rows (k='1'), visibility-gated in SQL: confirmed
      *  AND (validated OR viewer is the story's author, the series owner, or
      *  admin); owner, story author, and admin additionally see pending items.
+     *  Soft-deleted stories never appear (everyone), and restricted member
+     *  titles only for logged-in viewers, the findStoryBySlug gate pattern
+     *  (coordinator ruling, follow-up to Task 3).
      *  The series branch carries owner_id and a viewer-admin scalar so the
      *  controller computes isOwner/isAdmin without extra queries. Returns
      *  ['series' => ..., 'items' => ...] or null when the slug is unknown.
@@ -53,12 +56,18 @@ final class SeriesRepository
              JOIN series ser ON ser.id = si.series_id
              JOIN stories s ON s.id = si.story_id
              WHERE ser.slug = ?
+               AND s.deleted_at IS NULL
+               AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)
                AND ((si.confirmed = 1 AND (s.validated = 1 OR s.author_id = CAST(? AS INTEGER) OR ser.owner_id = CAST(? AS INTEGER)
                     OR EXISTS (SELECT 1 FROM users v2 WHERE v2.id = CAST(? AS INTEGER) AND v2.role = 'admin')))
                     OR ser.owner_id = CAST(? AS INTEGER) OR s.author_id = CAST(? AS INTEGER)
                     OR EXISTS (SELECT 1 FROM users v3 WHERE v3.id = CAST(? AS INTEGER) AND v3.role = 'admin'))
              ORDER BY k, c",
-            [$me, $slug, $slug, $me, $me, $me, $me, $me, $me]
+            // TEN binds, in order of appearance (SELECT-list first): is_admin
+            // scalar, series slug (twice), the restricted gate, then the six
+            // viewer-gate binds. The Task 2 draft shipped eight of nine and PDO
+            // silently left the ninth unbound; count the question marks.
+            [$me, $slug, $slug, $me, $me, $me, $me, $me, $me, $me]
         );
         if ($rows === []) return null;
         $series = [
