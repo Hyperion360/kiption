@@ -1,4 +1,4 @@
-<?php // app/src/Controllers/AdminStoriesController.php
+<?php // app/src/Controllers/AdminstoriesController.php
 namespace App\Controllers;
 use Kip\{Database, Http\Request, Http\Response, Session};
 use Kip\Routing\{Auth as AuthAttr, Post};
@@ -8,8 +8,14 @@ use App\Repositories\AuthoringRepository;
  *  reassignment (a cascade the raw table edit would skip) and the featured
  *  flag the home page consumes. Both use the SQL admin gate, not
  *  Adminness::requireModerator: reassignment is admin-only per the operator
- *  framing (the coauthor-inclusive story gate is a different, weaker thing). */
-final class AdminStoriesController
+ *  framing (the coauthor-inclusive story gate is a different, weaker thing).
+ *
+ *  The class name is deliberately Adminstories (no inner capital): the router
+ *  resolves /adminstories to the studly name AdminstoriesController and the
+ *  PSR-4 autoloader maps that literally; a camelCase class only resolves on a
+ *  case-insensitive filesystem and would 404 whole on Linux (QA 10a;
+ *  AdminToolsTest pins the contract for every controller). */
+final class AdminstoriesController
 {
     public function __construct(
         private Request $request, private Database $db, private Session $session,

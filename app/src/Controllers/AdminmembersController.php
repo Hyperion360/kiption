@@ -1,4 +1,4 @@
-<?php // app/src/Controllers/AdminMembersController.php
+<?php // app/src/Controllers/AdminmembersController.php
 namespace App\Controllers;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
@@ -10,8 +10,16 @@ use App\Adminness;
  *  the moderator tier keeps the queues, never the role enum. Every write goes
  *  through Adminness::setRole exclusively (the iff invariant); the framework's
  *  generic /admin panel edits the users table raw, which is why operators are
- *  pointed here for roles. */
-final class AdminMembersController
+ *  pointed here for roles.
+ *
+ *  The class name is deliberately Adminmembers (no inner capital): the router
+ *  resolves /adminmembers to the studly name AdminmembersController, and the
+ *  PSR-4 autoloader maps that LITERALLY to a file name. A camelCase class for
+ *  a one-word URL segment only resolves through a case-INSENSITIVE filesystem
+ *  (the QA 10a finding: it 404s whole on Linux and pcov cannot attribute its
+ *  coverage). AdminToolsTest pins the contract case-exactly for every
+ *  controller. */
+final class AdminmembersController
 {
     public function __construct(
         private View $view, private Request $request, private Database $db,
