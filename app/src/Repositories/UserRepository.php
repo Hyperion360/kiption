@@ -86,6 +86,7 @@ final class UserRepository
                 'INSERT INTO users (email, password_hash, penname, role, email_verified_at, approved_at) VALUES (?, ?, ?, \'member\', ?, ?)',
                 [$email, password_hash($password, PASSWORD_DEFAULT), $penname, $verified, $approved]);
             $userId = (int) $this->db->lastInsertId();
+            $this->backfillProfileSlug($userId);
             $this->db->query('INSERT INTO user_prefs (user_id) VALUES (?)', [$userId]);
             if ($invite !== null) {
                 $this->db->query('UPDATE invites SET used_by = ?, used_at = ? WHERE id = ? AND used_by IS NULL',
@@ -101,5 +102,20 @@ final class UserRepository
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+    /** Deterministic URL key for a penname; suffixed on collision. Safe for the
+     *  router and cache whitelists ([a-z0-9_-]+): pennames themselves are not
+     *  (the seeder ships 'Demo Author', imports can be exotic). */
+    public function backfillProfileSlug(int $userId): string
+    {
+        $row = $this->db->one('SELECT penname FROM users WHERE id = ?', [$userId]);
+        $base = \App\Slug::make((string) ($row['penname'] ?? ''), 'member');
+        $slug = \App\Slug::unique(
+            fn (string $s): bool => $this->db->one('SELECT id FROM users WHERE profile_slug = ?', [$s]) !== null,
+            $base
+        );
+        $this->db->query('UPDATE users SET profile_slug = ? WHERE id = ?', [$slug, $userId]);
+        return $slug;
     }
 }

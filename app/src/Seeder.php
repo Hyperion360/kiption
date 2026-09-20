@@ -14,11 +14,11 @@ final class Seeder
         try {
         if ($force) {
             foreach (['reviews', 'favorites', 'page_stats', 'chapters', 'story_characters', 'story_tags',
-                      'story_categories', 'coauthors', 'series_items', 'stories', 'characters', 'tags',
+                      'story_categories', 'coauthors', 'series', 'series_items', 'stories', 'characters', 'tags',
                       'tag_types', 'categories', 'ratings'] as $t) {
                 $db->query("DELETE FROM {$t}");
             }
-            $db->query('DELETE FROM users WHERE email = ?', ['demo@example.test']); // only OUR demo row
+            $db->query('DELETE FROM users WHERE email IN (?, ?)', ['demo@example.test', 'beta@example.test']); // only OUR fixture rows
         } else {
             // fresh install: taxonomy rows may not exist yet either way; make seeding idempotent for them
             foreach (['ratings', 'tag_types', 'tags', 'categories', 'characters'] as $t) {
@@ -40,6 +40,9 @@ final class Seeder
             ['demo@example.test', password_hash('password123', PASSWORD_DEFAULT), 'Demo Author', 'validated_author',
              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']);
         $authorId = (int) $db->lastInsertId();
+        (new \App\Repositories\UserRepository($db))->backfillProfileSlug($authorId);
+        $db->query("INSERT INTO users (email, password_hash, penname, is_beta, email_verified_at, approved_at, profile_slug) VALUES ('beta@example.test', ?, 'betafriend', 1, ?, ?, 'betafriend')",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
         $teenId = (int) $db->one('SELECT id FROM ratings WHERE label = ?', ['Teen'])['id'];
         $explicitId = (int) $db->one('SELECT id FROM ratings WHERE label = ?', ['Explicit'])['id'];
         $categoryId = (int) $db->one('SELECT id FROM categories WHERE slug = ?', ['general'])['id'];
@@ -62,6 +65,8 @@ final class Seeder
         $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (' . $story2 . ', ?, ?, ?, 1, ?)',
             [1, 'One', 'Body.', 100]);
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story2 . ', ' . $categoryId . ')');
+        $db->query("INSERT INTO series (title, slug, summary, owner_id, membership) VALUES ('Down the Rabbit Hole', 'down-the-rabbit-hole', 'The complete descent, chapter by chapter.', (SELECT id FROM users WHERE penname = 'Demo Author'), 'open')");
+        $db->query("INSERT INTO series_items (series_id, story_id, position, confirmed) VALUES ((SELECT id FROM series WHERE slug = 'down-the-rabbit-hole'), (SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), 1, 1)");
         } catch (\Throwable $e) {
             $db->rollBack();
             throw $e;

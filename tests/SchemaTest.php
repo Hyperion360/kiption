@@ -36,6 +36,7 @@ final class SchemaTest extends TestCase
             'login_attempts', 'password_resets', 'email_verifications', 'invites',
             'import_map', 'import_runs', 'legacy_urls', 'legacy_log',
             'notifications', 'story_kudos', 'follows', 'reading_history', 'reports',
+            'contact_log',
         ];
         return array_map(static fn(string $t): array => [$t], $tables);
     }
@@ -69,6 +70,17 @@ final class SchemaTest extends TestCase
         $db->query('INSERT INTO stories (title, slug, author_id, rating_id) VALUES (?, ?, 1, 1)', ['T', 't']);
         $this->expectException(\PDOException::class);
         $db->query('INSERT INTO stories (title, slug, author_id, rating_id) VALUES (?, ?, 1, 1)', ['T2', 't']);
+    }
+
+    public function test_profile_slug_is_unique(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)',
+            ['a@x.test', 'h', 'Author', 'author']);
+        $this->expectException(\PDOException::class);
+        $db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)',
+            ['b@x.test', 'h', 'Other', 'author']);
     }
 
     private function seedStory(Database $db): void
