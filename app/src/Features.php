@@ -57,6 +57,16 @@ final class Features
         return self::resolve()[$key] ?? false;
     }
 
+    /** The choke-point guard: null when the flag is on (the caller proceeds),
+     *  the byte-identical 'Page not found' 404 when off (finding 10: exactly
+     *  the router's own 404, no gratuitous oracle). One static definition so
+     *  every gated action is `if (($r = Features::guard('news')) !== null)
+     *  return $r;` before ANY repository call. */
+    public static function guard(string $key): ?\Kip\Http\Response
+    {
+        return self::on($key) ? null : new \Kip\Http\Response('Page not found', 404);
+    }
+
     /** @return array<string, array{on: bool, desc: string}> every inventory key
      *  with its state and its features.{key}.desc lang key (the toggle board). */
     public static function all(): array

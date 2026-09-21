@@ -97,9 +97,13 @@ final class Sitemap
         $segments[] = ['sitemap-pages.xml', array_map(static fn(array $p): array
             => [$baseUrl . '/page/view/' . rawurlencode((string) $p['slug']), $p['updated_at']],
             $db->all("SELECT slug, updated_at FROM pages WHERE body <> ''"))];
-        $segments[] = ['sitemap-news.xml', array_map(static fn(array $n): array
-            => [$baseUrl . '/news/view/' . (int) $n['id'], $n['published_at']],
-            $db->all('SELECT id, published_at FROM news'))];
+        // The news segment gates on its flag (finding 3): uninit the class
+        // answers ON (finding 1), so every pre-flag caller keeps the segment.
+        if (\App\Features::on('news')) {
+            $segments[] = ['sitemap-news.xml', array_map(static fn(array $n): array
+                => [$baseUrl . '/news/view/' . (int) $n['id'], $n['published_at']],
+                $db->all('SELECT id, published_at FROM news'))];
+        }
 
         $files = [];
         foreach ($segments as [$file, $urls]) {

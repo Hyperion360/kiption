@@ -1,5 +1,6 @@
 <?php // app/src/StaticCache/Builder.php
 namespace App\StaticCache;
+use App\Features;
 use App\Seo\Sitemap;
 use Kip\App;
 use Kip\Database;
@@ -12,6 +13,19 @@ final class Builder
     public static function build(array $config, string $cacheDir): int
     {
         $db = new Database($config['db']['dsn']);
+        // Finding 3b: enumeration reflects THIS config, never ambient static
+        // state; the finally-reset leaves Features exactly as it was found
+        // (uninit fail-open), so callers and later suites see no bleed.
+        Features::init($db, $config['features'] ?? []);
+        try {
+            return self::enumerate($config, $cacheDir, $db);
+        } finally {
+            Features::reset();
+        }
+    }
+
+    private static function enumerate(array $config, string $cacheDir, Database $db): int
+    {
         $cache = new Cache($cacheDir);
         $cache->purgeAll();
         // A build must be side-effect-free: no double-filling the framework
@@ -19,7 +33,11 @@ final class Builder
         unset($config['cache_db']);
         $config['log_db'] = ['dsn' => 'sqlite::memory:'];
         $app = new App($config);
-        $urls = ['/', '/browse', '/browse/recent', '/top'];
+        $urls = ['/', '/browse', '/browse/recent'];
+        // The four flaggable blocks (finding 3): the /top seed, the lists
+        // block, the news block, the directory block. Off flags enumerate
+        // nothing, so no gated page is ever rendered or stored.
+        if (Features::on('toplists')) $urls[] = '/top';
         foreach ($db->all('SELECT slug FROM categories') as $c) {
             $urls[] = '/browse/category/' . $c['slug'];
         }
@@ -36,7 +54,7 @@ final class Builder
         // Reading lists: public lists only, and only when the guest page would
         // list something (the user-tab precedent: an all-restricted or empty
         // list renders an empty page not worth filling).
-        foreach ($db->all("SELECT l.slug FROM reading_lists l WHERE l.is_public = 1 AND EXISTS (
+        if (Features::on('lists')) foreach ($db->all("SELECT l.slug FROM reading_lists l WHERE l.is_public = 1 AND EXISTS (
                 SELECT 1 FROM reading_list_items li JOIN stories s ON s.id = li.story_id
                 WHERE li.list_id = l.id AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0)") as $l) {
             $urls[] = '/lists/view/' . $l['slug'];
@@ -47,9 +65,11 @@ final class Builder
             $urls[] = '/page/view/' . $p['slug'];
         }
         // News: the index plus every item's view page (public data only).
-        $urls[] = '/news';
-        foreach ($db->all('SELECT id FROM news') as $n) {
-            $urls[] = '/news/view/' . (int) $n['id'];
+        if (Features::on('news')) {
+            $urls[] = '/news';
+            foreach ($db->all('SELECT id FROM news') as $n) {
+                $urls[] = '/news/view/' . (int) $n['id'];
+            }
         }
         // Profiles: every approvable member's view page; the stories and
         // favorites tabs only when they would list something (the tab gates:
@@ -65,14 +85,16 @@ final class Builder
         // Directory: the index plus one letter page per distinct first character
         // among directory members (same membership gates as the page itself);
         // non-[a-z] first chars fold into the '0' bucket and dedupe there.
-        $urls[] = '/browse/authors';
-        $letters = [];
-        foreach ($db->all('SELECT DISTINCT lower(substr(profile_slug, 1, 1)) c FROM users WHERE profile_slug IS NOT NULL AND penname IS NOT NULL AND is_locked = 0 AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL') as $r) {
-            $c = (string) $r['c'];
-            $letters[preg_match('/^[a-z]$/', $c) ? $c : '0'] = true;
-        }
-        foreach (array_keys($letters) as $l) {
-            $urls[] = '/browse/authors/' . $l;
+        if (Features::on('directory')) {
+            $urls[] = '/browse/authors';
+            $letters = [];
+            foreach ($db->all('SELECT DISTINCT lower(substr(profile_slug, 1, 1)) c FROM users WHERE profile_slug IS NOT NULL AND penname IS NOT NULL AND is_locked = 0 AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL') as $r) {
+                $c = (string) $r['c'];
+                $letters[preg_match('/^[a-z]$/', $c) ? $c : '0'] = true;
+            }
+            foreach (array_keys($letters) as $l) {
+                $urls[] = '/browse/authors/' . $l;
+            }
         }
         $written = 0;
         foreach ($urls as $url) {
