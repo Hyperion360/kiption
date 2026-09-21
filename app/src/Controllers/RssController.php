@@ -9,6 +9,7 @@ final class RssController
 
     public function index(): Response
     {
+        if (($r = \App\Features::guard('feeds')) !== null) return $r;
         // The shared feed base (finding 14): /rss carries the same gates as
         // /feed, syndication exclusion included; RSS stays summary-mode (its
         // description element is plain text, no content counterpart specced).

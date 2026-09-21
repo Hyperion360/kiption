@@ -22,7 +22,9 @@
   <?php else: ?>
   <link rel="canonical" href="/">
   <?php endif; ?>
+  <?php if (\App\Features::on('feeds')): ?>
   <link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? \App\Lang::t('common.feed_title')) ?>" href="/feed">
+  <?php endif; ?>
   <link rel="stylesheet" href="/assets/reader.css">
 </head>
 <body>

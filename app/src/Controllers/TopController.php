@@ -19,8 +19,9 @@ final class TopController
      *  visibility write purges it through purgeStory's unconditional /top
      *  unlink. No JSON-LD ItemList per section (YAGNI, ruled in the plan):
      *  four lists on one page dilute structured-data value. */
-    public function index(): string
+    public function index(): \Kip\Http\Response|string
     {
+        if (($r = \App\Features::guard('toplists')) !== null) return $r;
         return $this->view->render('top/index', [
             'title' => \App\Lang::t('top.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('top.heading'))->withCanonical('/top'),

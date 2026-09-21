@@ -83,8 +83,10 @@ final class BrowseController
             'page' => $page,
             'baseUrl' => '/browse/category/' . $slug,
             // Feed autodiscovery: this category's Atom feed (the layout line's
-            // idiom, rendered by browse/recent only when set).
-            'feedHref' => '/feed/category/' . $slug,
+            // idiom, rendered by browse/recent only when set). Gated here at
+            // the controller (finding 9b): feeds off passes no feedHref, so
+            // the view never renders a link to a 404 route.
+            'feedHref' => \App\Features::on('feeds') ? '/feed/category/' . $slug : null,
         ];
         // Empty category pages have no unique content to rank; belt (meta) and
         // suspenders (header) so no cache or crawler ever indexes them.

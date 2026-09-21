@@ -182,6 +182,7 @@ final class StoryController
      *  framework page cache applies as usual for cookieless GETs). */
     public function whole(string $slug): Response|string
     {
+        if (($r = \App\Features::guard('exports')) !== null) return $r;
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $story = $this->repo->wholeWork($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
@@ -237,6 +238,7 @@ final class StoryController
      *  (recorded ruling). */
     public function download(string $slug, string $format): Response|string
     {
+        if (($r = \App\Features::guard('exports')) !== null) return $r;
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $story = $this->repo->wholeWork($slug, $me);
         if ($story === null) return new Response('Page not found', 404);

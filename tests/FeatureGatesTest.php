@@ -16,6 +16,14 @@ use PHPUnit\Framework\TestCase;
  * the flag 404 - a guest draws the 302, a tokenless POST the 403 - no leak,
  * the kernel order stays). The comments sub-flag case (finding 7's guard
  * order, news on + comments off) is pinned separately.
+ *
+ * Retrofits batch 2 (Task 4): the search, toplists, exports (whole work +
+ * downloads), and feeds flags. Every gated surface here is auth-free, so the
+ * off-cases drive as guests. The cross-link homes (finding 9): the home
+ * SearchAction JSON-LD ( HomeController::index builds the entry), the layout
+ * autodiscovery link, the profile author-feed link, the category feed link
+ * (browse/recent's feedHref, gated at BrowseController::category), and the
+ * story view's Whole/Download links.
  */
 final class FeatureGatesTest extends TestCase
 {
@@ -202,5 +210,81 @@ final class FeatureGatesTest extends TestCase
         $back = $member->get('/news/view/1');
         $this->assertSame(200, $back->status);
         $this->assertStringContainsString('action="/news/comment/1"', $back->body, 'the member form is back');
+    }
+
+    public function test_search_off_404s_and_suppresses_the_home_searchaction(): void
+    {
+        $this->flagOff('search');
+        $this->assertSame(404, $this->client()->get('/search')->status, 'the search surface 404s (auth-free, guest-driven)');
+        // The home page keeps its WebSite JSON-LD but drops the SearchAction
+        // entry (finding 9a: the entry joins only when the flag is on).
+        $home = $this->client()->get('/');
+        $this->assertSame(200, $home->status);
+        $this->assertStringNotContainsString('SearchAction', $home->body, 'the home JSON-LD suppresses SearchAction');
+        $this->assertStringContainsString('"@type":"WebSite"', $home->body, 'the WebSite node itself stays');
+        // Back on: the surface and the JSON-LD entry return.
+        $this->flagOn('search');
+        $this->assertSame(200, $this->client()->get('/search')->status);
+        $this->assertStringContainsString('SearchAction', $this->client()->get('/')->body);
+    }
+
+    public function test_toplists_off_404s_the_hub(): void
+    {
+        $this->flagOff('toplists');
+        $this->assertSame(404, $this->client()->get('/top')->status);
+        // Back on: the hub returns.
+        $this->flagOn('toplists');
+        $this->assertSame(200, $this->client()->get('/top')->status);
+    }
+
+    public function test_exports_off_404s_whole_and_downloads_and_hides_the_story_links(): void
+    {
+        $this->flagOff('exports');
+        $this->assertSame(404, $this->client()->get('/story/whole/the-rabbit-hole')->status);
+        $this->assertSame(404, $this->client()->get('/story/download/the-rabbit-hole/html')->status);
+        $this->assertSame(404, $this->client()->get('/story/download/the-rabbit-hole/epub')->status);
+        // The story view drops its Whole and Download (html/epub) links.
+        $story = $this->client()->get('/story/view/the-rabbit-hole');
+        $this->assertSame(200, $story->status);
+        $this->assertStringNotContainsString('href="/story/whole/', $story->body, 'the Whole link hides');
+        $this->assertStringNotContainsString('href="/story/download/', $story->body, 'both Download links hide');
+        // Back on: the exports and their links return.
+        $this->flagOn('exports');
+        $this->assertSame(200, $this->client()->get('/story/whole/the-rabbit-hole')->status);
+        $this->assertSame(200, $this->client()->get('/story/download/the-rabbit-hole/html')->status);
+        $this->assertSame(200, $this->client()->get('/story/download/the-rabbit-hole/epub')->status);
+        $back = $this->client()->get('/story/view/the-rabbit-hole');
+        $this->assertStringContainsString('href="/story/whole/', $back->body);
+        $this->assertStringContainsString('href="/story/download/', $back->body);
+    }
+
+    public function test_feeds_off_404s_every_feed_route_and_hides_every_feed_link(): void
+    {
+        $this->flagOff('feeds');
+        $this->assertSame(404, $this->client()->get('/feed')->status);
+        $this->assertSame(404, $this->client()->get('/rss')->status);
+        $this->assertSame(404, $this->client()->get('/feed/author/demo-author')->status);
+        $this->assertSame(404, $this->client()->get('/feed/category/general')->status);
+        // The layout autodiscovery link vanishes from every rendered page.
+        $home = $this->client()->get('/');
+        $this->assertSame(200, $home->status);
+        $this->assertStringNotContainsString('href="/feed"', $home->body, 'the layout autodiscovery link hides');
+        // The profile author-feed link hides (finding 9b's homes).
+        $profile = $this->client()->get('/user/view/demo-author');
+        $this->assertSame(200, $profile->status);
+        $this->assertStringNotContainsString('href="/feed/author/', $profile->body);
+        // The category feed link hides (gated at the controller: no feedHref).
+        $category = $this->client()->get('/browse/category/general');
+        $this->assertSame(200, $category->status);
+        $this->assertStringNotContainsString('href="/feed/category/', $category->body);
+        // Back on: every route and link returns.
+        $this->flagOn('feeds');
+        $this->assertSame(200, $this->client()->get('/feed')->status);
+        $this->assertSame(200, $this->client()->get('/rss')->status);
+        $this->assertSame(200, $this->client()->get('/feed/author/demo-author')->status);
+        $this->assertSame(200, $this->client()->get('/feed/category/general')->status);
+        $this->assertStringContainsString('href="/feed"', $this->client()->get('/')->body);
+        $this->assertStringContainsString('href="/feed/author/', $this->client()->get('/user/view/demo-author')->body);
+        $this->assertStringContainsString('href="/feed/category/', $this->client()->get('/browse/category/general')->body);
     }
 }

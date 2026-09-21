@@ -27,22 +27,28 @@ final class HomeController
         // the anonymous render stays at its single content query.
         $isAdmin = $loggedIn
             && (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [(int) $userId])['c'] === 1;
+        $jsonLd = [
+            '@context' => 'https://schema.org',
+            '@type' => 'WebSite',
+            'name' => (string) $this->kip->config('site_name', 'Kiption'),
+        ];
+        // Finding 9a: the SearchAction entry joins the WebSite node only when
+        // the search flag is on, so a searchless archive never advertises a
+        // dead target (the node itself stays either way).
+        if (\App\Features::on('search')) {
+            $jsonLd['potentialAction'] = [
+                '@type' => 'SearchAction',
+                'target' => '/search?q={search_term_string}',
+                'query-input' => 'required name=search_term_string',
+            ];
+        }
         $head = \App\Seo\Head::make(
             siteName: (string) $this->kip->config('site_name', 'Kiption'),
             ogImage: (string) $this->kip->config('og_image', ''),
             baseUrl: rtrim((string) $this->kip->config('base_url', ''), '/'),
         )->withTitle(null)
             ->withCanonical($this->request->path)
-            ->withJsonLd([
-                '@context' => 'https://schema.org',
-                '@type' => 'WebSite',
-                'name' => (string) $this->kip->config('site_name', 'Kiption'),
-                'potentialAction' => [
-                    '@type' => 'SearchAction',
-                    'target' => '/search?q={search_term_string}',
-                    'query-input' => 'required name=search_term_string',
-                ],
-            ]);
+            ->withJsonLd($jsonLd);
         return $this->view->render('home/index', [
             'title' => \App\Lang::t('nav.brand'),
             'head' => $head,

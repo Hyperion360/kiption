@@ -20,6 +20,7 @@ final class SearchController
      *  canonical content. Junk filters coerce, never 500. */
     public function index(): \Kip\Http\Response|string
     {
+        if (($r = \App\Features::guard('search')) !== null) return $r;
         $q = trim((string) ($this->request->get['q'] ?? ''));
         $filters = [
             'category' => preg_match('#^[a-z0-9-]+$#', (string) ($this->request->get['category'] ?? '')) ? (string) $this->request->get['category'] : null,

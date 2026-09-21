@@ -1,6 +1,8 @@
 <?php // app/views/user/view.php ?>
 <?php $this->layout('layout'); ?>
+<?php if (\App\Features::on('feeds')): ?>
 <link rel="alternate" type="application/atom+xml" title="<?= $this->e($profile['penname']) ?>" href="/feed/author/<?= $this->e($slug) ?>">
+<?php endif; ?>
 <section class="profile-card h-card">
   <?php if (!empty($profile['avatar_path'])): ?>
     <img class="avatar u-photo" src="<?= $this->e($profile['avatar_path']) ?>" alt="<?= $this->e(\App\Lang::t('user.avatar_of', ['name' => $profile['penname']])) ?>">

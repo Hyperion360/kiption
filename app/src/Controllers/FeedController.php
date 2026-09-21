@@ -10,6 +10,7 @@ final class FeedController
 
     public function index(): Response
     {
+        if (($r = \App\Features::guard('feeds')) !== null) return $r;
         $stories = (new StoryRepository($this->db))->feedStories(20, 0, $this->fullText());
         return $this->serveAtom((string) $this->app->config('site_name', 'Kiption'), $stories);
     }
@@ -20,6 +21,7 @@ final class FeedController
      *  the penname, never a 404. */
     public function author(string $slug): Response
     {
+        if (($r = \App\Features::guard('feeds')) !== null) return $r;
         $rows = (new UserRepository($this->db))->authorFeed($slug, 20, 0, $this->fullText());
         if ($rows === null || $rows === []) return new Response('Page not found', 404);
         return $this->serveAtom((string) $rows[0]['feed_title'], $this->entryRows($rows));
@@ -29,6 +31,7 @@ final class FeedController
      *  category name titling the feed and an empty category rendering empty. */
     public function category(string $slug): Response
     {
+        if (($r = \App\Features::guard('feeds')) !== null) return $r;
         $rows = (new StoryRepository($this->db))->categoryFeed($slug, 20, 0, $this->fullText());
         if ($rows === []) return new Response('Page not found', 404);
         return $this->serveAtom((string) $rows[0]['feed_title'], $this->entryRows($rows));
