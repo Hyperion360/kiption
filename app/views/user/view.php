@@ -23,7 +23,7 @@
     <a href="/user/view/<?= $this->e($slug) ?>" class="u-url"><?= \App\Lang::t('user.profile_tab') ?></a> |
     <a href="/user/stories/<?= $this->e($slug) ?>"><?= \App\Lang::t('user.stories_tab') ?></a> |
     <a href="/user/favorites/<?= $this->e($slug) ?>"><?= \App\Lang::t('user.favorites_tab') ?></a>
-    <?php if ($loggedIn): ?> |
+    <?php if ($loggedIn && \App\Features::on('contact')): ?> |
     <a href="/user/contact/<?= $this->e($slug) ?>"><?= \App\Lang::t('user.contact_tab') ?></a>
     <?php endif; ?>
   </nav>

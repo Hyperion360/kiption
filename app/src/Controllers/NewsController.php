@@ -16,8 +16,9 @@ final class NewsController
         private Session $session, private App $app,
     ) {}
 
-    public function index(): string
+    public function index(): Response|string
     {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
         [$perPage, $offset] = $this->paginate();
         [$items, $page] = [(new NewsRepository($this->db))->listing($perPage, $offset), $this->page()];
         return $this->view->render('news/index', [
@@ -35,6 +36,7 @@ final class NewsController
 
     public function view(string $id): Response|string
     {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404); // mirrors the cache whitelist
         $repo = new NewsRepository($this->db);
         [$perPage, $offset] = $repo->commentWindow();
@@ -65,6 +67,11 @@ final class NewsController
     #[AuthAttr] #[Post]
     public function comment(string $id): Response
     {
+        // 'news' FIRST (finding 7): the contract gates /news/comment under
+        // news, so news off must not leave the route live even with the
+        // comments sub-flag on; then the sub-flag itself.
+        if (($r = \App\Features::guard('news')) !== null) return $r;
+        if (($r = \App\Features::guard('comments')) !== null) return $r;
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
         $repo = new NewsRepository($this->db);
         if ($repo->find((int) $id) === null) return new Response('Page not found', 404); // existence, not the throttle: no check-then-act on the guard
@@ -84,6 +91,7 @@ final class NewsController
     #[AuthAttr]
     public function new(): Response|string
     {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
         if (!$this->admin()) return new Response('Forbidden', 403);
         return $this->form(null);
     }
@@ -91,6 +99,7 @@ final class NewsController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
         if (!$this->admin()) return new Response('Forbidden', 403);
         [$title, $body, $error] = $this->titleBody();
         if ($error !== null) return new Response($this->form(null, $error), 422);
@@ -104,6 +113,7 @@ final class NewsController
     #[AuthAttr]
     public function edit(string $id): Response|string
     {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
         if (!$this->admin()) return new Response('Forbidden', 403);
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
         $row = (new NewsRepository($this->db))->find((int) $id);
@@ -114,6 +124,7 @@ final class NewsController
     #[AuthAttr] #[Post]
     public function update(string $id): Response|string
     {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
         if (!$this->admin()) return new Response('Forbidden', 403);
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
         $row = (new NewsRepository($this->db))->find((int) $id);

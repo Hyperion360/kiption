@@ -69,6 +69,7 @@ final class UserController
     #[AuthAttr] #[Get] #[Post]
     public function contact(string $slug): Response|string
     {
+        if (($r = \App\Features::guard('contact')) !== null) return $r;
         if ($this->request->method === 'POST') return $this->send($slug);
         $target = $this->users->findByProfileSlug($slug);
         if ($target === null || (int) $target['id'] === (int) $this->session->get('user_id')) {

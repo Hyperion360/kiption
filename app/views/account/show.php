@@ -45,7 +45,7 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
-  <p><a href="/stats"><?= \App\Lang::t('stats.link') ?></a></p>
+  <?php if (\App\Features::on('stats')): ?><p><a href="/stats"><?= \App\Lang::t('stats.link') ?></a></p><?php endif; ?>
   <h2><?= \App\Lang::t('account.your_series') ?></h2>
   <?php if ($seriesList === []): ?><p class="chapter-meta"><?= \App\Lang::t('common.none_yet') ?></p>
   <?php else: ?>

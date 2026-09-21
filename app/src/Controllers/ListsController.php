@@ -16,6 +16,7 @@ final class ListsController
 
     public function view(string $slug): Response|string
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $list = $this->lists->view($slug, $me);
         if ($list === null) return new Response('Page not found', 404);
@@ -41,8 +42,9 @@ final class ListsController
     }
 
     #[AuthAttr]
-    public function index(): string
+    public function index(): Response|string
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         $title = \App\Lang::t('lists.index');
         return $this->view->render('lists/index', [
             'title' => $title,
@@ -55,14 +57,16 @@ final class ListsController
     }
 
     #[AuthAttr]
-    public function new(): string
+    public function new(): Response|string
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         return $this->form(null);
     }
 
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         [$title, $summary, $isPublic, $error] = $this->listInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $me = (int) $this->session->get('user_id');
@@ -74,6 +78,7 @@ final class ListsController
     #[AuthAttr]
     public function edit(string $slug): Response|string
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         try { $row = $this->lists->own($slug, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response('Page not found', 404); }
         return $this->form($row);
@@ -82,6 +87,7 @@ final class ListsController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         $me = (int) $this->session->get('user_id');
         [$title, $summary, $isPublic, $error] = $this->listInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
@@ -94,6 +100,7 @@ final class ListsController
     #[AuthAttr] #[Post]
     public function delete(string $slug): Response
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         $me = (int) $this->session->get('user_id');
         try { $this->lists->delete($slug, $me); }
         catch (\RuntimeException) { return new Response('Page not found', 404); }
@@ -107,6 +114,7 @@ final class ListsController
     #[AuthAttr] #[Post]
     public function item(string $slug): Response|string
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         $me = (int) $this->session->get('user_id');
         $note = substr(trim($this->request->postStr('note')), 0, 500);
         try {
@@ -124,6 +132,7 @@ final class ListsController
     #[AuthAttr] #[Post]
     public function remove(string $slug, string $storySlug): Response
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         if (!$this->lists->removeItem($slug, $storySlug, (int) $this->session->get('user_id'))) {
             return new Response('Page not found', 404);
         }
@@ -134,6 +143,7 @@ final class ListsController
     #[AuthAttr] #[Post]
     public function move(string $slug, string $itemId, string $dir): Response
     {
+        if (($r = \App\Features::guard('lists')) !== null) return $r;
         $dir = $dir === 'down' ? 'down' : 'up'; // junk coerces, the browse page-param philosophy
         try { $this->lists->move($slug, (int) $itemId, $dir, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response('Page not found', 404); }

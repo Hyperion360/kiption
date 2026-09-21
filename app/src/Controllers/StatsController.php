@@ -1,6 +1,6 @@
 <?php // app/src/Controllers/StatsController.php
 namespace App\Controllers;
-use Kip\{App, Database, Http\Request, Session, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\Auth as AuthAttr;
 
 /** The author stats dashboard (/stats): ONE compound query listing the
@@ -25,8 +25,9 @@ final class StatsController
     ) {}
 
     #[AuthAttr]
-    public function index(): string
+    public function index(): Response|string
     {
+        if (($r = \App\Features::guard('stats')) !== null) return $r;
         $me = (int) $this->session->get('user_id');
         $rows = $this->db->all(
             "SELECT s.slug, s.title, s.validated,

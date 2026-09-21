@@ -18,13 +18,13 @@
     <?php endforeach; ?>
     <?php if ($comment_count > count($comments)): ?><p class="chapter-meta"><?= \App\Lang::t('news.recent_50') ?></p><?php endif; ?>
   <?php endif; ?>
-  <?php if (!empty($csrf)): ?>
+  <?php if (!empty($csrf) && \App\Features::on('comments')): ?>
     <form method="post" action="/news/comment/<?= (int) $news['id'] ?>">
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
       <label><?= \App\Lang::t('news.comment_label') ?> <textarea name="body" rows="4" required maxlength="5000" placeholder="<?= $this->e(\App\Lang::t('news.comment_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('news.comment_placeholder')) ?>"></textarea></label>
       <button type="submit"><?= \App\Lang::t('news.post_comment') ?></button>
     </form>
-  <?php else: ?>
+  <?php elseif (\App\Features::on('comments')): ?>
     <p class="chapter-meta"><a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a> <?= \App\Lang::t('news.to_comment') ?></p>
   <?php endif; ?>
 </article>
