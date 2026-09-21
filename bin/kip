@@ -3,6 +3,7 @@
 require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // CLI renders too (pages:build); views render through the pack layer
+\App\Features::init(new \Kip\Database($config['db']['dsn']), $config['features'] ?? []); // feature-flag resolution shares the request bootstrap
 
 match ($argv[1] ?? 'help') {
     'migrate' => (function () use ($config) {

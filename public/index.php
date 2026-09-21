@@ -73,6 +73,11 @@ ob_start(); // lazy session may start mid-render; nothing may flush before heade
 $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || ($config['trusted_proxy'] && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 
+// Feature flags: resolve once per request, AFTER the static-cache HIT and legacy
+// 301 exits above (a cached serve or a maintenance 503 never opens the flags DB)
+// and BEFORE the app boots, so every controller and view shares one resolution.
+\App\Features::init(new \Kip\Database($config['db']['dsn']), $config['features'] ?? []);
+
 $app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
 $response = $app->handle($request);
 if ($static !== null) {
