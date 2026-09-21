@@ -24,6 +24,19 @@ use PHPUnit\Framework\TestCase;
  * autodiscovery link, the profile author-feed link, the category feed link
  * (browse/recent's feedHref, gated at BrowseController::category), and the
  * story view's Whole/Download links.
+ *
+ * Retrofits batch 3 (Task 5): the digest CLI arm, the member directory, and
+ * the beacon pin. The digest case drives bin/kip as a real subprocess (the
+ * MailUsersTest idiom): the child resolves flags from its own config + this
+ * temp DB (finding 2: no ambient static state crosses the process line), the
+ * off row is pre-inserted here, and --mail-log points the transport at a
+ * throwaway file so the no-mail pin never depends on the repo's app/mail.log.
+ * The directory case guards both routes; the grep for cross-links found the
+ * only /browse/authors hrefs in the tree are the directory view's own letter
+ * nav (never rendered once the routes 404) and the already-gated Builder
+ * block, so the controller guard is the whole retrofit. The beacon case pins
+ * the recorded data-collection stance: flags gate the VIEW surfaces, never
+ * the count.
  */
 final class FeatureGatesTest extends TestCase
 {
@@ -286,5 +299,67 @@ final class FeatureGatesTest extends TestCase
         $this->assertStringContainsString('href="/feed"', $this->client()->get('/')->body);
         $this->assertStringContainsString('href="/feed/author/', $this->client()->get('/user/view/demo-author')->body);
         $this->assertStringContainsString('href="/feed/category/', $this->client()->get('/browse/category/general')->body);
+    }
+
+    /** @return array{0: int, 1: string} exit code, stdout+stderr (the MailUsersTest idiom) */
+    private function kip(string $args): array
+    {
+        $cmd = sprintf('KIP_DB_DSN=%s %s %s %s 2>&1',
+            escapeshellarg('sqlite:' . $this->path),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(dirname(__DIR__) . '/bin/kip'),
+            $args);
+        exec($cmd, $out, $code);
+        return [$code, implode("\n", $out)];
+    }
+
+    public function test_digest_off_prints_disabled_and_never_mails(): void
+    {
+        // A digest-eligible member with a pending notification (the DigestTest
+        // plant shapes): a guardless run WOULD mail this member, which is what
+        // makes the empty log and the untouched marker meaningful.
+        $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('fgdigest@e.test', ?, 'fgdigestfan', ?, ?)",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+        $fan = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO user_prefs (user_id, notify_favorite_digest) VALUES (?, 1)', [$fan]); // Digest INNER JOINs user_prefs; raw INSERTs create none
+        $this->db->query("INSERT INTO notifications (user_id, kind, story_title) VALUES (?, 'update', 'The Rabbit Hole')", [$fan]);
+        $this->flagOff('digest');
+        $log = $this->root . '/digest-mail.log';
+        [$code, $out] = $this->kip('digest:send --mail-log=' . escapeshellarg($log));
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('digest feature is disabled', $out);
+        $this->assertFileDoesNotExist($log, 'no digest mail fired while the flag is off');
+        $this->assertNull($this->db->one('SELECT digest_sent_at FROM user_prefs WHERE user_id = ?', [$fan])['digest_sent_at'],
+            'no marker advanced: the member query never ran');
+    }
+
+    public function test_directory_off_404s_both_author_routes_but_not_profiles(): void
+    {
+        $this->flagOff('directory');
+        $this->assertSame(404, $this->client()->get('/browse/authors')->status, 'the directory index 404s');
+        $this->assertSame(404, $this->client()->get('/browse/authors/b')->status, 'the letter variant 404s');
+        // Profiles stay reachable: they are core (the never-list), not the
+        // directory surface, and the sitemap-authors segment lists profile
+        // URLs, so it stays honest too.
+        $profile = $this->client()->get('/user/view/demo-author');
+        $this->assertSame(200, $profile->status);
+        // Back on: both surfaces return.
+        $this->flagOn('directory');
+        $this->assertSame(200, $this->client()->get('/browse/authors')->status);
+        $this->assertSame(200, $this->client()->get('/browse/authors/b')->status);
+    }
+
+    public function test_beacon_still_counts_with_stats_and_analytics_off(): void
+    {
+        // The recorded data-collection stance: flags gate VIEW surfaces, never
+        // the beacon itself; page_stats stays aggregate-only and keeps counting.
+        $this->flagOff('stats');
+        $this->flagOff('analytics');
+        $res = $this->client()->get('/beacon/read/1/3'); // story 1, chapter id 3 on the seed
+        $this->assertSame(200, $res->status);
+        $this->assertSame(1, (int) $this->db->one("SELECT reads FROM page_stats WHERE story_id = 1 AND chapter_id = 3 AND day = strftime('%Y-%m-%d', 'now')")['reads'],
+            'the chapter row counted with both view flags off');
+        $this->assertSame(1, (int) $this->db->one("SELECT reads FROM page_stats WHERE story_id = 1 AND chapter_id = 0 AND day = strftime('%Y-%m-%d', 'now')")['reads'],
+            'the chapter_id=0 story rollup counted too');
     }
 }

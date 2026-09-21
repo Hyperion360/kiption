@@ -105,6 +105,7 @@ final class BrowseController
      *  (meta + X-Robots-Tag, the empty-category precedent). */
     public function authors(string $letter = ''): Response|string
     {
+        if (($r = \App\Features::guard('directory')) !== null) return $r;
         $letter = trim($letter);
         if ($letter !== '' && !preg_match('/^[a-z]$/', $letter)) {
             $letter = preg_match('/^[a-z]/', $letter) ? $letter[0] : '0';
