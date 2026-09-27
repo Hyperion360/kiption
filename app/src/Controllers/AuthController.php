@@ -183,13 +183,17 @@ final class AuthController
             [$subject, $body] = \App\Templates::get($this->db, 'password_reset', 'Reset your password',
                 "Someone (hopefully you) asked to reset the password for this address.\n\n"
                 . "Reset link (valid 30 minutes):\n{url}\n\nIf this wasn't you, ignore this email.");
-            try {
-                $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]));
-            } catch (\Throwable $e) {
-                // A mailer failure must not become an account-existence oracle: the page
-                // is identical either way, and the failure lands in the server log.
-                error_log("Password-reset mail failed for a known address: {$e->getMessage()}");
-            }
+            // Deferred past the response: this send happens only for existing
+            // accounts, so its duration must not show in the response time.
+            $this->app->defer(function () use ($email, $subject, $body, $url): void {
+                try {
+                    $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]));
+                } catch (\Throwable $e) {
+                    // A mailer failure must not become an account-existence oracle: the page
+                    // is identical either way, and the failure lands in the server log.
+                    error_log("Password-reset mail failed for a known address: {$e->getMessage()}");
+                }
+            });
         }
         // Same page whether the account exists or not, no enumeration.
         return $this->view->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'), 'sent' => true]);

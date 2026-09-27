@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Hyperion360/kip.git",
-                "reference": "68001dcbaad89130ec901a4853ae0fa224a4731e"
+                "reference": "b95dc30a565dc84cb144904338911542f14454a0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/68001dcbaad89130ec901a4853ae0fa224a4731e",
-                "reference": "68001dcbaad89130ec901a4853ae0fa224a4731e",
+                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/b95dc30a565dc84cb144904338911542f14454a0",
+                "reference": "b95dc30a565dc84cb144904338911542f14454a0",
                 "shasum": ""
             },
             "require": {
@@ -25,6 +25,7 @@
                 "php": ">=8.3"
             },
             "require-dev": {
+                "phpstan/phpstan": "^2.2",
                 "phpunit/phpunit": "^11"
             },
             "default-branch": true,
@@ -46,7 +47,18 @@
             },
             "scripts": {
                 "check-docs": [
-                    "php scripts/check-docs.php"
+                    "@php scripts/check-docs.php"
+                ],
+                "lint": [
+                    "@php vendor/bin/phpstan analyse --no-progress --memory-limit=256M"
+                ],
+                "test": [
+                    "@php vendor/bin/phpunit"
+                ],
+                "check": [
+                    "@lint",
+                    "@check-docs",
+                    "@test"
                 ]
             },
             "license": [
@@ -63,7 +75,7 @@
                 "issues": "https://github.com/Hyperion360/kip/issues",
                 "source": "https://github.com/Hyperion360/kip"
             },
-            "time": "2026-09-19T03:10:23+00:00"
+            "time": "2026-09-27T11:59:18+00:00"
         }
     ],
     "packages-dev": [
