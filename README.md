@@ -392,6 +392,106 @@ one line under the byline: `A gift for {name}`. It is display
 metadata only: no linking, no exchange machinery, no anonymous or
 reveal states. Leave it empty and the line does not render.
 
+## Private messages, author mute, and tag wrangling
+
+### Private messages
+
+Members write each other at `/messages` (the layout carries the link
+beside Notifications). A conversation is a two-member thread: compose
+at `/messages/new/{slug}`, read it at `/messages/view/{slug}`, and the
+inbox folds each conversation into one row with the partner link, the
+latest message as a preview, and an unread badge. Opening the thread
+marks it read and clears the badge; the newest 200 messages render,
+oldest first. Bodies are markdown at rest exactly like reviews, 1 to
+5000 characters, and raw HTML cannot be stored. Every send drops one
+`pm` notification in the recipient's inbox, `{actor} sent you a
+message`, linking straight to the thread.
+
+PMs are unthrottled on purpose: a rate limit taxes normal
+back-and-forth conversation, and occasional first contact already has
+the contact form (three per hour, mailed, never stored). Abuse rides
+the existing moderation paths: the report queue covers stories and
+reviews, the sender's account is lockable through the admin panel,
+and the body pipeline blocks raw HTML by construction. Targets
+resolve by profile slug; a self-send or an unknown slug 404s. The
+`pms` flag gates the whole surface, inbox, threads, compose form, and
+send POST alike: off answers 404 and the layout link hides.
+
+### Author mute
+
+The Mute button on profiles and directory rows adds an author to a
+per-member mute list, managed under "Authors you mute" on the account
+page. Muting is silent: the muted author receives no notification and
+no indicator, ever. The list is private to the muter and unlimited,
+and the toggle is idempotent.
+
+Mute is a curation filter on listings, nothing more. It affects:
+
+- `/browse` listings (recent, category, language) for the muter only
+- `/search` results for the muter only
+- the story lists inside challenge and series pages, same rule
+
+It never affects:
+
+- direct URLs: a story or author profile the muter visits explicitly
+  always renders, and profile tabs stay intact
+- the Atom and RSS feeds, the toplists hub, and the home featured
+  list, which are anonymous surfaces
+- exports and downloads: a downloaded work is a direct access
+- the member directory: it lists authors, not stories, and it is
+  where the mute button rides
+
+Anonymous renders are byte-identical whether or not mute rows exist:
+the filter clause is viewer-conditional by construction, so the
+static cache and every cookieless path never filter and never
+personalize. The `mute` flag gates the buttons and the filtering
+together: with the flag off the toggle POSTs 404, the profile and
+directory buttons and the account block hide, and listings stop
+filtering for everyone, planted mute rows included.
+
+### Tag wrangling
+
+Tags are taxonomy. The story form carries tag checkboxes grouped by
+type, and the story page renders the selected tags as inert badges
+(`genre: Fantasy`), each name resolved through its canonical tag.
+Authors pick from existing tags; creating and reshaping tags is the
+wrangler's job, not the author's.
+
+`/wrangling` (admins only, moderators get 403) lists every tag with
+its type and live story count and groups synonyms under their
+canonicals. Merging is a two-step form: pick the synonym, then the
+canonical (the select offers same-type, unretired tags only). One
+transaction runs the quadruple:
+
+1. Every `story_tags` row carrying the synonym is re-pointed to the
+   canonical with `INSERT OR IGNORE`, so a story already carrying the
+   canonical loses nothing.
+2. The synonym's own rows are deleted.
+3. The synonym is retired: `canonical_id` is set, the tag itself is
+   never deleted, so imports and stored references still resolve.
+4. Any tag whose canonical was the synonym follows it to the new
+   canonical (the chain move).
+
+Merges are idempotent: running one again lands clean. Three guards
+reject a merge before the transaction opens: a self-merge, a
+cross-type merge, and a merge into an already-retired canonical each
+answer 422. Story-form writes normalize synonym ids to their
+canonicals, and retired tags drop out of the story-form checkboxes
+and the canonical selects.
+
+Unmerge clears the retirement only. The tag becomes a selectable
+canonical again, but `story_tags` rows already moved to the canonical
+stay moved: a story tagged only with the synonym ended up tagged with
+the canonical, which is what a merge is for. Unmerge is for mistakes
+caught early, not a time machine.
+
+One operator note: a merge rewrites `story_tags` but does not purge
+cached story pages, so a guest can keep seeing the synonym label until
+the cache layer refreshes. Run `php bin/kip pages:build` after a
+wrangling session to rebuild the static layer on the spot. The
+`wrangling` flag gates the surface, index, merge form, and both
+POSTs: off answers 404.
+
 ## Reading retention
 
 The read beacon. Every chapter page, including statically cached copies,
