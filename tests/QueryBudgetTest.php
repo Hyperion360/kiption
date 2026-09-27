@@ -106,6 +106,10 @@ final class QueryBudgetTest extends TestCase
                 // is a POST and never budget-bound. betafriend is the partner
                 // (the shared login here is demo-author, and self-threads 404).
                 ['/messages'], ['/messages/view/betafriend'],
+                // The account fold's seven-branch compound, muted branch
+                // included (the flag defaults on in tests): first-ever budget
+                // pin for the page, landed with the Task-1 QA ruling.
+                ['/account'],
                 // The author stats dashboard: the acting user (demo-author) owns
                 // both seeded stories, so the row exercises the real render; the
                 // four scalar subqueries ride the single own-works query.

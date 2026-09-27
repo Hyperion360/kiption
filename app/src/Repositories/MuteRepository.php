@@ -19,20 +19,6 @@ final class MuteRepository
         }
     }
 
-    /** The account page's muted-authors block, one query: the penname for
-     *  display and the profile_slug the unmute form posts against. Rendered
-     *  only for the muter; the list is private by construction.
-     * @return list<array<string, mixed>> */
-    public function mutedAuthors(int $userId): array
-    {
-        return $this->db->all(
-            'SELECT u.profile_slug, u.penname
-             FROM muted mu JOIN users u ON u.id = mu.author_id
-             WHERE mu.user_id = ? ORDER BY u.penname COLLATE NOCASE',
-            [$userId]
-        );
-    }
-
     /** THE one home of the listing anti-join fragment. Every viewer-gated
      *  listing appends this string to its WHERE and binds its viewer id at
      *  the clause's text position; nothing else may hand-copy it (seven

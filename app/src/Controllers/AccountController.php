@@ -18,6 +18,24 @@ final class AccountController
     public function index(): string
     {
         $userId = (int) $this->session->get('user_id');
+        // The muted-authors block folds into the compound as a seventh branch
+        // (the 12b precedent for adding branches), so the page keeps its
+        // one-content-query budget with the mute flag on instead of growing
+        // the contract's first read-side exception row. The branch rides ONLY
+        // while the flag is on: a mute-off archive runs the exact pre-mute
+        // six-branch statement. The branch key is '0mu', right after '0me',
+        // so under the shared LIMIT 250 the block outranks the big lists: the
+        // unmute affordance lives nowhere else, while follows, stories, and
+        // series all keep their own direct pages. Position e repeats the
+        // penname because the compound's ORDER BY sorts bare output aliases
+        // only; that gives the branch a deterministic penname order.
+        $mutedBranch = \App\Features::on('mute') ? "
+             UNION ALL
+             SELECT '0mu' AS k, u3.profile_slug AS a, u3.penname AS b, NULL AS c, NULL AS d, u3.penname AS e,
+                    NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m
+             FROM muted mu2 JOIN users u3 ON u3.id = mu2.author_id WHERE mu2.user_id = ?" : '';
+        $binds = [$userId, $userId, $userId, $userId, $userId, $userId];
+        if ($mutedBranch !== '') $binds[] = $userId;
         $rows = $this->db->all(
             "SELECT '0me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, u.support_url AS e,
                     (SELECT p.notify_favorite_digest FROM user_prefs p WHERE p.user_id = u.id) AS f,
@@ -50,8 +68,8 @@ final class AccountController
                     CAST((SELECT COUNT(*) FROM series_items si JOIN stories st ON st.id = si.story_id
                           WHERE si.series_id = ser.id AND si.confirmed = 0 AND st.deleted_at IS NULL) AS TEXT) d,
                     ser.membership e, NULL f, NULL g, NULL h, NULL i, NULL j, NULL l, NULL m
-             FROM series ser WHERE ser.owner_id = ?
-             ORDER BY k, e LIMIT 250", [$userId, $userId, $userId, $userId, $userId, $userId]);
+             FROM series ser WHERE ser.owner_id = ?" . $mutedBranch .
+            ' ORDER BY k, e LIMIT 250', $binds);
         // New alias note: the notify toggles are j/l/m because k is already the
         // branch discriminator; all three COALESCE to 1 so a prefs-less member
         // fails safe ON, the same contract notifyRecipients enforces at send time.
@@ -61,8 +79,10 @@ final class AccountController
         $following = [];
         $progress = [];
         $marked = [];
+        $muted = [];
         foreach ($rows as $r) {
             if ($r['k'] === '0me') { $me = $r; }
+            elseif ($r['k'] === '0mu') { $muted[] = ['profile_slug' => (string) $r['a'], 'penname' => (string) $r['b']]; }
             elseif ($r['k'] === '1follow') { $following[] = $r; }
             elseif ($r['k'] === '2progress') { $progress[] = $r; }
             elseif ($r['k'] === '3marked') { $marked[] = $r; }
@@ -74,12 +94,6 @@ final class AccountController
             // cannot vary per branch, so the member's own list re-sorts in place.
             usort($stories, static fn(array $x, array $y): int => strcasecmp((string) $x['b'], (string) $y['b']));
         }
-        // The muted-authors block: its own one-query listing (the plan's
-        // MuteRepository shape), fetched only while the flag is on so an
-        // off archive renders the page exactly as it did before mutes.
-        $muted = \App\Features::on('mute')
-            ? (new \App\Repositories\MuteRepository($this->db))->mutedAuthors($userId)
-            : [];
         return $this->view->render('account/show', [
             'title' => \App\Lang::t('account.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('account.heading'))->withCanonical('/account')->withNoindex(),
