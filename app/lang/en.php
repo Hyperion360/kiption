@@ -386,6 +386,20 @@ return [
     'lists.err_unvalidated' => 'That story is not validated yet.',
     'lists.err_duplicate' => 'That story is already on this list.',
 
+    // Challenges (the member CRUD surface; public-page keys land with it).
+    'challenges.new' => 'New challenge',
+    'challenges.edit' => 'Edit challenge',
+    'challenges.membership' => 'Membership',
+    'challenges.m_open' => 'open',
+    'challenges.m_moderated' => 'moderated',
+    'challenges.m_closed' => 'closed',
+    'challenges.prompts_heading' => 'Prompts',
+    'challenges.prompts_empty' => 'No prompts yet.',
+    'challenges.prompt_text' => 'Prompt text',
+    'challenges.add_prompt' => 'Add prompt',
+    'challenges.move_up' => 'Move up',
+    'challenges.move_down' => 'Move down',
+
     // Mail templates admin.
     'templates.heading' => 'Mail templates',
     'templates.help' => 'Every mail falls back to its built-in default until you save an edit here.',
