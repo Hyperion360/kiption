@@ -418,6 +418,98 @@ it is safe in cron, and the `KIP_BACKUP_DIR` environment variable
 redirects the archive directory. The archive name has one-second
 resolution: two runs in the same second overwrite the same zip.
 
+## Feature flags
+
+Every discretionary surface is admin-togglable at `/features` (admins only;
+moderators get 403). Defaults ship in `config.php` under `features` (all
+on); the `feature_flags` table is the runtime surface, and the board writes
+one row per flip, effective on the next request with no restart. Database
+rows override the config defaults.
+
+A disabled surface answers with the same 404 the router would return, at
+the route and before any data work, and its cross-page links stop
+rendering, so nothing dangles. Flags gate surfaces only, never security:
+validated, deleted, restricted, and age gates run regardless of flag
+state. Every toggle purges the whole static layer plus the framework page
+cache and refreshes `sitemap.xml` on the spot, so no cached page outlives a
+link it embeds, and the news sitemap segment drops out of the index the
+moment news goes off.
+
+| Flag | Gates | Off behavior |
+|---|---|---|
+| news | `/news`, item views, the post and edit forms, commenting | 404; the operator Post-news link hides |
+| comments | comments on news items only | comment POST 404; the member form hides; existing comments and counts stay |
+| contact | `/user/contact/{slug}` (GET and POST) | 404; the profile Contact link hides |
+| stats | `/stats` | 404; the account Stats link hides |
+| lists | `/lists`, public list views, all list write operations | 404; the story page Reading-lists link hides |
+| search | `/search` | 404; the home page SearchAction JSON-LD suppresses |
+| toplists | `/top` | 404 |
+| exports | `/story/download/{slug}/{fmt}` and `/story/whole/{slug}` | 404; the story page Download and Whole-work links hide |
+| feeds | `/feed`, `/rss`, `/feed/author/{slug}`, `/feed/category/{slug}` | 404; the layout autodiscovery link and the profile and category feed links hide |
+| directory | `/browse/authors` and its letter pages | 404; profiles stay reachable (they are core) |
+| digest | the `php bin/kip digest:send` job | prints `digest feature is disabled` and exits 0; immediate story-update emails are unaffected |
+| analytics | `/analytics` | 404 |
+
+The two flags compose: `comments` is a sub-flag of `news`. News on with
+comments off renders items with their existing comments and counts but no
+member form, and the comment POST 404s; news off takes the whole surface,
+commenting included, with it.
+
+Never flaggable, by design. A flag is for discretionary surfaces, and
+these are not discretionary:
+
+- Reading (story and chapter pages), auth, account, profiles, series, and
+  engagement (kudos, favorites, follows, reviews): core archive function.
+  An archive that could turn reading off would just be in maintenance
+  mode, which already exists.
+- The validation queue, reports, and moderation: turning oversight off is
+  not a feature.
+- The read beacon: data collection, not a surface. The `stats` and
+  `analytics` flags gate the views; the beacon keeps counting either way.
+- Custom pages, images, and member notifications: content and core
+  plumbing that other surfaces embed.
+- Maintenance mode, `/features` itself, and the admin panel: the operator
+  levers. Flagging them off would lock the operator out mid-operation.
+- SEO furniture (sitemaps, robots.txt, canonicals) stays always-on.
+
+Data collection stance: flags gate surfaces, never collection. The beacon
+counts reads into `page_stats` regardless of any flag state, the table
+stays aggregate-only (day-keyed counts, no identities), and it is pruned
+with `php bin/kip logs:prune`. Turning `stats` or `analytics` off hides
+the dashboards, not the counting.
+
+Operator notes:
+
+- To toggle flags while maintenance mode is on, put `'/features/'` in
+  `maintenance_allow` in `config.php`; otherwise the maintenance 503
+  intercepts the board itself.
+- `php bin/kip mail:users` is flag-agnostic by design: batch announcements
+  are an operator channel, and recipient eligibility (approved, verified,
+  unlocked, carrying a penname) never depended on a feature flag.
+- Nav menu links (`/nav`) are flag-agnostic too: the menu is curated by
+  hand, so after disabling a surface, remove or repoint its menu entry
+  yourself. A stale entry leads to the honest 404, nothing worse.
+
+## Site analytics
+
+`/analytics` (admins only) is the whole-archive companion to the author's
+own `/stats` page. It reads only already-collected aggregates: reads,
+kudos, favorites, and new members by day over the last 30 days, the top
+ten stories by 30-day reads plus kudos (behind the same gates as public
+listings), and totals: stories, validated chapters, members, reviews,
+kudos, favorites, and all-time reads. Nothing new is collected, nothing
+member-identifying is shown, and the page is noindex and never cached.
+
+Reads carry the same approximate stance everywhere (see Reading
+retention): no bot filtering, aggregate day-keyed counts only, labeled as
+approximate on the dashboard. Kudos, favorites, and membership counts are
+exact.
+
+The author companion `/stats` (members only, covered under Reading
+retention) shows each member their own works, including restricted and
+pending ones the public surfaces hide. Both pages read the same rollup
+rows; there is no per-reader data to show because none is collected.
+
 ## Migrating from eFiction
 
 Moving an archive off a live eFiction 3.5.5 install is a two-stage
