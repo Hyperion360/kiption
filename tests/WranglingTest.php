@@ -220,4 +220,44 @@ final class WranglingTest extends TestCase
         // an unknown synonym 404s
         $this->assertSame(404, $admin->get('/wrangling/merge', ['synonym' => 999])->status);
     }
+
+    /** The transaction's rollback arm (the ListsTest RAISE idiom): a trigger
+     *  aborts the quadruple mid-flight, after the story_tags re-point and
+     *  delete but before the retirement lands. The controller rolls back,
+     *  rethrows (the 500 the kernel's error page answers), and nothing
+     *  strands: the synonym keeps its rows, the canonical gains nothing, the
+     *  retirement never fires. With the fault cleared the same merge lands. */
+    public function test_merge_rollback_leaves_nothing_behind_when_the_quadruple_fails(): void
+    {
+        $db = $this->db();
+        $db->query("INSERT INTO tags (tag_type_id, name) VALUES (1, 'Fantasyish')"); // id 3
+        $db->query('INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = ?), 3)', ['the-rabbit-hole']);
+        $db->query("CREATE TRIGGER merge_boom BEFORE UPDATE ON tags FOR EACH ROW
+                    WHEN NEW.canonical_id IS NOT NULL AND OLD.canonical_id IS NULL
+                    BEGIN SELECT RAISE(ABORT, 'boom'); END");
+        $admin = $this->client($this->adminId());
+        $this->assertSame(500, $admin->postWithToken('/wrangling/merge', ['synonym_id' => 3, 'canonical_id' => 1])->status,
+            'the aborted merge rethrows through the kernel error page');
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM story_tags WHERE tag_id = 3')['c'], 'the synonym keeps its rows');
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM story_tags WHERE tag_id = 1')['c'], 'the canonical gained nothing');
+        $this->assertNull($db->one('SELECT canonical_id FROM tags WHERE id = 3')['canonical_id'], 'the retirement never landed');
+        // with the fault cleared the table is healthy and the same merge goes through
+        $db->query('DROP TRIGGER merge_boom');
+        $this->assertSame(302, $admin->postWithToken('/wrangling/merge', ['synonym_id' => 3, 'canonical_id' => 1])->status);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM story_tags WHERE tag_id = 3')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT canonical_id FROM tags WHERE id = 3')['canonical_id']);
+    }
+
+    /** Moderators are not wranglers: the SQL admin gate (role = 'admin') 403s
+     *  them on every action beside members and guests, and nothing writes. */
+    public function test_moderators_draw_the_admin_gate_too(): void
+    {
+        \App\Adminness::setRole($this->db(), $this->memberId(), 'moderator');
+        $mod = $this->client($this->memberId());
+        $this->assertSame(403, $mod->get('/wrangling')->status);
+        $this->assertSame(403, $mod->postWithToken('/wrangling/merge', ['synonym_id' => 2, 'canonical_id' => 1])->status);
+        $this->assertSame(403, $mod->postWithToken('/wrangling/unmerge/2')->status);
+        $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) c FROM story_tags')['c'], 'no re-point fired');
+        $this->assertNull($this->db()->one('SELECT canonical_id FROM tags WHERE id = 2')['canonical_id'], 'no retirement fired');
+    }
 }
