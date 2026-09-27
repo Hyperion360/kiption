@@ -44,9 +44,12 @@ final class FavoritesTest extends TestCase
 
     public function test_favorite_requires_login(): void
     {
-        // the kernel checks CSRF BEFORE the auth redirect: a tokenless guest POST
-        // to an #[Auth]+#[Post] route is 403, not 302
-        $this->assertSame(403, $this->client()->post('/favorites/toggle/the-rabbit-hole')->status);
+        // gate before CSRF since kip b29e269: a tokenless guest POST to an
+        // #[Auth]+#[Post] route gets the login 302 whatever the token, and
+        // the redirect precedes all controller code, so nothing is toggled
+        $this->assertSame(302, $this->client()->post('/favorites/toggle/the-rabbit-hole')->status);
+        $this->assertSame(0, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM favorites WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole')")['c'], 'no favorite written by a guest');
     }
 
     public function test_favorite_toggle_and_author_notification(): void

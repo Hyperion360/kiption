@@ -205,11 +205,13 @@ final class ListsTest extends TestCase
         $this->assertNull($cache->serve($req), 'item removal purged the list page');
         $this->assertSame(['the-rabbit-hole' => 2], $this->positions(), 'removal keeps gaps: ordering is by position');
         // ownership: another member's item ops (valid token) are own()'s 404;
-        // a tokenless POST is the CSRF 403, before ownership
+        // a guest's tokenless POST is the login 302 (gate before CSRF since kip
+        // b29e269) and re-adds nothing
         $author = $this->client($this->authorId());
         $this->assertSame(404, $author->postWithToken('/lists/move/comfort-reads/' . $this->itemId('the-rabbit-hole') . '/up')->status);
         $this->assertSame(404, $author->postWithToken('/lists/remove/comfort-reads/the-rabbit-hole')->status);
-        $this->assertSame(403, $this->client()->post('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => ''])->status);
+        $this->assertSame(302, $this->client()->post('/lists/item/comfort-reads', ['story_slug' => 'after-hours', 'note' => ''])->status);
+        $this->assertSame(['the-rabbit-hole' => 2], $this->positions(), 'the guest POST wrote no item');
     }
 
     public function test_move_rollback_restores_positions_when_a_swap_write_fails(): void
@@ -392,7 +394,10 @@ final class ListsTest extends TestCase
     public function test_lists_forms_require_auth(): void
     {
         $this->assertSame(302, $this->client()->get('/lists/new')->status); // auth redirect
-        $this->assertSame(403, $this->client()->post('/lists/create', ['title' => 'Nope', 'summary' => '', 'is_public' => '1'])->status); // CSRF before auth: tokenless POST is 403
+        // gate before CSRF since kip b29e269: the guest POST 302s to login too,
+        // whatever the token, and writes nothing
+        $this->assertSame(302, $this->client()->post('/lists/create', ['title' => 'Nope', 'summary' => '', 'is_public' => '1'])->status);
+        $this->assertNull($this->db()->one("SELECT * FROM reading_lists WHERE title = 'Nope'"), 'no list written by a guest');
     }
 
     public function test_restricted_unvalidated_and_deleted_stories_leave_the_blob(): void

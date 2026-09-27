@@ -96,7 +96,10 @@ final class NewsTest extends TestCase
         $this->assertStringContainsString('Nice!', $this->client()->get('/news/view/1')->body);
         $this->assertStringContainsString('1 comment', $this->client()->get('/news')->body, 'the index comment-count scalar moved');
         $this->assertSame(422, $member->postWithToken('/news/comment/1', ['body' => '   '])->status, 'empty body rejected');
-        $this->assertSame(403, $this->client()->post('/news/comment/1', ['body' => 'x'])->status, 'guest tokenless POST hits the CSRF-first 403');
+        // gate before CSRF since kip b29e269: a guest gets the login redirect
+        // whatever the token, so the status no longer confirms the route exists
+        $this->assertSame(302, $this->client()->post('/news/comment/1', ['body' => 'x'])->status, 'guest tokenless POST gets the login redirect');
+        $this->assertSame(1, (int) $this->db()->one('SELECT COUNT(*) c FROM news_comments WHERE news_id = 1')['c'], 'the guest POST wrote no comment');
         $this->assertSame(429, $member->postWithToken('/news/comment/1', ['body' => 'again'])->status, 'one comment per member per item per hour');
         $this->assertSame(429, $member->postWithToken('/news/comment/1', ['body' => 'flood'])->status);
         // junk and unknown ids 404

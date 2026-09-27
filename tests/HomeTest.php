@@ -30,7 +30,8 @@ final class HomeTest extends TestCase
 
     public function test_home_page_renders_the_site_name(): void
     {
-        $res = $this->app()->handle(new Request('GET', '/home/index', [], [], []));
+        // canonical URL since kip c2f9730: only / is home
+        $res = $this->app()->handle(new Request('GET', '/', [], [], []));
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('<title>Kiption</title>', $res->body);
         $this->assertStringNotContainsString('Log out', $res->body); // guest sees no session-bound form
@@ -47,28 +48,32 @@ final class HomeTest extends TestCase
         $this->assertStringContainsString('name="_token"', $res->body);
     }
 
-    public function test_root_path_maps_to_home_index(): void
+    public function test_one_canonical_url_for_the_home_page(): void
     {
         $res = $this->app()->handle(new Request('GET', '/', [], [], []));
         $this->assertSame(200, $res->status);
+        // kip c2f9730: /home and any /controller/index spelling 404; / is the
+        // home controller's only URL
+        $this->assertSame(404, $this->app()->handle(new Request('GET', '/home', [], [], []))->status);
+        $this->assertSame(404, $this->app()->handle(new Request('GET', '/home/index', [], [], []))->status);
     }
 
     public function test_layout_carries_theme_attribute_and_browse_link(): void
     {
-        $res = $this->app()->handle(new Request('GET', '/home/index', [], [], []));
+        $res = $this->app()->handle(new Request('GET', '/', [], [], []));
         $this->assertStringNotContainsString('data-theme=', $res->body);
         $this->assertStringContainsString('href="/browse"', $res->body);
     }
 
     public function test_layout_reflects_light_cookie(): void
     {
-        $res = $this->app()->handle(new Request('GET', '/home/index', [], [], ['theme' => 'light']));
+        $res = $this->app()->handle(new Request('GET', '/', [], [], ['theme' => 'light']));
         $this->assertStringContainsString('data-theme="light"', $res->body);
     }
 
     public function test_layout_reflects_dark_cookie(): void
     {
-        $res = $this->app()->handle(new Request('GET', '/home/index', [], [], ['theme' => 'dark']));
+        $res = $this->app()->handle(new Request('GET', '/', [], [], ['theme' => 'dark']));
         $this->assertStringContainsString('data-theme="dark"', $res->body);
     }
 }

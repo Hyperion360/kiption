@@ -88,8 +88,11 @@ final class ReviewThreadTest extends TestCase
 
     public function test_guest_cannot_reply(): void
     {
-        // tokenless guest POST to the #[Auth]+#[Post] reply: kernel CSRF check first -> 403
-        $this->assertSame(403, (new TestClient($this->guestApp()))->post('/review/reply/' . $this->rootId, ['body' => 'x'])->status);
+        // gate before CSRF since kip b29e269: a tokenless guest POST to the
+        // #[Auth]+#[Post] reply gets the login 302 like any gated route, and
+        // the redirect precedes all controller code, so nothing is written
+        $this->assertSame(302, (new TestClient($this->guestApp()))->post('/review/reply/' . $this->rootId, ['body' => 'x'])->status);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM reviews WHERE body = ?', ['x'])['c'], 'no guest reply row');
     }
 
     public function test_reply_flood_cannot_hide_the_root(): void

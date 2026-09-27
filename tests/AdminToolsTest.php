@@ -170,10 +170,12 @@ final class AdminToolsTest extends TestCase
             $this->assertFileDoesNotExist($file, "{$label} cache file unlinked");
         }
         // gates and misses: member and moderator barred even with a token,
-        // guests hit the CSRF-first 403, unknown slugs 404
+        // a guest gets the login 302 (gate before CSRF since kip b29e269),
+        // unknown slugs 404
         $this->assertSame(403, $this->client($this->memberId())->postWithToken('/adminstories/reassign/the-rabbit-hole', ['penname' => 'betafriend'])->status);
         $this->assertSame(403, $this->client($this->moderatorId())->postWithToken('/adminstories/reassign/the-rabbit-hole', ['penname' => 'betafriend'])->status);
-        $this->assertSame(403, $this->client()->post('/adminstories/reassign/the-rabbit-hole', ['penname' => 'betafriend'])->status, 'CSRF 403 before the admin gate');
+        $this->assertSame(302, $this->client()->post('/adminstories/reassign/the-rabbit-hole', ['penname' => 'betafriend'])->status, 'login redirect before the admin gate');
+        $this->assertSame('betafriend', $db->one('SELECT penname FROM users u JOIN stories s ON s.author_id = u.id WHERE s.slug = ?', ['the-rabbit-hole'])['penname'], 'the guest POST reassigned nothing');
         $admin = $this->client($this->adminId());
         $this->assertSame(404, $admin->postWithToken('/adminstories/reassign/no-such-story', ['penname' => 'betafriend'])->status);
         $this->assertSame(404, $admin->postWithToken('/adminstories/reassign/the-rabbit-hole', [])->status, 'empty penname is an unknown member');
@@ -199,7 +201,10 @@ final class AdminToolsTest extends TestCase
         // gates and misses
         $this->assertSame(403, $this->client($this->memberId())->postWithToken('/adminstories/featured/the-rabbit-hole')->status);
         $this->assertSame(403, $this->client($this->moderatorId())->postWithToken('/adminstories/featured/the-rabbit-hole')->status);
-        $this->assertSame(403, $this->client()->post('/adminstories/featured/the-rabbit-hole')->status, 'CSRF 403 before the admin gate');
+        // gate before CSRF since kip b29e269: the guest POST gets the login 302
+        // and toggles nothing
+        $this->assertSame(302, $this->client()->post('/adminstories/featured/the-rabbit-hole')->status, 'login redirect before the admin gate');
+        $this->assertSame(0, (int) $this->db()->one("SELECT featured FROM stories WHERE slug = 'the-rabbit-hole'")['featured'], 'the guest POST toggled nothing');
         $this->assertSame(404, $admin->postWithToken('/adminstories/featured/no-such-story')->status);
     }
 

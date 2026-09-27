@@ -218,7 +218,10 @@ final class SeriesTest extends TestCase
     public function test_series_forms_require_auth(): void
     {
         $this->assertSame(302, $this->client()->get('/series/new')->status); // auth redirect
-        $this->assertSame(403, $this->client()->post('/series/create', ['title' => 'Nope', 'summary' => '', 'membership' => 'open'])->status); // CSRF before auth: tokenless POST is 403
+        // gate before CSRF since kip b29e269: the guest POST 302s to login too,
+        // whatever the token, and writes nothing
+        $this->assertSame(302, $this->client()->post('/series/create', ['title' => 'Nope', 'summary' => '', 'membership' => 'open'])->status);
+        $this->assertNull($this->db->one("SELECT * FROM series WHERE title = 'Nope'"), 'no series written by a guest');
     }
 
     public function test_item_actions_confirm_move_remove_with_gates(): void
