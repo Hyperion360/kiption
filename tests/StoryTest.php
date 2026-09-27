@@ -97,6 +97,23 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('Down the Rabbit Hole', $res->body);
     }
 
+    /** Task 4's round-trip pin: writeTags stores the form's tag selection,
+     *  and findStoryBySlug's blob renders the chosen tag while the unchosen
+     *  sibling stays off the page. */
+    public function test_tags_round_trip_onto_the_story_view(): void
+    {
+        $db = new Database($this->dsn);
+        $db->query("INSERT INTO tag_types (name) VALUES ('genre')");
+        $db->query("INSERT INTO tags (tag_type_id, name) VALUES (1, 'Fantasy')");
+        $db->query("INSERT INTO tags (tag_type_id, name) VALUES (1, 'Adventure')");
+        (new \App\Repositories\AuthoringRepository($db))->updateStory(
+            'the-rabbit-hole', 1, 'The Rabbit Hole', 'Falling, slowly.', 'Thanks for reading.',
+            1, [1], false, false, '', false, '', '', '', [1]);
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('Fantasy', $body);
+        $this->assertStringNotContainsString('Adventure', $body);
+    }
+
     public function test_solo_story_byline_links_author_without_coauthor_comma(): void
     {
         $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));

@@ -8,7 +8,10 @@ final class StoryRepository
 
     /** ONE query: story + author + rating + categories + chapter TOC blob,
      *  plus the series membership and coauthor byline blobs (param-free scalar
-     *  subqueries, so the bind order below is unchanged).
+     *  subqueries, so the bind order below is unchanged). The tags blob joins
+     *  the fold the same param-free way: story_tags resolved through each
+     *  tag's canonical (one COALESCE level; merges never chain) with its type
+     *  name, so a story tagged with a retired synonym renders the canonical.
      *  The reviews fold is a WINDOW split: the 50 newest ROOT reviews (walked by
      *  idx_reviews_roots), a 200-reply blob of the replies to those roots (bounded
      *  by construction), and a root-only COUNT (replies never inflate the headline;
@@ -57,7 +60,13 @@ final class StoryRepository
                      FROM series_items si JOIN series ser ON ser.id = si.series_id
                      WHERE si.story_id = s.id AND si.confirmed = 1) AS series_blob,
                     (SELECT json_group_array(json_object(\'i\', cu.id, \'n\', cu.penname, \'p\', cu.profile_slug))
-                     FROM coauthors ca JOIN users cu ON cu.id = ca.user_id WHERE ca.story_id = s.id) AS coauthors_blob
+                     FROM coauthors ca JOIN users cu ON cu.id = ca.user_id WHERE ca.story_id = s.id) AS coauthors_blob,
+                    (SELECT json_group_array(json_object(\'type\', tt.name, \'name\', COALESCE(cu2.name, t.name)))
+                     FROM story_tags st
+                     JOIN tags t ON t.id = st.tag_id
+                     LEFT JOIN tags cu2 ON cu2.id = t.canonical_id
+                     JOIN tag_types tt ON tt.id = t.tag_type_id
+                     WHERE st.story_id = s.id) AS tags_blob
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id

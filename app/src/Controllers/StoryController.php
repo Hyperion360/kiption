@@ -31,6 +31,18 @@ final class StoryController
         unset($story['series_blob']);
         $coauthors = json_decode((string) $story['coauthors_blob'], true) ?: [];
         unset($story['coauthors_blob']);
+        // The tags blob arrives type-keyed per row; decode + ksort + sort so
+        // the render never depends on aggregation internals (the TOC discipline).
+        $tags = [];
+        foreach (json_decode((string) $story['tags_blob'], true) ?: [] as $t) {
+            $tags[(string) $t['type']][] = (string) $t['name'];
+        }
+        foreach ($tags as &$names) {
+            sort($names, SORT_STRING);
+        }
+        unset($names);
+        ksort($tags);
+        unset($story['tags_blob']);
         $reviewRows = json_decode((string) $story['reviews_blob'], true) ?: [];
         $replyRows = json_decode((string) $story['replies_blob'], true) ?: [];
         // A full 200-row blob means the reply cap may have dropped older replies
@@ -79,6 +91,7 @@ final class StoryController
             'repliesDropped' => $repliesDropped,
             'series' => $seriesLinks,
             'coauthors' => $coauthors,
+            'tags' => $tags,
             'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
@@ -322,7 +335,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo, $tagIds] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
         }
@@ -330,7 +343,7 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->createStory(
-            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo);
+            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $tagIds);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -350,7 +363,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo, $tagIds] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
@@ -361,7 +374,7 @@ final class StoryController
         try {
             [$newSlug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
-                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl);
+                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $tagIds);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -425,6 +438,7 @@ final class StoryController
             if ($r['k'] === 'r') $ratings[] = $r;
             if ($r['k'] === 'co') $coauthors[] = ['id' => (int) $r['a'], 'penname' => (string) $r['b']];
         }
+        [$tagGroups, $selectedTags] = \App\Repositories\AuthoringRepository::tagGroups($rows);
         $chapters = [];
         if ($story !== null && ($story['h'] ?? null) !== null && $story['h'] !== '[]') {
             $chapters = json_decode((string) $story['h'], true) ?: [];
@@ -451,6 +465,8 @@ final class StoryController
             'selectedCategories' => $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
             'categories' => $categories,
             'ratings' => $ratings,
+            'tagGroups' => $tagGroups,
+            'selectedTags' => $selectedTags,
             'chapters' => $chapters,
             // coauthor management is the owner/admin's; l/m ride the 's' row only
             'coauthors' => $coauthors,
@@ -500,7 +516,7 @@ final class StoryController
         return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
     }
 
-    /** @return array{string,string,string,int,array,bool,bool,string,bool,string} */
+    /** @return array{string,string,string,int,array,bool,bool,string,bool,string,array} */
     private function storyInput(): array
     {
         $post = $this->request->post;
@@ -521,6 +537,9 @@ final class StoryController
             // omits the key, and a forged non-'1' value must read as off.
             ($post['round_robin'] ?? '') === '1',
             substr(trim((string) ($post['gift_to'] ?? '')), 0, 120),
+            // The tags idiom is the categories idiom: numeric-only, unknown
+            // ids drop inside writeTags's INSERT..SELECT WHERE id IN.
+            array_values(array_filter((array) ($post['tags'] ?? []), 'is_numeric')),
         ];
     }
 

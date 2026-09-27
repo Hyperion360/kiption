@@ -26,6 +26,20 @@
         </label>
       <?php endforeach; ?>
     </fieldset>
+    <?php if ($tagGroups !== []): ?>
+    <fieldset>
+      <legend><?= \App\Lang::t('story.tags') ?></legend>
+      <?php foreach ($tagGroups as $group): ?>
+        <p class="chapter-meta"><?= $this->e($group['name']) ?></p>
+        <?php foreach ($group['tags'] as $tagId => $tagName): ?>
+        <label class="inline">
+          <input type="checkbox" name="tags[]" value="<?= (int) $tagId ?>"<?= in_array((string) $tagId, array_map('strval', $selectedTags), true) ? ' checked' : '' ?>>
+          <?= $this->e($tagName) ?>
+        </label>
+        <?php endforeach; ?>
+      <?php endforeach; ?>
+    </fieldset>
+    <?php endif; ?>
     <label class="inline"><input type="checkbox" name="completed" value="1" <?= $story !== null && (int) $story['completed'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.completed') ?></label>
     <label class="inline"><input type="checkbox" name="restricted" value="1" <?= $story !== null && (int) $story['restricted'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.registered_only') ?></label>
     <label class="inline"><input type="checkbox" name="round_robin" value="1" <?= $story !== null && (int) ($story['round_robin'] ?? 0) === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.round_robin') ?></label>

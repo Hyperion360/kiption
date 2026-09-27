@@ -16,6 +16,12 @@ final class AuthoringRepository
      *  owner/admin alone. n/o/p/q ride the 's' branch only too: the
      *  syndication pair (canonical_url, crosspost_url) the edit form
      *  prefills, then round_robin + gift_to.
+     *  The 'tag' branch (appended LAST, so its bind lands at the array's
+     *  end) carries every tag with its type and canonical_id plus the
+     *  story's selected tag ids as the same per-row GROUP_CONCAT on every
+     *  row (the categories 'e' idiom; the selected ids cannot ride the 's'
+     *  branch, all seventeen columns there are occupied). On the create
+     *  path the NULL slug bind makes the concat yield NULL: no selection.
      *  Compound SELECTs may only ORDER BY output columns. */
     public function formData(?string $slug, int $userId): array
     {
@@ -24,8 +30,16 @@ final class AuthoringRepository
                      UNION ALL
                      SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                      FROM ratings r";
+        $tags = " UNION ALL
+                     SELECT 'tag' AS k, t.id AS a, t.name AS b, tt.name AS c, tt.id AS d,
+                            (SELECT GROUP_CONCAT(st2.tag_id) FROM story_tags st2
+                             JOIN stories s3 ON s3.id = st2.story_id WHERE s3.slug = ?) AS e,
+                            t.canonical_id AS f,
+                            NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m
+                     FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id";
         if ($slug === null) {
-            return $this->db->all($taxonomy . ' ORDER BY k, d');
+            // ONE bind: the NULL slug makes the selected concat yield NULL.
+            return $this->db->all($taxonomy . $tags . ' ORDER BY k, d', [null]);
         }
         return $this->db->all(
             "SELECT 's' AS k, s.id AS a, s.title AS b, s.summary AS c, s.notes AS d,
@@ -47,13 +61,14 @@ final class AuthoringRepository
              SELECT 'co' AS k, cu.id AS a, cu.penname AS b, NULL AS c, cu.id AS d,
                     NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m
              FROM coauthors c2 JOIN stories s2 ON s2.id = c2.story_id JOIN users cu ON cu.id = c2.user_id
-             WHERE s2.slug = ?
+             WHERE s2.slug = ?" . $tags . "
              ORDER BY k, d",
-            // SIX binds in text order: the 's' branch's SELECT-list admin scalar
+            // SEVEN binds in text order: the 's' branch's SELECT-list admin scalar
             // first (SELECT-list binds precede WHERE binds), then the 's' WHERE
-            // (slug + three gate binds), then the 'co' branch's slug. Count the
-            // ?s before touching this array.
-            [$userId, $slug, $userId, $userId, $userId, $slug]);
+            // (slug + three gate binds), then the 'co' branch's slug, then the
+            // 'tag' branch's slug (the branch is appended LAST). Count the ?s
+            // before touching this array.
+            [$userId, $slug, $userId, $userId, $userId, $slug, $slug]);
     }
 
     public function slugTaken(string $slug): bool
@@ -65,7 +80,7 @@ final class AuthoringRepository
      *  category slugs, series slugs, author profile slug (purge coordinates) */
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
                                 array $categoryIds, bool $validated, bool $restricted, string $language,
-                                bool $roundRobin = false, string $giftTo = ''): array
+                                bool $roundRobin = false, string $giftTo = '', array $tagIds = []): array
     {
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
@@ -75,6 +90,7 @@ final class AuthoringRepository
                 [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo]);
             $storyId = (int) $this->db->lastInsertId();
             $this->writeCategories($storyId, $categoryIds);
+            $this->writeTags($storyId, $tagIds);
             $this->db->commit();
             [$seriesSlugs, $authorSlug] = $this->purgeData($storyId, $userId);
             return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug];
@@ -91,7 +107,7 @@ final class AuthoringRepository
     public function updateStory(string $slug, int $userId, string $title, string $summary, string $notes,
                                 int $ratingId, array $categoryIds, bool $completed, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '',
-                                string $canonicalUrl = '', string $crosspostUrl = ''): array
+                                string $canonicalUrl = '', string $crosspostUrl = '', array $tagIds = []): array
     {
         $story = $this->ownStory($slug, $userId);
         $newSlug = $slug;
@@ -110,6 +126,7 @@ final class AuthoringRepository
                  $canonicalUrl === '' ? null : $canonicalUrl, $crosspostUrl === '' ? null : $crosspostUrl,
                  date('c'), $story['id']]);
             $this->writeCategories((int) $story['id'], $categoryIds);
+            $this->writeTags((int) $story['id'], $tagIds);
             $this->db->commit();
             [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
             return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id'])))), $seriesSlugs, $authorSlug];
@@ -167,6 +184,57 @@ final class AuthoringRepository
                     [$storyId, $cid]);
             }
         }
+    }
+
+    /** Replace the story's tag rows: ONE DELETE plus ONE INSERT..SELECT whose
+     *  id IN list is validated numeric (the writeCategories idiom, so a forged
+     *  or stale id drops instead of tripping the FK) and whose SELECT
+     *  normalizes synonyms on write: COALESCE(canonical_id, id) means a
+     *  retired synonym id posted today lands as its canonical row. INSERT OR
+     *  IGNORE because two synonyms of one canonical collapse onto the same
+     *  (story_id, tag_id) PK row. Called inside the caller's transaction. */
+    private function writeTags(int $storyId, array $tagIds): void
+    {
+        $this->db->query('DELETE FROM story_tags WHERE story_id = ?', [$storyId]);
+        $ids = [];
+        foreach ($tagIds as $tid) {
+            $tid = (int) $tid;
+            if ($tid > 0) $ids[$tid] = $tid;
+        }
+        if ($ids === []) return;
+        $this->db->query(
+            'INSERT OR IGNORE INTO story_tags (story_id, tag_id) SELECT ?, COALESCE(t.canonical_id, t.id) FROM tags t WHERE t.id IN (' . implode(',', $ids) . ')',
+            [$storyId]);
+    }
+
+    /** View-shaping fold over formData's 'tag' rows, shared by every renderer
+     *  of the story form: ACTIVE tags grouped under their type (id-keyed,
+     *  name-sorted, type-sorted: the SQL's compound ORDER BY cannot carry a
+     *  per-branch tertiary key without disturbing the category ordering)
+     *  plus the story's selected tag ids off the per-row concat. Retired
+     *  synonyms never offer as checkboxes: wrangling is the taxonomy
+     *  control point, and a synonym checked today would silently store its
+     *  canonical. @return array{0: array<int, array{name: string, tags: array<int, string>}>, 1: string[]} */
+    public static function tagGroups(array $rows): array
+    {
+        $groups = [];
+        $selected = [];
+        foreach ($rows as $r) {
+            if ($r['k'] !== 'tag') continue;
+            if ($selected === []) {
+                $selected = array_filter(explode(',', (string) ($r['e'] ?? '')), 'strlen');
+            }
+            if ($r['f'] !== null) continue; // retired synonym: not a form choice
+            $typeId = (int) $r['d'];
+            $groups[$typeId] ??= ['name' => (string) $r['c'], 'tags' => []];
+            $groups[$typeId]['tags'][(int) $r['a']] = (string) $r['b'];
+        }
+        foreach ($groups as &$g) {
+            asort($g['tags'], SORT_STRING);
+        }
+        unset($g);
+        ksort($groups);
+        return [$groups, array_values($selected)];
     }
 
     /** @return string[] */

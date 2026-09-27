@@ -407,4 +407,69 @@ final class FeatureGatesTest extends TestCase
         $this->assertSame(1, (int) $this->db->one("SELECT reads FROM page_stats WHERE story_id = 1 AND chapter_id = 0 AND day = strftime('%Y-%m-%d', 'now')")['reads'],
             'the chapter_id=0 story rollup counted too');
     }
+
+    /** Retrofits batch 4 (M4 batch 2, Task 4's close-out cases): pms, mute,
+     *  and wrangling. pms: every action 404s and the layout's Messages link
+     *  hides. mute: both toggles 404, the buttons and the account block hide,
+     *  and a PLANTED mute row stops filtering (finding 9: off disables the
+     *  filtering everywhere, not just the buttons). wrangling: all three
+     *  actions 404 flag-first, ahead of the SQL admin gate. */
+
+    public function test_pms_off_404s_every_message_route_and_hides_the_layout_link(): void
+    {
+        $this->flagOff('pms');
+        $member = $this->client($this->memberUserId);
+        $this->assertSame(404, $member->get('/messages')->status, 'the inbox');
+        $this->assertSame(404, $member->get('/messages/view/demo-author')->status, 'the thread');
+        $this->assertSame(404, $member->get('/messages/new/demo-author')->status, 'the compose form');
+        $this->assertSame(404, $member->postWithToken('/messages/send/demo-author', ['body' => 'Sneaky.'])->status, 'the send');
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM messages')['c'], 'no send fired while off');
+        // The layout member link hides beside Notifications.
+        $account = $member->get('/account');
+        $this->assertSame(200, $account->status);
+        $this->assertStringNotContainsString('href="/messages"', $account->body, 'the layout Messages link hides');
+        // Back on: the surfaces and the link return.
+        $this->flagOn('pms');
+        $this->assertSame(200, $member->get('/messages')->status);
+        $this->assertSame(200, $member->get('/messages/view/demo-author')->status);
+        $this->assertStringContainsString('href="/messages"', $member->get('/account')->body);
+    }
+
+    public function test_mute_off_404s_the_toggles_hides_the_buttons_and_stops_filtering(): void
+    {
+        // The mute plants first (flag on), so the off case has a live row that
+        // MUST stop filtering the moment the flag drops (finding 9).
+        $this->assertSame(302, $this->client($this->memberUserId)->postWithToken('/mute/add/demo-author')->status);
+        $this->flagOff('mute');
+        $member = $this->client($this->memberUserId);
+        $this->assertSame(404, $member->postWithToken('/mute/add/demo-author')->status);
+        $this->assertSame(404, $member->postWithToken('/mute/remove/demo-author')->status);
+        $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) c FROM muted')['c'], 'no toggle fired while off');
+        // The buttons hide on the profile and the directory; the account block hides.
+        $this->assertStringNotContainsString('/mute/add/', $member->get('/user/view/demo-author')->body);
+        $this->assertStringNotContainsString('/mute/add/', $member->get('/browse/authors')->body);
+        $this->assertStringNotContainsString(\App\Lang::t('account.muted'), $member->get('/account')->body);
+        // The planted row stops filtering: listings and search show the author again.
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $member->get('/browse/recent')->body);
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $member->get('/search', ['q' => 'rabbit'])->body);
+        // Back on: the filter resumes (the row is still planted) and the buttons return.
+        $this->flagOn('mute');
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $member->get('/browse/recent')->body);
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $member->get('/search', ['q' => 'rabbit'])->body);
+        $this->assertStringContainsString('/mute/add/', $member->get('/user/view/demo-author')->body);
+    }
+
+    public function test_wrangling_off_404s_all_three_actions(): void
+    {
+        $this->flagOff('wrangling');
+        $admin = $this->client($this->adminUserId);
+        $this->assertSame(404, $admin->get('/wrangling')->status, 'the index');
+        $this->assertSame(404, $admin->postWithToken('/wrangling/merge', ['synonym_id' => 2, 'canonical_id' => 1])->status, 'the merge');
+        $this->assertSame(404, $admin->postWithToken('/wrangling/unmerge/2')->status, 'the unmerge');
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM story_tags')['c'], 'no write fired while off');
+        $this->assertNull($this->db->one('SELECT canonical_id FROM tags WHERE id = 2')['canonical_id'], 'no retirement fired while off');
+        // Back on: the admin index returns.
+        $this->flagOn('wrangling');
+        $this->assertSame(200, $admin->get('/wrangling')->status);
+    }
 }

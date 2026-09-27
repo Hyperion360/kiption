@@ -90,6 +90,7 @@ final class CoauthorController
             elseif ($r['k'] === 'co') $coauthors[] = ['id' => (int) $r['a'], 'penname' => (string) $r['b']];
         }
         if ($story === null) return null;
+        [$tagGroups, $selectedTags] = AuthoringRepository::tagGroups($rows);
         $chapters = ($story['h'] ?? null) !== null && $story['h'] !== '[]' ? json_decode((string) $story['h'], true) ?: [] : [];
         usort($chapters, static fn(array $x, array $y): int => (int) $x['position'] <=> (int) $y['position']);
         return $this->view->render('story/form', [
@@ -107,6 +108,8 @@ final class CoauthorController
             'selectedCategories' => array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
             'categories' => $categories,
             'ratings' => $ratings,
+            'tagGroups' => $tagGroups,
+            'selectedTags' => $selectedTags,
             'chapters' => $chapters,
             'coauthors' => $coauthors,
             'canManageCoauthors' => $me === (int) $story['l'] || (int) $story['m'] === 1,

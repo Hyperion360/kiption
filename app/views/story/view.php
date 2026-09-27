@@ -24,6 +24,11 @@
     <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>
   </p>
   <?php endif; ?>
+  <?php if ($tags !== []): ?>
+  <p class="chapter-meta"><?= \App\Lang::t('story.tags_label') ?>
+    <?php foreach ($tags as $typeName => $names): ?><span class="badge"><?= $this->e($typeName) ?>: <?= $this->e(implode(', ', $names)) ?></span><?php endforeach; ?>
+  </p>
+  <?php endif; ?>
   <?php if (!empty($story['cover_path'])): ?>
     <img class="cover" src="<?= $this->e($story['cover_path']) ?>" alt="<?= $this->e(\App\Lang::t('story.cover_alt')) ?>">
   <?php endif; ?>
