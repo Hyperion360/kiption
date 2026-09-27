@@ -26,27 +26,40 @@ final class ChapterController
     #[AuthAttr] #[Post]
     public function create(string $slug): Response|string
     {
-        [$title, $content, $before, $after] = $this->chapterInput();
+        [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
         if (trim($content) === '') {
             return new Response($this->form($slug, null, 'Chapter text is required.'), 422);
         }
+        try {
+            $publishAt = $this->canonicalPublishAt($rawPublishAt);
+        } catch (\InvalidArgumentException) {
+            return new Response($this->form($slug, null, \App\Lang::t('chapter.publish_invalid')), 422);
+        }
         $auto = $this->autoValidates();
         try {
-            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto);
+            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug);
-        if ($auto) $this->notifyPublish($slug);
+        // Finding 5: a scheduled create never fans out. storyForNotify only
+        // checks live_chapters >= 1, so scheduling onto a live story would
+        // notify followers about a chapter they cannot read yet.
+        if ($auto && $publishAt === null) $this->notifyPublish($slug);
         return Response::redirect('/story/edit/' . $slug);
     }
 
     #[AuthAttr] #[Post]
     public function update(string $slug, int $position): Response|string
     {
-        [$title, $content, $before, $after] = $this->chapterInput();
+        [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
         try {
-            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after);
+            $publishAt = $this->canonicalPublishAt($rawPublishAt);
+        } catch (\InvalidArgumentException) {
+            return new Response($this->form($slug, $position, \App\Lang::t('chapter.publish_invalid')), 422);
+        }
+        try {
+            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -106,43 +119,8 @@ final class ChapterController
 
     private function notifyPublish(string $slug): void
     {
-        $repo = new \App\Repositories\AuthoringRepository($this->db);
-        $story = $repo->storyForNotify($slug);
-        if ($story === null || (int) $story['live_chapters'] === 0) return;
-        $engagement = new \App\Repositories\EngagementRepository($this->db);
-        [$followerIds, $followerEmails] = $engagement->followersToNotify((int) $story['author_id']);
-        [$favoriterIds, $favoriterEmails] = $engagement->favoritersToNotify((int) $story['story_id']);
-        // Union with dedupe by id: a member who both follows the author and favorited
-        // the story gets ONE notification row, never two.
-        $uniqueIds = [];
-        foreach ($followerIds as $id) { $uniqueIds[$id] = true; }
-        foreach ($favoriterIds as $id) { $uniqueIds[$id] = true; }
-        // One immediate email per member across both channels: merging the two
-        // user_id-keyed email maps dedupes by construction (entries are the same
-        // users.email either way).
-        $emails = $favoriterEmails;
-        foreach ($followerEmails as $id => $email) { $emails[$id] = $email; }
-        $notifications = new \App\Notifications($this->db);
-        foreach (array_keys($uniqueIds) as $memberId) {
-            $notifications->create((int) $memberId, 'update', (int) $story['story_id'], (int) $story['author_id'], (string) $story['title']);
-        }
-        $base = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/');
-        // One template fetch per publish, not per recipient (the plan's no-cache
-        // ruling scopes to the send, never to a per-member query).
-        [$subject, $body] = \App\Templates::get($this->db, 'story_update', 'Story update: {title}',
-            "A story you follow has a new chapter:\n\n{title}\n{url}");
-        $pairs = [
-            '{title}' => (string) $story['title'], '{slug}' => (string) $story['slug'],
-            '{pos}' => (string) $story['latest_position'],
-            '{url}' => "{$base}/story/read/{$story['slug']}/{$story['latest_position']}",
-        ];
-        foreach ($emails as $memberId => $email) {
-            try {
-                $this->mailer->send($email, strtr($subject, $pairs), strtr($body, $pairs));
-            } catch (\Throwable $e) {
-                error_log("follower mail failed for member {$memberId}: {$e->getMessage()}");
-            }
-        }
+        (new \App\PublishFanout($this->db, $this->mailer,
+            rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/')))->publish($slug);
     }
 
     private function head(): \App\Seo\Head
@@ -154,11 +132,37 @@ final class ChapterController
         );
     }
 
-    /** @return array{string,string,string,string} */
+    /** @return array{string,string,string,string,string} */
     private function chapterInput(): array
     {
         $p = $this->request->post;
         return [trim((string) ($p['title'] ?? '')), (string) ($p['content'] ?? ''),
-            trim((string) ($p['notes_before'] ?? '')), trim((string) ($p['notes_after'] ?? ''))];
+            trim((string) ($p['notes_before'] ?? '')), trim((string) ($p['notes_after'] ?? '')),
+            trim((string) ($p['publish_at'] ?? ''))];
+    }
+
+    /** The schedule input's normalizer (finding 1). The zone is OPTIONAL in
+     *  the accepted shape because the form's datetime-local input submits
+     *  without one; a zone-less value reads as UTC (the third createFromFormat
+     *  argument pins that, whatever the host default timezone is). Every
+     *  accepted value is canonicalized to Y-m-d\TH:i:s\Z UTC so releaseDue's
+     *  lexicographic publish_at <= now compares exact instants: raw offsets
+     *  compare wrong in both directions. Empty returns null (the immediate
+     *  path unchanged); junk throws for the 422. */
+    private function canonicalPublishAt(string $raw): ?string
+    {
+        if ($raw === '') return null;
+        if (!preg_match('#^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?$#', $raw)) {
+            throw new \InvalidArgumentException('publish_at');
+        }
+        $utc = new \DateTimeZone('UTC');
+        foreach (['Y-m-d\TH:i:s\Z', 'Y-m-d\TH:i\Z', 'Y-m-d\TH:i:sP', 'Y-m-d\TH:iP', 'Y-m-d\TH:i:s', 'Y-m-d\TH:i'] as $fmt) {
+            $dt = \DateTimeImmutable::createFromFormat($fmt, $raw, $utc);
+            $errs = \DateTimeImmutable::getLastErrors();
+            if ($dt !== false && ($errs === false || ($errs['warning_count'] === 0 && $errs['error_count'] === 0))) {
+                return $dt->setTimezone($utc)->format('Y-m-d\TH:i:s\Z');
+            }
+        }
+        throw new \InvalidArgumentException('publish_at'); // shape matched, instant did not (2099-13-45T99:99)
     }
 }

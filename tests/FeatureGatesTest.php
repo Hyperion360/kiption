@@ -333,6 +333,26 @@ final class FeatureGatesTest extends TestCase
             'no marker advanced: the member query never ran');
     }
 
+    public function test_releases_off_prints_disabled_but_the_schedule_input_still_stores(): void
+    {
+        // The flag gates the RELEASE ARM, never the authoring input (the README
+        // row's recorded semantics): off means no auto-release job, while a
+        // scheduled chapter still stores and simply waits.
+        $this->flagOff('releases');
+        $log = $this->root . '/release-mail.log';
+        [$code, $out] = $this->kip('release:due --mail-log=' . escapeshellarg($log));
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('releases feature is disabled', $out);
+        $this->assertFileDoesNotExist($log, 'no release mail fired while the flag is off');
+        $author = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $res = $this->client($author)->postWithToken('/chapter/create/the-rabbit-hole',
+            ['title' => 'Held', 'content' => 'Words.', 'publish_at' => '2099-01-01T00:00:00Z']);
+        $this->assertSame(302, $res->status, $res->body);
+        $row = $this->db->one("SELECT validated, publish_at FROM chapters WHERE title = 'Held'");
+        $this->assertSame(0, (int) $row['validated']);
+        $this->assertSame('2099-01-01T00:00:00Z', $row['publish_at'], 'the schedule input still stores with the arm off');
+    }
+
     public function test_directory_off_404s_both_author_routes_but_not_profiles(): void
     {
         $this->flagOff('directory');

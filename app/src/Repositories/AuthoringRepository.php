@@ -220,7 +220,7 @@ final class AuthoringRepository
             ? 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = (SELECT COALESCE(MAX(position), 0) + 1 FROM chapters WHERE story_id = s.id)'
             : 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = ' . (int) $position;
         return $this->db->one(
-            "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.position
+            "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.publish_at, ch.position
              FROM stories s {$chapterJoin}
              WHERE s.slug = ? AND s.deleted_at IS NULL
                AND (s.author_id = ?
@@ -231,16 +231,20 @@ final class AuthoringRepository
 
     /** @return array{0: array, 1: array, 2: string} category slugs, series slugs,
      *  author profile slug (purge coordinates) */
-    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated): array
+    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null): array
     {
         $story = $this->ownStory($slug, $userId);
         $words = \App\Markdown::wordCount($content);
+        // Scheduling is explicit: a publish_at holds the chapter at validated = 0
+        // regardless of the author's auto-validate standing (it goes live when
+        // releaseDue fires, not before).
+        $live = ($validated && $publishAt === null) ? 1 : 0;
         $this->db->begin();
         try {
             $this->db->query(
-                'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count)
-                 SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
-                [$story['id'], $title, $before, $content, $after, $validated ? 1 : 0, $words, $story['id']]);
+                'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, publish_at)
+                 SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
+                [$story['id'], $title, $before, $content, $after, $live, $words, $publishAt, $story['id']]);
             $this->touchStory($story['id']);
             $this->db->commit();
             [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
@@ -252,14 +256,18 @@ final class AuthoringRepository
     }
 
     /** @return array{0: array, 1: array, 2: string} */
-    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after): array
+    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null): array
     {
         $story = $this->ownStory($slug, $userId);
         $this->db->begin();
         try {
+            // The schedule follows the form: the input repopulates from the row
+            // (chapterFormData selects publish_at), so an untouched schedule
+            // round-trips and an emptied field clears it. A live chapter with a
+            // stray publish_at is inert: releaseDue's WHERE demands validated = 0.
             $this->db->query('UPDATE chapters SET title = ?, notes_before = ?, content = ?, notes_after = ?,
-                              word_count = ?, updated_at = ? WHERE story_id = ? AND position = ?',
-                [$title, $before, $content, $after, \App\Markdown::wordCount($content), date('c'), $story['id'], $position]);
+                              word_count = ?, publish_at = ?, updated_at = ? WHERE story_id = ? AND position = ?',
+                [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, date('c'), $story['id'], $position]);
             $this->touchStory($story['id']);
             $this->db->commit();
             [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
@@ -350,12 +358,40 @@ final class AuthoringRepository
         $cats = $this->categorySlugs((int) $ch['story_id']);
         $this->db->begin();
         try {
-            $this->db->query('UPDATE chapters SET validated = 1, updated_at = ? WHERE id = ?', [date('c'), $ch['id']]);
+            // The publish_at clear is a no-op on the queue path (it is already
+            // NULL there) and the release path's exit: an approved chapter
+            // holds no schedule left to honor.
+            $this->db->query('UPDATE chapters SET validated = 1, publish_at = NULL, updated_at = ? WHERE id = ?', [date('c'), $ch['id']]);
             $this->db->query('UPDATE stories SET updated_at = ? WHERE id = ?', [date('c'), $ch['story_id']]);
             $this->db->commit();
             [$seriesSlugs, $authorSlug] = $this->purgeData((int) $ch['story_id'], (int) $ch['author_id']);
             return [(string) $ch['slug'], $cats, $seriesSlugs, $authorSlug];
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+    }
+
+    /** Release every due scheduled chapter through the queue's own
+     *  approveChapter, so the notify hooks and the purge coordinates ride
+     *  the same flip the moderation queue uses. Idempotent by construction:
+     *  the WHERE demands validated = 0 plus a due publish_at, and
+     *  approveChapter clears both. The canonical Y-m-d\TH:i:s\Z storage makes
+     *  the lexicographic compare against strftime's %f-instant exact.
+     *  @return array<int, array{0: string, 1: array, 2: array, 3: string, 4: int}>
+     *  per row: story slug, category slugs, series slugs, author profile
+     *  slug, story id (the arm's purge + fan-out coordinates) */
+    public function releaseDue(): array
+    {
+        $due = $this->db->all(
+            "SELECT ch.id, ch.story_id FROM chapters ch JOIN stories s ON s.id = ch.story_id
+             WHERE ch.validated = 0 AND ch.publish_at IS NOT NULL
+               AND ch.publish_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+               AND s.deleted_at IS NULL");
+        $released = [];
+        foreach ($due as $row) {
+            $coords = $this->approveChapter((int) $row['id']);
+            if ($coords === null) continue; // raced to approved or vanished between the two queries
+            $released[] = [$coords[0], $coords[1], $coords[2], $coords[3], (int) $row['story_id']];
+        }
+        return $released;
     }
 
     /** @return array{0: string, 1: array, 2: array, 3: string}|null */
