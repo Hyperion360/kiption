@@ -13,7 +13,7 @@ final class Cache
     public function fileFor(string $path): ?string
     {
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $path)) return null;
-        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+|/lists/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top)$#', $path)) return null;
+        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+|/lists/view/[a-z0-9-]+|/challenges|/challenges/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top)$#', $path)) return null;
         $prefix = $path === '/' ? '' : $path;   // '/' must not become '//'
         return $this->dir . $prefix . '/index.html';
     }
@@ -103,6 +103,18 @@ final class Cache
     {
         $f = $this->fileFor('/series/view/' . $slug);
         if ($f !== null && is_file($f)) @unlink($f);
+    }
+
+    /** A challenge's two cached surfaces: its view page plus the challenges
+     *  index (its listing row and item counts live there, the news-index
+     *  idiom). Every challenge, item, and prompt write path calls this:
+     *  prompts change the public page's blob, items change both surfaces. */
+    public function purgeChallenge(string $slug): void
+    {
+        foreach (['/challenges', '/challenges/view/' . $slug] as $p) {
+            $f = $this->fileFor($p);
+            if ($f !== null && is_file($f)) @unlink($f);
+        }
     }
 
     /** A reading list's single cache file; private lists never fill (their

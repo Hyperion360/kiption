@@ -65,6 +65,9 @@ final class QueryBudgetTest extends TestCase
                 // epub variant rides the identical query path.
                 ['/story/download/the-rabbit-hole/html'],
                 ['/series/view/down-the-rabbit-hole'],
+                // The challenges surfaces (Task 3): the index's one-query listing
+                // and the seeded fixture's view fold (finding 14 pins both).
+                ['/challenges'], ['/challenges/view/community-challenge'],
                 // The seeded about page: a real pages row so the budget row
                 // exercises the actual page render, not a 404.
                 ['/page/view/about'],

@@ -51,6 +51,17 @@ final class Builder
         foreach ($db->all('SELECT slug FROM series') as $ser) {
             $urls[] = '/series/view/' . $ser['slug'];
         }
+        // Challenges: the index plus public challenges with >= 1 visible item
+        // (the lists gate idiom: an itemless challenge renders the empty
+        // noindex shape and never fills the layer).
+        if (Features::on('challenges')) {
+            $urls[] = '/challenges';
+            foreach ($db->all("SELECT ch.slug FROM challenges ch WHERE EXISTS (
+                    SELECT 1 FROM challenge_items ci JOIN stories s ON s.id = ci.story_id
+                    WHERE ci.challenge_id = ch.id AND ci.confirmed = 1 AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0)") as $c) {
+                $urls[] = '/challenges/view/' . $c['slug'];
+            }
+        }
         // Reading lists: public lists only, and only when the guest page would
         // list something (the user-tab precedent: an all-restricted or empty
         // list renders an empty page not worth filling).

@@ -14,7 +14,8 @@ final class Seeder
         try {
         if ($force) {
             foreach (['reviews', 'favorites', 'page_stats', 'chapters', 'story_characters', 'story_tags',
-                      'story_categories', 'coauthors', 'series', 'series_items', 'stories', 'characters', 'tags',
+                      'story_categories', 'coauthors', 'challenge_items', 'challenge_prompts', 'challenges',
+                      'series', 'series_items', 'stories', 'characters', 'tags',
                       'tag_types', 'categories', 'ratings', 'news'] as $t) { // news last: its comments cascade (FK on, finding 12)
                 $db->query("DELETE FROM {$t}");
             }
@@ -67,6 +68,11 @@ final class Seeder
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story2 . ', ' . $categoryId . ')');
         $db->query("INSERT INTO series (title, slug, summary, owner_id, membership) VALUES ('Down the Rabbit Hole', 'down-the-rabbit-hole', 'The complete descent, chapter by chapter.', (SELECT id FROM users WHERE penname = 'Demo Author'), 'open')");
         $db->query("INSERT INTO series_items (series_id, story_id, position, confirmed) VALUES ((SELECT id FROM series WHERE slug = 'down-the-rabbit-hole'), (SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), 1, 1)");
+        // The Community Challenge rides every seed (QueryBudget pins its index
+        // and view pages): open membership, one prompt, NO items, so the
+        // Builder's gated enumeration never joins its view page (finding 10).
+        $db->query("INSERT INTO challenges (title, slug, summary, owner_id, membership) VALUES ('Community Challenge', 'community-challenge', 'A seasonal prompt, anyone may join.', (SELECT id FROM users WHERE penname = 'Demo Author'), 'open')");
+        $db->query("INSERT INTO challenge_prompts (challenge_id, position, prompt_text) VALUES ((SELECT id FROM challenges WHERE slug = 'community-challenge'), 1, 'A story that opens with a door.')");
         // The about page rides every seed (QueryBudget/Builder want a real row):
         // OR IGNORE on the slug PK because force mode does NOT clear pages, so
         // an operator's or the import rider's pages survive a reseed untouched.

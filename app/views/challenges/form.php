@@ -17,6 +17,12 @@
     <button type="submit"><?= $row === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
   <?php if ($row !== null): ?>
+  <form method="post" action="/challenges/delete/<?= $this->e($row['slug']) ?>" class="inline">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <button type="submit"><?= \App\Lang::t('common.delete') ?></button>
+  </form>
+  <?php endif; ?>
+  <?php if ($row !== null): ?>
   <h2><?= \App\Lang::t('challenges.prompts_heading') ?></h2>
   <ol>
     <?php foreach ($prompts as $p): ?>

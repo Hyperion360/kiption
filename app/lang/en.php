@@ -310,6 +310,8 @@ return [
     'notifications.update' => 'New chapter in {story}',
     'notifications.series_submit' => '{actor} submitted {story} to your series',
     'notifications.series_confirm' => 'Your story {story} was added to a series',
+    'notifications.challenge_submit' => '{actor} submitted {story} to your challenge',
+    'notifications.challenge_confirm' => 'Your story {story} was added to a challenge',
     'notifications.coauthor' => '{actor} added you as coauthor on {story}',
 
     // Pages (custom admin pages).
@@ -386,7 +388,9 @@ return [
     'lists.err_unvalidated' => 'That story is not validated yet.',
     'lists.err_duplicate' => 'That story is already on this list.',
 
-    // Challenges (the member CRUD surface; public-page keys land with it).
+    // Challenges (the member CRUD surface plus the public pages and membership).
+    'challenges.index' => 'Challenges',
+    'challenges.empty_index' => 'No challenges yet.',
     'challenges.new' => 'New challenge',
     'challenges.edit' => 'Edit challenge',
     'challenges.membership' => 'Membership',
@@ -399,6 +403,15 @@ return [
     'challenges.add_prompt' => 'Add prompt',
     'challenges.move_up' => 'Move up',
     'challenges.move_down' => 'Move down',
+    'challenges.items_heading' => 'Stories in this challenge',
+    'challenges.no_stories' => 'No stories have joined yet.',
+    'challenges.pending' => 'Pending',
+    'challenges.confirm' => 'Confirm',
+    'challenges.chapters_count' => '{n} chapters',
+    'challenges.story_slug' => 'Your story slug',
+    'challenges.slug_placeholder' => 'story-slug',
+    'challenges.add_yours' => 'Join with your story',
+    'challenges.meta_by' => 'A challenge by {name}.',
 
     // Mail templates admin.
     'templates.heading' => 'Mail templates',

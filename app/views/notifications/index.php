@@ -35,6 +35,10 @@
           <span><?= \App\Lang::t('notifications.series_submit', ['actor' => $actor('notifications.someone'), 'story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'series_confirm' && $n['story_id'] !== null): ?>
           <span><?= \App\Lang::t('notifications.series_confirm', ['story' => $story]) ?></span>
+        <?php elseif ($n['kind'] === 'challenge_submit' && $n['story_id'] !== null): ?>
+          <span><?= \App\Lang::t('notifications.challenge_submit', ['actor' => $actor('notifications.someone'), 'story' => $story]) ?></span>
+        <?php elseif ($n['kind'] === 'challenge_confirm' && $n['story_id'] !== null): ?>
+          <span><?= \App\Lang::t('notifications.challenge_confirm', ['story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'coauthor' && $n['story_id'] !== null): ?>
           <span><?= \App\Lang::t('notifications.coauthor', ['actor' => $actor('notifications.someone'), 'story' => $story]) ?></span>
         <?php else: ?>
