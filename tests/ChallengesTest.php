@@ -337,6 +337,69 @@ final class ChallengesTest extends TestCase
         $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM challenge_items')['c']);
     }
 
+    public function test_member_reaches_the_create_form(): void
+    {
+        $res = $this->client($this->memberId())->get('/challenges/new');
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('name="title"', $res->body);
+        $this->assertStringContainsString('name="membership"', $res->body);
+        $this->assertStringNotContainsString('promptremove', $res->body, 'the create form carries no prompt management');
+    }
+
+    public function test_owner_rejoining_a_pending_story_upgrades_it_and_notifies_the_author(): void
+    {
+        $db = $this->db();
+        $db->query("INSERT INTO challenges (title, slug, summary, owner_id, membership) VALUES ('Upgrade', 'upgrade-ch', '', ?, 'moderated')", [$this->memberId()]);
+        $author = $this->client($this->authorId());
+        $this->assertSame(302, $author->postWithToken('/challenges/join/upgrade-ch', ['story_slug' => 'the-rabbit-hole'])->status);
+        $this->assertSame(0, (int) $db->one("SELECT ci.confirmed FROM challenge_items ci JOIN challenges ch ON ch.id = ci.challenge_id WHERE ch.slug = 'upgrade-ch'")['confirmed'], 'the moderated join pends');
+        // The owner re-adds the same story: the duplicate guard upgrades the
+        // pending row instead of returning duplicate (the four-outcome
+        // contract's second confirmed path).
+        $this->assertSame(302, $this->client($this->memberId())->postWithToken('/challenges/join/upgrade-ch', ['story_slug' => 'the-rabbit-hole'])->status);
+        $this->assertSame(1, (int) $db->one("SELECT ci.confirmed FROM challenge_items ci JOIN challenges ch ON ch.id = ci.challenge_id WHERE ch.slug = 'upgrade-ch'")['confirmed'], 'the owner rejoin upgrades');
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM challenge_items')['c'], 'still one row');
+        // Exactly the two notifications the outcomes owe: the earlier pending
+        // join's challenge_submit to the owner, and the upgrade's
+        // challenge_confirm to the author (actor != author).
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM notifications WHERE kind = 'challenge_submit'")['c']);
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM notifications WHERE kind = 'challenge_confirm'")['c']);
+        // A second owner rejoin on the confirmed row reads as the calm duplicate
+        $this->assertSame(302, $this->client($this->memberId())->postWithToken('/challenges/join/upgrade-ch', ['story_slug' => 'the-rabbit-hole'])->status);
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM notifications WHERE kind = 'challenge_confirm'")['c'], 'no second confirm notification');
+    }
+
+    public function test_prompt_move_rollback_restores_positions_when_a_swap_write_fails(): void
+    {
+        $db = $this->db();
+        $me = $this->client($this->memberId());
+        $me->postWithToken('/challenges/create', ['title' => 'Boom Bowl', 'summary' => '', 'membership' => 'open']);
+        $me->postWithToken('/challenges/prompt/boom-bowl', ['prompt_text' => 'One.']);
+        $me->postWithToken('/challenges/prompt/boom-bowl', ['prompt_text' => 'Two.']);
+        $ids = array_map('intval', array_column($db->all(
+            "SELECT cp.id FROM challenge_prompts cp JOIN challenges ch ON ch.id = cp.challenge_id WHERE ch.slug = 'boom-bowl' ORDER BY cp.position"), 'id'));
+        // A RAISE trigger aborts the neighbour write mid-swap (the ListsTest
+        // idiom): the repository must roll back and rethrow, never stranding a
+        // prompt on the -1 sentinel.
+        $db->query("CREATE TRIGGER prompt_boom BEFORE UPDATE ON challenge_prompts FOR EACH ROW WHEN NEW.id = {$ids[0]} BEGIN SELECT RAISE(ABORT, 'boom'); END");
+        try {
+            (new \App\Repositories\ChallengesRepository($db))->reorderPrompts('boom-bowl', $ids[1], 'up', $this->memberId());
+            $this->fail('the aborted swap must rethrow');
+        } catch (\PDOException) {
+            // the rollback arm ran and rethrew the driver error
+        }
+        $texts = array_column($db->all(
+            "SELECT cp.prompt_text FROM challenge_prompts cp JOIN challenges ch ON ch.id = cp.challenge_id WHERE ch.slug = 'boom-bowl' ORDER BY cp.position"), 'prompt_text');
+        $this->assertSame(['One.', 'Two.'], $texts, 'the rollback restored both positions');
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM challenge_prompts WHERE position = -1')['c'], 'no prompt strands on the sentinel');
+        $db->query('DROP TRIGGER prompt_boom');
+        // With the fault cleared the same swap goes through: the table is healthy
+        (new \App\Repositories\ChallengesRepository($db))->reorderPrompts('boom-bowl', $ids[1], 'up', $this->memberId());
+        $texts = array_column($db->all(
+            "SELECT cp.prompt_text FROM challenge_prompts cp JOIN challenges ch ON ch.id = cp.challenge_id WHERE ch.slug = 'boom-bowl' ORDER BY cp.position"), 'prompt_text');
+        $this->assertSame(['Two.', 'One.'], $texts);
+    }
+
     public function test_challenge_pages_fill_the_static_cache_and_write_paths_purge(): void
     {
         $db = $this->db();

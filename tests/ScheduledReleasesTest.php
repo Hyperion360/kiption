@@ -120,6 +120,20 @@ final class ScheduledReleasesTest extends TestCase
         // a regex-shaped but unreal instant rejected too
         $this->assertSame(422, $me->postWithToken('/chapter/create/the-rabbit-hole',
             ['title' => 'X', 'content' => 'Words.', 'publish_at' => '2099-13-45T99:99'])->status);
+        // a NEGATIVE offset normalizes (the east-of-UTC pin's mirror), and a
+        // zone-less value reads UTC whatever the host default timezone is (the
+        // normalizer pins UTC on every createFromFormat call)
+        $hostTz = date_default_timezone_get();
+        date_default_timezone_set('America/New_York');
+        try {
+            $this->assertSame(302, $me->postWithToken('/chapter/create/the-rabbit-hole',
+                ['title' => 'Neg', 'content' => 'Words.', 'publish_at' => '2099-01-01T05:30-05:00'])->status);
+            $this->assertSame(302, $me->postWithToken('/chapter/create/the-rabbit-hole',
+                ['title' => 'Zoneless', 'content' => 'Words.', 'publish_at' => '2099-01-01T00:00'])->status);
+        } finally { date_default_timezone_set($hostTz); }
+        $this->assertSame('2099-01-01T10:30:00Z', $db->one("SELECT publish_at FROM chapters WHERE title = 'Neg'")['publish_at']);
+        $this->assertSame('2099-01-01T00:00:00Z', $db->one("SELECT publish_at FROM chapters WHERE title = 'Zoneless'")['publish_at'],
+            'a zone-less input never shifts with the host timezone');
     }
 
     public function test_schedule_set_and_clear_on_update(): void
@@ -172,5 +186,19 @@ final class ScheduledReleasesTest extends TestCase
         [, $out2] = $this->kip('release:due --mail-log=' . escapeshellarg($mailLog));
         $this->assertStringContainsString('Released 0 chapter(s).', $out2);
         @unlink($mailLog);
+    }
+
+    public function test_fanout_mail_failure_still_lands_the_notification(): void
+    {
+        $fan = $this->plantFollower();
+        $broken = new \App\PublishFanout($this->db,
+            new \Kip\Mailer(['transport' => 'log', 'log_path' => '/nonexistent-dir/kip-qa-rel/nope.log', 'from' => 'noreply@localhost']),
+            'https://archive.example');
+        // @ on the call: the log transport warns before it throws; the catch
+        // under test is PublishFanout's, not the transport diagnostic.
+        @$broken->publish('the-rabbit-hole');
+        $this->assertSame(1, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM notifications WHERE user_id = ? AND kind = 'update'", [$fan])['c'],
+            'a failing mail transport never blocks the notification rows');
     }
 }
