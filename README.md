@@ -314,6 +314,84 @@ replies, and favorites. Members contact each other through an
 auth-gated form (CSRF, three messages per sender per hour); the
 target's email address is never rendered, only mailed to.
 
+## Challenges, scheduled releases, round robin, and gifts
+
+### Challenges
+
+Any member creates challenges at `/challenges`: a title (1-120
+characters), a plain-text summary, and one of three membership modes,
+`open`, `moderated`, or `closed`. The creator owns the challenge, and
+the edit form manages the metadata plus a prompt list (add, remove,
+reorder; a prompt is 1-500 characters of plain text, visible to
+everyone). There is no claiming machinery: an author writes to any
+prompt and joins the resulting story, the eFiction model.
+
+Joining is story-side. The challenge page carries a join form for
+members (open and moderated challenges) that takes a story slug; the
+story's author or a coauthor submits it, and the challenge owner and
+admins can add any story directly. Membership decides the outcome: an
+open challenge confirms the story at once, a moderated challenge holds
+it as pending until the owner confirms it on the same page, and a
+closed challenge accepts joins from the owner and admins only. The
+owner is notified of every pending submission, and the author is
+notified when their story is confirmed. Pending and unvalidated
+stories never show to guests; the owner and admins see pending items
+flagged for confirmation. The story's author, the challenge owner, or
+an admin can pull a story back out.
+
+Challenge pages fill the anonymous static cache, and every challenge,
+prompt, or item write purges both cached surfaces (the index and the
+challenge's page). An itemless challenge renders `noindex` and never
+caches. The `challenges` flag gates the whole module; see the flag
+table.
+
+### Scheduled releases
+
+The chapter form carries an optional Publish-at field (a
+`datetime-local` input). Leave it empty and nothing changes. Set it
+and the chapter stores invisible: it stays out of the table of
+contents, listings, feeds, and the sitemap until its moment, exactly
+like a queued chapter, while the author still sees it on the edit
+form. The input accepts `YYYY-MM-DDTHH:MM`, an optional seconds part,
+and an optional UTC offset (`Z` or `+HH:MM`); every value is
+normalized to UTC and stored in one canonical form, for example
+`2027-03-01T09:00:00Z`, so release ordering compares exact instants.
+Scheduling overrides direct-publish rights: even a validated author's
+chapter waits when a date is set.
+
+`php bin/kip release:due` releases every due chapter: it flips the
+chapter live, clears the stored date, runs the same notification
+fan-out as a queue approve (follower and favoriter inboxes plus the
+immediate email), and purges the story's cached pages. It is
+idempotent: a second run releases nothing. The app ships no scheduler
+of its own, so run the arm from cron, every five minutes say:
+
+    */5 * * * * cd /path/to/kiption && php bin/kip release:due
+
+The `releases` flag gates the arm, never the input: with the flag
+off, authors keep scheduling chapters, the arm prints `releases
+feature is disabled` and exits 0, and nothing auto-releases.
+
+### Round robin
+
+The story form's Round-robin checkbox opens a story to the crowd:
+while the `roundrobin` flag is on, any full member (approved,
+verified, not locked) gains add-chapter access to that story, not just
+the author, coauthors, and admins. The scope is add-only: contributors
+write chapters, they do not gain the story edit form, metadata
+changes, or coauthor management, and their chapters land in the
+validation queue like any member chapter. Contributors reach the form
+directly at `/chapter/new/{slug}`; the Add-chapter link on the story
+form belongs to the owner surface. Turning the flag off closes the
+expansion on the next request; chapters already contributed stay.
+
+### Gifts
+
+The story form's Gift-to field (120 characters, plain text) renders
+one line under the byline: `A gift for {name}`. It is display
+metadata only: no linking, no exchange machinery, no anonymous or
+reveal states. Leave it empty and the line does not render.
+
 ## Reading retention
 
 The read beacon. Every chapter page, including statically cached copies,
