@@ -88,6 +88,17 @@ final class FeaturesTest extends TestCase
         \App\Features::toggle('no_such_flag', true); // unknown key: never an insert
     }
 
+    public function test_toggle_before_init_throws_logic_exception(): void
+    {
+        // The Task 1 execution ruling: toggle() before init() cannot silently
+        // no-op (a call with no DB handle would vanish without writing a row
+        // and without an error); it throws instead. reset() first so this
+        // test owns the class state whatever ran before it.
+        \App\Features::reset();
+        $this->expectException(\LogicException::class);
+        \App\Features::toggle('news', false);
+    }
+
     public function test_all_lists_every_inventory_key(): void
     {
         \App\Features::init($this->db(), ['search' => false]);
