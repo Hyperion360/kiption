@@ -31,6 +31,7 @@ return [
     'nav.login' => 'Log in',
     'nav.logout' => 'Log out',
     'nav.notifications' => 'Notifications',
+    'nav.messages' => 'Messages',
     'nav.admin' => 'Admin',
     'nav.queue' => 'Queue',
     'nav.post_news' => 'Post news',
@@ -320,6 +321,7 @@ return [
     'notifications.challenge_submit' => '{actor} submitted {story} to your challenge',
     'notifications.challenge_confirm' => 'Your story {story} was added to a challenge',
     'notifications.coauthor' => '{actor} added you as coauthor on {story}',
+    'notifications.pm' => '{actor} sent you a message',
 
     // Pages (custom admin pages).
     'page.new' => 'New page',
@@ -475,6 +477,18 @@ return [
 
     // Author mute (the toggle button on the profile and the directory rows).
     'mute.button' => 'Mute',
+
+    // Private messages (the member inbox, threads, and compose form).
+    'messages.heading' => 'Messages',
+    'messages.none' => 'No messages yet.',
+    'messages.with' => 'Messages with {name}',
+    'messages.compose' => 'Message {name}',
+    'messages.help' => 'Private messages stay in each member\'s Kiption inbox; replies land in the same thread.',
+    'messages.body_label' => 'Message (1 to 5000 characters)',
+    'messages.send' => 'Send',
+    'messages.reply' => 'Reply',
+    'messages.empty_thread' => 'No messages in this thread yet.',
+    'messages.unread_badge' => '{n} unread',
 
     // The author stats dashboard (member-only, tables and no charts).
     'stats.heading' => 'Your statistics',

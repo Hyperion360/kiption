@@ -29,6 +29,16 @@
           <span><?= \App\Lang::t('notifications.reply', ['actor' => $actor('notifications.someone'), 'story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'follow'): ?>
           <span><?= \App\Lang::t('notifications.follow', ['actor' => $actor('notifications.someone')]) ?></span>
+        <?php elseif ($n['kind'] === 'pm'): ?>
+          <?php // The thread link rides the actor's profile slug (the actor_slug
+                // scalar fold); the actor falls back to the stand-in when the
+                // sender row is gone (the cascade deleted them). ?>
+          <?php
+          $pmLink = '<a href="/messages/view/' . $this->e($n['actor_slug'] ?? '') . '">';
+          $pmLink .= $this->e($n['actor'] ?? \App\Lang::t('notifications.someone'));
+          $pmLink .= '</a>';
+          ?>
+          <span><?= \App\Lang::t('notifications.pm', ['actor' => $pmLink]) ?></span>
         <?php elseif ($n['kind'] === 'update' && $n['story_id'] !== null): ?>
           <span><?= \App\Lang::t('notifications.update', ['story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'series_submit' && $n['story_id'] !== null): ?>

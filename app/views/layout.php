@@ -34,7 +34,7 @@
       <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
       <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
       <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>
-      <?php if ($loggedIn ?? false): ?><a href="/notifications"><?= \App\Lang::t('nav.notifications') ?></a><?php endif; ?>
+      <?php if ($loggedIn ?? false): ?><?php if (\App\Features::on('pms')): ?><a href="/messages"><?= \App\Lang::t('nav.messages') ?></a><?php endif; ?><a href="/notifications"><?= \App\Lang::t('nav.notifications') ?></a><?php endif; ?>
 <?php foreach (\App\NavLinks::all($navFile ?? '') as $l): ?>
     <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
 <?php endforeach; ?>

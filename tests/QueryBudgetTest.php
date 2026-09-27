@@ -101,6 +101,11 @@ final class QueryBudgetTest extends TestCase
                 // here is demo-author, and self-contact 404s on GET (Task 8 ruling).
                 ['/user/contact/betafriend'],
                 ['/queue'], ['/notifications'], ['/favorites'],
+                // The PM surfaces (Task 3): the inbox's pair fold and the
+                // thread's anchor-row fold, each one statement; the send path
+                // is a POST and never budget-bound. betafriend is the partner
+                // (the shared login here is demo-author, and self-threads 404).
+                ['/messages'], ['/messages/view/betafriend'],
                 // The author stats dashboard: the acting user (demo-author) owns
                 // both seeded stories, so the row exercises the real render; the
                 // four scalar subqueries ride the single own-works query.
@@ -125,6 +130,7 @@ final class QueryBudgetTest extends TestCase
              ON CONFLICT (user_id, story_id) DO UPDATE SET
                 last_position = MAX(last_position, excluded.last_position),
                 updated_at = excluded.updated_at') return; // progress upsert, the logged-in read shape's extra write
+            if ($sql === 'UPDATE messages SET read_at = ? WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL') return; // thread-open mark-read, the PM shape's extra write (finding 4, the reading_history precedent)
             $queries++;
         });
         $res = $client->get($page);
