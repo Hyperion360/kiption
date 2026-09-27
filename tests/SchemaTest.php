@@ -38,8 +38,25 @@ final class SchemaTest extends TestCase
             'notifications', 'story_kudos', 'follows', 'reading_history', 'reports',
             'contact_log', 'nav_links', 'feature_flags',
             'challenges', 'challenge_prompts', 'challenge_items',
+            'muted', 'messages',
         ];
         return array_map(static fn(string $t): array => [$t], $tables);
+    }
+
+    /** Migration 023: the muted PK pair IS the toggle idempotence contract
+     *  (INSERT OR IGNORE lands at most one row per pair), and tags grows
+     *  the wrangling column the M4 batch 2 merge surface writes. */
+    public function test_muted_pk_pair_and_tags_canonical_column(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $cols = implode(',', array_map(static fn(array $c): string => $c['name'], $db->all('PRAGMA table_info(tags)')));
+        $this->assertStringContainsString('canonical_id', $cols, 'tags.canonical_id missing');
+        $db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)', ['a@x.test', 'h', 'Author', 'author']);
+        $db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)', ['b@x.test', 'h', 'Muter', 'muter']);
+        $db->query('INSERT INTO muted (user_id, author_id) VALUES (2, 1)');
+        $this->expectException(\PDOException::class);
+        $db->query('INSERT INTO muted (user_id, author_id) VALUES (2, 1)');
     }
 
     public function test_foreign_keys_are_enforced(): void

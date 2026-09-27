@@ -77,6 +77,23 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
+  <?php if (\App\Features::on('mute')): ?>
+  <h2><?= \App\Lang::t('account.muted') ?></h2>
+  <?php if ($muted === []): ?><p class="chapter-meta"><?= \App\Lang::t('account.nobody_muted') ?></p>
+  <?php else: ?>
+  <p class="chapter-meta"><?= \App\Lang::t('account.muted_note') ?></p>
+  <ul>
+    <?php foreach ($muted as $m): ?>
+      <li>
+        <a href="/user/view/<?= $this->e($m['profile_slug']) ?>"><?= $this->e($m['penname']) ?></a>
+        <form method="post" action="/mute/remove/<?= $this->e($m['profile_slug']) ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('account.unmute') ?></button>
+        </form>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
+  <?php endif; ?>
   <h2><?= \App\Lang::t('account.continue_reading') ?></h2>
   <?php if ($progress === []): ?><p class="chapter-meta"><?= \App\Lang::t('account.nothing_progress') ?></p>
   <?php else: ?>

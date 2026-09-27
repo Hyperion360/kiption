@@ -530,6 +530,9 @@ moment news goes off.
 | challenges | `/challenges`, challenge views, and all challenge write operations | 404 |
 | releases | the `php bin/kip release:due` job | prints `releases feature is disabled` and exits 0; scheduling a chapter still stores, it just never auto-releases |
 | roundrobin | the any-member chapter gate on round-robin stories | chapters on round-robin stories stay limited to the author, coauthors, and admins |
+| pms | `/messages`, thread views, the compose form, and the send POST | 404 |
+| mute | `/mute/add/{slug}` and `/mute/remove/{slug}` | 404; the profile and directory mute buttons and the account block hide, and listings stop filtering for everyone |
+| wrangling | `/wrangling`, the merge form, and the merge and unmerge POSTs | 404 |
 
 The two flags compose: `comments` is a sub-flag of `news`. News on with
 comments off renders items with their existing comments and counts but no

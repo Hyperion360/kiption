@@ -224,6 +224,10 @@ return [
     'account.stories_notify' => '{n} stories, notify mode: {mode}',
     'account.cycle_mode' => 'Cycle mode',
     'account.unfollow' => 'Unfollow',
+    'account.muted' => 'Authors you mute',
+    'account.nobody_muted' => 'You have not muted anyone.',
+    'account.unmute' => 'Unmute',
+    'account.muted_note' => 'Muting hides an author\'s works from your listings and searches only; their profile and any direct link still work.',
     'account.continue_reading' => 'Continue reading',
     'account.nothing_progress' => 'Nothing in progress.',
     'account.chapter_of' => 'chapter {n} of {m}',
@@ -463,10 +467,14 @@ return [
     'user.contact_help' => 'Delivered by email through the site; the reply path points at your own contact form, so neither address is exposed here.',
     'user.contact_message' => 'Message (1 to 5000 characters)',
     'user.contact_send' => 'Send',
+    'user.mute_button_aria' => 'Mute {name}',
     'user.stories_by' => 'Stories by ',
     'user.favorites_of' => 'Favorites of ',
     'user.meta_stories_by' => 'Stories by {name} on {site}.',
     'user.listing_meta' => '{title} on {site}.',
+
+    // Author mute (the toggle button on the profile and the directory rows).
+    'mute.button' => 'Mute',
 
     // The author stats dashboard (member-only, tables and no charts).
     'stats.heading' => 'Your statistics',
@@ -506,6 +514,9 @@ return [
     'features.challenges.desc' => 'Challenges: public pages, prompts, and story membership',
     'features.releases.desc' => 'The scheduled chapter release job (release:due)',
     'features.roundrobin.desc' => 'Any-member chapter writing on round-robin stories',
+    'features.pms.desc' => 'Private messages between members',
+    'features.mute.desc' => 'Per-member author mute on listings and search',
+    'features.wrangling.desc' => 'Admin tag wrangling with canonical merges',
 
     // The site-wide admin analytics dashboard (/analytics).
     'analytics.heading' => 'Site analytics',

@@ -74,6 +74,12 @@ final class AccountController
             // cannot vary per branch, so the member's own list re-sorts in place.
             usort($stories, static fn(array $x, array $y): int => strcasecmp((string) $x['b'], (string) $y['b']));
         }
+        // The muted-authors block: its own one-query listing (the plan's
+        // MuteRepository shape), fetched only while the flag is on so an
+        // off archive renders the page exactly as it did before mutes.
+        $muted = \App\Features::on('mute')
+            ? (new \App\Repositories\MuteRepository($this->db))->mutedAuthors($userId)
+            : [];
         return $this->view->render('account/show', [
             'title' => \App\Lang::t('account.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('account.heading'))->withCanonical('/account')->withNoindex(),
@@ -84,6 +90,7 @@ final class AccountController
             'stories' => $stories,
             'seriesList' => $seriesList,
             'following' => $following,
+            'muted' => $muted,
             'progress' => $progress,
             'marked' => $marked,
             'tocOn' => ($this->request->cookies['toc'] ?? '') === '1',

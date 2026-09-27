@@ -17,6 +17,12 @@
       <td>
         <a href="/user/view/<?= $this->e($m['profile_slug']) ?>"><?= $this->e($m['penname']) ?></a>
         <?php if ((int) $m['is_beta'] === 1): ?><span class="badge"><?= \App\Lang::t('browse.beta_reader') ?></span><?php endif; ?>
+        <?php if ($loggedIn && \App\Features::on('mute') && (int) $m['id'] !== $me): ?>
+        <form method="post" action="/mute/add/<?= $this->e($m['profile_slug']) ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <button type="submit" aria-label="<?= $this->e(\App\Lang::t('user.mute_button_aria', ['name' => $m['penname']])) ?>"><?= \App\Lang::t('mute.button') ?></button>
+        </form>
+        <?php endif; ?>
       </td>
       <td><?= number_format((int) $m['story_count']) ?></td>
       <td><?= $this->e(substr((string) $m['created_at'], 0, 10)) ?></td>

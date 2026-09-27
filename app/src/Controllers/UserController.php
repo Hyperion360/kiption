@@ -40,6 +40,10 @@ final class UserController
             'path' => $this->request->path,
             'slug' => $slug,
             'profile' => $profile,
+            'me' => $me,
+            // The mute button needs a token, but a cookieless render must not
+            // grow one (the cacheable-path rule): the ChallengesController idiom.
+            'csrf' => $me !== 0 ? $this->session->csrfToken() : '',
             'loggedIn' => $me !== 0,
         ]);
     }

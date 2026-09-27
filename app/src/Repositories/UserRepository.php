@@ -172,10 +172,12 @@ final class UserRepository
      *  bucket (digits/underscore, i.e. NOT GLOB '[a-z]*'). Placeholder count:
      *  the dynamic letter WHERE adds ONE ? only in the single-letter branch,
      *  and LIMIT ? OFFSET ? always add two, so params grow in lockstep with
-     *  the branches that append them (max three: letter, perPage, offset). */
+     *  the branches that append them (max three: letter, perPage, offset).
+     *  u.id rides along unrendered: the directory row's mute button skips the
+     *  viewer's own row with it (view data, not display data). */
     public function authorsDirectory(?string $letter, bool $betaOnly, int $perPage, int $offset): array
     {
-        $sql = 'SELECT u.profile_slug, u.penname, u.is_beta, u.created_at,
+        $sql = 'SELECT u.id, u.profile_slug, u.penname, u.is_beta, u.created_at,
                        (SELECT COUNT(*) FROM stories st WHERE st.author_id = u.id AND st.validated = 1 AND st.deleted_at IS NULL) story_count
                 FROM users u
                 WHERE u.penname IS NOT NULL AND u.is_locked = 0 AND u.approved_at IS NOT NULL AND u.email_verified_at IS NOT NULL';

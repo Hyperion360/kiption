@@ -29,4 +29,10 @@
     <a href="/user/contact/<?= $this->e($slug) ?>"><?= \App\Lang::t('user.contact_tab') ?></a>
     <?php endif; ?>
   </nav>
+  <?php if ($loggedIn && \App\Features::on('mute') && (int) $profile['id'] !== $me): ?>
+  <form method="post" action="/mute/add/<?= $this->e($slug) ?>" class="inline">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <button type="submit" aria-label="<?= $this->e(\App\Lang::t('user.mute_button_aria', ['name' => $profile['penname']])) ?>"><?= \App\Lang::t('mute.button') ?></button>
+  </form>
+  <?php endif; ?>
 </section>

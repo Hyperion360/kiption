@@ -1,6 +1,6 @@
 <?php // app/src/Controllers/BrowseController.php
 namespace App\Controllers;
-use Kip\{App, Http\Request, Http\Response, View};
+use Kip\{App, Http\Request, Http\Response, Session, View};
 use App\Repositories\StoryRepository;
 use App\Repositories\UserRepository;
 
@@ -12,6 +12,7 @@ final class BrowseController
         private App $app,
         private StoryRepository $stories,
         private UserRepository $users,
+        private Session $session,
     ) {}
 
     public function index(): string
@@ -111,6 +112,11 @@ final class BrowseController
             $letter = preg_match('/^[a-z]/', $letter) ? $letter[0] : '0';
         }
         $betaOnly = ($this->request->get['beta'] ?? '') === '1';
+        // The directory never hides rows (the recorded ruling: it lists authors,
+        // not stories); the mute BUTTON rides its rows for members. $me is the
+        // cookie-gated idiom, never a bare session read, so the cookieless
+        // cacheable path starts no session (plan review finding 13).
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         [$perPage, $offset] = $this->paginate();
         $members = $this->users->authorsDirectory($letter === '' ? null : $letter, $betaOnly, $perPage, $offset);
         $canonical = $letter === '' ? '/browse/authors' : '/browse/authors/' . $letter;
@@ -129,6 +135,11 @@ final class BrowseController
             'beta' => $betaOnly,
             'page' => $this->page(),
             'baseUrl' => $canonical,
+            'me' => $me,
+            // The ChallengesController idiom: a member render carries the token,
+            // a cookieless render carries the empty string and grows no session.
+            'csrf' => $me !== 0 ? $this->session->csrfToken() : '',
+            'loggedIn' => $me !== 0,
         ];
         return $betaOnly
             ? (new Response($this->view->render('browse/authors', $data), 200))->withHeader('X-Robots-Tag', 'noindex')
