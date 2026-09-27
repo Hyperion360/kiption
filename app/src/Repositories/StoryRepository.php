@@ -158,21 +158,25 @@ final class StoryRepository
         );
     }
 
-    /** @return list<array<string,mixed>> Listings and feeds are guest surfaces and
-     *  cannot personalize per viewer, so restricted works never appear here; members
-     *  reach them by direct URL (the story queries gate per-viewer instead). */
-    public function recentStories(int $perPage, int $offset): array
+    /** @return list<array<string,mixed>> The listings stay guest-cacheable:
+     *  restricted works never appear here and members reach them by direct
+     *  URL (the story queries gate per-viewer instead). A viewer > 0
+     *  additionally drops that member's muted authors (the Task 2 clause);
+     *  the anonymous statement stays byte-identical, muted never mentioned. */
+    public function recentStories(int $perPage, int $offset, int $viewer = 0): array
     {
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         return $this->db->all(
             'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, s.created_at,
                     u.penname, r.label AS rating_label
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
-             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
-             ORDER BY s.updated_at DESC, s.id DESC
+             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0'
+            . $mute .
+            ' ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
-            [$perPage, $offset]
+            $viewer > 0 ? [$viewer, $perPage, $offset] : [$perPage, $offset]
         );
     }
 
@@ -201,26 +205,32 @@ final class StoryRepository
 
     /** Language-filtered listing for the browse filter (recentStories' shape,
      *  capped at 50, no pagination). The query string that drives it makes
-     *  these pages cache-ineligible: Cache refuses queryful GETs. */
-    public function storiesInLanguage(string $language): array
+     *  these pages cache-ineligible: Cache refuses queryful GETs. The Task 2
+     *  mute clause rides per viewer; anonymous keeps the two-bind shape. */
+    public function storiesInLanguage(string $language, int $viewer = 0): array
     {
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         return $this->db->all(
             'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, s.created_at,
                     u.penname, r.label AS rating_label
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
-             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.language = ? AND s.is_restricted = 0
-             ORDER BY s.updated_at DESC, s.id DESC
+             WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.language = ? AND s.is_restricted = 0'
+            . $mute .
+            ' ORDER BY s.updated_at DESC, s.id DESC
              LIMIT 50',
-            [$language]
+            $viewer > 0 ? [$language, $viewer] : [$language]
         );
     }
 
-    /** ONE query: the category listing joined on the category slug. */
-    public function storiesInCategory(string $slug, int $perPage, int $offset): array
+    /** ONE query: the category listing joined on the category slug. The Task 2
+     *  mute clause lands after the visibility gates, ahead of LIMIT/OFFSET, so
+     *  the member bind order is [$slug, $viewer, $perPage, $offset]. */
+    public function storiesInCategory(string $slug, int $perPage, int $offset, int $viewer = 0): array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return [];
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         return $this->db->all(
             'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at,
                     u.penname, r.label AS rating_label
@@ -229,10 +239,11 @@ final class StoryRepository
              JOIN ratings r ON r.id = s.rating_id
              JOIN story_categories sc ON sc.story_id = s.id
              JOIN categories cc ON cc.id = sc.category_id
-             WHERE cc.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
-             ORDER BY s.updated_at DESC, s.id DESC
+             WHERE cc.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0'
+            . $mute .
+            ' ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
-            [$slug, $perPage, $offset]
+            $viewer > 0 ? [$slug, $viewer, $perPage, $offset] : [$slug, $perPage, $offset]
         );
     }
 

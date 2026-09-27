@@ -57,10 +57,15 @@ final class SeriesRepository
      *  ORDER BY note (plan review finding 1): compound SELECTs take bare output
      *  aliases only, so position is emitted UNCAST (raw integer) and ordered as
      *  `ORDER BY k, c`; a CAST in ORDER BY fails to prepare and a CAST-in-select
-     *  sorts lexicographically (1,10,11,2). */
-    public function seriesPage(string $slug, int $me): ?array
+     *  sorts lexicographically (1,10,11,2). The Task 2 mute clause rides the
+     *  item branch only, as the TWELFTH bind (anonymous keeps the exact
+     *  eleven). */
+    public function seriesPage(string $slug, int $me, int $viewer = 0): ?array
     {
         if (!preg_match('#^[a-z0-9-]+$#', $slug)) return null;
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
+        $binds = [$me, $me, $slug, $slug, $me, $me, $me, $me, $me, $me, $me];
+        if ($viewer > 0) $binds[] = $viewer;
         $rows = $this->db->all(
             "SELECT '0' AS k, ser.title a, ser.summary b, ser.membership c, ser.slug d,
                     u.penname e, u.profile_slug f, ser.created_at g,
@@ -83,14 +88,15 @@ final class SeriesRepository
                AND ((si.confirmed = 1 AND (s.validated = 1 OR s.author_id = CAST(? AS INTEGER) OR ser.owner_id = CAST(? AS INTEGER)
                     OR EXISTS (SELECT 1 FROM users v2 WHERE v2.id = CAST(? AS INTEGER) AND v2.role = 'admin')))
                     OR ser.owner_id = CAST(? AS INTEGER) OR s.author_id = CAST(? AS INTEGER)
-                    OR EXISTS (SELECT 1 FROM users v3 WHERE v3.id = CAST(? AS INTEGER) AND v3.role = 'admin'))
+                    OR EXISTS (SELECT 1 FROM users v3 WHERE v3.id = CAST(? AS INTEGER) AND v3.role = 'admin')){$mute}
              ORDER BY k, c",
-            // ELEVEN binds, in order of appearance (SELECT-list first, left to
-            // right): the count's restricted gate, the is_admin scalar, the
-            // series slug (twice), the list's restricted gate, then the six
-            // viewer-gate binds. The Task 2 draft shipped eight of nine and PDO
+            // TWELVE binds when a viewer flows in, in order of appearance
+            // (SELECT-list first, left to right): the count's restricted gate,
+            // the is_admin scalar, the series slug (twice), the list's
+            // restricted gate, then the six viewer-gate binds, then the mute
+            // clause's viewer. The Task 2 draft shipped eight of nine and PDO
             // silently left the ninth unbound; count the question marks.
-            [$me, $me, $slug, $slug, $me, $me, $me, $me, $me, $me, $me]
+            $binds
         );
         if ($rows === []) return null;
         $series = [

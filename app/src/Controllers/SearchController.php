@@ -30,7 +30,9 @@ final class SearchController
         ];
         [$perPage, $offset] = $this->paginate();
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
-        $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me);
+        // Finding 9: the mute gate rides here in the controller, so flag off
+        // disables the filtering everywhere, not just the buttons.
+        $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0);
         $head = $this->head()->withTitle(\App\Lang::t('search.heading'))->withCanonical('/search')->withNoindex();
         $out = $this->view->render('search/index', [
             'title' => \App\Lang::t('search.heading'), 'head' => $head, 'theme' => \App\Theme::current($this->request),

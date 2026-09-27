@@ -167,4 +167,102 @@ final class StoryRepositoryTest extends TestCase
         $this->assertSame('general', $rows[0]['slug']);
         $this->assertSame(1, (int) $rows[0]['story_count']);
     }
+
+    /** A second user (id 2) who has muted Demo Author (id 1), for the
+     *  member-listing clause pins below. */
+    private function plantViewerMutingAuthor(): int
+    {
+        $this->db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)',
+            ['viewer@x.test', 'h', 'The Viewer']);
+        $viewer = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO muted (user_id, author_id) VALUES (?, ?)', [$viewer, 1]);
+        return $viewer;
+    }
+
+    /** Capture one listing call's SQL (the last query the handle ran). */
+    private function captureListingSql(callable $run): string
+    {
+        $sql = '';
+        $this->db->onQuery(function (string $s) use (&$sql): void { $sql = $s; });
+        $run();
+        $this->db->onQuery(fn () => null);
+        return $sql;
+    }
+
+    /** Finding 8's member-listing pin, shared shape: the member call's SQL
+     *  carries MuteRepository's clause verbatim; the anonymous call's SQL
+     *  never mentions muted (byte-identity by construction); the hand-counted
+     *  member bind array explains against the captured SQL (a wrong count
+     *  fails the prepare); finding 7: the muted probe is an index SEARCH,
+     *  covering, over the PK autoindex (idx_muted_author stays the FK-cascade
+     *  servant, never the probe's pick). @param list<int|string> $binds */
+    private function assertMemberListingPin(string $memberSql, string $anonSql, array $binds): void
+    {
+        $this->assertStringContainsString(\App\Repositories\MuteRepository::clause('s'), $memberSql);
+        $this->assertStringNotContainsString('muted', $anonSql);
+        $plan = $this->db->all('EXPLAIN QUERY PLAN ' . $memberSql, $binds);
+        $text = implode(' ', array_column($plan, 'detail'));
+        $this->assertStringContainsString('SEARCH mu USING COVERING INDEX sqlite_autoindex_muted_1', $text,
+            'the muted probe must ride the PK autoindex as a covering SEARCH');
+        $this->assertStringNotContainsString('SCAN mu', $text);
+        $this->assertStringNotContainsString('idx_muted_author', $text);
+    }
+
+    public function test_recent_stories_member_clause_and_binds(): void
+    {
+        $viewer = $this->plantViewerMutingAuthor();
+        $repo = new StoryRepository($this->db);
+        $memberRows = null;
+        $memberSql = $this->captureListingSql(function () use ($repo, $viewer, &$memberRows): void {
+            $memberRows = $repo->recentStories(20, 0, $viewer);
+        });
+        $anonRows = null;
+        $anonSql = $this->captureListingSql(function () use ($repo, &$anonRows): void {
+            $anonRows = $repo->recentStories(20, 0);
+        });
+        // Member binds in text order: the clause's ? sits in the WHERE ahead
+        // of LIMIT/OFFSET, so [$viewer, $perPage, $offset].
+        $this->assertMemberListingPin($memberSql, $anonSql, [$viewer, 20, 0]);
+        $this->assertSame([], $memberRows, 'the muted author only has the one seeded story');
+        $this->assertCount(1, $anonRows);
+    }
+
+    public function test_stories_in_category_member_clause_and_binds(): void
+    {
+        $viewer = $this->plantViewerMutingAuthor();
+        $repo = new StoryRepository($this->db);
+        $memberRows = null;
+        $memberSql = $this->captureListingSql(function () use ($repo, $viewer, &$memberRows): void {
+            $memberRows = $repo->storiesInCategory('general', 20, 0, $viewer);
+        });
+        $anonRows = null;
+        $anonSql = $this->captureListingSql(function () use ($repo, &$anonRows): void {
+            $anonRows = $repo->storiesInCategory('general', 20, 0);
+        });
+        // [$slug, $viewer, $perPage, $offset]: the clause follows the category
+        // and visibility gates, ahead of LIMIT/OFFSET.
+        $this->assertMemberListingPin($memberSql, $anonSql, ['general', $viewer, 20, 0]);
+        $this->assertSame([], $memberRows);
+        $this->assertCount(1, $anonRows);
+    }
+
+    public function test_stories_in_language_member_clause_and_binds(): void
+    {
+        $this->db->query("UPDATE stories SET language = 'en' WHERE id = 1");
+        $viewer = $this->plantViewerMutingAuthor();
+        $repo = new StoryRepository($this->db);
+        $memberRows = null;
+        $memberSql = $this->captureListingSql(function () use ($repo, $viewer, &$memberRows): void {
+            $memberRows = $repo->storiesInLanguage('en', $viewer);
+        });
+        $anonRows = null;
+        $anonSql = $this->captureListingSql(function () use ($repo, &$anonRows): void {
+            $anonRows = $repo->storiesInLanguage('en');
+        });
+        // [$language, $viewer]: the clause trails the language gate; the
+        // LIMIT 50 carries no binds.
+        $this->assertMemberListingPin($memberSql, $anonSql, ['en', $viewer]);
+        $this->assertSame([], $memberRows);
+        $this->assertCount(1, $anonRows);
+    }
 }

@@ -176,6 +176,37 @@ final class SearchTest extends TestCase
         $this->assertSame('noindex', $res->headers['X-Robots-Tag'] ?? '');
     }
 
+    /** Task 2: both arms + the page fold drop the muted author's stories for
+     *  the viewer alone. The viewer bind sits immediately after the existing
+     *  restricted-gate $me bind in TEXT order, so the misbind trap is pinned
+     *  too: every filter set at once WITH a viewer still returns the story
+     *  (a displaced bind silently empties the results instead). */
+    public function test_search_arms_and_fold_filter_muted_authors_for_the_viewer(): void
+    {
+        $this->db()->query("UPDATE stories SET language = 'en' WHERE slug = 'the-rabbit-hole'");
+        $viewer = (int) $this->db()->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $author = (int) $this->db()->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $this->db()->query('INSERT INTO muted (user_id, author_id) VALUES (?, ?)', [$viewer, $author]);
+        $repo = new \App\Repositories\SearchRepository($this->db());
+        // FTS seam: filtered for the viewer, untouched without one
+        $this->assertSame([], $repo->searchFts('rabbit', [], 20, 0, 0, $viewer)['rows']);
+        $this->assertSame('the-rabbit-hole', $repo->searchFts('rabbit', [], 20, 0, 0)['rows'][0]['slug'] ?? null);
+        // LIKE seam: the same matrix
+        $this->assertSame([], $repo->searchLike('rabbit', [], 20, 0, 0, $viewer)['rows']);
+        $this->assertSame('the-rabbit-hole', $repo->searchLike('rabbit', [], 20, 0, 0)['rows'][0]['slug'] ?? null);
+        // the page fold (the live /search surface) on both arms
+        $this->assertSame([], $repo->searchWithTaxonomies('rabbit', [], 20, 0, 0, $viewer)['rows']);
+        $this->assertSame('the-rabbit-hole', $repo->searchWithTaxonomies('rabbit', [], 20, 0, 0)['rows'][0]['slug'] ?? null);
+        // the misbind trap, no mute row planted: every filter set at once plus
+        // the viewer bind in the array still finds the story on every seam
+        $this->db()->query('DELETE FROM muted');
+        $teen = (int) $this->db()->one("SELECT id FROM ratings WHERE label = 'Teen'")['id'];
+        $all = ['category' => 'general', 'rating_id' => $teen, 'completed' => false, 'language' => 'en'];
+        $this->assertSame('the-rabbit-hole', $repo->searchFts('rabbit', $all, 20, 0, 0, $viewer)['rows'][0]['slug'] ?? null, 'fts filters survive the viewer bind');
+        $this->assertSame('the-rabbit-hole', $repo->searchLike('rabbit', $all, 20, 0, 0, $viewer)['rows'][0]['slug'] ?? null, 'like filters survive the viewer bind');
+        $this->assertSame('the-rabbit-hole', $repo->searchWithTaxonomies('rabbit', $all, 20, 0, 0, $viewer)['rows'][0]['slug'] ?? null, 'the fold too');
+    }
+
     public function test_search_page_empty_and_junk_states(): void
     {
         $bare = $this->client()->get('/search');

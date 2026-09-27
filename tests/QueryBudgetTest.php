@@ -166,4 +166,33 @@ final class QueryBudgetTest extends TestCase
         (new Database('sqlite:' . $this->path))
             ->query("UPDATE stories SET language = 'en' WHERE slug = 'the-rabbit-hole'");
     }
+
+    /** Finding 4's Task-2 pin: a MEMBER-rendered /browse/recent with mute
+     *  rows planted stays a 1-query render. The clause rides the same
+     *  statement as a conditional fragment; it is never a second query. The
+     *  body assertion proves the member path really engaged (the stories are
+     *  gone for the muter), so the row cannot pass vacuously through the
+     *  anonymous shape. */
+    public function test_member_recent_listing_with_mutes_planted_stays_inside_the_one_query_budget(): void
+    {
+        (new Database('sqlite:' . $this->path))->query(
+            'INSERT INTO muted (user_id, author_id)
+             VALUES ((SELECT id FROM users WHERE penname = ?), (SELECT id FROM users WHERE penname = ?))',
+            ['betafriend', 'Demo Author']
+        );
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            $queries++;
+        });
+        $res = $client->get('/browse/recent');
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $res->body, 'the muter really lost the listing rows');
+        $this->assertLessThanOrEqual(1, $queries, "member /browse/recent ran {$queries} content queries, budget is 1");
+    }
 }

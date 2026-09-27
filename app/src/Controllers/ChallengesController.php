@@ -48,7 +48,9 @@ final class ChallengesController
     {
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
-        $page = $this->challenges->challengePage($slug, $me);
+        // The mute gate (finding 9): the item branch filters only while the
+        // flag is on; $me itself keeps driving the visibility gates.
+        $page = $this->challenges->challengePage($slug, $me, \App\Features::on('mute') ? $me : 0);
         if ($page === null) return new Response('Page not found', 404);
         $c = $page['challenge'];
         $items = $page['items'];

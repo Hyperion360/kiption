@@ -23,6 +23,11 @@ final class BrowseController
         if ($language !== '' && !preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $language)) {
             $language = '';
         }
+        // The cookie-gated $me idiom (plan review finding 13: never a bare
+        // session read, or the cookieless cacheable path starts a session) and
+        // the mute gate (finding 9: flag off disables the filtering, not just
+        // the buttons).
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         return $this->view->render('browse/index', [
             'title' => \App\Lang::t('browse.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('browse.heading'))->withCanonical('/browse'),
@@ -30,7 +35,7 @@ final class BrowseController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'categories' => $this->stories->categoriesWithCounts(),
             'language' => $language,
-            'langStories' => $language === '' ? [] : $this->stories->storiesInLanguage($language),
+            'langStories' => $language === '' ? [] : $this->stories->storiesInLanguage($language, \App\Features::on('mute') ? $me : 0),
         ]);
     }
 
@@ -38,7 +43,8 @@ final class BrowseController
     {
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
-        $stories = $this->stories->recentStories($perPage, $offset);
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $stories = $this->stories->recentStories($perPage, $offset, \App\Features::on('mute') ? $me : 0);
         $items = [];
         foreach ($stories as $i => $s) {
             $items[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => '/story/view/' . $s['slug'], 'name' => $s['title']];
@@ -61,7 +67,8 @@ final class BrowseController
     {
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
-        $stories = $this->stories->storiesInCategory($slug, $perPage, $offset);
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $stories = $this->stories->storiesInCategory($slug, $perPage, $offset, \App\Features::on('mute') ? $me : 0);
         $categoryTitle = \App\Lang::t('browse.category_title', ['name' => $slug]);
         $head = $this->head()->withTitle($categoryTitle)
             ->withCanonical($this->request->path)

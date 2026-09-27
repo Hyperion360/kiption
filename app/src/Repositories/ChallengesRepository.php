@@ -117,13 +117,18 @@ final class ChallengesRepository
      *  param-free json blob in the '0' branch (the reading-list blob idiom);
      *  item position is emitted UNCAST and ordered as a bare alias (compound
      *  SELECTs reject CAST in ORDER BY, and a CAST-in-select sorts 10 before
-     *  4, finding 9). Returns ['challenge' => ..., 'items' => ...] or null
-     *  for an unknown slug. ELEVEN binds, counted: the count's restricted
+     *  4, finding 9). The Task 2 mute clause rides the item branch only, as
+     *  the TWELFTH bind (anonymous keeps the exact eleven). Returns
+     *  ['challenge' => ..., 'items' => ...] or null for an unknown slug.
+     *  TWELVE binds when a viewer flows in, counted: the count's restricted
      *  gate, the admin scalar, the slug (twice), the item branch's restricted
-     *  gate, then the six viewer-gate binds. */
-    public function challengePage(string $slug, int $me): ?array
+     *  gate, then the six viewer-gate binds, then the clause's viewer. */
+    public function challengePage(string $slug, int $me, int $viewer = 0): ?array
     {
         if (!preg_match('#^[a-z0-9-]+$#', $slug)) return null;
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
+        $binds = [$me, $me, $slug, $slug, $me, $me, $me, $me, $me, $me, $me];
+        if ($viewer > 0) $binds[] = $viewer;
         $rows = $this->db->all(
             "SELECT '0' AS k, ch.title a, ch.summary b, ch.membership c, ch.slug d,
                     u.penname e, u.profile_slug f, ch.created_at g,
@@ -148,9 +153,9 @@ final class ChallengesRepository
                AND ((ci.confirmed = 1 AND (s.validated = 1 OR s.author_id = CAST(? AS INTEGER) OR ch.owner_id = CAST(? AS INTEGER)
                     OR EXISTS (SELECT 1 FROM users v2 WHERE v2.id = CAST(? AS INTEGER) AND v2.role = 'admin')))
                     OR ch.owner_id = CAST(? AS INTEGER) OR s.author_id = CAST(? AS INTEGER)
-                    OR EXISTS (SELECT 1 FROM users v3 WHERE v3.id = CAST(? AS INTEGER) AND v3.role = 'admin'))
+                    OR EXISTS (SELECT 1 FROM users v3 WHERE v3.id = CAST(? AS INTEGER) AND v3.role = 'admin')){$mute}
              ORDER BY k, c",
-            [$me, $me, $slug, $slug, $me, $me, $me, $me, $me, $me, $me]
+            $binds
         );
         if ($rows === []) return null;
         $prompts = json_decode((string) $rows[0]['n'], true);

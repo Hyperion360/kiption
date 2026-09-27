@@ -129,6 +129,78 @@ final class MuteTest extends TestCase
         \App\Repositories\MuteRepository::clause('s.author_id; DROP TABLE stories');
     }
 
+    /** Task 2's muter-only matrix: every listing surface in the ruling set
+     *  drops the muted author's stories for the muter alone; guests and the
+     *  ruling set's untouchable surfaces (direct URLs, profiles) see
+     *  everything. Planted fixtures: the seeded open challenge gains one
+     *  confirmed item so the fold's item branch has a row to filter. */
+    public function test_muted_authors_vanish_from_listings_for_the_muter_only(): void
+    {
+        $this->db()->query("UPDATE stories SET language = 'en'");
+        $this->client($this->memberId())->postWithToken('/mute/add/demo-author');
+        // recent: the muter loses both seeded stories; a guest sees everything
+        $recent = $this->client($this->memberId())->get('/browse/recent')->body;
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $recent);
+        $this->assertStringNotContainsString('/story/view/after-hours', $recent);
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $this->client()->get('/browse/recent')->body);
+        // category + language the same shape
+        $this->assertStringNotContainsString('the-rabbit-hole', $this->client($this->memberId())->get('/browse/category/general')->body);
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $this->client($this->memberId())->get('/browse', ['language' => 'en'])->body);
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $this->client()->get('/browse', ['language' => 'en'])->body);
+        // search (the FTS arm; the LIKE arm has its own test below)
+        $s = $this->client($this->memberId())->get('/search', ['q' => 'rabbit'])->body;
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $s);
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $this->client()->get('/search', ['q' => 'rabbit'])->body);
+        // the challenges fold's item branch (planted confirmed item)
+        $this->db()->query("INSERT INTO challenge_items (challenge_id, story_id, position, confirmed)
+            VALUES ((SELECT id FROM challenges WHERE slug = 'community-challenge'),
+                    (SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), 1, 1)");
+        $ch = $this->client($this->memberId())->get('/challenges/view/community-challenge')->body;
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $ch);
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $this->client()->get('/challenges/view/community-challenge')->body);
+        // the series fold's item branch (the seeded confirmed item)
+        $ser = $this->client($this->memberId())->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $ser);
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $this->client()->get('/series/view/down-the-rabbit-hole')->body);
+        // direct URLs always render for the muter (the ruling: mute is a
+        // curation filter, not a block); so does the muted author's profile
+        $this->assertSame(200, $this->client($this->memberId())->get('/story/view/the-rabbit-hole')->status);
+        $this->assertSame(200, $this->client($this->memberId())->get('/user/view/demo-author')->status);
+    }
+
+    public function test_muted_authors_vanish_from_the_like_search_arm(): void
+    {
+        // FTS5-less runtime shape (the SearchTest fallback idiom): the page
+        // fold falls back to the LIKE arm, which must filter identically.
+        $this->db()->query('DROP TABLE stories_fts');
+        $this->db()->query('DROP TABLE chapters_fts');
+        $this->client($this->memberId())->postWithToken('/mute/add/demo-author');
+        $s = $this->client($this->memberId())->get('/search', ['q' => 'rabbit'])->body;
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $s);
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $this->client()->get('/search', ['q' => 'rabbit'])->body);
+    }
+
+    public function test_anonymous_renders_stay_byte_identical(): void
+    {
+        $before = $this->client()->get('/browse/recent')->body;
+        $this->client($this->memberId())->postWithToken('/mute/add/demo-author');
+        $this->assertSame($before, $this->client()->get('/browse/recent')->body);
+    }
+
+    /** Finding 9: the flag-off semantics disable the FILTERING everywhere,
+     *  not just the buttons. A planted mute row stops filtering the moment
+     *  the flag drops. */
+    public function test_mute_flag_off_stops_filtering_the_listings_too(): void
+    {
+        $this->client($this->memberId())->postWithToken('/mute/add/demo-author');
+        $db = $this->db();
+        $db->query('INSERT INTO feature_flags (key, enabled) VALUES (?, 0)', ['mute']);
+        \App\Features::init($db, []);
+        $body = $this->client($this->memberId())->get('/browse/recent')->body;
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $body, 'the planted mute row stops filtering when the flag is off');
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $this->client($this->memberId())->get('/search', ['q' => 'rabbit'])->body, 'search too');
+    }
+
     public function test_mute_flag_off_404s_the_toggles_and_hides_the_surfaces(): void
     {
         $db = $this->db();

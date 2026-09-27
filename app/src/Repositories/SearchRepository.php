@@ -22,10 +22,11 @@ final class SearchRepository
     /** @param array{category?:string,rating_id?:int,completed?:bool,language?:string} $filters
      *  Thin wrapper over the page fold: /search uses searchWithTaxonomies()
      *  directly so the filter taxonomies ride the same statement; the Task 2
-     *  seams and this dispatcher stay public exactly as shipped. */
-    public function search(string $q, array $filters, int $perPage, int $offset, int $me): array
+     *  seams and this dispatcher stay public exactly as shipped, each with
+     *  the optional mute viewer appended as the last parameter. */
+    public function search(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
     {
-        $r = $this->searchWithTaxonomies($q, $filters, $perPage, $offset, $me);
+        $r = $this->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, $viewer);
         return ['rows' => $r['rows'], 'hasMore' => $r['hasMore'], 'mode' => $r['mode']];
     }
 
@@ -45,13 +46,16 @@ final class SearchRepository
      *  back to the LIKE fold (finding 6: never probe ftsAvailable() here).
      *  Binds, strictly by SQL text order (COUNT the ?s against the array):
      *  taxonomy branches carry none; the results subselect keeps the Task 2
-     *  bind orders verbatim - FTS [$match, $match, $me, ...filters...,
-     *  perPage+1, $offset] (the MATCH ?s live in the FROM derived table,
-     *  binding before fromGates' WHERE CAST), LIKE [$me, ...filters...,
-     *  $like x3, perPage+1, $offset].
+     *  bind orders verbatim with the Task 2 mute viewer slotted immediately
+     *  after the restricted-gate $me (the clause rides right after
+     *  fromGates' CAST in text) - FTS [$match, $match, $me, $viewer,
+     *  ...filters..., perPage+1, $offset] (the MATCH ?s live in the FROM
+     *  derived table, binding before fromGates' WHERE CAST), LIKE [$me,
+     *  $viewer, ...filters..., $like x3, perPage+1, $offset]. Anonymous
+     *  callers ($viewer = 0) keep the exact pre-mute statements.
      *  @param array{category?:string,rating_id?:int,completed?:bool,language?:string} $filters
      *  @return array{rows:array,hasMore:bool,mode:string,capped:bool,ratings:array,categories:array} */
-    public function searchWithTaxonomies(string $q, array $filters, int $perPage, int $offset, int $me): array
+    public function searchWithTaxonomies(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
     {
         $tokens = self::sanitizedTokens($q);
         $capped = count($tokens) > self::MAX_TOKENS;
@@ -61,10 +65,12 @@ final class SearchRepository
         if ($tokens === []) {
             return $this->partition($this->db->all($taxonomy . ' ORDER BY k, p'), $perPage, 'none', $capped);
         }
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         if ($this->fts !== false) {
             try {
                 $match = self::matchExpression($q);
                 $params = [$match, $match, $me];
+                if ($viewer > 0) $params[] = $viewer;
                 $filter = $this->filterSql($filters, $params);
                 $params[] = $perPage + 1; $params[] = $offset;
                 $rows = $this->db->all(
@@ -75,7 +81,7 @@ final class SearchRepository
                             SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
                             UNION
                             SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
-                          ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$this->chapterGate()}{$filter}
+                          ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$mute}{$this->chapterGate()}{$filter}
                           GROUP BY s.id, s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label
                           ORDER BY rank ASC LIMIT ? OFFSET ?) st
                     ORDER BY k, p",
@@ -86,6 +92,7 @@ final class SearchRepository
         }
         $like = self::likePattern($q);
         $params = [$me];
+        if ($viewer > 0) $params[] = $viewer;
         $filter = $this->filterSql($filters, $params);
         $params[] = $like; $params[] = $like; $params[] = $like;
         $params[] = $perPage + 1; $params[] = $offset;
@@ -93,7 +100,7 @@ final class SearchRepository
             $taxonomy . " UNION ALL
             SELECT 's', ROW_NUMBER() OVER (ORDER BY st.updated_at DESC, st.id DESC), st.slug, st.title, st.summary,
                    st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-            FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$filter}
+            FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$mute}{$filter}
                   AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
                     SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.content LIKE ? ESCAPE '\\'))
                  ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?) st
@@ -165,13 +172,17 @@ final class SearchRepository
         return ' AND (f.chapter_id IS NULL OR EXISTS (SELECT 1 FROM chapters c WHERE c.id = f.chapter_id AND c.validated = 1))';
     }
 
-    public function searchFts(string $q, array $filters, int $perPage, int $offset, int $me): array
+    public function searchFts(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
     {
         $match = self::matchExpression($q);
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         // Bind order (finding 2, probed): the two MATCH ?s live in the FROM
-        // derived table, which binds BEFORE fromGates' CAST in the WHERE; then
-        // filter params in filterSql's fixed order; then LIMIT/OFFSET.
+        // derived table, which binds BEFORE fromGates' CAST in the WHERE; the
+        // Task 2 mute viewer sits immediately after that CAST (the clause's
+        // text position); then filter params in filterSql's fixed order; then
+        // LIMIT/OFFSET.
         $params = [$match, $match, $me];
+        if ($viewer > 0) $params[] = $viewer;
         $filter = $this->filterSql($filters, $params);
         $params[] = $perPage + 1; $params[] = $offset;
         $rows = $this->db->all(
@@ -179,7 +190,7 @@ final class SearchRepository
                 SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
                 UNION
                 SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
-            ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$this->chapterGate()}{$filter}
+            ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$mute}{$this->chapterGate()}{$filter}
             GROUP BY s.id, s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label
             ORDER BY rank ASC LIMIT ? OFFSET ?",
             $params
@@ -192,19 +203,23 @@ final class SearchRepository
         // already aggregates both arms per story.
     }
 
-    public function searchLike(string $q, array $filters, int $perPage, int $offset, int $me): array
+    public function searchLike(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
     {
         $like = self::likePattern($q);
+        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         // Bind order (finding 7, probed): fromGates' CAST ? first, then the
-        // filter ?s, then the three LIKE ?s, then LIMIT/OFFSET - strictly the
-        // SQL text order. The draft's [$me, $like x3] + filters misbinds
-        // whenever any filter is set and fails SILENTLY (empty results).
+        // Task 2 mute viewer (the clause rides immediately after the CAST in
+        // text), then the filter ?s, then the three LIKE ?s, then LIMIT/OFFSET
+        // - strictly the SQL text order. The draft's [$me, $like x3] + filters
+        // misbinds whenever any filter is set and fails SILENTLY (empty
+        // results); the viewer bind must not reopen that trap.
         $params = [$me];
+        if ($viewer > 0) $params[] = $viewer;
         $filter = $this->filterSql($filters, $params);
         $params[] = $like; $params[] = $like; $params[] = $like;
         $params[] = $perPage + 1; $params[] = $offset;
         $rows = $this->db->all(
-            "SELECT {$this->selectList()} FROM stories s {$this->fromGates()}{$filter}
+            "SELECT {$this->selectList()} FROM stories s {$this->fromGates()}{$mute}{$filter}
               AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
                     SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.content LIKE ? ESCAPE '\\'))
              ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?",
