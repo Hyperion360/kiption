@@ -36,8 +36,12 @@ final class ChapterController
             return new Response($this->form($slug, null, \App\Lang::t('chapter.publish_invalid')), 422);
         }
         $auto = $this->autoValidates();
+        // The round-robin expansion reaches chapter CREATION only (finding 7's
+        // scope ruling): a full member may open the gate on rr stories, while
+        // update/delete and every story form stay story-side.
+        $rr = \App\Features::on('roundrobin');
         try {
-            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt);
+            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
         }
@@ -46,7 +50,16 @@ final class ChapterController
         // checks live_chapters >= 1, so scheduling onto a live story would
         // notify followers about a chapter they cannot read yet.
         if ($auto && $publishAt === null) $this->notifyPublish($slug);
-        return Response::redirect('/story/edit/' . $slug);
+        // A pure rr contributor cannot see /story/edit (owner-gated by
+        // construction); ownStory WITHOUT the flag is exactly the edit page's
+        // gate, so the probe cannot drift from the surface it routes to.
+        try {
+            $this->repo()->ownStory($slug, $this->uid());
+            $land = '/story/edit/';
+        } catch (\RuntimeException) {
+            $land = '/story/view/';
+        }
+        return Response::redirect($land . $slug);
     }
 
     #[AuthAttr] #[Post]
@@ -85,7 +98,10 @@ final class ChapterController
 
     private function form(string $slug, ?int $position, ?string $error): Response|string
     {
-        $row = $this->repo()->chapterFormData($slug, $position, $this->uid());
+        // The flag rides every chapterFormData call; the repository scopes the
+        // rr clause to the NEW-chapter branch alone (the edit form stays
+        // story-side, matching the update/delete writes it feeds).
+        $row = $this->repo()->chapterFormData($slug, $position, $this->uid(), \App\Features::on('roundrobin'));
         if ($row === null) return new Response('Page not found', 404);
         return $this->view->render('chapter/form', [
             'title' => $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'),

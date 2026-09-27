@@ -353,6 +353,31 @@ final class FeatureGatesTest extends TestCase
         $this->assertSame('2099-01-01T00:00:00Z', $row['publish_at'], 'the schedule input still stores with the arm off');
     }
 
+    public function test_roundrobin_off_closes_the_member_gate_and_on_restores_it(): void
+    {
+        // The flag gates the EXPANSION only (the README row's recorded
+        // semantics): off restores the exact pre-rr gate, so story-side actors
+        // keep every chapter path while the member gate reopens when it flips
+        // back on.
+        $this->db->query("UPDATE stories SET round_robin = 1 WHERE slug = 'the-rabbit-hole'");
+        $member = $this->client($this->memberUserId);
+        $this->flagOff('roundrobin');
+        $this->assertSame(404, $member->get('/chapter/new/the-rabbit-hole')->status, 'the add-chapter form closes');
+        $this->assertSame(404, $member->postWithToken('/chapter/create/the-rabbit-hole', ['title' => 'Nope', 'content' => 'Words.'])->status,
+            'the member create closes');
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM chapters WHERE title = 'Nope'")['c'],
+            'no write fired while off');
+        // Story-side actors ignore the flag entirely (the admin branch is
+        // SQL-side and the rr clause is additive).
+        $this->assertSame(200, $this->client($this->adminUserId)->get('/chapter/new/the-rabbit-hole')->status,
+            'the story-side path stays open with the flag off');
+        // Back on: the expansion restores for the same member.
+        $this->flagOn('roundrobin');
+        $this->assertSame(200, $member->get('/chapter/new/the-rabbit-hole')->status);
+        $res = $member->postWithToken('/chapter/create/the-rabbit-hole', ['title' => 'Now', 'content' => 'Words.']);
+        $this->assertSame(302, $res->status, $res->body);
+    }
+
     public function test_directory_off_404s_both_author_routes_but_not_profiles(): void
     {
         $this->flagOff('directory');

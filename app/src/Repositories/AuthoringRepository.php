@@ -132,15 +132,26 @@ final class AuthoringRepository
 
     /** Author, coauthor, or admin (admin resolved SQL-side; a bound-bool admin
      *  param would silently revoke admin access at the ($slug, $userId)-only
-     *  call sites, plan review finding 7). */
-    public function ownStory(string $slug, int $userId): array
+     *  call sites, plan review finding 7). With $rr (the roundrobin flag the
+     *  chapter surface passes), a FULL member also passes on stories marked
+     *  round_robin: the directory gate (approved + verified + unlocked), the
+     *  same member quality addCoauthor demands. The flag rides the FIRST
+     *  appended bind (CAST'd: PDO sends strings, and TEXT '1' = 1 is false
+     *  without affinity), the actor the second; positional binds cannot be
+     *  reused, so every extended site carries both at the array's end. With
+     *  the flag bind 0 the clause is inert, so every default-off caller keeps
+     *  the exact pre-rr gate. */
+    public function ownStory(string $slug, int $userId, bool $rr = false): array
     {
         $story = $this->db->one(
             "SELECT id, title, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL
               AND (author_id = ?
                    OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = stories.id AND ca.user_id = ?)
-                   OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))",
-            [$slug, $userId, $userId, $userId]);
+                   OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin')
+                   OR (CAST(? AS INTEGER) = 1 AND stories.round_robin = 1
+                       AND EXISTS (SELECT 1 FROM users m WHERE m.id = CAST(? AS INTEGER)
+                            AND m.approved_at IS NOT NULL AND m.email_verified_at IS NOT NULL AND m.is_locked = 0)))",
+            [$slug, $userId, $userId, $userId, $rr ? 1 : 0, $userId]);
         if ($story === null) throw new \RuntimeException('not found');
         return $story;
     }
@@ -213,27 +224,43 @@ final class AuthoringRepository
 
     /** Chapter row + story context, owner/coauthor/admin gated; one query.
      *  For NEW chapters ($position null) the next position rides along
-     *  (NULL row). */
-    public function chapterFormData(string $slug, ?int $position, int $userId): ?array
+     *  (NULL row). With $rr, the NEW-chapter branch additionally admits FULL
+     *  members on round-robin stories (the ownStory clause, s.round_robin
+     *  here because this FROM is aliased): contributors reach the add-chapter
+     *  form directly at /chapter/new/{slug}. The EDIT branch never carries
+     *  the clause: chapters record no contributor, so a member editing their
+     *  own chapter cannot be told apart from one editing a stranger's, and
+     *  the edit surface stays story-side exactly like the update/delete
+     *  writes it feeds. */
+    public function chapterFormData(string $slug, ?int $position, int $userId, bool $rr = false): ?array
     {
         $chapterJoin = $position === null
             ? 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = (SELECT COALESCE(MAX(position), 0) + 1 FROM chapters WHERE story_id = s.id)'
             : 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = ' . (int) $position;
+        $rrClause = $rr && $position === null
+            ? " OR (CAST(? AS INTEGER) = 1 AND s.round_robin = 1
+                       AND EXISTS (SELECT 1 FROM users m WHERE m.id = CAST(? AS INTEGER)
+                            AND m.approved_at IS NOT NULL AND m.email_verified_at IS NOT NULL AND m.is_locked = 0))"
+            : '';
         return $this->db->one(
             "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.publish_at, ch.position
              FROM stories s {$chapterJoin}
              WHERE s.slug = ? AND s.deleted_at IS NULL
                AND (s.author_id = ?
                     OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = s.id AND ca.user_id = ?)
-                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin'))",
-            [$slug, $userId, $userId, $userId]);
+                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin')" . $rrClause . ")",
+            $rr && $position === null
+                ? [$slug, $userId, $userId, $userId, 1, $userId]
+                : [$slug, $userId, $userId, $userId]);
     }
 
     /** @return array{0: array, 1: array, 2: string} category slugs, series slugs,
-     *  author profile slug (purge coordinates) */
-    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null): array
+     *  author profile slug (purge coordinates). $rr is the roundrobin flag:
+     *  the only write the rr expansion opens (update/delete stay story-side;
+     *  chapters record no contributor to gate edits by). */
+    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false): array
     {
-        $story = $this->ownStory($slug, $userId);
+        $story = $this->ownStory($slug, $userId, $rr);
         $words = \App\Markdown::wordCount($content);
         // Scheduling is explicit: a publish_at holds the chapter at validated = 0
         // regardless of the author's auto-validate standing (it goes live when
