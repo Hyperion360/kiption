@@ -24,6 +24,7 @@ final class Features
         'news' => true, 'comments' => true, 'contact' => true, 'stats' => true,
         'lists' => true, 'search' => true, 'toplists' => true, 'exports' => true,
         'feeds' => true, 'directory' => true, 'digest' => true, 'analytics' => true,
+        'challenges' => true, 'releases' => true, 'roundrobin' => true,
     ];
 
     private static ?\Kip\Database $db = null;

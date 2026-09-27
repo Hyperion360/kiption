@@ -322,7 +322,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
         }
@@ -330,7 +330,7 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->createStory(
-            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language);
+            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -350,7 +350,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
@@ -361,7 +361,7 @@ final class StoryController
         try {
             [$newSlug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
-                $canonicalUrl, $crosspostUrl);
+                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -443,6 +443,8 @@ final class StoryController
                 'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
                 'restricted' => (int) $story['i'],
                 'language' => (string) $story['j'],
+                'round_robin' => (int) $story['p'],
+                'gift_to' => (string) ($story['q'] ?? ''),
                 'canonical_url' => (string) ($story['n'] ?? ''),
                 'crosspost_url' => (string) ($story['o'] ?? ''),
             ],
@@ -498,7 +500,7 @@ final class StoryController
         return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
     }
 
-    /** @return array{string,string,string,int,array,bool,bool,string} */
+    /** @return array{string,string,string,int,array,bool,bool,string,bool,string} */
     private function storyInput(): array
     {
         $post = $this->request->post;
@@ -515,6 +517,10 @@ final class StoryController
             isset($post['completed']),
             isset($post['restricted']),
             $language,
+            // Value-based, not isset (finding 8's lesson): an unchecked box
+            // omits the key, and a forged non-'1' value must read as off.
+            ($post['round_robin'] ?? '') === '1',
+            substr(trim((string) ($post['gift_to'] ?? '')), 0, 120),
         ];
     }
 

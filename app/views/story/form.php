@@ -28,6 +28,8 @@
     </fieldset>
     <label class="inline"><input type="checkbox" name="completed" value="1" <?= $story !== null && (int) $story['completed'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.completed') ?></label>
     <label class="inline"><input type="checkbox" name="restricted" value="1" <?= $story !== null && (int) $story['restricted'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.registered_only') ?></label>
+    <label class="inline"><input type="checkbox" name="round_robin" value="1" <?= $story !== null && (int) ($story['round_robin'] ?? 0) === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.round_robin') ?></label>
+    <label><?= \App\Lang::t('story.gift_to_label') ?> <input name="gift_to" maxlength="120" value="<?= $this->e($story['gift_to'] ?? '') ?>"></label>
     <?php if ($story !== null): ?>
     <label><?= \App\Lang::t('story.canonical_label') ?> <input name="canonical_url" maxlength="200" value="<?= $this->e($story['canonical_url'] ?? '') ?>"></label>
     <label><?= \App\Lang::t('story.crosspost_label') ?> <input name="crosspost_url" maxlength="200" value="<?= $this->e($story['crosspost_url'] ?? '') ?>"></label>

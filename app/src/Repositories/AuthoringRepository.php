@@ -10,18 +10,19 @@ final class AuthoringRepository
     /** ONE query for the story form: taxonomy rows for every caller, plus the
      *  story row (k='s') and its coauthors (k='co') when editing. Ownership
      *  (author, coauthor, or admin) is enforced in SQL. Output columns:
-     *  k, a..j, n, o, l, m; d is the per-branch sort key (position). l/m ride
-     *  only on the 's' branch: the story's author_id and a viewer-admin scalar, so
-     *  the form can show coauthor management to the owner/admin alone. n/o ride
-     *  the 's' branch only too: the syndication pair (canonical_url,
-     *  crosspost_url) the edit form prefills.
+     *  k, a..j, n, o, p, q, l, m; d is the per-branch sort key (position).
+     *  l/m ride only on the 's' branch: the story's author_id and a
+     *  viewer-admin scalar, so the form can show coauthor management to the
+     *  owner/admin alone. n/o/p/q ride the 's' branch only too: the
+     *  syndication pair (canonical_url, crosspost_url) the edit form
+     *  prefills, then round_robin + gift_to.
      *  Compound SELECTs may only ORDER BY output columns. */
     public function formData(?string $slug, int $userId): array
     {
-        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS l, NULL AS m
+        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m
                      FROM categories c
                      UNION ALL
-                     SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+                     SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                      FROM ratings r";
         if ($slug === null) {
             return $this->db->all($taxonomy . ' ORDER BY k, d');
@@ -33,7 +34,7 @@ final class AuthoringRepository
                     (SELECT json_group_array(json_object('position', ch.position, 'title', ch.title, 'validated', ch.validated))
                      FROM chapters ch WHERE ch.story_id = s.id) AS h,
                     s.is_restricted AS i, s.language AS j,
-                    s.canonical_url AS n, s.crosspost_url AS o,
+                    s.canonical_url AS n, s.crosspost_url AS o, s.round_robin AS p, s.gift_to AS q,
                     s.author_id AS l,
                     (SELECT COUNT(*) FROM users adm WHERE adm.id = ? AND adm.role = 'admin') AS m
              FROM stories s
@@ -44,7 +45,7 @@ final class AuthoringRepository
              UNION ALL " . $taxonomy . "
              UNION ALL
              SELECT 'co' AS k, cu.id AS a, cu.penname AS b, NULL AS c, cu.id AS d,
-                    NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS l, NULL AS m
+                    NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m
              FROM coauthors c2 JOIN stories s2 ON s2.id = c2.story_id JOIN users cu ON cu.id = c2.user_id
              WHERE s2.slug = ?
              ORDER BY k, d",
@@ -63,14 +64,15 @@ final class AuthoringRepository
     /** @return array{0: int, 1: string, 2: array, 3: array, 4: string} id, slug,
      *  category slugs, series slugs, author profile slug (purge coordinates) */
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
-                                array $categoryIds, bool $validated, bool $restricted, string $language): array
+                                array $categoryIds, bool $validated, bool $restricted, string $language,
+                                bool $roundRobin = false, string $giftTo = ''): array
     {
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
         try {
             $this->db->query(
-                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language]);
+                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language, round_robin, gift_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo]);
             $storyId = (int) $this->db->lastInsertId();
             $this->writeCategories($storyId, $categoryIds);
             $this->db->commit();
@@ -88,6 +90,7 @@ final class AuthoringRepository
      *  only, 200 chars max, never both set); empty strings clear the state. */
     public function updateStory(string $slug, int $userId, string $title, string $summary, string $notes,
                                 int $ratingId, array $categoryIds, bool $completed, bool $restricted, string $language,
+                                bool $roundRobin = false, string $giftTo = '',
                                 string $canonicalUrl = '', string $crosspostUrl = ''): array
     {
         $story = $this->ownStory($slug, $userId);
@@ -99,9 +102,11 @@ final class AuthoringRepository
         $this->db->begin();
         try {
             $this->db->query('UPDATE stories SET title = ?, slug = ?, summary = ?, notes = ?, rating_id = ?,
-                              completed = ?, is_restricted = ?, language = ?, canonical_url = ?, crosspost_url = ?,
+                              completed = ?, is_restricted = ?, language = ?, round_robin = ?, gift_to = ?,
+                              canonical_url = ?, crosspost_url = ?,
                               updated_at = ? WHERE id = ?',
                 [$title, $newSlug, $summary, $notes, $ratingId, $completed ? 1 : 0, $restricted ? 1 : 0, $language,
+                 $roundRobin ? 1 : 0, $giftTo,
                  $canonicalUrl === '' ? null : $canonicalUrl, $crosspostUrl === '' ? null : $crosspostUrl,
                  date('c'), $story['id']]);
             $this->writeCategories((int) $story['id'], $categoryIds);

@@ -449,6 +449,9 @@ moment news goes off.
 | directory | `/browse/authors` and its letter pages | 404; profiles stay reachable (they are core) |
 | digest | the `php bin/kip digest:send` job | prints `digest feature is disabled` and exits 0; immediate story-update emails are unaffected |
 | analytics | `/analytics` | 404 |
+| challenges | `/challenges`, challenge views, and all challenge write operations | 404 |
+| releases | the `php bin/kip release:due` job | prints `releases feature is disabled` and exits 0; scheduling a chapter still stores, it just never auto-releases |
+| roundrobin | the any-member chapter gate on round-robin stories | chapters on round-robin stories stay limited to the author, coauthors, and admins |
 
 The two flags compose: `comments` is a sub-flag of `news`. News on with
 comments off renders items with their existing comments and counts but no

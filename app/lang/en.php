@@ -106,6 +106,7 @@ return [
     'story.crossposted_from' => 'Cross-posted from',
     'story.crosspost_original' => 'the original',
     'story.series_label' => 'Series:',
+    'story.gift_line' => 'A gift for {name}',
     'story.cover_alt' => 'Story cover',
     'story.kudos_count' => 'Kudos: {n}',
     'story.you_left_kudos' => 'You left kudos',
@@ -164,6 +165,7 @@ return [
     'story.rating' => 'Rating',
     'story.categories' => 'Categories',
     'story.completed' => 'Completed',
+    'story.gift_to_label' => 'Gift to (a line for the recipient, shown on the story page)',
     'story.canonical_label' => 'Canonical URL (must start with http:// or https://; when this archive mirrors a story whose original lives elsewhere)',
     'story.crosspost_label' => 'Cross-posted from (must start with http:// or https://; where this story was first published)',
     'story.syndication_help' => 'Set one or the other, never both: a canonical URL points search engines at the original and deindexes the copy here; a cross-post URL tells readers where the story came from.',
@@ -471,6 +473,9 @@ return [
     'features.directory.desc' => 'The author directory',
     'features.digest.desc' => 'The scheduled digest email job',
     'features.analytics.desc' => 'The analytics dashboard',
+    'features.challenges.desc' => 'Challenges: public pages, prompts, and story membership',
+    'features.releases.desc' => 'The scheduled chapter release job (release:due)',
+    'features.roundrobin.desc' => 'Any-member chapter writing on round-robin stories',
 
     // The site-wide admin analytics dashboard (/analytics).
     'analytics.heading' => 'Site analytics',

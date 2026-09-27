@@ -13,6 +13,9 @@
     | <?= \App\Lang::t('story.in') ?> <?= $this->e($story['category_names'] ?? \App\Lang::t('story.uncategorized')) ?>
     <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?>
   </p>
+  <?php if (($story['gift_to'] ?? '') !== ''): ?>
+  <p class="chapter-meta"><?= \App\Lang::t('story.gift_line', ['name' => $this->e($story['gift_to'])]) ?></p>
+  <?php endif; ?>
   <?php if (($story['crosspost_url'] ?? '') !== ''): ?>
   <p class="chapter-meta"><?= \App\Lang::t('story.crossposted_from') ?> <a href="<?= $this->e($story['crosspost_url']) ?>" rel="nofollow"><?= \App\Lang::t('story.crosspost_original') ?></a>.</p>
   <?php endif; ?>
