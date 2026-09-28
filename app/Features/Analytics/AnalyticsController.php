@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/AnalyticsController.php
-namespace App\Controllers;
+<?php // app/Features/Analytics/AnalyticsController.php
+namespace App\Features\Analytics;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\Auth as AuthAttr;
 
