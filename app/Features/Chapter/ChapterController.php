@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/ChapterController.php
-namespace App\Controllers;
+<?php // app/Features/Chapter/ChapterController.php
+namespace App\Features\Chapter;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\AuthoringRepository;
