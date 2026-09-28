@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/AdminstoriesController.php
-namespace App\Controllers;
+<?php // app/Features/Adminstories/AdminstoriesController.php
+namespace App\Features\Adminstories;
 use Kip\{Database, Http\Request, Http\Response, Session};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\AuthoringRepository;
