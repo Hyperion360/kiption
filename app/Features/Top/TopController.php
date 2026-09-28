@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/TopController.php
-namespace App\Controllers;
+<?php // app/Features/Top/TopController.php
+namespace App\Features\Top;
 use Kip\{App, Http\Request, View};
 use App\Repositories\ToplistRepository;
 
