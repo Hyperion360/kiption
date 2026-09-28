@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/WranglingController.php
-namespace App\Controllers;
+<?php // app/Features/Wrangling/WranglingController.php
+namespace App\Features\Wrangling;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Get, Post};
 
