@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/NavController.php
-namespace App\Controllers;
+<?php // app/Features/Nav/NavController.php
+namespace App\Features\Nav;
 use App\NavLinks;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
