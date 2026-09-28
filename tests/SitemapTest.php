@@ -112,6 +112,7 @@ final class SitemapTest extends TestCase
         $count = Builder::build([
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
+            'app_dir' => dirname(__DIR__) . '/app',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->root . '/mail.log', 'from' => 'noreply@localhost'],

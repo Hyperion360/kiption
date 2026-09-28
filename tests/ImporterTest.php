@@ -57,6 +57,7 @@ final class ImporterTest extends TestCase
         return [
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
+            'app_dir' => dirname(__DIR__) . '/app',
             'db' => ['dsn' => 'sqlite:' . $this->dbPath],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->roots[0] . '/mail.log', 'from' => 'noreply@localhost'],

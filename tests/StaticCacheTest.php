@@ -100,6 +100,7 @@ final class StaticCacheTest extends TestCase
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
+            'app_dir' => dirname(__DIR__) . '/app',
             'db' => ['dsn' => $dsn],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-static-upl'],
