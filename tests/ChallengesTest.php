@@ -251,6 +251,35 @@ final class ChallengesTest extends TestCase
         $this->assertStringNotContainsString('/challenges/join/shut', $this->client($this->authorId())->get('/challenges/view/shut')->body, 'closed challenges carry no join form');
     }
 
+    public function test_chapter_publish_purges_the_cached_challenge_page(): void
+    {
+        // THE challenge rider pin (daily-qa F1): a story-side content change
+        // (a chapter publish moves the item's chapter count and updated date)
+        // must purge every challenge page holding the story, looked up
+        // caller-side and threaded through purgeStory's challengeSlugs.
+        $db = $this->db();
+        $author = $this->client($this->authorId());
+        $this->assertSame(302, $author->postWithToken('/challenges/join/community-challenge', ['story_slug' => 'the-rabbit-hole'])->status);
+        // fill the config-injected cache with the challenge page (guest render)
+        $cache = new \App\StaticCache\Cache($this->cacheDir);
+        $req = new \Kip\Http\Request('GET', '/challenges/view/community-challenge', [], [], []);
+        $cache->maybeStore($req, $this->app->handle($req));
+        $this->assertNotNull($cache->serve($req));
+        // without challenge slugs a story purge leaves the challenge file
+        // alone: the parameter is load-bearing, not a blanket purgeAll
+        $cache->purgeStory('the-rabbit-hole', []);
+        $this->assertNotNull($cache->serve($req), 'no challenge slugs passed, no challenge unlink');
+        // the real write path publishes a chapter; the rider purges the page
+        $this->assertSame(302, $author->postWithToken('/chapter/create/the-rabbit-hole',
+            ['title' => 'Deeper Still', 'content' => 'Fresh words from the void.', 'notes_before' => '', 'notes_after' => ''])->status);
+        $this->assertNull($cache->serve($req), 'the chapter publish purged the cached challenge page');
+        // stale-CORRECT, not just stale-gone: the rebuilt page carries the new count
+        $n = (int) $db->one('SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND validated = 1', ['the-rabbit-hole'])['c'];
+        $this->assertStringContainsString(
+            \App\Lang::t('challenges.chapters_count', ['n' => number_format($n)]),
+            $this->client()->get('/challenges/view/community-challenge')->body);
+    }
+
     public function test_guest_gates_hide_unvalidated_and_restricted_items(): void
     {
         $db = $this->db();

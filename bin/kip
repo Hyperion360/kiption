@@ -177,12 +177,13 @@ match ($argv[1] ?? 'help') {
         $released = (new \App\Repositories\AuthoringRepository($db))->releaseDue();
         printf("Released %d chapter(s).\n", count($released));
         // Per row, the queue approve's full set: the story purge with the lists
-        // rider (QueueController::purge's shape) plus the publish fan-out.
+        // and challenge riders (QueueController::purge's shape) plus the
+        // publish fan-out.
         $cache = new \App\StaticCache\Cache((string) (($config['static_cache'] ?? [])['dir'] ?? dirname(__DIR__) . '/public/cache'));
         $fanout = new \App\PublishFanout($db, new Kip\Mailer($mail), rtrim((string) ($config['base_url'] ?? ''), '/'));
-        foreach ($released as [$slug, $cats, $seriesSlugs, $authorSlug, $storyId]) {
+        foreach ($released as [$slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs, $storyId]) {
             $listSlugs = (new \App\Repositories\ListsRepository($db))->publicListSlugsForStory($storyId);
-            $cache->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs);
+            $cache->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
             $fanout->publish($slug);
         }
     })(),

@@ -76,8 +76,9 @@ final class AuthoringRepository
         return $this->db->one('SELECT 1 AS x FROM stories WHERE slug = ?', [$slug]) !== null;
     }
 
-    /** @return array{0: int, 1: string, 2: array, 3: array, 4: string} id, slug,
-     *  category slugs, series slugs, author profile slug (purge coordinates) */
+    /** @return array{0: int, 1: string, 2: array, 3: array, 4: string, 5: array} id,
+     *  slug, category slugs, series slugs, author profile slug, challenge slugs
+     *  (purge coordinates) */
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
                                 array $categoryIds, bool $validated, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '', array $tagIds = []): array
@@ -92,18 +93,19 @@ final class AuthoringRepository
             $this->writeCategories($storyId, $categoryIds);
             $this->writeTags($storyId, $tagIds);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData($storyId, $userId);
-            return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData($storyId, $userId);
+            return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
     }
 
-    /** @return array{0: string, 1: array, 2: array, 3: string} new slug, category
-     *  slugs before+after, series slugs, author profile slug (purge coordinates).
-     *  The syndication pair arrives pre-validated by the controller (http(s)
-     *  only, 200 chars max, never both set); empty strings clear the state. */
+    /** @return array{0: string, 1: array, 2: array, 3: string, 4: array} new slug,
+     *  category slugs before+after, series slugs, author profile slug, challenge
+     *  slugs (purge coordinates). The syndication pair arrives pre-validated by
+     *  the controller (http(s) only, 200 chars max, never both set); empty
+     *  strings clear the state. */
     public function updateStory(string $slug, int $userId, string $title, string $summary, string $notes,
                                 int $ratingId, array $categoryIds, bool $completed, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '',
@@ -128,23 +130,24 @@ final class AuthoringRepository
             $this->writeCategories((int) $story['id'], $categoryIds);
             $this->writeTags((int) $story['id'], $tagIds);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id'])))), $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
+            return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id'])))), $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
     }
 
-    /** @return array{0: string, 1: array, 2: array, 3: string}|null slug, category
-     *  slugs, series slugs, author profile slug (purge coordinates) */
+    /** @return array{0: string, 1: array, 2: array, 3: string, 4: array}|null slug,
+     *  category slugs, series slugs, author profile slug, challenge slugs
+     *  (purge coordinates) */
     public function deleteStory(string $slug, int $userId): ?array
     {
         $story = $this->ownStory($slug, $userId);
         $cats = $this->categorySlugs((int) $story['id']);
         $this->db->query('UPDATE stories SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL', [date('c'), $story['id']]);
-        [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-        return [$slug, $cats, $seriesSlugs, $authorSlug];
+        [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
+        return [$slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
     }
 
     /** Author, coauthor, or admin (admin resolved SQL-side; a bound-bool admin
@@ -254,6 +257,7 @@ final class AuthoringRepository
         return [
             (new SeriesRepository($this->db))->seriesSlugsForStory($storyId),
             (string) ($this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$authorId])['profile_slug'] ?? ''),
+            (new \App\Repositories\ChallengesRepository($this->db))->slugsForStory($storyId),
         ];
     }
 
@@ -322,10 +326,11 @@ final class AuthoringRepository
                 : [$slug, $userId, $userId, $userId]);
     }
 
-    /** @return array{0: array, 1: array, 2: string} category slugs, series slugs,
-     *  author profile slug (purge coordinates). $rr is the roundrobin flag:
-     *  the only write the rr expansion opens (update/delete stay story-side;
-     *  chapters record no contributor to gate edits by). */
+    /** @return array{0: array, 1: array, 2: string, 3: array} category slugs,
+     *  series slugs, author profile slug, challenge slugs (purge coordinates).
+     *  $rr is the roundrobin flag: the only write the rr expansion opens
+     *  (update/delete stay story-side; chapters record no contributor to gate
+     *  edits by). */
     public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false): array
     {
         $story = $this->ownStory($slug, $userId, $rr);
@@ -342,15 +347,15 @@ final class AuthoringRepository
                 [$story['id'], $title, $before, $content, $after, $live, $words, $publishAt, $story['id']]);
             $this->touchStory($story['id']);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
+            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
     }
 
-    /** @return array{0: array, 1: array, 2: string} */
+    /** @return array{0: array, 1: array, 2: string, 3: array} */
     public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null): array
     {
         $story = $this->ownStory($slug, $userId);
@@ -365,15 +370,15 @@ final class AuthoringRepository
                 [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, date('c'), $story['id'], $position]);
             $this->touchStory($story['id']);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
+            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
     }
 
-    /** @return array{0: array, 1: array, 2: string} */
+    /** @return array{0: array, 1: array, 2: string, 3: array} */
     public function deleteChapter(string $slug, int $position, int $userId): array
     {
         $story = $this->ownStory($slug, $userId);
@@ -383,8 +388,8 @@ final class AuthoringRepository
             $this->db->query('UPDATE chapters SET position = position - 1 WHERE story_id = ? AND position > ?', [$story['id'], $position]);
             $this->touchStory($story['id']);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
+            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
@@ -426,8 +431,8 @@ final class AuthoringRepository
              ORDER BY k, e LIMIT 151", [$userId]);
     }
 
-    /** Approve a story and every chapter under it. Returns [slug, cats, seriesSlugs,
-     *  authorSlug] (purge coordinates) or null. */
+    /** Approve a story and every chapter under it. Returns [slug, cats,
+     *  seriesSlugs, authorSlug, challengeSlugs] (purge coordinates) or null. */
     public function approveStory(int $storyId): ?array
     {
         $story = $this->db->one('SELECT id, slug, author_id FROM stories WHERE id = ? AND validated = 0 AND deleted_at IS NULL', [$storyId]);
@@ -438,12 +443,12 @@ final class AuthoringRepository
             $this->db->query('UPDATE stories SET validated = 1, updated_at = ? WHERE id = ?', [date('c'), $story['id']]);
             $this->db->query('UPDATE chapters SET validated = 1 WHERE story_id = ?', [$story['id']]);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [(string) $story['slug'], $cats, $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
+            return [(string) $story['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
     }
 
-    /** @return array{0: string, 1: array, 2: array, 3: string}|null */
+    /** @return array{0: string, 1: array, 2: array, 3: string, 4: array}|null */
     public function approveChapter(int $chapterId): ?array
     {
         $ch = $this->db->one(
@@ -459,8 +464,8 @@ final class AuthoringRepository
             $this->db->query('UPDATE chapters SET validated = 1, publish_at = NULL, updated_at = ? WHERE id = ?', [date('c'), $ch['id']]);
             $this->db->query('UPDATE stories SET updated_at = ? WHERE id = ?', [date('c'), $ch['story_id']]);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData((int) $ch['story_id'], (int) $ch['author_id']);
-            return [(string) $ch['slug'], $cats, $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $ch['story_id'], (int) $ch['author_id']);
+            return [(string) $ch['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
     }
 
@@ -484,23 +489,23 @@ final class AuthoringRepository
         foreach ($due as $row) {
             $coords = $this->approveChapter((int) $row['id']);
             if ($coords === null) continue; // raced to approved or vanished between the two queries
-            $released[] = [$coords[0], $coords[1], $coords[2], $coords[3], (int) $row['story_id']];
+            $released[] = [$coords[0], $coords[1], $coords[2], $coords[3], $coords[4], (int) $row['story_id']];
         }
         return $released;
     }
 
-    /** @return array{0: string, 1: array, 2: array, 3: string}|null */
+    /** @return array{0: string, 1: array, 2: array, 3: string, 4: array}|null */
     public function removeStory(int $storyId): ?array
     {
         $story = $this->db->one('SELECT id, slug, author_id FROM stories WHERE id = ? AND deleted_at IS NULL AND validated = 0', [$storyId]);
         if ($story === null) return null;
         $cats = $this->categorySlugs((int) $story['id']);
         $this->db->query('UPDATE stories SET deleted_at = ? WHERE id = ?', [date('c'), $story['id']]);
-        [$seriesSlugs, $authorSlug] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-        return [(string) $story['slug'], $cats, $seriesSlugs, $authorSlug];
+        [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
+        return [(string) $story['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
     }
 
-    /** @return array{0: string, 1: array, 2: array, 3: string}|null */
+    /** @return array{0: string, 1: array, 2: array, 3: string, 4: array}|null */
     public function removeChapter(int $chapterId): ?array
     {
         $ch = $this->db->one(
@@ -514,8 +519,8 @@ final class AuthoringRepository
             $this->db->query('UPDATE chapters SET position = position - 1 WHERE story_id = ? AND position > ?',
                 [$ch['story_id'], $ch['position']]);
             $this->db->commit();
-            [$seriesSlugs, $authorSlug] = $this->purgeData((int) $ch['story_id'], (int) $ch['author_id']);
-            return [(string) $ch['slug'], $cats, $seriesSlugs, $authorSlug];
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $ch['story_id'], (int) $ch['author_id']);
+            return [(string) $ch['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
     }
 

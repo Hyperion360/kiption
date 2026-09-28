@@ -3,6 +3,7 @@ namespace App\Tests;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class SchemaTest extends TestCase
 {
@@ -16,7 +17,7 @@ final class SchemaTest extends TestCase
         return (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
     }
 
-    /** @dataProvider tableProvider */
+    #[DataProvider('tableProvider')]
     public function test_migration_creates_every_table(string $table): void
     {
         $db = $this->db();

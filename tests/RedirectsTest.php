@@ -2,10 +2,11 @@
 namespace App\Tests;
 use App\Redirects;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class RedirectsTest extends TestCase
 {
-    /** @dataProvider cases */
+    #[DataProvider('cases')]
     public function test_safe_return(string $in, string $expected): void
     {
         $this->assertSame($expected, Redirects::safeReturn($in));

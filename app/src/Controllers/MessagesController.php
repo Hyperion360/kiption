@@ -80,8 +80,8 @@ final class MessagesController
             return new Response('Page not found', 404);
         }
         $body = trim($this->request->postStr('body'));
-        if ($body === '' || strlen($body) > 5000) {
-            return new Response($this->renderForm($slug, $partner, 'Message must be 1 to 5000 characters.'), 422);
+        if ($body === '' || mb_strlen($body) > 5000) {
+            return new Response($this->renderForm($slug, $partner, \App\Lang::t('messages.body_invalid')), 422);
         }
         (new MessageRepository($this->db))->send($this->uid(), (int) $partner['id'], $body);
         return Response::redirect('/messages/view/' . $slug);

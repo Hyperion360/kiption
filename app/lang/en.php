@@ -588,4 +588,10 @@ return [
     // The maintenance page (rendered standalone, without the layout).
     'maintenance.title' => 'Scheduled maintenance',
     'maintenance.body' => 'The archive is temporarily closed for scheduled maintenance. Nothing is lost; please check back shortly.',
+    'messages.body_invalid' => 'Message must be 1 to 5000 characters.',
+    'challenges.prompt_required' => 'Prompt text is required.',
+    'challenges.title_invalid' => 'Title must be 1 to 120 characters.',
+    'challenges.membership_invalid' => 'Membership must be open, moderated, or closed.',
+    'account.lang_invalid' => 'Language must be the archive default or an installed pack.',
+    'account.theme_invalid' => 'Theme must be dark or light.',
 ];

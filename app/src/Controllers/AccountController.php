@@ -177,14 +177,14 @@ final class AccountController
         if (\App\Features::on('peruserlang') && \array_key_exists('lang', $this->request->post)) {
             $lang = $this->request->postStr('lang');
             if (!\in_array($lang, ['', ...\App\Lang::installed()], true)) {
-                return new Response('Language must be the archive default or an installed pack.', 422);
+                return new Response(\App\Lang::t('account.lang_invalid'), 422);
             }
         }
         $theme = null;
         if (\App\Features::on('perusertheme') && \array_key_exists('theme', $this->request->post)) {
             $theme = $this->request->postStr('theme');
             if ($theme !== 'dark' && $theme !== 'light') {
-                return new Response('Theme must be dark or light.', 422);
+                return new Response(\App\Lang::t('account.theme_invalid'), 422);
             }
         }
         // Value-based, not isset-based: the form's checkboxes submit no field when

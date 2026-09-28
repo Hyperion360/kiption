@@ -141,6 +141,40 @@ final class WranglingTest extends TestCase
         $this->assertSame(403, $this->client($this->memberId())->postWithToken('/wrangling/unmerge/3')->status);
     }
 
+    public function test_merge_refuses_a_canonical_retired_mid_transaction(): void
+    {
+        // F3: the reject guards probe a PRE-transaction snapshot, so a second
+        // admin retiring the chosen canonical inside that window must be
+        // refused by the in-transaction conditional retire, not chained into
+        // a two-level resolution. The onQuery tap slips admin B's write in
+        // AFTER the snapshot but BEFORE admin A's first write takes the lock
+        // (the tap fires pre-execution; begin() is deferred).
+        $db = $this->db();
+        $db->query("INSERT INTO tags (tag_type_id, name) VALUES (1, 'Epic')"); // id 3
+        $db->query('INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = ?), 2)', ['the-rabbit-hole']);
+        $app = new App([
+            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'views' => dirname(__DIR__) . '/app/views',
+            'db' => ['dsn' => 'sqlite:' . $this->path],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+            'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-wrap-upl'],
+            'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+        ]);
+        $tap = $app->container->make(Database::class);
+        $tap->onQuery(function (string $sql) use ($db): void {
+            if (str_contains($sql, 'INSERT OR IGNORE INTO story_tags')) {
+                $db->query('UPDATE tags SET canonical_id = 3 WHERE id = 1'); // admin B's retire commits first
+            }
+        });
+        $admin = (new TestClient($app))->actingAs($this->adminId());
+        $res = $admin->postWithToken('/wrangling/merge', ['synonym_id' => 2, 'canonical_id' => 1]);
+        $tap->onQuery(fn () => null); // detach (the App.php request-local idiom)
+        $this->assertSame(422, $res->status, 'the raced retire refuses instead of chaining');
+        $this->assertNull($db->one('SELECT canonical_id FROM tags WHERE id = 2')['canonical_id'], 'Adventure never retired');
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM story_tags WHERE tag_id = 2')['c'], 'the story row never moved');
+    }
+
     /** A merge of a CANONICAL that already carries synonyms must re-point the
      *  whole chain (plan review finding 6's fourth statement): merging
      *  Adventure into Fantasy, then Fantasy into Epic, lands Adventure on

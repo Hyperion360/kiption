@@ -43,7 +43,7 @@ final class QueueController
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveStory((int) $id) : $repo->removeStory((int) $id);
         if ($coords !== null) {
-            $this->purge($coords[0], $coords[1], $coords[2], $coords[3]);
+            $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
             (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors(); // story counts changed
             if ($op === 'approve') $this->notifyPublish($coords[0]);
         }
@@ -57,7 +57,7 @@ final class QueueController
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveChapter((int) $id) : $repo->removeChapter((int) $id);
         if ($coords !== null) {
-            $this->purge($coords[0], $coords[1], $coords[2], $coords[3]);
+            $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
             if ($op === 'approve') $this->notifyPublish($coords[0]);
         }
         return Response::redirect('/queue');
@@ -83,15 +83,16 @@ final class QueueController
         return !(Adminness::requireModerator($this->db, $this->session) instanceof Response);
     }
 
-    private function purge(string $slug, array $cats, array $seriesSlugs = [], string $authorSlug = ''): void
+    private function purge(string $slug, array $cats, array $seriesSlugs = [], string $authorSlug = '', array $challengeSlugs = []): void
     {
         // The list rider (finding 4): approve flips validated (a story joins
         // every public list's guest render), remove soft-deletes (it leaves).
-        // Caller-side lookup: Cache stays DB-free.
+        // The challenge rider (F1) rides the same flips: item chapter counts
+        // and story visibility shift. Caller-side lookup: Cache stays DB-free.
         $storyId = (int) ($this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'] ?? 0);
         $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($storyId);
         (new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache')))
-            ->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs);
+            ->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
     }
 
     private function notifyPublish(string $slug): void

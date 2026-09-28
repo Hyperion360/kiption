@@ -272,4 +272,15 @@ final class ChallengesRepository
     {
         return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$userId])['c'] === 1;
     }
+
+    /** Slugs of challenges whose CONFIRMED items include the story (the
+     *  seriesSlugsForStory rider, mirrored: a chapter publish, story edit,
+     *  or queue action must refresh the challenge pages displaying it). */
+    public function slugsForStory(int $storyId): array
+    {
+        return array_map(
+            fn (array $r): string => (string) $r['slug'],
+            $this->db->all('SELECT DISTINCT c.slug FROM challenges c JOIN challenge_items ci ON ci.challenge_id = c.id WHERE ci.story_id = ? AND ci.confirmed = 1', [$storyId])
+        );
+    }
 }

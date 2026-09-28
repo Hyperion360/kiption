@@ -138,7 +138,7 @@ final class ChallengesController
         try { $row = $this->challenges->own($slug, $me); }
         catch (\RuntimeException) { return new Response('Page not found', 404); }
         $text = substr(trim($this->request->postStr('prompt_text')), 0, 500);
-        if ($text === '') return new Response($this->form($row, 'Prompt text is required.'), 422);
+        if ($text === '') return new Response($this->form($row, \App\Lang::t('challenges.prompt_required')), 422);
         $this->challenges->addPrompt($slug, $text, $me);
         $this->staticCache()->purgeChallenge($slug); // prompts change the public blob
         return Response::redirect('/challenges/edit/' . $slug);
@@ -274,10 +274,10 @@ final class ChallengesController
         $summary = substr(trim($this->request->postStr('summary')), 0, 2000);
         $membership = $this->request->postStr('membership');
         if ($title === '' || mb_strlen($title) > 120) {
-            return [$title, $summary, $membership, 'Title must be 1 to 120 characters.'];
+            return [$title, $summary, $membership, \App\Lang::t('challenges.title_invalid')];
         }
         if (!in_array($membership, ['open', 'moderated', 'closed'], true)) {
-            return [$title, $summary, $membership, 'Membership must be open, moderated, or closed.'];
+            return [$title, $summary, $membership, \App\Lang::t('challenges.membership_invalid')];
         }
         return [$title, $summary, $membership, null];
     }

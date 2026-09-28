@@ -41,11 +41,11 @@ final class ChapterController
         // update/delete and every story form stay story-side.
         $rr = \App\Features::on('roundrobin');
         try {
-            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr);
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
         }
-        $this->purge($slug, $cats, $seriesSlugs, $authorSlug);
+        $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         // Finding 5: a scheduled create never fans out. storyForNotify only
         // checks live_chapters >= 1, so scheduling onto a live story would
         // notify followers about a chapter they cannot read yet.
@@ -72,11 +72,11 @@ final class ChapterController
             return new Response($this->form($slug, $position, \App\Lang::t('chapter.publish_invalid')), 422);
         }
         try {
-            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt);
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->purge($slug, $cats, $seriesSlugs, $authorSlug);
+        $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         $wasLive = (int) ($this->db->one(
             'SELECT validated FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
             [$slug, $position])['validated'] ?? 0);
@@ -88,11 +88,11 @@ final class ChapterController
     public function delete(string $slug, int $position): Response
     {
         try {
-            [$cats, $seriesSlugs, $authorSlug] = $this->repo()->deleteChapter($slug, $position, $this->uid());
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->deleteChapter($slug, $position, $this->uid());
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
-        $this->purge($slug, $cats, $seriesSlugs, $authorSlug);
+        $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         return Response::redirect('/story/edit/' . $slug);
     }
 
@@ -128,9 +128,13 @@ final class ChapterController
             || in_array($role, ['validated_author', 'moderator', 'admin'], true);
     }
 
-    private function purge(string $slug, array $cats, array $seriesSlugs = [], string $authorSlug = ''): void
+    private function purge(string $slug, array $cats, array $seriesSlugs = [], string $authorSlug = '', array $challengeSlugs = []): void
     {
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
+        // Config-injected dir when present (the StoryController pattern), the
+        // tree's public/cache otherwise: tests pin through-controller purges
+        // without ever writing into the real dir.
+        (new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache')))
+            ->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
     }
 
     private function notifyPublish(string $slug): void

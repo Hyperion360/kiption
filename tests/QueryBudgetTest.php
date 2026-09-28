@@ -5,6 +5,7 @@ use Kip\Database;
 use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class QueryBudgetTest extends TestCase
 {
@@ -36,7 +37,7 @@ final class QueryBudgetTest extends TestCase
         ];
     }
 
-    /** @dataProvider pages */
+    #[DataProvider('pages')]
     public function test_every_page_stays_inside_the_one_query_budget(string $page): void
     {
         [$path, $query] = array_pad(explode('?', $page, 2), 2, '');
@@ -116,7 +117,7 @@ final class QueryBudgetTest extends TestCase
                 ['/stats']];
     }
 
-    /** @dataProvider authPages */
+    #[DataProvider('authPages')]
     public function test_author_pages_stay_inside_the_one_query_budget(string $page): void
     {
         $app = new App($this->config());

@@ -342,9 +342,9 @@ final class StoryController
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
-        [$id, $slug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->createStory(
+        [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $tagIds);
-        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug);
+        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         return Response::redirect('/story/edit/' . $slug);
     }
 
@@ -372,7 +372,7 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, $syndicationError, null), 422);
         }
         try {
-            [$newSlug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->updateStory(
+            [$newSlug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
                 $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $tagIds);
         } catch (\RuntimeException) {
@@ -382,9 +382,9 @@ final class StoryController
         // restricted flip changes what guests see on public lists containing
         // the story. Caller-side lookup: Cache stays DB-free.
         $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($this->storyId($newSlug));
-        $this->staticCache()->purgeStory($newSlug, $cats, $seriesSlugs, $authorSlug, $listSlugs);
+        $this->staticCache()->purgeStory($newSlug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
         if ($newSlug !== $slug) {
-            $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs); // old URLs' files too
+            $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs); // old URLs' files too
         }
         return Response::redirect('/story/edit/' . $newSlug);
     }
@@ -393,13 +393,13 @@ final class StoryController
     public function delete(string $slug): Response
     {
         try {
-            [$slug, $cats, $seriesSlugs, $authorSlug] = $this->authoring()->deleteStory($slug, $this->uid());
+            [$slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->deleteStory($slug, $this->uid());
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
         // A soft-deleted story leaves every public list's guest render (the rider).
         $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($this->storyId($slug));
-        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs);
+        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // the directory's story counts changed
         return Response::redirect('/account');
     }

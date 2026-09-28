@@ -17,7 +17,7 @@
     <button type="submit"><?= \App\Lang::t('wrangling.choose') ?></button>
   </form>
   <?php else: ?>
-  <p class="chapter-meta"><?= \App\Lang::t('wrangling.merge_help', ['synonym' => $synonym['name']]) ?></p>
+  <p class="chapter-meta"><?= \App\Lang::t('wrangling.merge_help', ['synonym' => $this->e($synonym['name'])]) ?></p>
   <?php if ($candidates === []): ?>
   <p class="chapter-meta"><?= \App\Lang::t('wrangling.no_candidates') ?></p>
   <?php else: ?>

@@ -76,7 +76,7 @@ final class Cache
      *  the caller looks them up before the write lands here, Cache stays
      *  DB-free): a listed story flipping restricted or deleting must not
      *  leave a stale guest-cached list (the restricted lesson). */
-    public function purgeStory(string $slug, array $categorySlugs, array $seriesSlugs = [], string $authorProfileSlug = '', array $listSlugs = []): void
+    public function purgeStory(string $slug, array $categorySlugs, array $seriesSlugs = [], string $authorProfileSlug = '', array $listSlugs = [], array $challengeSlugs = []): void
     {
         foreach (['/story/view/' . $slug, '/browse', '/browse/recent', '/'] as $p) {
             $f = $this->fileFor($p);
@@ -91,6 +91,7 @@ final class Cache
         foreach ($seriesSlugs as $ss) $this->purgeSeries($ss);
         if ($authorProfileSlug !== '') $this->purgeUser($authorProfileSlug);
         foreach ($listSlugs as $ls) $this->purgeList($ls);
+        foreach ($challengeSlugs as $cs) $this->purgeChallenge($cs);
         // The toplists hub aggregates every story's engagement, so any story's
         // kudos/favorites/reviews/visibility change can reorder it: every
         // engagement and visibility write path already calls purgeStory, and

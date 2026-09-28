@@ -83,7 +83,21 @@ final class WranglingController
                     'INSERT OR IGNORE INTO story_tags (story_id, tag_id) SELECT story_id, ? FROM story_tags WHERE tag_id = ?',
                     [$canonicalId, $synonymId]);
                 $this->db->query('DELETE FROM story_tags WHERE tag_id = ?', [$synonymId]);
-                $this->db->query('UPDATE tags SET canonical_id = ? WHERE id = ?', [$canonicalId, $synonymId]);
+                // F3: the retire is CONDITIONAL on the canonical still being
+                // live and same-type. The reject guards above probed a
+                // PRE-transaction snapshot; a second admin retiring or
+                // retyping the canonical inside that window would otherwise
+                // chain two levels. A raced refuse leaves rowCount 0, and
+                // the whole quadruple rolls back (the message cannot tell
+                // retire from retype; the race makes them indistinguishable).
+                $retired = $this->db->query(
+                    'UPDATE tags SET canonical_id = ? WHERE id = ? AND NOT EXISTS (
+                        SELECT 1 FROM tags c WHERE c.id = ? AND (c.canonical_id IS NOT NULL OR c.tag_type_id != tags.tag_type_id))',
+                    [$canonicalId, $synonymId, $canonicalId]);
+                if ($retired->rowCount() === 0) {
+                    $this->db->rollBack();
+                    return new Response($this->renderMergeForm($rows, $synonym, \App\Lang::t('wrangling.err_retired')), 422);
+                }
                 $this->db->query('UPDATE tags SET canonical_id = ? WHERE canonical_id = ?', [$canonicalId, $synonymId]);
                 $this->db->commit();
             } catch (\Throwable $e) {

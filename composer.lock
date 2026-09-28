@@ -12,12 +12,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/Hyperion360/kip.git",
-                "reference": "b95dc30a565dc84cb144904338911542f14454a0"
+                "reference": "44dea607aa1ca8ccbdff0cf09472060f19b1d5df"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/b95dc30a565dc84cb144904338911542f14454a0",
-                "reference": "b95dc30a565dc84cb144904338911542f14454a0",
+                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/44dea607aa1ca8ccbdff0cf09472060f19b1d5df",
+                "reference": "44dea607aa1ca8ccbdff0cf09472060f19b1d5df",
                 "shasum": ""
             },
             "require": {
@@ -75,7 +75,7 @@
                 "issues": "https://github.com/Hyperion360/kip/issues",
                 "source": "https://github.com/Hyperion360/kip"
             },
-            "time": "2026-09-27T11:59:18+00:00"
+            "time": "2026-09-28T01:33:33+00:00"
         }
     ],
     "packages-dev": [
