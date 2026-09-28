@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/HomeController.php
-namespace App\Controllers;
+<?php // app/Features/Home/HomeController.php
+namespace App\Features\Home;
 use Kip\{Database, Http\Request, Session, View};
 
 final class HomeController
