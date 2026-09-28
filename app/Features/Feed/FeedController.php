@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/FeedController.php
-namespace App\Controllers;
+<?php // app/Features/Feed/FeedController.php
+namespace App\Features\Feed;
 use Kip\{App, Database, Http\Response};
 use App\Repositories\StoryRepository;
 use App\Repositories\UserRepository;
