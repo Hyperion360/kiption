@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/BrowseController.php
-namespace App\Controllers;
+<?php // app/Features/Browse/BrowseController.php
+namespace App\Features\Browse;
 use Kip\{App, Http\Request, Http\Response, Session, View};
 use App\Repositories\StoryRepository;
 use App\Repositories\UserRepository;
