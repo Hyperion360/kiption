@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/RssController.php
-namespace App\Controllers;
+<?php // app/Features/Rss/RssController.php
+namespace App\Features\Rss;
 use Kip\{App, Database, Http\Response};
 use App\Repositories\StoryRepository;
 
