@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/AdminmembersController.php
-namespace App\Controllers;
+<?php // app/Features/Adminmembers/AdminmembersController.php
+namespace App\Features\Adminmembers;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Adminness;
