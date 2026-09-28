@@ -110,7 +110,7 @@ final class SitemapTest extends TestCase
     {
         $cacheDir = $this->root . '/cache';
         $count = Builder::build([
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'app_dir' => dirname(__DIR__) . '/app',
             'db' => ['dsn' => 'sqlite:' . $this->path],

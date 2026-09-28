@@ -34,7 +34,7 @@ final class MicroformatsTest extends TestCase
     {
         return [
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],

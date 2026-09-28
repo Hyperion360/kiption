@@ -34,7 +34,6 @@ final class StoryTest extends TestCase
         $this->app = new App([
             'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
-            'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => $this->dsn],
             'log_db' => ['dsn' => 'sqlite::memory:'],

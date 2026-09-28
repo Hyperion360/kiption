@@ -98,7 +98,6 @@ final class StaticCacheTest extends TestCase
         \App\Seeder::run($db);
         $app = new \Kip\App([
             'env' => 'prod',
-            'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'app_dir' => dirname(__DIR__) . '/app',
             'db' => ['dsn' => $dsn],

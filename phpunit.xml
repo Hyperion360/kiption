@@ -2,5 +2,5 @@
 <phpunit bootstrap="vendor/autoload.php" colors="true">
   <testsuites><testsuite name="kiption"><directory>tests</directory></testsuite></testsuites>
   <php><ini name="error_log" value="/dev/null"/></php>
-  <source><include><directory>app/src</directory></include></source>
+  <source><include><directory>app/src</directory><directory>app/Features</directory></include></source>
 </phpunit>

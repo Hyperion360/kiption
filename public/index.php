@@ -16,7 +16,7 @@ public/index.php
   |      \-- miss --> legacy .php URL in the 301 map? --> Location 301 --> exit
   |                     \-- no --> new Kip\App(config, lazy session)
   |                                    |-- App::handle(request)
-  |                                    |     |-- route to App\Controllers\*
+  |                                    |     |-- route to App\Features\{Feature}\*
   |                                    |     \-- Response (200/404/...)
   |                                    |-- static cache maybeStore(request, response)  (anonymous 200 only)
   |                                    \-- send

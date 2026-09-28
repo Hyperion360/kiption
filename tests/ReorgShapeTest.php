@@ -65,4 +65,17 @@ final class ReorgShapeTest extends TestCase
                 "folder app/Features/{$name} must hold {$name}Controller.php (router convention)");
         }
     }
+
+    public function test_reorg_end_state(): void
+    {
+        $this->assertDirectoryDoesNotExist($this->root . '/app/src/Controllers',
+            'the layered Controllers directory must be gone (one-shot reorg)');
+        foreach (scandir($this->root . '/app/views') ?: [] as $f) {
+            if ($f[0] === '.') continue;
+            $this->assertContains($f, ['layout.php', 'maintenance.php'],
+                'app/views must hold only the kernel layout and maintenance page, found ' . $f);
+        }
+        $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');
+        $this->assertCount(38, $features, 'exactly 38 feature folders expected');
+    }
 }

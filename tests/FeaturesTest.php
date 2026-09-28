@@ -279,7 +279,7 @@ final class FeaturesTest extends TestCase
     private function config(array $extra = []): array
     {
         return $extra + [
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],

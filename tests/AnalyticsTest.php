@@ -118,7 +118,7 @@ final class AnalyticsTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $app = new App([
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
@@ -200,7 +200,7 @@ final class AnalyticsTest extends TestCase
     {
         $this->seed();
         $app = new App([
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],

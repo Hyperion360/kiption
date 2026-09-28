@@ -49,7 +49,7 @@ final class CliTest extends TestCase
         // The bootstrap admin can actually log in (no verify/approval gate).
         $app = new App([
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
@@ -57,6 +57,24 @@ final class CliTest extends TestCase
         ]);
         $res = (new TestClient($app))->post('/auth/attempt', ['email' => 'cli@e.test', 'password' => 'password123']);
         $this->assertSame(302, $res->status, 'CLI-created admin must pass the login gates: ' . substr($res->body, 0, 200));
+    }
+
+    public function test_rollback_undoes_the_last_batch_and_migrate_restores_it(): void
+    {
+        $this->kip('migrate');
+        [$code, $out] = $this->kip('rollback'); // one batch spans app/migrations AND app/Features/*/migrations
+        $this->assertSame(0, $code, $out);
+        preg_match('/^Rolled back: (.+)$/m', $out, $m);
+        $names = array_filter(array_map('trim', explode(',', $m[1] ?? '')));
+        $this->assertNotEmpty($names, 'rollback must name at least one migration, got: ' . $out);
+        foreach ($names as $n) {
+            $this->assertMatchesRegularExpression('/^\d{3}_/', $n, "not a migration name: {$n}");
+        }
+
+        // the fixture DB must end fully migrated for any later assertions
+        [$code, $out] = $this->kip('migrate');
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('Ran: ', $out);
     }
 
     public function test_import_token_prints_token_and_hash_file_line(): void

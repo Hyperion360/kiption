@@ -32,7 +32,6 @@ final class BuilderTest extends TestCase
     {
         return [
             'env' => 'prod',
-            'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'app_dir' => dirname(__DIR__) . '/app',
             'db' => ['dsn' => $this->dsn],

@@ -42,7 +42,7 @@ final class QueueTest extends TestCase
     {
         return (new TestClient(new App([
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
@@ -59,7 +59,7 @@ final class QueueTest extends TestCase
 
     public function test_anonymous_is_redirected(): void
     {
-        $app = new App(['app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+        $app = new App(['app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views', 'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:']]);
         $res = (new TestClient($app))->get('/queue');

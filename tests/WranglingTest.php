@@ -69,7 +69,7 @@ final class WranglingTest extends TestCase
     {
         $client = new TestClient(new App([
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
@@ -155,7 +155,7 @@ final class WranglingTest extends TestCase
         $db->query('INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = ?), 2)', ['the-rabbit-hole']);
         $app = new App([
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],

@@ -33,7 +33,7 @@ final class MetadataTest extends TestCase
     {
         $app = new App([
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
@@ -58,7 +58,7 @@ final class MetadataTest extends TestCase
         $this->assertStringContainsString('pt-BR', $body);
         $res = (new TestClient(new App([
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
@@ -70,7 +70,7 @@ final class MetadataTest extends TestCase
         $this->assertStringContainsString('The Rabbit Hole', $res->body);
         $res = (new TestClient(new App([
             'app_dir' => dirname(__DIR__) . '/app',
-            'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+            'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
