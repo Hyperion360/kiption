@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/ImagesController.php
-namespace App\Controllers;
+<?php // app/Features/Images/ImagesController.php
+namespace App\Features\Images;
 use Kip\{App, Database, Http\Request, Http\Response, Session, Storage, UploadException, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
