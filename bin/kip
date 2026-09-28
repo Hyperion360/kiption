@@ -14,7 +14,10 @@ $config = require __DIR__ . '/../config.php';
 // path that is not a readable directory, instead of quietly skipping it.
 $migration_dirs = static function () use ($config): array {
     $dirs = [$config['app_dir'] . '/migrations'];
-    $features_dir = $config['app_dir'] . '/Features';
+    // Honor the same override App.php reads for feature resolution, so the CLI
+    // and the web app can never discover different feature trees (adversarial
+    // review 2026-09-28).
+    $features_dir = $config['features_dir'] ?? $config['app_dir'] . '/Features';
     if (!is_dir($features_dir) && !is_link($features_dir) && !file_exists($features_dir)) return $dirs;
     $entries = scandir($features_dir);
     if ($entries === false) {
