@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/NewsController.php
-namespace App\Controllers;
+<?php // app/Features/News/NewsController.php
+namespace App\Features\News;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\NewsRepository;
