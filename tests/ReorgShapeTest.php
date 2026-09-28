@@ -66,6 +66,18 @@ final class ReorgShapeTest extends TestCase
         }
     }
 
+    public function test_no_migration_files_at_wrong_depth(): void
+    {
+        // A 025_x.php dropped in app/Features/Auth/ (not .../Auth/migrations/)
+        // is invisible to the discovery closure: kip migrate prints success
+        // and the schema change never applies (adversarial review 2026-09-28).
+        foreach (glob($this->root . '/app/Features/*/*.php') ?: [] as $stray) {
+            $this->assertSame(0, preg_match('/^\d{3}_/', basename($stray)),
+                basename($stray) . ' sits in a feature root, not its migrations/ subdirectory; move it or it will never run');
+        }
+        $this->addToAssertionCount(1);
+    }
+
     public function test_reorg_end_state(): void
     {
         $this->assertDirectoryDoesNotExist($this->root . '/app/src/Controllers',
