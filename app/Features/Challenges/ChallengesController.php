@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/ChallengesController.php
-namespace App\Controllers;
+<?php // app/Features/Challenges/ChallengesController.php
+namespace App\Features\Challenges;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\ChallengesRepository;
