@@ -95,9 +95,74 @@ elsewhere registers itself with `App\Lang::addPackPath('xx',
 '/path/to/xx.php')` from its own bootstrap, ahead of autodiscovery. Pack
 files are code and run at load, so deploy only packs you trust (the same
 trust level as `config.php`); a pack that fails to load degrades to
-English with the failure recorded in the error log. Per-member language
-choice and right-to-left layouts are future work; today the language is
-site-wide.
+English with the failure recorded in the error log. Members may also pick
+their own language and theme on the account page; see the next section.
+
+## Per-member language and theme
+
+Members choose their own interface language and theme on the account page.
+Both are stored in `user_prefs` (`lang`, empty string = follow the archive
+default; `theme`, `dark` or `light`) and both reach the render through
+cookies, so no page pays an extra query for them.
+
+The cookie-sync architecture. The database row is the source of truth and
+the cross-device record; the `lang` and `theme` cookies are the runtime
+cache. Three write points sync both sides at once: the login (one prefs
+lookup on the auth write path sets the cookies from the stored row; write
+paths sit outside the page query budget), the account preferences save,
+and the `/theme/{dark|light}` toggle, which also writes the row when the
+clicker is logged in. Logout clears both cookies along with the session.
+The render path never queries prefs: `public/index.php` applies the `lang`
+cookie before routing (validated as a two-letter code; a tampered or junk
+cookie degrades to the archive default, never an error page), and the
+layout resolves the theme as cookie, then OS preference. Pref and cookie
+cannot drift, because every write point writes both, and a login on a new
+device re-syncs from the row. Switching the language back to the empty
+value clears the cookie on the save response, so the very next render is
+back in the archive language, not stuck in the old pack until logout.
+
+Anonymous renders stay byte-identical by construction: a cookieless
+request reads neither cookie and never queries prefs, and the static
+cache's cookieless rule already keeps cookied requests off cached pages.
+
+Right-to-left packs. A pack declares itself right-to-left with the
+reserved array key `'_dir' => 'rtl'`; the layout then emits `dir="rtl"`
+beside `lang="{code}"`, and screen readers pick up both attributes. No
+RTL pack ships with Kiption (no translation exists to ship; installing one
+is an operator content decision), but the mechanism is complete: the
+account page's language select lists `App\Lang::installed()` (the
+`app/lang/{code}.php` files), and the save validates the posted code
+against that list or the empty follow-the-default value, answering 422
+for anything else.
+
+The stylesheet guarantee. Every shipped stylesheet is direction-agnostic:
+no `margin-left`/`margin-right`, `padding-left`/`padding-right`,
+`border-left`/`border-right`, or `text-align: left`/`right` anywhere,
+pinned by a test in `tests/PerUserTest.php`. The layout flips natively
+under `dir="rtl"`: flexbox order reverses, auto margins mirror through
+their logical spellings (`margin-inline-start` and friends), and
+`text-align: center` is direction-neutral. A future stylesheet change
+that reintroduces a physical directional property breaks the pin before
+it ships a half-mirrored page.
+
+No Accept-Language sniffing, on purpose. The archive language is a config
+decision and the member language is an explicit account choice; nothing
+is auto-detected from the browser (a privacy and surprise stance).
+
+Flags. `peruserlang` gates the language select, the login's lang-cookie
+sync, and the save's lang column; `perusertheme` gates the theme radios,
+the login's theme sync, the save's theme column, and the member toggle's
+row write-through. Both store, never delete: with a flag off the stored
+preference goes inert and returns on re-enable. One documented window:
+the render-time cookie seam sits above the flags database (moving it
+below would put the flags DB in front of the maintenance 503, a
+framework-level page that must never open it), so it consults only the
+config-shipped default. A runtime flag-off therefore stops new cookie
+syncs immediately (logins, saves, and toggles skip them) but a browser
+already carrying the cookie keeps rendering that language or theme until
+its next logout or login clears or re-syncs it. The `/theme` toggle keeps
+writing its cookie with `perusertheme` off: the cookie path is guest core
+that predates the flag.
 
 ## SEO
 
@@ -307,10 +372,12 @@ Every member gets a public profile at `/user/view/{slug}` (bio in
 markdown, avatar, support link, story and series counts) with stories
 and favorites tabs, and a member directory at `/browse/authors` with
 letter filters and a beta-reader filter. Account preferences cover the
-bio and beta-reader flag, a default listing sort, a table-of-contents
-first reading mode (a cookie, so the bare `/story/read/{slug}`
-redirect costs zero queries), and notification toggles for reviews,
-replies, and favorites. Members contact each other through an
+bio and beta-reader flag, a default listing sort, the member's own
+interface language and theme (see Per-member language and theme), a
+table-of-contents first reading mode (a cookie, so the bare
+`/story/read/{slug}` redirect costs zero queries), and notification
+toggles for reviews, replies, and favorites. Members contact each other
+through an
 auth-gated form (CSRF, three messages per sender per hour); the
 target's email address is never rendered, only mailed to.
 
@@ -633,8 +700,8 @@ moment news goes off.
 | pms | `/messages`, thread views, the compose form, and the send POST | 404 |
 | mute | `/mute/add/{slug}` and `/mute/remove/{slug}` | 404; the profile and directory mute buttons and the account block hide, and listings stop filtering for everyone |
 | wrangling | `/wrangling`, the merge form, and the merge and unmerge POSTs | 404 |
-| peruserlang | the language select on the account page and the member language cookie applied at render | the field hides and the stored preference goes inert; every render falls back to the archive default language |
-| perusertheme | the theme radios on the account page and the member theme preference in the cascade | the fields hide and the stored preference goes inert; the cookie, then the OS, governs as before |
+| peruserlang | the language select on the account page, the login's lang-cookie sync, and the save's lang column | the field hides and the stored preference goes inert; new logins stop syncing the lang cookie, and a browser already carrying it keeps it until the next logout or login (the documented window in Per-member language and theme) |
+| perusertheme | the theme radios on the account page, the login's theme sync, the save's theme column, and the member toggle's row write-through | the fields hide and the stored preference goes inert; the toggle keeps writing its cookie (guest core) and the cookie, then the OS, governs as before |
 
 The two flags compose: `comments` is a sub-flag of `news`. News on with
 comments off renders items with their existing comments and counts but no

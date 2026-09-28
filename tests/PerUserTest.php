@@ -231,4 +231,114 @@ final class PerUserTest extends TestCase
         $this->assertStringNotContainsString('name="theme"', $me->get('/account')->body);
         \App\Features::toggle('perusertheme', true);
     }
+
+    /** Ruling 4's verification pin (Task 3): no shipped stylesheet carries a
+     *  physical directional property outside comments, so dir="rtl" flips the
+     *  layout natively (flex order reverses, auto margins mirror through their
+     *  logical spellings, text-align: center is direction-neutral). The pin
+     *  covers every stylesheet under public/, not just the one the ruling's
+     *  probe read: reader.css is the file the layout links (the probe's
+     *  style.css is not referenced by any view), and print.css rides the
+     *  whole-work print view. A future change that reintroduces margin-left
+     *  or friends breaks this test before it ships a half-mirrored RTL page. */
+    public function test_stylesheets_carry_no_physical_directional_properties(): void
+    {
+        $files = [
+            'public/style.css' => dirname(__DIR__) . '/public/style.css',
+            'public/assets/reader.css' => dirname(__DIR__) . '/public/assets/reader.css',
+            'public/assets/print.css' => dirname(__DIR__) . '/public/assets/print.css',
+        ];
+        foreach ($files as $label => $file) {
+            $this->assertFileExists($file);
+            // Comments are stripped first: prose mentioning a property is
+            // fine, declarations are not.
+            $code = (string) preg_replace('#/\*.*?\*/#s', '', (string) file_get_contents($file));
+            $this->assertDoesNotMatchRegularExpression(
+                '/margin-(left|right)|padding-(left|right)|border-(left|right)/i',
+                $code,
+                $label . ': physical box directional properties break the RTL mirror; use margin-inline-start and friends'
+            );
+            $this->assertDoesNotMatchRegularExpression(
+                '/text-align\s*:\s*(left|right)/i',
+                $code,
+                $label . ': physical text alignment breaks the RTL mirror; use text-align: start'
+            );
+        }
+    }
+
+    /** The peruserlang off case (Task 3, the seam ruling folded into ruling
+     *  1): the off semantics are WRITE-SIDE plus cookieless archive-lang, not
+     *  a render-side purge. The stale-cookie window is documented, never
+     *  asserted here: the index.php seam consults only the config-shipped
+     *  flag default (moving it below Features::init would put the flags DB
+     *  in front of the maintenance 503, a framework-level page that must
+     *  never open it), so a browser already carrying lang=xx keeps rendering
+     *  that pack until its next logout or login; new logins stop syncing
+     *  the cookie the moment the flag drops, which is what this case pins. */
+    public function test_peruserlang_off_stops_the_login_sync_and_keeps_cookieless_renders_archive_lang(): void
+    {
+        $this->writePack();
+        // Plant the row the way a real save would. The lang-only INSERT lets
+        // the theme column take its schema default 'dark', which sharpens the
+        // case: the login still syncs the theme cookie, proving the prefs row
+        // was read and only the lang arm skipped.
+        $this->db()->query('INSERT INTO user_prefs (user_id, lang) VALUES (?, ?)', [$this->memberId(), 'xx']);
+        \App\Features::toggle('peruserlang', false);
+        $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertSame(302, $res->status);
+        $this->assertStringNotContainsString('lang=', $this->cookieLine($res), 'the login sync skips the lang cookie');
+        $this->assertStringContainsString('theme=dark', $this->cookieLine($res), 'the theme arm still syncs: the row was read, only lang skipped');
+        // The cookieless render keeps the archive language, and the stored
+        // pref is inert data, never deleted (the toggle-on restore contract).
+        \App\Lang::setCurrent('en');
+        $this->assertStringContainsString('lang="en"', $this->client()->get('/browse')->body);
+        $this->assertStringNotContainsString('dir="rtl"', $this->client()->get('/browse')->body);
+        $this->assertSame('xx', $this->db()->one('SELECT lang FROM user_prefs WHERE user_id = ?', [$this->memberId()])['lang'],
+            'flag-off stores the pref, never deletes it');
+        // On recovery the sync returns.
+        \App\Features::toggle('peruserlang', true);
+        $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertSame(302, $res->status);
+        $this->assertStringContainsString('lang=xx', $this->cookieLine($res), 'the sync restores with the flag');
+    }
+
+    /** The perusertheme off case: the same write-side semantics (no sync at
+     *  the login), the form field group hides (each flag hides its own group;
+     *  with both off neither renders), and the /theme toggle keeps writing
+     *  its cookie because the cookie path is unflaggable guest core that
+     *  predates the flag; only the member pref write-through skips. */
+    public function test_perusertheme_off_skips_the_sync_but_the_toggle_keeps_its_cookie(): void
+    {
+        $this->db()->query('INSERT INTO user_prefs (user_id, theme) VALUES (?, ?)', [$this->memberId(), 'light']);
+        \App\Features::toggle('perusertheme', false);
+        $me = $this->client($this->memberId());
+        // (a) The login carries no theme sync. The row's lang column defaults
+        //  to '' (no lang directive either), so the response is the plain
+        //  redirect with no cookie directives at all.
+        $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertSame(302, $res->status);
+        $this->assertArrayNotHasKey('Set-Cookie', $res->headers, 'no prefs sync at all while the flag is off');
+        // (b) The form hides the theme group while the lang group stays (its
+        //  own flag is still on); with both flags off both groups hide.
+        $form = $me->get('/account')->body;
+        $this->assertStringNotContainsString('name="theme"', $form);
+        $this->assertStringContainsString('name="lang"', $form, 'the lang group is gated by peruserlang, not this flag');
+        \App\Features::toggle('peruserlang', false);
+        $this->assertStringNotContainsString('name="lang"', $me->get('/account')->body, 'both field groups hide with both flags off');
+        \App\Features::toggle('peruserlang', true);
+        // (c) The toggle still writes its cookie (the unflaggable guest core
+        //  path); the member write-through alone skips.
+        $toggle = $me->get('/theme/dark', ['return_to' => '/browse']);
+        $this->assertSame(302, $toggle->status);
+        $this->assertStringContainsString('theme=dark', $this->cookieLine($toggle), 'the toggle cookie keeps riding');
+        $this->assertSame('light', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+            'the write-through skips while the flag is off');
+        // On recovery: the write-through and the login sync return.
+        \App\Features::toggle('perusertheme', true);
+        $this->assertSame(302, $me->get('/theme/dark', ['return_to' => '/browse'])->status);
+        $this->assertSame('dark', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+            'the member toggle persists again');
+        $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertStringContainsString('theme=dark', $this->cookieLine($res), 'the login sync restores with the flag');
+    }
 }

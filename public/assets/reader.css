@@ -41,7 +41,8 @@ a:hover { color: var(--gold); }
   display: flex; gap: 1.25rem; align-items: baseline; flex-wrap: wrap;
 }
 .site-nav .brand { font-variant: small-caps; letter-spacing: 0.08em; color: var(--ink); }
-.site-nav .theme-toggle { margin-left: auto; }
+/* margin-inline-start keeps the toggle pinned to the far end under dir=rtl too. */
+.site-nav .theme-toggle { margin-inline-start: auto; }
 .site-main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 .site-foot {
   border-top: 1px solid var(--line); color: var(--dim);
