@@ -341,4 +341,27 @@ final class PerUserTest extends TestCase
         $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $this->assertStringContainsString('theme=dark', $this->cookieLine($res), 'the login sync restores with the flag');
     }
+
+    /** The seam's flag consult (the Task-2 ruling): the index.php lang-cookie
+     *  seam runs before Features::init (moving it below would put the flags DB
+     *  in front of the maintenance 503, a framework-level page that must never
+     *  open it), so the only flag it can consult is the config-shipped
+     *  peruserlang default. The suite cannot execute the front controller, so
+     *  this pins the guard textually (the CSS pin's source-probe idiom):
+     *  without the consult, a config-off archive still honors a member's
+     *  cookie, behavior the README does not ship ("it consults only the
+     *  config-shipped default"; the stale-cookie window is the RUNTIME
+     *  flag-off case, kept live in the off test above). */
+    public function test_the_index_seam_consults_the_config_peruserlang_default(): void
+    {
+        $src = (string) preg_replace('#/\*.*?\*/#s', '',
+            (string) file_get_contents(dirname(__DIR__) . '/public/index.php'));
+        $start = strpos($src, 'setCurrent($cookieLang)');
+        $this->assertNotFalse($start, 'the seam must keep applying the lang cookie');
+        $guard = (string) substr($src, max(0, $start - 500), 500);
+        $this->assertStringContainsString(
+            "\$config['features']['peruserlang']",
+            $guard,
+            'the seam applies the lang cookie only when the config peruserlang default is on');
+    }
 }

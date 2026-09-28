@@ -45,8 +45,16 @@ $request = Kip\Http\Request::fromGlobals(trustedProxy: $config['trusted_proxy'])
 // serve whose cookieless rule already makes a cookied request uncacheable. A
 // junk cookie keeps the config default: setCurrent would coerce it to en, which
 // is only right when en IS the configured archive language.
+// The flag consult is the Task-2 ruling: the seam runs before Features::init
+// (moving it below would put the flags DB in front of the maintenance 503, a
+// framework-level page that must never open it), so it consults ONLY the
+// config-shipped peruserlang default. A config-off archive never applies the
+// cookie; a runtime flag-off (DB row) cannot reach this high, which is the
+// documented stale-cookie window: logins stop syncing immediately, a browser
+// already carrying the cookie keeps its language until the next logout.
 $cookieLang = $request->cookies['lang'] ?? '';
-if (is_string($cookieLang) && preg_match('/^[a-z]{2}$/', $cookieLang) === 1) {
+if (($config['features']['peruserlang'] ?? true)
+    && is_string($cookieLang) && preg_match('/^[a-z]{2}$/', $cookieLang) === 1) {
     \App\Lang::setCurrent($cookieLang);
 }
 
