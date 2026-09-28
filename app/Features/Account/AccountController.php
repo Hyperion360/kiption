@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/AccountController.php
-namespace App\Controllers;
+<?php // app/Features/Account/AccountController.php
+namespace App\Features\Account;
 use Kip\{App, Database, Http\Request, Http\Response, Session, Storage, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
