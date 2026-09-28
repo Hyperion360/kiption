@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/TemplatesController.php
-namespace App\Controllers;
+<?php // app/Features/Templates/TemplatesController.php
+namespace App\Features\Templates;
 use App\Templates;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
