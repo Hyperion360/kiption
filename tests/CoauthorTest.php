@@ -19,7 +19,7 @@ final class CoauthorTest extends TestCase
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-coa-mail-') . '.log';
         touch($this->mailLog);
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         // a full member to attach as coauthor (approved, verified, unlocked)
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('ow@e.test', ?, 'otherwriter', ?, ?, 'otherwriter')",
@@ -36,6 +36,7 @@ final class CoauthorTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

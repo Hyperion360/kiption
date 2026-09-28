@@ -27,7 +27,7 @@ final class PerUserTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-pu-') . '.sqlite';
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-pu-mail-') . '.log';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         $this->memberRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         // The public/index.php init, pointed at this throwaway DB.
@@ -56,6 +56,7 @@ final class PerUserTest extends TestCase
     private function app(): App
     {
         return new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

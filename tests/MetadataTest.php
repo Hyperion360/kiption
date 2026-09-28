@@ -18,7 +18,7 @@ final class MetadataTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-meta-') . '.sqlite';
         $this->uploads = sys_get_temp_dir() . '/kiption-meta-upl-' . bin2hex(random_bytes(4));
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
     }
 
@@ -32,6 +32,7 @@ final class MetadataTest extends TestCase
     private function client(): TestClient
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -56,6 +57,7 @@ final class MetadataTest extends TestCase
         $body = $this->client()->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('pt-BR', $body);
         $res = (new TestClient(new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -67,6 +69,7 @@ final class MetadataTest extends TestCase
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('The Rabbit Hole', $res->body);
         $res = (new TestClient(new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

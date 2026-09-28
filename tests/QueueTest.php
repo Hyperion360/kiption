@@ -18,7 +18,7 @@ final class QueueTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-queue-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         \App\Adminness::setRole($this->db, 1, 'moderator'); // Demo Author moderates
         // one pending story with one pending chapter by a plain member
@@ -41,6 +41,7 @@ final class QueueTest extends TestCase
     private function clientAs(int $userId): TestClient
     {
         return (new TestClient(new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -58,7 +59,7 @@ final class QueueTest extends TestCase
 
     public function test_anonymous_is_redirected(): void
     {
-        $app = new App(['env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+        $app = new App(['app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views', 'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:']]);
         $res = (new TestClient($app))->get('/queue');

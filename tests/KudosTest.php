@@ -16,7 +16,7 @@ final class KudosTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-kudos-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         // a second user: kudos notifications target the AUTHOR (user 1),
         // and self-notifications are suppressed, so the actor cannot be the author
@@ -33,6 +33,7 @@ final class KudosTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

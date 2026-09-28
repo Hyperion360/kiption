@@ -2,7 +2,7 @@
 namespace App\Tests;
 use PHPUnit\Framework\TestCase;
 
-require_once __DIR__ . '/support/EfictionInstall.php';
+require_once __DIR__ . '/Support/EfictionInstall.php';
 
 final class EfictionExportTest extends TestCase
 {

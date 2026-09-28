@@ -18,7 +18,7 @@ final class BuilderTest extends TestCase
         $this->dsn = 'sqlite:' . $this->path;
         $this->cacheDir = sys_get_temp_dir() . '/kiption-buildcache-' . uniqid();
         $db = new Database($this->dsn);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
     }
 

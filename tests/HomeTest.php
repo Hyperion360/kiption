@@ -16,8 +16,9 @@ final class HomeTest extends TestCase
         // in-memory database shared into the container keeps this suite's
         // no-files style. Guests never touch it.
         $db = new Database('sqlite::memory:');
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',

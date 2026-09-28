@@ -15,7 +15,7 @@ final class RestrictedTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-rest-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
     }
 
@@ -27,6 +27,7 @@ final class RestrictedTest extends TestCase
     private function app(array $overrides = []): App
     {
         return new App(array_merge([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

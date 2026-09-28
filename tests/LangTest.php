@@ -16,7 +16,7 @@ final class LangTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-lang-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         $this->root = sys_get_temp_dir() . '/kiption-lang-pack-' . uniqid();
         mkdir($this->root, 0775, true);
@@ -41,6 +41,7 @@ final class LangTest extends TestCase
     private function config(): array
     {
         return [
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -129,7 +130,12 @@ final class LangTest extends TestCase
         // plus the code fragments the regex catches once attribute values move
         // into t() calls (" content=", '" href="', '" alt="', '?page=').
         $allowlist = ['Kiption', 'PHP', 'UTF-8', 'aria-', 'data-', 'http', 'page=', 'content=', 'href=', 'alt=', 'placeholder='];
-        $files = array_merge(glob(dirname(__DIR__) . '/app/views/*.php'), glob(dirname(__DIR__) . '/app/views/*/*.php'));
+        $files = array_merge(
+            glob(dirname(__DIR__) . '/app/views/*.php'),
+            glob(dirname(__DIR__) . '/app/views/*/*.php'),
+            glob(dirname(__DIR__) . '/app/Features/*/views/*.php'),
+            glob(dirname(__DIR__) . '/app/Features/*/views/*/*.php')
+        );
         $this->assertNotEmpty($files);
         foreach ($files as $f) {
             foreach (preg_split('/\n/', (string) file_get_contents($f)) as $line) {

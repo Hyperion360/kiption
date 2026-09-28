@@ -94,7 +94,7 @@ final class StaticCacheTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'kiption-wire-') . '.sqlite';
         $dsn = 'sqlite:' . $path;
         $db = new \Kip\Database($dsn);
-        (new \Kip\Migrations\Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new \Kip\Migrations\Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
         $app = new \Kip\App([
             'env' => 'prod',

@@ -1,4 +1,4 @@
-<?php // tests/support/EfictionInstall.php
+<?php // tests/Support/EfictionInstall.php
 final class EfictionInstall
 {
     public PDO $pdo;

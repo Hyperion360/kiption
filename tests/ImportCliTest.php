@@ -9,7 +9,7 @@ final class ImportCliTest extends TestCase
 
     protected function setUp(): void
     {
-        require_once dirname(__DIR__) . '/tests/support/EfictionInstall.php';
+        require_once dirname(__DIR__) . '/tests/Support/EfictionInstall.php';
         $this->root = sys_get_temp_dir() . '/kiption-imp-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->dbPath = tempnam(sys_get_temp_dir(), 'kiption-imp-db-') . '.sqlite';

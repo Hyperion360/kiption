@@ -18,7 +18,7 @@ final class GiftMetadataTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-gift-') . '.sqlite';
         $this->cacheDir = sys_get_temp_dir() . '/kiption-gift-cfg-' . uniqid('', true);
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         $this->app = $this->newApp();
     }
@@ -32,6 +32,7 @@ final class GiftMetadataTest extends TestCase
     private function newApp(): App
     {
         return new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

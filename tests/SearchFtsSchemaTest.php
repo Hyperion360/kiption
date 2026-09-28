@@ -12,7 +12,7 @@ final class SearchFtsSchemaTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-fts-') . '.sqlite';
         $db = new Database('sqlite:' . $this->path);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
     }
 
@@ -60,7 +60,7 @@ final class SearchFtsSchemaTest extends TestCase
         // WITHOUT ROWID so the probe's "SELECT rowid FROM stories_fts" fails
         // exactly as it does when the table is absent on an FTS5-less build
         $db->query('CREATE TABLE stories_fts (x PRIMARY KEY) WITHOUT ROWID'); // occupy the name
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
         $names = array_column($db->all("SELECT name FROM sqlite_master WHERE name LIKE '%fts%'"), 'name');
         $this->assertSame(['stories_fts'], $names, 'no chapters_fts and no fts triggers were created');

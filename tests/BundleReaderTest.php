@@ -11,7 +11,7 @@ final class BundleReaderTest extends TestCase
     {
         $this->root = sys_get_temp_dir() . '/kiption-bundle-' . uniqid('', true);
         mkdir($this->root, 0775, true);
-        require_once dirname(__DIR__) . '/tests/support/EfictionInstall.php';
+        require_once dirname(__DIR__) . '/tests/Support/EfictionInstall.php';
     }
 
     protected function tearDown(): void

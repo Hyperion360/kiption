@@ -18,7 +18,7 @@ final class MailUsersTest extends TestCase
         $this->root = sys_get_temp_dir() . '/kiption-mailusers-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $db = new Database('sqlite:' . $this->path);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
     }
 

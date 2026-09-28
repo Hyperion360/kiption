@@ -14,7 +14,7 @@ final class LegacyRedirectsTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-301-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new \Kip\Migrations\Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new \Kip\Migrations\Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         // a committed import's map state, minimal: story 7 -> our seeded story
         $this->db->query("INSERT INTO import_map (legacy_table, legacy_id, new_table, new_id, run_id) VALUES ('fanfiction_stories', '7', 'stories', (SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), 1)");

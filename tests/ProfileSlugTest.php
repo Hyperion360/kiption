@@ -12,7 +12,7 @@ final class ProfileSlugTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-pslug-') . '.sqlite';
         $db = new Database('sqlite:' . $this->path);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
     }
 

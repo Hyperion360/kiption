@@ -14,7 +14,7 @@ final class NotificationTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-notif-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
     }
 

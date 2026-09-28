@@ -11,7 +11,7 @@ final class SeedTest extends TestCase
     protected function setUp(): void
     {
         $this->dsn = 'sqlite:' . tempnam(sys_get_temp_dir(), 'kiption-seed-') . '.sqlite';
-        (new Migrator(new Database($this->dsn), dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator(new Database($this->dsn), \App\Tests\Support\AppLayout::migrations()))->migrate();
     }
 
     protected function tearDown(): void

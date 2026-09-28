@@ -14,7 +14,7 @@ final class StoryRepositoryTest extends TestCase
     {
         $this->dsn = 'sqlite:' . tempnam(sys_get_temp_dir(), 'kiption-repo-') . '.sqlite';
         $this->db = new Database($this->dsn);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         $this->db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)',
             ['a@x.test', 'h', 'Demo Author']);
         $this->db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, ?, ?, ?)',

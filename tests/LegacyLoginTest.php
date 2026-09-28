@@ -17,7 +17,7 @@ final class LegacyLoginTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-lgl-') . '.sqlite';
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-lgl-mail-') . '.log';
         $db = new Database('sqlite:' . $this->path);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
         // a legacy-imported member: modern hash sentinel + legacy md5
         $db->query("INSERT INTO users (email, password_hash, penname, legacy_md5, role, email_verified_at, approved_at, profile_slug) VALUES ('legacy@e.test', ?, 'legacyimport', ?, 'member', ?, ?, 'legacyimport')",
@@ -35,6 +35,7 @@ final class LegacyLoginTest extends TestCase
     private function client(): TestClient
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

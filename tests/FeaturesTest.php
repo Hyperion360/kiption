@@ -22,7 +22,7 @@ final class FeaturesTest extends TestCase
         $this->root = sys_get_temp_dir() . '/kiption-flags-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
     }
 
     protected function tearDown(): void
@@ -288,6 +288,7 @@ final class FeaturesTest extends TestCase
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'nav_file' => $this->root . '/nav.json',
             'app_dir' => $this->root . '/app',
+            'features_dir' => dirname(__DIR__) . '/app/Features',
             'static_cache' => ['dir' => $this->root . '/static'],
             'cache_db' => ['dsn' => 'sqlite:' . $this->root . '/app/cache.sqlite'],
         ];

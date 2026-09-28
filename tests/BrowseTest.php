@@ -16,7 +16,7 @@ final class BrowseTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'kiption-browse-') . '.sqlite';
         $this->dsn = 'sqlite:' . $path;
         $db = new Database($this->dsn);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)', ['a@x.test', 'h', 'Demo Author']);
         $db->query('INSERT INTO ratings (label, position) VALUES (?, ?)', ['Teen', 1]);
         $db->query('INSERT INTO categories (name, slug) VALUES (?, ?)', ['General', 'general']);
@@ -24,6 +24,7 @@ final class BrowseTest extends TestCase
             ['The Rabbit Hole', 'the-rabbit-hole', '2026-09-01T10:00:00Z']);
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (1, 1)');
         $this->app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',

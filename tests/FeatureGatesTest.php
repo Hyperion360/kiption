@@ -52,7 +52,7 @@ final class FeatureGatesTest extends TestCase
         $this->root = sys_get_temp_dir() . '/kiption-fg1-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db); // plants the Welcome news row (id 1), demo-author, the-rabbit-hole
         $hash = password_hash('password123', PASSWORD_DEFAULT);
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('fg1admin@e.test', ?, 'fg1admin', 'admin', 1, ?, ?, 'fg1admin')",
@@ -107,6 +107,7 @@ final class FeatureGatesTest extends TestCase
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'nav_file' => $this->root . '/nav.json',
             'app_dir' => $this->root . '/app',
+            'features_dir' => dirname(__DIR__) . '/app/Features',
             // purge writes land in the temp root, never the repo's public/cache
             'static_cache' => ['dir' => $this->root . '/static'],
         ]);

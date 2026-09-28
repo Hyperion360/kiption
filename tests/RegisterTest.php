@@ -17,7 +17,7 @@ final class RegisterTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-reg-') . '.sqlite';
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-mail-') . '.log';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
     }
 
@@ -30,6 +30,7 @@ final class RegisterTest extends TestCase
     private function client(array $overrides = []): TestClient
     {
         $config = array_merge([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',

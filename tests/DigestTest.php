@@ -20,7 +20,7 @@ final class DigestTest extends TestCase
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-dig-mail-') . '.log';
         touch($this->mailLog);
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('dg@e.test', ?, 'digestfan', ?, ?)",
             [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
@@ -37,6 +37,7 @@ final class DigestTest extends TestCase
     private function client(int $as): TestClient
     {
         return (new TestClient(new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

@@ -16,7 +16,7 @@ final class StoryTest extends TestCase
         $path = tempnam(sys_get_temp_dir(), 'kiption-story-') . '.sqlite';
         $this->dsn = 'sqlite:' . $path;
         $db = new Database($this->dsn);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         $db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)', ['a@x.test', 'h', 'Demo Author', 'demo-author']);
         $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, 0, "", 1)', ['Teen']);
         $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, 1, "Adult content ahead.", 2)', ['Explicit']);
@@ -32,6 +32,7 @@ final class StoryTest extends TestCase
             ['After Hours', 'after-hours']);
         $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (2, 1, "One", "<p>Body.</p>", 1, 100)');
         $this->app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',

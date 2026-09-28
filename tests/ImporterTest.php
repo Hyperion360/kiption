@@ -16,7 +16,7 @@ final class ImporterTest extends TestCase
 
     protected function setUp(): void
     {
-        require_once dirname(__DIR__) . '/tests/support/EfictionInstall.php';
+        require_once dirname(__DIR__) . '/tests/Support/EfictionInstall.php';
         $this->dbPath = tempnam(sys_get_temp_dir(), 'kiption-impcov-db-') . '.sqlite';
         $this->cacheDir = $this->newRoot() . '/cache';
     }
@@ -77,7 +77,7 @@ final class ImporterTest extends TestCase
 
     private function migrate(): void
     {
-        (new \Kip\Migrations\Migrator($this->db(), dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new \Kip\Migrations\Migrator($this->db(), \App\Tests\Support\AppLayout::migrations()))->migrate();
     }
 
     private function db(): Database

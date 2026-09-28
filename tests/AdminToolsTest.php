@@ -30,7 +30,7 @@ final class AdminToolsTest extends TestCase
         mkdir($this->root, 0775, true);
         $this->cacheDir = dirname(__DIR__) . '/public/cache';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         // admin + member + moderator fixtures, the NewsTest idiom
         $hash = password_hash('password123', PASSWORD_DEFAULT);
@@ -82,6 +82,7 @@ final class AdminToolsTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $this->app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

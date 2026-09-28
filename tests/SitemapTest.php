@@ -15,7 +15,7 @@ final class SitemapTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-sitemap-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         $this->root = sys_get_temp_dir() . '/kiption-sitemap-' . uniqid('', true);
         mkdir($this->root . '/public', 0775, true);

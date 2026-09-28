@@ -14,7 +14,7 @@ final class SchemaTest extends TestCase
 
     private function migrate(Database $db): array
     {
-        return (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        return (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
     }
 
     #[DataProvider('tableProvider')]
@@ -90,7 +90,7 @@ final class SchemaTest extends TestCase
     {
         $db = $this->db();
         $this->migrate($db);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->rollback();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->rollback();
         $n = $db->one("SELECT COUNT(*) c FROM sqlite_master WHERE type='table' AND name = 'stories'");
         $this->assertSame(0, (int) $n['c']);
     }

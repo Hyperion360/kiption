@@ -17,7 +17,7 @@ final class ScheduledReleasesTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-rel-') . '.sqlite';
         $this->cacheDir = sys_get_temp_dir() . '/kiption-rel-cache-' . uniqid('', true);
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
     }
 
@@ -30,6 +30,7 @@ final class ScheduledReleasesTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

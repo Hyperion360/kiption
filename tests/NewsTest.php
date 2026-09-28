@@ -21,7 +21,7 @@ final class NewsTest extends TestCase
         $this->root = sys_get_temp_dir() . '/kiption-news-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db); // plants the Welcome news row (id 1)
         // admin + member fixtures, the SeriesRepositoryTest idiom
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('newsadmin@e.test', ?, 'newsadmin', 'admin', 1, ?, ?, 'newsadmin')",
@@ -63,6 +63,7 @@ final class NewsTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $this->app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

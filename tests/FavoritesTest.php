@@ -16,7 +16,7 @@ final class FavoritesTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-fav-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('fav2@e.test', ?, 'favorfan', ?, ?)",
             [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
@@ -31,6 +31,7 @@ final class FavoritesTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

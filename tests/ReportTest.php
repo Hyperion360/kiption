@@ -17,7 +17,7 @@ final class ReportTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-rep-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         \App\Adminness::setRole($this->db, 1, 'moderator');
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('rp@e.test', ?, 'reportfan', ?, ?)",
@@ -37,6 +37,7 @@ final class ReportTest extends TestCase
     private function client(int $as): TestClient
     {
         return (new TestClient(new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

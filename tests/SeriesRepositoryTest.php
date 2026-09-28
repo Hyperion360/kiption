@@ -23,7 +23,7 @@ final class SeriesRepositoryTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-ser-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         $this->repo = new SeriesRepository($this->db);
         $this->ownerId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];

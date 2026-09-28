@@ -20,6 +20,7 @@ final class AuthTest extends TestCase
     protected function setUp(): void
     {
         $this->app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
@@ -29,7 +30,7 @@ final class AuthTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-auth-test.log', 'from' => 'noreply@kiption.test'],
         ]);
         $this->db = $this->app->container->make(Database::class);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
     }
 
     private function post(string $path, array $form): Response

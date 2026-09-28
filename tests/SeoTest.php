@@ -15,9 +15,10 @@ final class SeoTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-seo-') . '.sqlite';
         $db = new Database('sqlite:' . $this->path);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
         $this->app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
@@ -89,6 +90,7 @@ final class SeoTest extends TestCase
     public function test_og_image_config_renders(): void
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

@@ -48,6 +48,7 @@ final class CliTest extends TestCase
 
         // The bootstrap admin can actually log in (no verify/approval gate).
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

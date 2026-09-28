@@ -15,7 +15,7 @@ final class QueryBudgetTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-budget-') . '.sqlite';
         $db = new Database('sqlite:' . $this->path);
-        (new Migrator($db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
     }
 
@@ -27,6 +27,7 @@ final class QueryBudgetTest extends TestCase
     private function config(): array
     {
         return [
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',
             'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',

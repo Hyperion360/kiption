@@ -18,7 +18,7 @@ final class AccountTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-acct-') . '.sqlite';
         $this->uploads = sys_get_temp_dir() . '/kiption-upl-' . bin2hex(random_bytes(4));
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
     }
 
@@ -32,6 +32,7 @@ final class AccountTest extends TestCase
     private function client(): TestClient
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -57,6 +58,7 @@ final class AccountTest extends TestCase
     public function test_account_requires_login(): void
     {
         $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],

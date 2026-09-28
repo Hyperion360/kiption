@@ -15,7 +15,7 @@ final class InboxTest extends TestCase
     {
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-inbox-') . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
-        (new Migrator($this->db, dirname(__DIR__) . '/app/migrations'))->migrate();
+        (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
         (new \App\Notifications($this->db))->create(1, 'kudos', 1, 1, 'The Rabbit Hole'); // actor 1 exists
     }
@@ -28,6 +28,7 @@ final class InboxTest extends TestCase
     private function client(int $as): TestClient
     {
         return (new TestClient(new App([
+            'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -39,7 +40,7 @@ final class InboxTest extends TestCase
 
     public function test_inbox_requires_login_and_lists(): void
     {
-        $app = new App(['env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
+        $app = new App(['app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views', 'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:']]);
         $this->assertSame(302, (new TestClient($app))->get('/notifications')->status);
