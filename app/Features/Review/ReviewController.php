@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/ReviewController.php
-namespace App\Controllers;
+<?php // app/Features/Review/ReviewController.php
+namespace App\Features\Review;
 use Kip\{Database, Http\Request, Http\Response, Session};
 use Kip\Routing\{Auth as AuthAttr, Post}; // the aliased Auth import ships FROM BIRTH: without it #[AuthAttr] resolves to a nonexistent class, PHP never validates attributes, and the member gate silently disables (OV finding 4)
 use App\Notifications;
