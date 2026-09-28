@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/FavoritesController.php
-namespace App\Controllers;
+<?php // app/Features/Favorites/FavoritesController.php
+namespace App\Features\Favorites;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Notifications;
