@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/MessagesController.php
-namespace App\Controllers;
+<?php // app/Features/Messages/MessagesController.php
+namespace App\Features\Messages;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\MessageRepository;
