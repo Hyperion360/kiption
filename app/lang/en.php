@@ -555,6 +555,8 @@ return [
     'features.pms.desc' => 'Private messages between members',
     'features.mute.desc' => 'Per-member author mute on listings and search',
     'features.wrangling.desc' => 'Admin tag wrangling with canonical merges',
+    'features.peruserlang.desc' => 'Members choosing their own interface language (RTL packs included)',
+    'features.perusertheme.desc' => 'Members choosing their own light or dark theme',
 
     // The site-wide admin analytics dashboard (/analytics).
     'analytics.heading' => 'Site analytics',

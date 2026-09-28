@@ -18,7 +18,7 @@ return [
     'ai_crawlers' => getenv('KIP_AI_CRAWLERS') === false || (bool) getenv('KIP_AI_CRAWLERS'), // robots.txt stance; KIP_AI_CRAWLERS=0 disallows GPTBot & co
     'registration_mode' => 'verify',   // open | verify | approval | invite
     'validation_required' => true,     // false: authors self-publish
-    'features' => ['news' => true, 'comments' => true, 'contact' => true, 'stats' => true, 'lists' => true, 'search' => true, 'toplists' => true, 'exports' => true, 'feeds' => true, 'directory' => true, 'digest' => true, 'analytics' => true, 'challenges' => true, 'releases' => true, 'roundrobin' => true, 'pms' => true, 'mute' => true, 'wrangling' => true], // flag deploy defaults; feature_flags DB rows are the runtime surface
+    'features' => ['news' => true, 'comments' => true, 'contact' => true, 'stats' => true, 'lists' => true, 'search' => true, 'toplists' => true, 'exports' => true, 'feeds' => true, 'directory' => true, 'digest' => true, 'analytics' => true, 'challenges' => true, 'releases' => true, 'roundrobin' => true, 'pms' => true, 'mute' => true, 'wrangling' => true, 'peruserlang' => true, 'perusertheme' => true], // flag deploy defaults; feature_flags DB rows are the runtime surface
     'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),
     'maintenance_allow' => [],
     'static_cache' => ['enabled' => true, 'dir' => getenv('KIP_STATIC_CACHE_DIR') ?: __DIR__ . '/public/cache'], // KIP_STATIC_CACHE_DIR: tests/imports point pages:build at a throwaway dir

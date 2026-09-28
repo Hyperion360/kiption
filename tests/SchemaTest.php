@@ -59,6 +59,21 @@ final class SchemaTest extends TestCase
         $db->query('INSERT INTO muted (user_id, author_id) VALUES (2, 1)');
     }
 
+    /** Migration 024: user_prefs.lang lands NOT NULL DEFAULT '' (empty = follow
+     *  the archive default; the member-set value arrives with the prefs form),
+     *  beside the dormant theme column the M4 cascade wakes up. */
+    public function test_user_prefs_lang_column_lands_default_empty(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $cols = implode(',', array_map(static fn(array $c): string => $c['name'], $db->all('PRAGMA table_info(user_prefs)')));
+        $this->assertStringContainsString('lang', $cols, 'user_prefs.lang missing');
+        $this->assertStringContainsString('theme', $cols, 'user_prefs.theme (the dormant M4 column) missing');
+        $db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)', ['p@x.test', 'h', 'P', 'p']);
+        $db->query('INSERT INTO user_prefs (user_id) VALUES (1)');
+        $this->assertSame('', $db->one('SELECT lang FROM user_prefs WHERE user_id = 1')['lang'], 'a fresh prefs row reads lang empty');
+    }
+
     public function test_foreign_keys_are_enforced(): void
     {
         $db = $this->db();

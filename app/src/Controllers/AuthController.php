@@ -66,9 +66,36 @@ final class AuthController
                         'error' => 'Your account is awaiting approval.']);
                 }
             }
-            return Response::redirect('/');
+            return $this->redirectWithPrefCookies((int) ($user['id'] ?? 0));
         }
         return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'error' => 'Wrong email or password']);
+    }
+
+    /** The cookie-sync seam (phase 12d ruling 1): the prefs row is the source
+     *  of truth, the 'lang' and 'theme' cookies are the runtime cache the
+     *  render path reads (zero queries per page). The one SELECT rides this
+     *  write path (budget-exempt); a member with no prefs row, or empty prefs,
+     *  gets the plain redirect with no cookie directives. The directives ride
+     *  the Response's Set-Cookie entry as a LIST: Kip\Response maps headers
+     *  name => value (a second withHeader call would overwrite the first),
+     *  and public/index.php unfolds the list into one append header per
+     *  cookie at send time so the session cookie survives beside them. */
+    private function redirectWithPrefCookies(int $userId): Response
+    {
+        $redirect = Response::redirect('/');
+        if ($userId === 0) return $redirect;
+        $prefs = $this->db->one('SELECT lang, theme FROM user_prefs WHERE user_id = ?', [$userId]);
+        $cookies = [];
+        $lang = (string) ($prefs['lang'] ?? '');
+        if (preg_match('/^[a-z]{2}$/', $lang) === 1) {
+            $cookies[] = 'lang=' . $lang . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+        }
+        $theme = (string) ($prefs['theme'] ?? '');
+        if ($theme === 'dark' || $theme === 'light') {
+            $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+        }
+        if ($cookies === []) return $redirect;
+        return new Response($redirect->body, $redirect->status, ['Location' => '/', 'Set-Cookie' => $cookies]);
     }
 
     /** eFiction imports carry unsalted md5 hashes: on the first successful
@@ -164,7 +191,14 @@ final class AuthController
     public function logout(): Response
     {
         $this->auth->logout();
-        return Response::redirect('/');
+        // The cookie-sync mirror: the session dies, so the runtime cache dies
+        // with it; the next render on this browser is the archive default,
+        // not a stale member preference. The list shape matches the login
+        // sync (public/index.php unfolds it at send time).
+        return new Response('', 302, ['Location' => '/', 'Set-Cookie' => [
+            'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
+            \App\Theme::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
+        ]]);
     }
 
     public function forgot(): string

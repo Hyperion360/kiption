@@ -15,6 +15,10 @@ namespace App;
  * app/lang/xx.php. A missing file is an empty pack (pure en fallback); a file
  * that fails to load (parse error, thrown value) also degrades to en, with the
  * failure recorded in the error log.
+ *
+ * A pack may declare '_dir' => 'rtl' (the reserved metadata key; string-keyed
+ * t() lookups can never hit it) to mark itself right-to-left; dir() reads it
+ * and views emit the document direction from it.
  */
 final class Lang
 {
@@ -27,6 +31,9 @@ final class Lang
 
     /** @var array<string, array<string, string>> lang code => merged [key => text], memoized */
     private static array $cache = [];
+
+    /** @var array<int, string>|null the app/lang pack basenames, memoized */
+    private static ?array $installed = null;
 
     /** The active UI language. Codes outside [a-z]{2} coerce to en (soft, like a missing key). */
     public static function setCurrent(string $lang): void
@@ -46,6 +53,33 @@ final class Lang
     public static function current(): string
     {
         return self::$current;
+    }
+
+    /** The active pack's declared direction: 'rtl' when the pack carries the
+     *  reserved metadata key '_dir' => 'rtl', null otherwise (ltr, the
+     *  default). Pack files are operator-installed code, the same trust level
+     *  as config, so this never reads member data; anything but a literal
+     *  'rtl' reads as ltr. Views emit it as <html dir> next to lang.
+     *  '_dir' rides the merged map harmlessly: t() lookups are string keys,
+     *  and no view ever asks for a key named '_dir'. */
+    public static function dir(): ?string
+    {
+        return (self::all(self::$current)['_dir'] ?? null) === 'rtl' ? 'rtl' : null;
+    }
+
+    /** The installed pack codes: app/lang/*.php basenames, memoized. The
+     *  prefs form's select options and the prefs save's lang validation share
+     *  this list; addPackPath registrations (tests, third parties) are not
+     *  files in app/lang and stay off it. */
+    public static function installed(): array
+    {
+        if (self::$installed !== null) return self::$installed;
+        $codes = [];
+        foreach (glob(self::DIR . '/*.php') ?: [] as $file) {
+            $codes[] = basename($file, '.php');
+        }
+        sort($codes);
+        return self::$installed = $codes;
     }
 
     /** Translate a key under the current pack, interpolating {param} via strtr. */

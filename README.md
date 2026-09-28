@@ -633,6 +633,8 @@ moment news goes off.
 | pms | `/messages`, thread views, the compose form, and the send POST | 404 |
 | mute | `/mute/add/{slug}` and `/mute/remove/{slug}` | 404; the profile and directory mute buttons and the account block hide, and listings stop filtering for everyone |
 | wrangling | `/wrangling`, the merge form, and the merge and unmerge POSTs | 404 |
+| peruserlang | the language select on the account page and the member language cookie applied at render | the field hides and the stored preference goes inert; every render falls back to the archive default language |
+| perusertheme | the theme radios on the account page and the member theme preference in the cascade | the fields hide and the stored preference goes inert; the cookie, then the OS, governs as before |
 
 The two flags compose: `comments` is a sub-flag of `news`. News on with
 comments off renders items with their existing comments and counts but no

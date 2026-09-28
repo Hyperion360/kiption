@@ -1,6 +1,7 @@
 <?php // app/views/layout.php ?>
+<?php $dir = \App\Lang::dir(); // pack-declared: 'rtl' or null (ltr stays attribute-less) ?>
 <!doctype html>
-<html lang="<?= $this->e(\App\Lang::current()) ?>"<?= ($theme ?? null) !== null ? ' data-theme="' . $this->e($theme) . '"' : '' ?>>
+<html lang="<?= $this->e(\App\Lang::current()) ?>"<?= $dir !== null ? ' dir="' . $this->e($dir) . '"' : '' ?><?= ($theme ?? null) !== null ? ' data-theme="' . $this->e($theme) . '"' : '' ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
