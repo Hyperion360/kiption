@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/ThemeController.php
-namespace App\Controllers;
+<?php // app/Features/Theme/ThemeController.php
+namespace App\Features\Theme;
 use Kip\{Database, Session};
 use Kip\Http\{Request, Response};
 
