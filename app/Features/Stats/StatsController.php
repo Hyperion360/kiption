@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/StatsController.php
-namespace App\Controllers;
+<?php // app/Features/Stats/StatsController.php
+namespace App\Features\Stats;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\Auth as AuthAttr;
 
