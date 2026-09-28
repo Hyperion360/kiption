@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/QueueController.php
-namespace App\Controllers;
+<?php // app/Features/Queue/QueueController.php
+namespace App\Features\Queue;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Adminness;
