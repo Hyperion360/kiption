@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/CoauthorController.php
-namespace App\Controllers;
+<?php // app/Features/Coauthor/CoauthorController.php
+namespace App\Features\Coauthor;
 use Kip\{App, Database, Http\Request, Http\Response, Mailer, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Notifications;
