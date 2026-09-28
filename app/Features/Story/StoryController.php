@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/StoryController.php
-namespace App\Controllers;
+<?php // app/Features/Story/StoryController.php
+namespace App\Features\Story;
 use Kip\{App, Database, Http\Request, Http\Response, Session, Storage, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\StoryRepository;
