@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/FollowController.php
-namespace App\Controllers;
+<?php // app/Features/Follow/FollowController.php
+namespace App\Features\Follow;
 use Kip\{Database, Http\Response, Session};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Notifications;
