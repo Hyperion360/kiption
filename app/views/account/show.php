@@ -25,6 +25,23 @@
       <label><input type="radio" name="default_sort" value="recent"<?= ($me['i'] ?? 'recent') !== 'alpha' ? ' checked' : '' ?>> <?= \App\Lang::t('account.sort_recent') ?></label>
       <label><input type="radio" name="default_sort" value="alpha"<?= ($me['i'] ?? '') === 'alpha' ? ' checked' : '' ?>> <?= \App\Lang::t('account.sort_alpha') ?></label>
     </fieldset>
+    <?php // Both 12d field groups are flag-gated (the mute off-hides precedent):
+         // off hides the inputs, and prefs() leaves the stored columns alone. ?>
+    <?php if (\App\Features::on('perusertheme')): ?>
+    <fieldset>
+      <legend><?= \App\Lang::t('account.theme_legend') ?></legend>
+      <label><input type="radio" name="theme" value="dark"<?= ($themePref ?? '') !== 'light' ? ' checked' : '' ?>> <?= \App\Lang::t('theme.dark') ?></label>
+      <label><input type="radio" name="theme" value="light"<?= ($themePref ?? '') === 'light' ? ' checked' : '' ?>> <?= \App\Lang::t('theme.light') ?></label>
+    </fieldset>
+    <?php endif; ?>
+    <?php if (\App\Features::on('peruserlang')): ?>
+    <label><?= \App\Lang::t('account.lang_label') ?> <select name="lang">
+      <option value=""<?= ($langPref ?? '') === '' ? ' selected' : '' ?>><?= \App\Lang::t('account.lang_follow') ?></option>
+      <?php foreach (\App\Lang::installed() as $code): ?>
+      <option value="<?= $this->e($code) ?>"<?= ($langPref ?? '') === $code ? ' selected' : '' ?>><?= $this->e($code) ?></option>
+      <?php endforeach; ?>
+    </select></label>
+    <?php endif; ?>
     <?php // toc stays cookie-driven: the cookie is the value read() actually consumes ?>
     <label><input type="checkbox" name="toc_first" value="1"<?= !empty($tocOn) ? ' checked' : '' ?>> <?= \App\Lang::t('account.toc_first') ?></label>
     <label><input type="checkbox" name="notify_review" value="1"<?= (int) ($me['j'] ?? 1) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('account.notify_review') ?></label>

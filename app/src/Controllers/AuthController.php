@@ -79,7 +79,9 @@ final class AuthController
      *  the Response's Set-Cookie entry as a LIST: Kip\Response maps headers
      *  name => value (a second withHeader call would overwrite the first),
      *  and public/index.php unfolds the list into one append header per
-     *  cookie at send time so the session cookie survives beside them. */
+     *  cookie at send time so the session cookie survives beside them.
+     *  Flag-off skips the writes (the 12d off semantics): the stored pref
+     *  goes inert instead of landing in the browser's runtime cache. */
     private function redirectWithPrefCookies(int $userId): Response
     {
         $redirect = Response::redirect('/');
@@ -87,11 +89,11 @@ final class AuthController
         $prefs = $this->db->one('SELECT lang, theme FROM user_prefs WHERE user_id = ?', [$userId]);
         $cookies = [];
         $lang = (string) ($prefs['lang'] ?? '');
-        if (preg_match('/^[a-z]{2}$/', $lang) === 1) {
+        if (\App\Features::on('peruserlang') && preg_match('/^[a-z]{2}$/', $lang) === 1) {
             $cookies[] = 'lang=' . $lang . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
         $theme = (string) ($prefs['theme'] ?? '');
-        if ($theme === 'dark' || $theme === 'light') {
+        if (\App\Features::on('perusertheme') && ($theme === 'dark' || $theme === 'light')) {
             $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
         if ($cookies === []) return $redirect;

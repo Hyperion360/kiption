@@ -2,6 +2,7 @@
 namespace App\Tests;
 use Kip\App;
 use Kip\Database;
+use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
@@ -52,9 +53,9 @@ final class PerUserTest extends TestCase
         return $this->memberRowId;
     }
 
-    private function client(?int $as = null): TestClient
+    private function app(): App
     {
-        $client = new TestClient(new App([
+        return new App([
             'env' => 'prod', 'controller_namespace' => 'App\\Controllers\\',
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
@@ -62,7 +63,12 @@ final class PerUserTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-pu-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-        ]));
+        ]);
+    }
+
+    private function client(?int $as = null): TestClient
+    {
+        $client = new TestClient($this->app());
         return $as === null ? $client : $client->actingAs($as);
     }
 
@@ -145,5 +151,84 @@ final class PerUserTest extends TestCase
         $this->assertSame('rtl', \App\Lang::dir());
         $this->assertContains('en', \App\Lang::installed(), 'installed lists the app/lang packs');
         $this->assertNotContains('xx', \App\Lang::installed(), 'addPackPath registrations are not app/lang files');
+    }
+
+    /** The Set-Cookie line for a response, scalar or list (the Task-1 seam:
+     *  multiple cookies ride one map entry as a list). */
+    private function cookieLine(\Kip\Http\Response $res): string
+    {
+        $setCookie = $res->headers['Set-Cookie'] ?? '';
+        return is_array($setCookie) ? implode(';', $setCookie) : $setCookie;
+    }
+
+    public function test_prefs_save_and_toggle_write_both_the_pref_and_the_cookie(): void
+    {
+        $me = $this->client($this->memberId());
+        $res = $me->postWithToken('/account/prefs',
+            ['theme' => 'light', 'lang' => '', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $db = $this->db();
+        $this->assertSame('light', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+            'the prefs save stores the cross-device record');
+        $this->assertStringContainsString('theme=light', $this->cookieLine($res),
+            'the save syncs the runtime cookie too (ruling 5: every write point writes both)');
+        // The render is cookie > OS (ruling 5): TestClient keeps no cookie jar,
+        // so the request plays the browser's part and carries the cookie the
+        // save just synced (the ThemeTest Request idiom).
+        $body = $this->app()->handle(new Request('GET', '/browse', [], [], ['theme' => 'light']))->body;
+        $this->assertStringContainsString('data-theme="light"', $body, 'a render carrying the synced cookie is light');
+        $this->assertStringNotContainsString('data-theme="light"', $this->client()->get('/browse')->body,
+            'a cookieless render stays OS-default (the byte-identity pin)');
+        // The /theme toggle while logged in ALSO writes the pref (one source of
+        // truth); the guest cookie keeps riding the same response.
+        $toggle = $me->get('/theme/dark', ['return_to' => '/browse']);
+        $this->assertSame(302, $toggle->status);
+        $this->assertSame('dark', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+            'the member toggle persists beside its cookie');
+        $this->assertStringContainsString('theme=dark', $this->cookieLine($toggle));
+        // A prefs-less member toggling gets their row created, not a no-op
+        // (the upsert doctrine, plan review finding 5).
+        $db->query('DELETE FROM user_prefs WHERE user_id = ?', [$this->memberId()]);
+        $this->assertSame(302, $me->get('/theme/light', ['return_to' => '/browse'])->status);
+        $this->assertSame('light', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+            'the toggle upserts the row for prefs-less members');
+        // Guests: the cookie path unchanged (the pre-existing ThemeTest pins it
+        // unedited; the guest response keeps the scalar Set-Cookie shape).
+        $guest = $this->app()->handle(new Request('GET', '/theme/dark', ['return_to' => '/browse'], [], []));
+        $this->assertSame(302, $guest->status);
+        $this->assertStringContainsString('theme=dark', $this->cookieLine($guest));
+    }
+
+    public function test_login_syncs_the_theme_cookie_from_the_pref(): void
+    {
+        // The seeded member carries no prefs row (see above), so the pref is
+        // planted the way a real save would, not UPDATEd into nothing.
+        $this->db()->query('INSERT INTO user_prefs (user_id, theme) VALUES (?, ?)', [$this->memberId(), 'dark']);
+        $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertSame(302, $res->status);
+        $this->assertStringContainsString('theme=dark', $this->cookieLine($res), 'login re-syncs a stale theme cookie from the pref');
+    }
+
+    public function test_prefs_form_validates_and_flags_off_hide_fields(): void
+    {
+        $me = $this->client($this->memberId());
+        $this->assertSame(422, $me->postWithToken('/account/prefs',
+            ['theme' => 'hotdog', 'lang' => 'zz', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => ''])->status,
+            'junk theme and unregistered lang both reject');
+        $this->assertNull($this->db()->one('SELECT * FROM user_prefs WHERE user_id = ?', [$this->memberId()]),
+            'the 422 fires before the upsert (the schema CHECK is only the backstop)');
+        // The form lists installed packs and the theme radios; off hides both field groups
+        $form = $me->get('/account')->body;
+        $this->assertStringContainsString('name="lang"', $form);
+        $this->assertStringContainsString('name="theme"', $form);
+        $this->assertStringContainsString('<option value="en"', $form, 'the select options come from Lang::installed()');
+        \App\Features::toggle('peruserlang', false);
+        $this->assertStringNotContainsString('name="lang"', $me->get('/account')->body);
+        \App\Features::toggle('peruserlang', true);
+        \App\Features::toggle('perusertheme', false);
+        $this->assertStringNotContainsString('name="theme"', $me->get('/account')->body);
+        \App\Features::toggle('perusertheme', true);
     }
 }

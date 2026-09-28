@@ -32,7 +32,7 @@ final class AccountController
         $mutedBranch = \App\Features::on('mute') ? "
              UNION ALL
              SELECT '0mu' AS k, u3.profile_slug AS a, u3.penname AS b, NULL AS c, NULL AS d, u3.penname AS e,
-                    NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m
+                    NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m, NULL AS n, NULL AS o
              FROM muted mu2 JOIN users u3 ON u3.id = mu2.author_id WHERE mu2.user_id = ?" : '';
         $binds = [$userId, $userId, $userId, $userId, $userId, $userId];
         if ($mutedBranch !== '') $binds[] = $userId;
@@ -43,23 +43,25 @@ final class AccountController
                     (SELECT p2.default_sort FROM user_prefs p2 WHERE p2.user_id = u.id) AS i,
                     COALESCE((SELECT p3.notify_review FROM user_prefs p3 WHERE p3.user_id = u.id), 1) AS j,
                     COALESCE((SELECT p4.notify_response FROM user_prefs p4 WHERE p4.user_id = u.id), 1) AS l,
-                    COALESCE((SELECT p5.notify_favorites FROM user_prefs p5 WHERE p5.user_id = u.id), 1) AS m
+                    COALESCE((SELECT p5.notify_favorites FROM user_prefs p5 WHERE p5.user_id = u.id), 1) AS m,
+                    (SELECT p6.lang FROM user_prefs p6 WHERE p6.user_id = u.id) AS n,
+                    (SELECT p7.theme FROM user_prefs p7 WHERE p7.user_id = u.id) AS o
              FROM users u WHERE u.id = ?
              UNION ALL
              SELECT '1follow', CAST(f.author_id AS TEXT), u2.penname, f.notify_mode,
-                     CAST((SELECT COUNT(*) FROM stories s WHERE s.author_id = f.author_id AND s.deleted_at IS NULL AND s.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+                     CAST((SELECT COUNT(*) FROM stories s WHERE s.author_id = f.author_id AND s.deleted_at IS NULL AND s.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM follows f JOIN users u2 ON u2.id = f.author_id WHERE f.follower_id = ?
              UNION ALL
              SELECT '2progress', s.slug, s.title, CAST(rh.last_position AS TEXT),
-                     CAST((SELECT COUNT(*) FROM chapters c WHERE c.story_id = s.id AND c.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+                     CAST((SELECT COUNT(*) FROM chapters c WHERE c.story_id = s.id AND c.validated = 1) AS TEXT), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM reading_history rh JOIN stories s ON s.id = rh.story_id
              WHERE rh.user_id = ? AND rh.marked_at IS NULL AND s.deleted_at IS NULL
              UNION ALL
-             SELECT '3marked', s2.slug, s2.title, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+             SELECT '3marked', s2.slug, s2.title, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM reading_history rh2 JOIN stories s2 ON s2.id = rh2.story_id
              WHERE rh2.user_id = ? AND rh2.marked_at IS NOT NULL AND s2.deleted_at IS NULL
              UNION ALL
-             SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+             SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM stories s WHERE s.author_id = ? AND s.deleted_at IS NULL
              UNION ALL
              SELECT '5series' k, ser.slug a, ser.title b,
@@ -67,12 +69,15 @@ final class AccountController
                           WHERE si.series_id = ser.id AND si.confirmed = 1 AND st.deleted_at IS NULL) AS TEXT) c,
                     CAST((SELECT COUNT(*) FROM series_items si JOIN stories st ON st.id = si.story_id
                           WHERE si.series_id = ser.id AND si.confirmed = 0 AND st.deleted_at IS NULL) AS TEXT) d,
-                    ser.membership e, NULL f, NULL g, NULL h, NULL i, NULL j, NULL l, NULL m
+                    ser.membership e, NULL f, NULL g, NULL h, NULL i, NULL j, NULL l, NULL m, NULL n, NULL o
              FROM series ser WHERE ser.owner_id = ?" . $mutedBranch .
             ' ORDER BY k, e LIMIT 250', $binds);
         // New alias note: the notify toggles are j/l/m because k is already the
         // branch discriminator; all three COALESCE to 1 so a prefs-less member
-        // fails safe ON, the same contract notifyRecipients enforces at send time.
+        // fails safe ON, the same contract notifyRecipients enforces at send
+        // time. The 12d pair is n/o (lang, theme): NULL reads as '' / unchecked
+        // for a prefs-less member, and the prefs-form fields preselect from them
+        // without costing the page its second query.
         $me = null;
         $stories = [];
         $seriesList = [];
@@ -108,6 +113,8 @@ final class AccountController
             'progress' => $progress,
             'marked' => $marked,
             'tocOn' => ($this->request->cookies['toc'] ?? '') === '1',
+            'langPref' => (string) ($me['n'] ?? ''),
+            'themePref' => (string) ($me['o'] ?? ''),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
         ]);
@@ -159,6 +166,27 @@ final class AccountController
         $isBeta = isset($this->request->post['is_beta']) ? 1 : 0;
         $sort = $this->request->postStr('default_sort') === 'alpha' ? 'alpha' : 'recent';
         $toc = isset($this->request->post['toc_first']) ? '1' : '0';
+        // Per-user lang + theme (phase 12d): both validate BEFORE any write, so
+        // junk never reaches the upsert (the schema CHECK is only the backstop).
+        // A null value leaves the stored pref untouched: the field groups hide
+        // when their flag is off, and an absent field (a partial post) must not
+        // clobber the stored choice (the Security section's never-deleted,
+        // toggle-on-restore contract). Presence, not emptiness, is the signal:
+        // lang '' is a real choice (follow the archive default).
+        $lang = null;
+        if (\App\Features::on('peruserlang') && \array_key_exists('lang', $this->request->post)) {
+            $lang = $this->request->postStr('lang');
+            if (!\in_array($lang, ['', ...\App\Lang::installed()], true)) {
+                return new Response('Language must be the archive default or an installed pack.', 422);
+            }
+        }
+        $theme = null;
+        if (\App\Features::on('perusertheme') && \array_key_exists('theme', $this->request->post)) {
+            $theme = $this->request->postStr('theme');
+            if ($theme !== 'dark' && $theme !== 'light') {
+                return new Response('Theme must be dark or light.', 422);
+            }
+        }
         // Value-based, not isset-based: the form's checkboxes submit no field when
         // unchecked, and the value is the truth ('0' stays off, only '1' is on).
         $on = fn (string $k): int => (int) ($this->request->post[$k] ?? 0) === 1 ? 1 : 0;
@@ -168,22 +196,46 @@ final class AccountController
             // Upsert, NOT a bare UPDATE (plan review finding 5): seeder-era and
             // user:create members carry no user_prefs row; a plain UPDATE would
             // silently drop their choice (the exact bug the 6b QA pass fixed once).
-            $this->db->query('INSERT INTO user_prefs (user_id, default_sort, toc_first, notify_review, notify_response, notify_favorites, notify_favorite_digest)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET default_sort = excluded.default_sort, toc_first = excluded.toc_first,
-                    notify_review = excluded.notify_review, notify_response = excluded.notify_response,
-                    notify_favorites = excluded.notify_favorites, notify_favorite_digest = excluded.notify_favorite_digest',
-                [$me, $sort, (int) $toc, $on('notify_review'), $on('notify_response'), $on('notify_favorites'), $on('notify_favorite_digest')]);
+            // The lang/theme columns ride only when their flags are on and the
+            // fields posted, so a save under a disabled flag keeps the row intact.
+            $cols = ['user_id', 'default_sort', 'toc_first', 'notify_review', 'notify_response', 'notify_favorites', 'notify_favorite_digest'];
+            $binds = [$me, $sort, (int) $toc, $on('notify_review'), $on('notify_response'), $on('notify_favorites'), $on('notify_favorite_digest')];
+            $updates = ['default_sort = excluded.default_sort', 'toc_first = excluded.toc_first',
+                'notify_review = excluded.notify_review', 'notify_response = excluded.notify_response',
+                'notify_favorites = excluded.notify_favorites', 'notify_favorite_digest = excluded.notify_favorite_digest'];
+            if ($lang !== null) { $cols[] = 'lang'; $binds[] = $lang; $updates[] = 'lang = excluded.lang'; }
+            if ($theme !== null) { $cols[] = 'theme'; $binds[] = $theme; $updates[] = 'theme = excluded.theme'; }
+            $this->db->query(
+                'INSERT INTO user_prefs (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, \count($cols), '?')) . ')
+                ON CONFLICT(user_id) DO UPDATE SET ' . implode(', ', $updates),
+                $binds);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         $this->purgeOwnProfile($me);
         // the beta badge flips directory membership too, not just the profile card
         (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors();
-        // Response has no cookie helper (finding 11); mirror ThemeController's
-        // Set-Cookie bytes exactly.
-        return Response::redirect('/account')->withHeader('Set-Cookie', $toc === '1'
+        // The cookie sync (ruling 5): the save is a write point, so the pref and
+        // the runtime cookie land together. The toc directive keeps its scalar
+        // bytes when it rides alone (Response has no cookie helper, finding 11;
+        // multiple directives ride the Set-Cookie map entry as a list, the
+        // Task-1 seam public/index.php unfolds at send time). A lang switch
+        // back to '' CLEARS the cookie: the browser must not keep rendering the
+        // old pack until logout.
+        $cookies = [$toc === '1'
             ? 'toc=1; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax'
-            : 'toc=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax');
+            : 'toc=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'];
+        if ($lang !== null) {
+            $cookies[] = $lang === ''
+                ? 'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
+                : 'lang=' . $lang . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+        }
+        if ($theme !== null) {
+            $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+        }
+        if (\count($cookies) === 1) {
+            return Response::redirect('/account')->withHeader('Set-Cookie', $cookies[0]);
+        }
+        return new Response('', 302, ['Location' => '/account', 'Set-Cookie' => $cookies]);
     }
 
     /** Any account-side change (avatar, support link, prefs) refreshes the
