@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/MuteController.php
-namespace App\Controllers;
+<?php // app/Features/Mute/MuteController.php
+namespace App\Features\Mute;
 use Kip\{Database, Http\Response, Session};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\MuteRepository;
