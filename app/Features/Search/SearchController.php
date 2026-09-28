@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/SearchController.php
-namespace App\Controllers;
+<?php // app/Features/Search/SearchController.php
+namespace App\Features\Search;
 use Kip\{App, Http\Request, View};
 use App\Repositories\SearchRepository;
 
