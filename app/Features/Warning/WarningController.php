@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/WarningController.php
-namespace App\Controllers;
+<?php // app/Features/Warning/WarningController.php
+namespace App\Features\Warning;
 use Kip\Http\{Request, Response};
 
 final class WarningController
