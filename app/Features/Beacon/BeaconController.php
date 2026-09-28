@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/BeaconController.php
-namespace App\Controllers;
+<?php // app/Features/Beacon/BeaconController.php
+namespace App\Features\Beacon;
 use Kip\{Database, Http\Response};
 
 /** The zero-JS read beacon: cached chapter pages embed
