@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/NotificationsController.php
-namespace App\Controllers;
+<?php // app/Features/Notifications/NotificationsController.php
+namespace App\Features\Notifications;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Notifications;
