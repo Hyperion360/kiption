@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/KudosController.php
-namespace App\Controllers;
+<?php // app/Features/Kudos/KudosController.php
+namespace App\Features\Kudos;
 use Kip\{Database, Http\Request, Http\Response, Session};
 use Kip\Routing\Post;
 use App\Notifications;
