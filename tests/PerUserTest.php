@@ -364,4 +364,26 @@ final class PerUserTest extends TestCase
             $guard,
             'the seam applies the lang cookie only when the config peruserlang default is on');
     }
+
+    /** The save-side sync's primary arm and the theme reject standing alone:
+     *  the combined-junk case above dies on the lang check first, so neither
+     *  the non-empty lang cookie nor the junk-theme 422 ever executes there. */
+    public function test_prefs_save_syncs_a_nonempty_lang_and_junk_theme_alone_rejects(): void
+    {
+        $me = $this->client($this->memberId());
+        $res = $me->postWithToken('/account/prefs',
+            ['theme' => 'dark', 'lang' => 'en', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame('en', $this->db()->one('SELECT lang FROM user_prefs WHERE user_id = ?', [$this->memberId()])['lang'],
+            'a real pack choice stores in the row');
+        $this->assertStringContainsString('lang=en; Max-Age=31536000', $this->cookieLine($res),
+            'the save syncs a lasting cookie for a non-empty lang choice');
+        $this->assertSame(422, $me->postWithToken('/account/prefs',
+            ['theme' => 'hotdog', 'lang' => '', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => ''])->status,
+            'junk theme rejects on its own check even with a valid lang');
+        $this->assertSame('en', $this->db()->one('SELECT lang FROM user_prefs WHERE user_id = ?', [$this->memberId()])['lang'],
+            'the 422 writes nothing');
+    }
 }
