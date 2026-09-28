@@ -1,5 +1,5 @@
-<?php // app/src/Controllers/ListsController.php
-namespace App\Controllers;
+<?php // app/Features/Lists/ListsController.php
+namespace App\Features\Lists;
 use Kip\{App, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\ListsRepository;
