@@ -266,25 +266,35 @@ final class AdminToolsTest extends TestCase
     {
         // QA 10a: the router resolves /adminmembers to the studly class name
         // AdminmembersController and the PSR-4 autoloader maps that LITERALLY
-        // to app/src/Controllers/<name>.php. A camelCase class behind a
-        // one-word URL segment (AdminMembersController serving /adminmembers)
-        // resolves only through a case-INSENSITIVE filesystem: the suite
-        // stays green on macOS while production Linux 404s the whole surface
-        // (and pcov cannot attribute its coverage). scandir returns the
-        // directory's true casing, so this check is exact everywhere; a
+        // to app/Features/<Name>/<Name>Controller.php (and, for any controller
+        // not yet moved, app/src/Controllers/<name>.php). A camelCase class
+        // behind a one-word URL segment (AdminMembersController serving
+        // /adminmembers) resolves only through a case-INSENSITIVE filesystem:
+        // the suite stays green on macOS while production Linux 404s the whole
+        // surface (and pcov cannot attribute its coverage). scandir returns
+        // each directory's true casing, so this check is exact everywhere; a
         // file_exists probe would be masked by APFS.
-        $dir = dirname(__DIR__) . '/app/src/Controllers';
-        $onDisk = scandir($dir);
-        $this->assertNotEmpty(array_filter($onDisk, static fn(string $f): bool => str_ends_with($f, 'Controller.php')));
-        foreach ($onDisk as $entry) {
-            if (!str_ends_with($entry, 'Controller.php')) continue;
-            $url = strtolower(substr($entry, 0, -strlen('Controller.php')));
-            $studly = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $url)));
-            $expected = $studly . 'Controller.php';
-            $this->assertContains($expected, $onDisk,
-                "{$entry} serves /{$url}; the router autoloads {$expected}, and anything else 404s on a case-sensitive filesystem");
-            $this->assertStringContainsString("class {$studly}Controller", (string) file_get_contents($dir . '/' . $expected),
-                "{$expected} must declare {$studly}Controller by that exact name");
+        $app = dirname(__DIR__) . '/app';
+        $dirs = array_merge(
+            glob($app . '/Features/*') ?: [],
+            is_dir($app . '/src/Controllers') ? [$app . '/src/Controllers'] : []
+        );
+        $found = 0;
+        foreach ($dirs as $dir) {
+            if (!is_dir($dir) || is_link($dir)) continue;
+            $onDisk = scandir($dir) ?: [];
+            foreach ($onDisk as $entry) {
+                if (!str_ends_with($entry, 'Controller.php')) continue;
+                $found++;
+                $url = strtolower(substr($entry, 0, -strlen('Controller.php')));
+                $studly = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $url)));
+                $expected = $studly . 'Controller.php';
+                $this->assertContains($expected, $onDisk,
+                    "{$entry} serves /{$url}; the router autoloads {$expected}, and anything else 404s on a case-sensitive filesystem");
+                $this->assertStringContainsString("class {$studly}Controller", (string) file_get_contents($dir . '/' . $expected),
+                    "{$expected} must declare {$studly}Controller by that exact name");
+            }
         }
+        $this->assertGreaterThanOrEqual(1, $found, 'no controllers found in any feature folder or the legacy layered dir');
     }
 }
