@@ -1,5 +1,5 @@
-<?php // tests/LegacyLoginTest.php
-namespace App\Tests;
+<?php // app/Features/Auth/Tests/LegacyLoginTest.php
+namespace App\Features\Auth\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -35,9 +35,9 @@ final class LegacyLoginTest extends TestCase
     private function client(): TestClient
     {
         $app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],

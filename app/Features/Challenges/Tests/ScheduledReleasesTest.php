@@ -1,5 +1,5 @@
-<?php // tests/ScheduledReleasesTest.php
-namespace App\Tests;
+<?php // app/Features/Challenges/Tests/ScheduledReleasesTest.php
+namespace App\Features\Challenges\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -30,9 +30,9 @@ final class ScheduledReleasesTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-rel-mail-') . '.log', 'from' => 'noreply@localhost'],
@@ -76,7 +76,7 @@ final class ScheduledReleasesTest extends TestCase
             escapeshellarg('sqlite:' . $this->path),
             escapeshellarg($this->cacheDir),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(dirname(__DIR__) . '/bin/kip'),
+            escapeshellarg(dirname(__DIR__, 4) . '/bin/kip'),
             $args);
         exec($cmd, $out, $code);
         return [$code, implode("\n", $out)];

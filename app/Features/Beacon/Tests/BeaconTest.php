@@ -1,5 +1,5 @@
-<?php // tests/BeaconTest.php
-namespace App\Tests;
+<?php // app/Features/Beacon/Tests/BeaconTest.php
+namespace App\Features\Beacon\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -29,9 +29,9 @@ final class BeaconTest extends TestCase
     private function newApp(): App
     {
         return new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-beacon-mail-') . '.log', 'from' => 'noreply@localhost'],
@@ -59,7 +59,7 @@ final class BeaconTest extends TestCase
         $cmd = sprintf('KIP_DB_DSN=%s %s %s %s 2>&1',
             escapeshellarg('sqlite:' . $this->path),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(dirname(__DIR__) . '/bin/kip'),
+            escapeshellarg(dirname(__DIR__, 4) . '/bin/kip'),
             $args);
         exec($cmd, $out, $code);
         return [$code, implode("\n", $out)];

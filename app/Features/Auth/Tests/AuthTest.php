@@ -1,5 +1,5 @@
-<?php // tests/AuthTest.php
-namespace App\Tests;
+<?php // app/Features/Auth/Tests/AuthTest.php
+namespace App\Features\Auth\Tests;
 use Kip\App;
 use Kip\Auth;
 use Kip\Database;
@@ -20,9 +20,9 @@ final class AuthTest extends TestCase
     protected function setUp(): void
     {
         $this->app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite::memory:'],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'base_url' => 'http://kiption.test',

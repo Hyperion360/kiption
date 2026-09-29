@@ -1,5 +1,5 @@
-<?php // tests/BrowseTest.php
-namespace App\Tests;
+<?php // app/Features/Browse/Tests/BrowseTest.php
+namespace App\Features\Browse\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -24,9 +24,9 @@ final class BrowseTest extends TestCase
             ['The Rabbit Hole', 'the-rabbit-hole', '2026-09-01T10:00:00Z']);
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (1, 1)');
         $this->app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => $this->dsn],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'items_per_page' => 20,
