@@ -1,5 +1,5 @@
-<?php // tests/ReviewTest.php
-namespace App\Tests;
+<?php // app/Features/Review/Tests/ReviewTest.php
+namespace App\Features\Review\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -31,9 +31,9 @@ final class ReviewTest extends TestCase
     private function client(?int $as = null, array $overrides = []): TestClient
     {
         $app = new App(array_merge([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-rev-mail-') . '.log', 'from' => 'noreply@localhost'],

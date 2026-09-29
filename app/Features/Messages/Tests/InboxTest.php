@@ -1,5 +1,5 @@
-<?php // tests/InboxTest.php
-namespace App\Tests;
+<?php // app/Features/Messages/Tests/InboxTest.php
+namespace App\Features\Messages\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -28,9 +28,9 @@ final class InboxTest extends TestCase
     private function client(int $as): TestClient
     {
         return (new TestClient(new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-inbox-upl'],  // AccountController autowires Storage
@@ -40,8 +40,8 @@ final class InboxTest extends TestCase
 
     public function test_inbox_requires_login_and_lists(): void
     {
-        $app = new App(['app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views', 'db' => ['dsn' => 'sqlite:' . $this->path],
+        $app = new App(['app_dir' => dirname(__DIR__, 4) . '/app', 'env' => 'prod',
+            'views' => dirname(__DIR__, 4) . '/app/views', 'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:']]);
         $this->assertSame(302, (new TestClient($app))->get('/notifications')->status);
         $res = $this->client(1)->get('/notifications');

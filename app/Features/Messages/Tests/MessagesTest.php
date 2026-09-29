@@ -1,5 +1,5 @@
-<?php // tests/MessagesTest.php
-namespace App\Tests;
+<?php // app/Features/Messages/Tests/MessagesTest.php
+namespace App\Features\Messages\Tests;
 use App\Notifications;
 use App\Repositories\MessageRepository;
 use Kip\App;
@@ -55,9 +55,9 @@ final class MessagesTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $client = new TestClient(new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
