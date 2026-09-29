@@ -1,5 +1,5 @@
-<?php // tests/HomeTest.php
-namespace App\Tests;
+<?php // app/Features/Home/Tests/HomeTest.php
+namespace App\Features\Home\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -18,9 +18,9 @@ final class HomeTest extends TestCase
         $db = new Database('sqlite::memory:');
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         $app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite::memory:'],
             'log_db' => ['dsn' => 'sqlite::memory:'],
         ]);
