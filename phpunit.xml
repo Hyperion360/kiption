@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <phpunit bootstrap="vendor/autoload.php" colors="true">
-  <testsuites><testsuite name="kiption"><directory>tests</directory></testsuite></testsuites>
+  <testsuites><testsuite name="kiption"><directory>tests</directory><directory>app/Features</directory></testsuite></testsuites>
   <php><ini name="error_log" value="/dev/null"/></php>
   <source><include><directory>app/src</directory><directory>app/Features</directory></include></source>
 </phpunit>
