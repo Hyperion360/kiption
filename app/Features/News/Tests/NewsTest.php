@@ -1,5 +1,5 @@
-<?php // tests/NewsTest.php
-namespace App\Tests;
+<?php // app/Features/News/Tests/NewsTest.php
+namespace App\Features\News\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -37,7 +37,7 @@ final class NewsTest extends TestCase
         exec('rm -rf ' . escapeshellarg($this->root));
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
         @unlink(substr($this->path, 0, -7)); // the bare tempnam stub under the .sqlite suffix
-        exec('rm -rf ' . escapeshellarg(dirname(__DIR__) . '/public/cache/news'));
+        exec('rm -rf ' . escapeshellarg(dirname(__DIR__, 4) . '/public/cache/news'));
     }
 
     private function db(): Database
@@ -63,9 +63,9 @@ final class NewsTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $this->app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->root . '/mail.log', 'from' => 'noreply@localhost'],
@@ -127,8 +127,8 @@ final class NewsTest extends TestCase
         $this->assertSame(422, $admin->postWithToken('/news/create', ['title' => str_repeat('x', 256), 'body' => 'x'])->status);
         $this->assertSame(422, $admin->postWithToken('/news/create', ['title' => 'X', 'body' => ''])->status);
         // update rewrites and purges both surfaces
-        $file = dirname(__DIR__) . '/public/cache/news/index.html';
-        $item = dirname(__DIR__) . '/public/cache/news/view/1/index.html';
+        $file = dirname(__DIR__, 4) . '/public/cache/news/index.html';
+        $item = dirname(__DIR__, 4) . '/public/cache/news/view/1/index.html';
         foreach ([$file, $item] as $f) { @mkdir(dirname($f), 0775, true); file_put_contents($f, 'stale'); }
         $this->assertSame(302, $admin->postWithToken('/news/update/1', ['title' => 'Welcome!', 'body' => 'Edited.'])->status);
         $this->assertFileDoesNotExist($file, 'update unlinked the /news cache file');
@@ -150,8 +150,8 @@ final class NewsTest extends TestCase
     {
         // A comment changes BOTH surfaces: the item's comment list and the
         // index's comment-count scalar; both files must go.
-        $file = dirname(__DIR__) . '/public/cache/news/index.html';
-        $item = dirname(__DIR__) . '/public/cache/news/view/1/index.html';
+        $file = dirname(__DIR__, 4) . '/public/cache/news/index.html';
+        $item = dirname(__DIR__, 4) . '/public/cache/news/view/1/index.html';
         foreach ([$file, $item] as $f) { @mkdir(dirname($f), 0775, true); file_put_contents($f, 'stale'); }
         $member = $this->client($this->memberId());
         $this->assertSame(302, $member->postWithToken('/news/comment/1', ['body' => 'Nice!'])->status);

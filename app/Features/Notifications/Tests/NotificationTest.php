@@ -1,5 +1,5 @@
-<?php // tests/NotificationTest.php
-namespace App\Tests;
+<?php // app/Features/Notifications/Tests/NotificationTest.php
+namespace App\Features\Notifications\Tests;
 use App\Notifications;
 use Kip\Database;
 use Kip\Migrations\Migrator;

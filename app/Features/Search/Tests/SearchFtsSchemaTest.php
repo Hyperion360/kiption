@@ -1,5 +1,5 @@
-<?php // tests/SearchFtsSchemaTest.php
-namespace App\Tests;
+<?php // app/Features/Search/Tests/SearchFtsSchemaTest.php
+namespace App\Features\Search\Tests;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
