@@ -90,4 +90,14 @@ final class ReorgShapeTest extends TestCase
         $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');
         $this->assertCount(38, $features, 'exactly 38 feature folders expected');
     }
+
+    public function test_no_test_files_outside_the_tests_directory(): void
+    {
+        // A FooTest.php in a feature ROOT (not Tests/) still runs because
+        // PHPUnit scans recursively, but it silently breaks the PSR-4 Tests
+        // layout the capitalized directory exists for (tests plan 2026-09-28).
+        $strays = glob($this->root . '/app/Features/*/*Test.php') ?: [];
+        $this->assertSame([], $strays,
+            'test files belong in app/Features/<Name>/Tests/, found: ' . implode(', ', array_map('basename', $strays)));
+    }
 }
