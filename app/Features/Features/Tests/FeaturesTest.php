@@ -1,5 +1,5 @@
-<?php // tests/FeaturesTest.php
-namespace App\Tests;
+<?php // app/Features/Features/Tests/FeaturesTest.php
+namespace App\Features\Features\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\{Request, Response};
@@ -280,7 +280,7 @@ final class FeaturesTest extends TestCase
     {
         return $extra + [
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->root . '/mail.log', 'from' => 'noreply@localhost'],
@@ -288,7 +288,7 @@ final class FeaturesTest extends TestCase
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'nav_file' => $this->root . '/nav.json',
             'app_dir' => $this->root . '/app',
-            'features_dir' => dirname(__DIR__) . '/app/Features',
+            'features_dir' => dirname(__DIR__, 4) . '/app/Features',
             'static_cache' => ['dir' => $this->root . '/static'],
             'cache_db' => ['dsn' => 'sqlite:' . $this->root . '/app/cache.sqlite'],
         ];

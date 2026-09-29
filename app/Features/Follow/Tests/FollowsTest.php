@@ -1,5 +1,5 @@
-<?php // tests/FollowsTest.php
-namespace App\Tests;
+<?php // app/Features/Follow/Tests/FollowsTest.php
+namespace App\Features\Follow\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -31,9 +31,9 @@ final class FollowsTest extends TestCase
     private function client(int $as): TestClient
     {
         return (new TestClient(new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-follow-upl'],

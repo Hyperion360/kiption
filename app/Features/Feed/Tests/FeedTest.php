@@ -1,5 +1,5 @@
-<?php // tests/FeedTest.php
-namespace App\Tests;
+<?php // app/Features/Feed/Tests/FeedTest.php
+namespace App\Features\Feed\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -18,9 +18,9 @@ final class FeedTest extends TestCase
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
         $this->app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'site_name' => 'Kiption',
