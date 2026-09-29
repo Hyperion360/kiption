@@ -1,5 +1,5 @@
-<?php // tests/GiftMetadataTest.php
-namespace App\Tests;
+<?php // app/Features/Story/Tests/GiftMetadataTest.php
+namespace App\Features\Story\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -32,9 +32,9 @@ final class GiftMetadataTest extends TestCase
     private function newApp(): App
     {
         return new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-gift-mail-') . '.log', 'from' => 'noreply@localhost'],
@@ -93,6 +93,6 @@ final class GiftMetadataTest extends TestCase
         $this->assertContains('challenges', array_keys(\App\Features::INVENTORY));
         $this->assertContains('releases', array_keys(\App\Features::INVENTORY));
         $this->assertContains('roundrobin', array_keys(\App\Features::INVENTORY));
-        $this->assertStringContainsString('features.challenges.desc', (string) file_get_contents(dirname(__DIR__) . '/app/lang/en.php'));
+        $this->assertStringContainsString('features.challenges.desc', (string) file_get_contents(dirname(__DIR__, 4) . '/app/lang/en.php'));
     }
 }

@@ -1,5 +1,5 @@
-<?php // tests/AuthoringTest.php
-namespace App\Tests;
+<?php // app/Features/Story/Tests/AuthoringTest.php
+namespace App\Features\Story\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -27,9 +27,9 @@ final class AuthoringTest extends TestCase
     private function config(array $overrides = []): array
     {
         return array_merge([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-authoring-test.log', 'from' => 'noreply@kiption.test'],
@@ -138,7 +138,7 @@ final class AuthoringTest extends TestCase
 
     public function test_delete_is_soft_and_purges(): void
     {
-        $cacheDir = dirname(__DIR__) . '/public/cache';
+        $cacheDir = dirname(__DIR__, 4) . '/public/cache';
         @mkdir($cacheDir . '/story/view/the-rabbit-hole', 0775, true);
         file_put_contents($cacheDir . '/story/view/the-rabbit-hole/index.html', 'stale');
         $res = $this->clientAs(1)->postWithToken('/story/delete/the-rabbit-hole');

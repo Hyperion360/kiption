@@ -1,5 +1,5 @@
-<?php // tests/ThemeTest.php
-namespace App\Tests;
+<?php // app/Features/Theme/Tests/ThemeTest.php
+namespace App\Features\Theme\Tests;
 use Kip\App;
 use Kip\Http\Request;
 use PHPUnit\Framework\TestCase;
@@ -26,9 +26,9 @@ final class ThemeTest extends TestCase
     private function app(): App
     {
         return new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite::memory:'],
             'log_db' => ['dsn' => 'sqlite::memory:'],
         ]);

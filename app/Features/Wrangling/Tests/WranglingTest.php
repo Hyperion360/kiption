@@ -1,5 +1,5 @@
-<?php // tests/WranglingTest.php
-namespace App\Tests;
+<?php // app/Features/Wrangling/Tests/WranglingTest.php
+namespace App\Features\Wrangling\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -68,9 +68,9 @@ final class WranglingTest extends TestCase
     private function client(?int $as = null): TestClient
     {
         $client = new TestClient(new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
@@ -154,9 +154,9 @@ final class WranglingTest extends TestCase
         $db->query("INSERT INTO tags (tag_type_id, name) VALUES (1, 'Epic')"); // id 3
         $db->query('INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = ?), 2)', ['the-rabbit-hole']);
         $app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],

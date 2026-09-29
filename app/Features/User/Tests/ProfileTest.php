@@ -1,5 +1,5 @@
-<?php // tests/ProfileTest.php
-namespace App\Tests;
+<?php // app/Features/User/Tests/ProfileTest.php
+namespace App\Features\User\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -29,9 +29,9 @@ final class ProfileTest extends TestCase
     private function newApp(): App
     {
         return new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-prof-mail-') . '.log', 'from' => 'noreply@localhost'],

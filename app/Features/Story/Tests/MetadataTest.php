@@ -1,5 +1,5 @@
-<?php // tests/MetadataTest.php
-namespace App\Tests;
+<?php // app/Features/Story/Tests/MetadataTest.php
+namespace App\Features\Story\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -32,9 +32,9 @@ final class MetadataTest extends TestCase
     private function client(): TestClient
     {
         $app = new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-meta-mail-') . '.log', 'from' => 'noreply@localhost'],
@@ -57,9 +57,9 @@ final class MetadataTest extends TestCase
         $body = $this->client()->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('pt-BR', $body);
         $res = (new TestClient(new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-meta-mail-') . '.log', 'from' => 'noreply@localhost'],
@@ -69,9 +69,9 @@ final class MetadataTest extends TestCase
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('The Rabbit Hole', $res->body);
         $res = (new TestClient(new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-meta-mail-') . '.log', 'from' => 'noreply@localhost'],
