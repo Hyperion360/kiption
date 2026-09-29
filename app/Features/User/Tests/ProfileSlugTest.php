@@ -1,5 +1,5 @@
-<?php // tests/ProfileSlugTest.php
-namespace App\Tests;
+<?php // app/Features/User/Tests/ProfileSlugTest.php
+namespace App\Features\User\Tests;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;

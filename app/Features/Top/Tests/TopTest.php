@@ -1,5 +1,5 @@
-<?php // tests/TopTest.php
-namespace App\Tests;
+<?php // app/Features/Top/Tests/TopTest.php
+namespace App\Features\Top\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -35,9 +35,9 @@ final class TopTest extends TestCase
     private function newApp(): App
     {
         return new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-top-mail-') . '.log', 'from' => 'noreply@localhost'],

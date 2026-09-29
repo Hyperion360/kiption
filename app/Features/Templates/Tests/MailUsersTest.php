@@ -1,5 +1,5 @@
-<?php // tests/MailUsersTest.php
-namespace App\Tests;
+<?php // app/Features/Templates/Tests/MailUsersTest.php
+namespace App\Features\Templates\Tests;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -35,7 +35,7 @@ final class MailUsersTest extends TestCase
         $cmd = sprintf('KIP_DB_DSN=%s %s %s %s 2>&1',
             escapeshellarg('sqlite:' . $this->path),
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(dirname(__DIR__) . '/bin/kip'),
+            escapeshellarg(dirname(__DIR__, 4) . '/bin/kip'),
             $args);
         exec($cmd, $out, $code);
         return [$code, implode("\n", $out)];

@@ -1,5 +1,5 @@
-<?php // tests/WholeViewTest.php
-namespace App\Tests;
+<?php // app/Features/Story/Tests/WholeViewTest.php
+namespace App\Features\Story\Tests;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -30,9 +30,9 @@ final class WholeViewTest extends TestCase
     private function newApp(): App
     {
         return new App([
-            'app_dir' => dirname(__DIR__) . '/app',
+            'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
-            'views' => dirname(__DIR__) . '/app/views',
+            'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-whole-mail-') . '.log', 'from' => 'noreply@localhost'],
@@ -142,7 +142,7 @@ final class WholeViewTest extends TestCase
 
     public function test_print_css_hides_site_chrome_when_printing(): void
     {
-        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/print.css');
+        $css = (string) file_get_contents(dirname(__DIR__, 4) . '/public/assets/print.css');
         $this->assertStringContainsString('@media print', $css);
         $this->assertStringContainsString('.site-head', $css, 'the site nav hides in print');
         $this->assertStringContainsString('.engagement-bar', $css, 'the engagement bar hides in print');
