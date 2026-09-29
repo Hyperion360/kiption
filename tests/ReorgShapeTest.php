@@ -93,11 +93,26 @@ final class ReorgShapeTest extends TestCase
 
     public function test_no_test_files_outside_the_tests_directory(): void
     {
-        // A FooTest.php in a feature ROOT (not Tests/) still runs because
-        // PHPUnit scans recursively, but it silently breaks the PSR-4 Tests
-        // layout the capitalized directory exists for (tests plan 2026-09-28).
-        $strays = glob($this->root . '/app/Features/*/*Test.php') ?: [];
-        $this->assertSame([], $strays,
-            'test files belong in app/Features/<Name>/Tests/, found: ' . implode(', ', array_map('basename', $strays)));
+        // Recursive: PHPUnit scans app/Features recursively, so a stray at ANY
+        // depth still executes while silently violating the layout. Every
+        // *Test.php must sit in a directory named exactly Tests (case-exact;
+        // a lowercase variant stays green on case-insensitive dev machines)
+        // and declare the path-derived namespace (adversarial review
+        // 2026-09-29; supersedes the one-level glob).
+        $rii = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->root . '/app/Features', \FilesystemIterator::SKIP_DOTS));
+        $count = 0;
+        foreach ($rii as $f) {
+            if (!str_ends_with($f->getFilename(), 'Test.php')) continue;
+            $count++;
+            $this->assertSame('Tests', basename($f->getPath()),
+                "{$f->getFilename()} sits in " . basename($f->getPath()) . ', not a Tests directory (case-exact)');
+            $rel = substr($f->getPathname(), strlen($this->root . '/app/'));
+            $expected = 'App\\' . str_replace('/', '\\', dirname($rel));
+            preg_match('/^namespace\s+([^;]+);/m', (string) file_get_contents($f->getPathname()), $m);
+            $this->assertSame($expected, trim($m[1] ?? ''),
+                "{$f->getFilename()} must declare namespace {$expected}");
+        }
+        $this->assertGreaterThanOrEqual(48, $count, 'the moved feature tests must all be found');
     }
 }
