@@ -1,52 +1,72 @@
 <?php // app/views/story/view.php ?>
-<?php $this->layout('layout'); ?>
-<article>
-  <h1><?= $this->e($story['title']) ?></h1>
-  <p class="chapter-meta">
-    <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?>
-    | <?= $this->e($story['rating_label']) ?>
-    <?php if ((int) $story['is_adult'] === 1): ?><span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
-    <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge"><?= \App\Lang::t('story.registered_only') ?></span><?php endif; ?>
-    <?php if ($story['completed']): ?><span class="badge"><?= \App\Lang::t('story.complete') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('story.wip') ?></span><?php endif; ?>
-    <?php if ($story['round_robin']): ?><span class="badge"><?= \App\Lang::t('story.round_robin') ?></span><?php endif; ?>
-    | <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?>
-    | <?= \App\Lang::t('story.in') ?> <?= $this->e($story['category_names'] ?? \App\Lang::t('story.uncategorized')) ?>
-    <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?>
-  </p>
-  <?php if (($story['gift_to'] ?? '') !== ''): ?>
-  <p class="chapter-meta"><?= \App\Lang::t('story.gift_line', ['name' => $this->e($story['gift_to'])]) ?></p>
-  <?php endif; ?>
-  <?php if (($story['crosspost_url'] ?? '') !== ''): ?>
-  <p class="chapter-meta"><?= \App\Lang::t('story.crossposted_from') ?> <a href="<?= $this->e($story['crosspost_url']) ?>" rel="nofollow"><?= \App\Lang::t('story.crosspost_original') ?></a>.</p>
-  <?php endif; ?>
-  <?php if ($series !== []): ?>
-  <p class="chapter-meta"><?= \App\Lang::t('story.series_label') ?>
-    <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>
-  </p>
-  <?php endif; ?>
-  <?php if ($tags !== []): ?>
-  <p class="chapter-meta"><?= \App\Lang::t('story.tags_label') ?>
-    <?php foreach ($tags as $typeName => $names): ?><span class="badge"><?= $this->e($typeName) ?>: <?= $this->e(implode(', ', $names)) ?></span><?php endforeach; ?>
-  </p>
-  <?php endif; ?>
-  <?php if (!empty($story['cover_path'])): ?>
-    <img class="cover" src="<?= $this->e($story['cover_path']) ?>" alt="<?= $this->e(\App\Lang::t('story.cover_alt')) ?>">
-  <?php endif; ?>
-  <p><?= $this->e($story['summary']) ?></p>
-  <?php /* C4 member progress, reading_history's furthest-read position; the guest render emits nothing here (cache neutrality) */ ?>
-  <?php if (!empty($progress)): ?>
-    <?php $hereTitle = '';
-    foreach ($chapters as $c) {
-        if ((int) $c['position'] === (int) $progress['last_position']) { $hereTitle = (string) $c['title']; break; }
-    }
-    $hereLabel = $hereTitle !== '' ? $hereTitle : \App\Lang::t('story.chapter_n', ['n' => $progress['last_position']]); ?>
-    <p class="chapter-meta progress"><?= \App\Lang::t('story.progress_youre_here', ['chapter' => $this->e($hereLabel)]) ?>
-      <?php if ($progress['read_pct'] !== null): ?>| <?= \App\Lang::t('story.progress_pct', ['n' => $progress['read_pct']]) ?><?php endif; ?>
-      <?php if ($progress['minutes_left'] !== null): ?>| <?= \App\Lang::t('story.progress_min_left', ['n' => $progress['minutes_left']]) ?><?php endif; ?>
-      | <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $progress['last_position'] ?>"><?= \App\Lang::t('story.progress_continue') ?></a>
-    </p>
-  <?php endif; ?>
-  <div class="engagement-bar chapter-meta">
+<?php // C7 (frames M1/T2/D3): hero grid, stats, Roman-numeral chapter list.
+     // The engagement row and the reviews section keep their exact structure
+     // (every id, form action, and pinned class survives); only wrappers
+     // restyle. Guest renders carry none of the member progress markup, so
+     // cached bytes stay reader-neutral.
+     $this->layout('layout');
+     $progress = $progress ?? null;
+     $last = $progress['last_position'] ?? null;
+     $readPct = (int) ($progress['read_pct'] ?? 0);
+     $hereTitle = '';
+     if ($last !== null) {
+         foreach ($chapters as $c) {
+             if ((int) $c['position'] === (int) $last) { $hereTitle = (string) $c['title']; break; }
+         }
+     }
+     // category_names is a nullable ", "-joined GROUP_CONCAT STRING (never an
+     // array); re-separate for the comp's middle dots, status joins only when
+     // categories exist so an uncategorized story never leads with a dot.
+     $cats = str_replace(', ', ' · ', (string) ($story['category_names'] ?? '')); ?>
+<article class="story-page">
+  <div class="story-hero">
+    <aside class="story-cover">
+      <?php if (!empty($story['cover_path'])): ?>
+        <img class="cover" src="<?= $this->e($story['cover_path']) ?>" alt="">
+      <?php else: /* typographic cover: 2:3 brand-green card, comp T2/D3 */ ?>
+        <div class="cover-card"><span class="cover-kicker"><?= \App\Lang::t('story.cover_kicker') ?></span>
+          <span class="cover-title"><?= $this->e($story['title']) ?></span>
+          <span class="cover-author"><?= $this->e($story['penname']) ?></span></div>
+      <?php endif; ?>
+      <?php if ($last !== null): ?>
+      <a class="continue-cta" href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $last ?>">
+        <span class="continue-label"><?= \App\Lang::t('reader.continue') ?></span>
+        <span class="continue-sub"><?= \App\Lang::t('reader.continue_sub', ['roman' => \App\Features\Reader\Roman::numeral((int) $last), 'title' => $this->e($hereTitle !== '' ? $hereTitle : \App\Lang::t('story.chapter_n', ['n' => (int) $last])), 'pct' => $readPct]) ?></span></a>
+      <?php endif; ?>
+    </aside>
+    <div class="story-info">
+      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?></p>
+      <h1><?= $this->e($story['title']) ?></h1>
+      <p class="byline"><?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?></p>
+      <?php /* one markup, two presentations: the meta line shows below 1024px, the stats dl from 1024px up */ ?>
+      <p class="meta meta-line"><?= $this->e($story['rating_label']) ?> · <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?> · <?= \App\Lang::t('reader.chapters_n', ['n' => count($chapters)]) ?><?php if ($progress !== null && $progress['minutes_left'] !== null): ?> · <?= \App\Lang::t('reader.about_left', ['min' => (int) $progress['minutes_left']]) ?><?php endif; ?>
+        <?php if ((int) $story['is_adult'] === 1): ?><span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
+        <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge"><?= \App\Lang::t('story.registered_only') ?></span><?php endif; ?>
+        <?php if ($story['round_robin']): ?><span class="badge"><?= \App\Lang::t('story.round_robin') ?></span><?php endif; ?>
+        <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?></p>
+      <dl class="story-stats">
+        <dt><?= \App\Lang::t('story.rating') ?></dt><dd><?= $this->e($story['rating_label']) ?></dd>
+        <dt><?= \App\Lang::t('story.words') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd>
+        <?php if ($progress !== null && $progress['minutes_left'] !== null): ?><dt><?= \App\Lang::t('reader.time_left') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd><?php endif; ?>
+        <dt><?= \App\Lang::t('story.kudos_label') ?></dt><dd><?= number_format((int) $kudos_count) ?></dd>
+        <dt><?= \App\Lang::t('story.reviews_heading') ?></dt><dd><?= number_format((int) $review_count) ?></dd>
+      </dl>
+      <p class="summary"><?= $this->e($story['summary']) ?></p>
+      <?php if (($story['gift_to'] ?? '') !== ''): ?>
+      <p class="meta"><?= \App\Lang::t('story.gift_line', ['name' => $this->e($story['gift_to'])]) ?></p>
+      <?php endif; ?>
+      <?php if (($story['crosspost_url'] ?? '') !== ''): ?>
+      <p class="meta"><?= \App\Lang::t('story.crossposted_from') ?> <a href="<?= $this->e($story['crosspost_url']) ?>" rel="nofollow"><?= \App\Lang::t('story.crosspost_original') ?></a>.</p>
+      <?php endif; ?>
+      <?php if ($series !== []): ?>
+      <p class="meta"><?= \App\Lang::t('story.series_label') ?>
+        <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>
+      </p>
+      <?php endif; ?>
+      <?php if ($tags !== []): ?>
+      <div class="tag-chips"><?php foreach ($tags as $typeName => $names): ?><span class="badge"><?= $this->e($typeName) ?>: <?= $this->e(implode(', ', $names)) ?></span><?php endforeach; ?></div>
+      <?php endif; ?>
+      <div class="engagement-bar">
     <span><?= \App\Lang::t('story.kudos_count', ['n' => number_format((int) $kudos_count)]) ?></span>
     <?php if ((int) $kudos_by_me === 1): ?>
       <span><?= \App\Lang::t('story.you_left_kudos') ?></span>
@@ -96,27 +116,33 @@
       <a href="<?= $this->e($story['support_url']) ?>" rel="noopener nofollow"><?= \App\Lang::t('story.support') ?></a>
     <?php endif; ?>
     <?php if (\App\Features::on('lists')): ?><span><a href="/lists"><?= \App\Lang::t('story.lists_link') ?></a></span><?php endif; ?>
+      </div>
+    </div>
   </div>
   <?php if (($story['notes'] ?? '') !== ''): ?>
     <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>
   <?php endif; ?>
-  <h2><?= \App\Lang::t('story.chapters') ?></h2>
-  <?php if (\App\Features::on('exports')): ?>
-  <p class="chapter-meta">
-    <a href="/story/whole/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.whole_link') ?></a>
-    | <a href="/story/download/<?= $this->e($story['slug']) ?>/html"><?= \App\Lang::t('story.download_html') ?></a>
-    | <a href="/story/download/<?= $this->e($story['slug']) ?>/epub"><?= \App\Lang::t('story.download_epub') ?></a>
-  </p>
-  <?php endif; ?>
-  <ol>
-    <?php foreach ($chapters as $c): ?>
-      <li>
-        <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $c['position'] ?>">
-          <?= \App\Lang::t('story.chapter_n', ['n' => (int) $c['position']]) ?>: <?= $this->e($c['title']) ?></a>
-        <span class="chapter-meta">(<?= number_format((int) $c['word_count']) ?> <?= \App\Lang::t('story.words') ?>)</span>
-      </li>
-    <?php endforeach; ?>
-  </ol>
+  <section class="chapters" aria-labelledby="chapters-h">
+    <div class="section-head"><h2 id="chapters-h"><?= \App\Lang::t('story.chapters') ?></h2>
+      <?php if (\App\Features::on('exports')): ?>
+      <nav class="section-links">
+        <a href="/story/whole/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.whole_link') ?></a>
+        | <a href="/story/download/<?= $this->e($story['slug']) ?>/html"><?= \App\Lang::t('story.download_html') ?></a>
+        | <a href="/story/download/<?= $this->e($story['slug']) ?>/epub"><?= \App\Lang::t('story.download_epub') ?></a>
+      </nav>
+      <?php endif; ?>
+    </div>
+    <ol class="chapter-list">
+      <?php foreach ($chapters as $c): $cur = $last !== null && (int) $c['position'] === (int) $last; ?>
+      <li class="<?= $cur ? 'is-current' : ($last !== null && (int) $c['position'] < (int) $last ? 'is-read' : '') ?>">
+        <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $c['position'] ?>"<?= $cur ? ' aria-current="page"' : '' ?>>
+          <span class="ch-num"><?= \App\Features\Reader\Roman::numeral((int) $c['position']) ?></span>
+          <span class="ch-title"><?= $this->e($c['title']) ?><?php if ($cur): ?> <span class="you-are-here"><?= \App\Lang::t('reader.you_are_here', ['pct' => $readPct]) ?></span><?php endif; ?></span>
+          <span class="ch-meta"><?= number_format((int) $c['word_count']) ?></span>
+        </a></li>
+      <?php endforeach; ?>
+    </ol>
+  </section>
   <h2 id="reviews"><?= \App\Lang::t('story.reviews_heading') . ' (' . number_format((int) $review_count) . ')' ?></h2>
   <?php if ($reviews === []): ?><p class="chapter-meta"><?= \App\Lang::t('common.none_yet') ?></p>
   <?php else: ?>

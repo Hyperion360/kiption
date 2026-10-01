@@ -64,7 +64,7 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('The Rabbit Hole', $res->body);
         $this->assertStringContainsString('Demo Author', $res->body);
         $this->assertStringContainsString('/story/read/the-rabbit-hole/1', $res->body);
-        $this->assertStringContainsString('Chapter 2', $res->body);
+        $this->assertStringContainsString('<span class="ch-num">II</span>', $res->body, 'C7: chapter rows carry Roman numerals');
     }
 
     public function test_round_robin_story_shows_the_badge(): void
@@ -93,8 +93,8 @@ final class StoryTest extends TestCase
             ['A|B~C', '<p>x</p>']);
         $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
         $this->assertSame(200, $res->status);
-        $this->assertStringContainsString('Chapter 3: A|B~C', $res->body);
-        $this->assertStringContainsString('444 words', $res->body);
+        $this->assertStringContainsString('<span class="ch-title">A|B~C</span>', $res->body);
+        $this->assertStringContainsString('<span class="ch-meta">444</span>', $res->body);
         $this->assertStringNotContainsString('Chapter 0', $res->body);
     }
 
@@ -187,15 +187,16 @@ final class StoryTest extends TestCase
     /** C4: the member render consumes the existing reading_history row (C3's
      *  removal note: furthest-read last_position semantics, never-backwards).
      *  Story word_count 300, chapter 1 = 100 words: 33% read, (300-100)/250
-     *  rounds to 1 min left, and the CTA targets the furthest chapter. */
+     *  rounds to 1 min left, and the CTA targets the furthest chapter. C7
+     *  renders the percent in the You're-here marker and the CTA sub-line. */
     public function test_member_view_shows_youre_here_and_continue_reading(): void
     {
         (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 1)');
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
-        $this->assertStringContainsString("You're here", $body);
+        $this->assertStringContainsString("You're here · 33%", $body);
         $this->assertStringContainsString('Continue reading', $body);
         $this->assertStringContainsString('href="/story/read/the-rabbit-hole/1"', $body);
-        $this->assertStringContainsString('33% read', $body);
+        $this->assertStringContainsString('Chapter I · Down · 33%', $body, 'the CTA sub-line: roman, title, percent');
         $this->assertStringContainsString('1 min left', $body);
     }
 
@@ -241,5 +242,83 @@ final class StoryTest extends TestCase
         $this->assertSame(100, $member['read_pct']); // (100+200) of 300 words
         $this->assertSame(0, $member['minutes_left']); // nothing left to read
         $this->assertSame($toc, json_decode((string) $member['chapters_blob'], true));
+    }
+
+    /** C7 (frames M1/T2/D3): the hero grid pairs a cover column (uploaded
+     *  image or the typographic card) with the info column. */
+    public function test_story_page_renders_the_hero_grid_and_typographic_cover(): void
+    {
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('<div class="story-hero">', $body);
+        $this->assertStringContainsString('<aside class="story-cover">', $body);
+        // no cover_path: the CSS typographic card (2:3 brand green, T2/D3)
+        $this->assertStringContainsString('<div class="cover-card">', $body);
+        $this->assertStringContainsString('<span class="cover-kicker">A Kiption Story</span>', $body);
+        $this->assertStringContainsString('<span class="cover-title">The Rabbit Hole</span>', $body);
+        $this->assertStringContainsString('<span class="cover-author">Demo Author</span>', $body);
+        $this->assertStringContainsString('<div class="story-info">', $body);
+        // the summary stays server-escaped text
+        $this->assertStringContainsString('class="summary">Falling, slowly.</p>', $body);
+    }
+
+    public function test_uploaded_cover_image_replaces_the_typographic_card(): void
+    {
+        (new Database($this->dsn))->query("UPDATE stories SET cover_path = '/uploads/cover.png' WHERE id = 1");
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('<img class="cover" src="/uploads/cover.png"', $body);
+        $this->assertStringNotContainsString('<div class="cover-card">', $body, 'a real cover displaces the typographic card');
+    }
+
+    /** category_names is a nullable ", "-joined GROUP_CONCAT string; the
+     *  eyebrow re-separates it with middle dots and never leads with a dot. */
+    public function test_eyebrow_joins_categories_and_status_with_middle_dots(): void
+    {
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('<p class="eyebrow">General · WIP</p>', $body);
+        // after-hours: completed and uncategorized (nullable GROUP_CONCAT)
+        $body = $this->app->handle(new Request('GET', '/story/view/after-hours', [], [], []))->body;
+        $this->assertStringContainsString('<p class="eyebrow">Complete</p>', $body);
+    }
+
+    public function test_stats_definition_list_carries_the_public_counters(): void
+    {
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('<dl class="story-stats">', $body);
+        $this->assertStringContainsString('<dt>Rating</dt><dd>Teen</dd>', $body);
+        $this->assertStringContainsString('<dt>words</dt><dd>300</dd>', $body);
+        $this->assertStringContainsString('<dt>Kudos</dt><dd>0</dd>', $body);
+        $this->assertStringContainsString('<dt>Reviews</dt><dd>0</dd>', $body);
+        // the one markup / two presentations pair: the mobile meta line rides
+        // along (CSS picks one per breakpoint)
+        $this->assertStringContainsString('Teen · 300 words · 2 chapters', $body);
+    }
+
+    public function test_chapter_list_carries_read_current_states_and_counts(): void
+    {
+        (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 2)');
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('<ol class="chapter-list">', $body);
+        $this->assertStringContainsString('<li class="is-read">', $body, 'chapter 1 sits behind the furthest read');
+        $this->assertStringContainsString('<li class="is-current">', $body);
+        $this->assertStringContainsString('aria-current="page"', $body);
+        $this->assertStringContainsString('<span class="ch-meta">100</span>', $body, 'bare tabular word count per row');
+        $this->assertStringContainsString('<span class="ch-meta">200</span>', $body);
+        $this->assertStringContainsString('<span class="ch-title">Down</span>', $body);
+    }
+
+    /** The engagement row and reviews section keep their structure; only the
+     *  wrapper classes change (every pinned microformat/id survives). */
+    public function test_engagement_and_reviews_structure_survive_the_redesign(): void
+    {
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('<div class="engagement-bar', $body);
+        $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $body);
+        $this->assertStringContainsString('action="/favorites/toggle/the-rabbit-hole"', $body);
+        $this->assertStringContainsString('action="/follow/author/1"', $body);
+        $this->assertStringContainsString('action="/story/mark/the-rabbit-hole"', $body);
+        $this->assertStringContainsString('action="/report/story/the-rabbit-hole"', $body);
+        $this->assertStringContainsString('action="/review/add/the-rabbit-hole"', $body, 'the guest review form survives');
+        $this->assertStringContainsString('<h2 id="reviews">', $body);
+        $this->assertStringContainsString('</article>', $body);
     }
 }

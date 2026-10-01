@@ -170,6 +170,18 @@ return [
     'reader.bookmark_remove' => 'Remove bookmark',
     'reader.bookmark_note_placeholder' => 'Note (optional)',
 
+    // The redesigned story page (C7, frames M1/T2/D3): hero, stats, and the
+    // progress vocabulary shared with the chapter reader.
+    'story.cover_kicker' => 'A Kiption Story',
+    'reader.continue' => 'Continue reading',
+    'reader.continue_sub' => 'Chapter {roman} · {title} · {pct}%',
+    'reader.you_are_here' => "You're here · {pct}%",
+    'reader.chapters_n' => '{n} chapters',
+    'reader.about_left' => 'about {min} min left',
+    'reader.time_left' => 'Reading time',
+    'reader.min_left' => '{n} min left',
+    'story.kudos_label' => 'Kudos',
+
     // The whole-work reading view (/story/whole/{slug}), which doubles as the print view.
     'story.whole_link' => 'Whole story',
     'story.download_html' => 'Download HTML',

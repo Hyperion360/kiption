@@ -140,4 +140,19 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('.site-head', $css, 'the site nav still hides in print');
         $this->assertStringContainsString('.print-hint', $css, 'the print hint still hides in print');
     }
+
+    /** C7: the story-page components exist as real rules, at all three
+     *  breakpoints, so the M1/T2/D3 frames are styled by the sheet. */
+    public function test_reader_css_carries_the_story_page_components(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
+        foreach (['.story-hero', '.cover-card', '.continue-cta', '.story-stats',
+                  '.chapter-list', '.eyebrow', '.you-are-here'] as $selector) {
+            $this->assertStringContainsString($selector, $css, "the {$selector} component is styled");
+        }
+        $this->assertStringContainsString('aspect-ratio:2/3', str_replace(' ', '', $css),
+            'the cover card keeps the comp 2:3 ratio');
+        $this->assertStringContainsString('.story-info>.meta-line{display:none', str_replace(' ', '', $css),
+            'desktop swaps the meta line for the stats dl (one markup, two presentations)');
+    }
 }

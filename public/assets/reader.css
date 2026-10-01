@@ -230,6 +230,100 @@ html[data-theme="night"] .error, html[data-theme="night"] [role="alert"] { color
   html:not([data-theme="paper"]):not([data-theme="sepia"]) [role="alert"] { color: #f0856d; }
 }
 
+/* Story page (C7, frames M1/T2/D3): hero grid, typographic cover card,
+   Continue CTA, stats, Roman-numeral chapter rows. One markup, two
+   presentations: the meta line below 1024px, the definition list above. */
+.story-hero { margin-block-end: 2.5rem; }
+.story-cover { max-width: 300px; }
+.story-cover .cover {
+  display: block; width: 100%; height: auto;
+  aspect-ratio: 2 / 3; object-fit: cover;
+  border: 1px solid var(--line-strong);
+}
+.cover-card {
+  display: flex; flex-direction: column; gap: 12px;
+  aspect-ratio: 2 / 3; padding: 20px;
+  /* fixed brand green (A.1): the cover card does not re-theme */
+  background: #1f4f42; color: var(--cover-ink);
+}
+.cover-kicker {
+  font: 600 11px/1.4 var(--sans); letter-spacing: .16em;
+  text-transform: uppercase; opacity: .75;
+}
+.cover-title {
+  font-family: var(--serif); font-size: 28px; line-height: 1.15;
+  margin-block-start: auto;
+}
+.cover-author { font-family: var(--serif); font-style: italic; font-size: 14px; opacity: .9; }
+.continue-cta {
+  display: flex; flex-direction: column; gap: 2px; justify-content: center;
+  min-height: 58px; margin-block-start: 12px; padding: 10px 16px;
+  background: var(--pill-bg); color: var(--accent); text-decoration: none;
+}
+.continue-cta:hover { opacity: .92; color: var(--accent); }
+.continue-label { font: 600 16px/1.3 var(--sans); }
+.continue-sub { font: 13px/1.4 var(--sans); opacity: .85; font-variant-numeric: tabular-nums; }
+.eyebrow {
+  margin: 0 0 .5rem;
+  font: 600 12px/1.5 var(--sans); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.story-info h1 { margin-block-end: .5rem; }
+.byline { margin: 0 0 .75rem; color: var(--ink-2); font-size: 15px; }
+.byline a { font-weight: 600; }
+.story-stats { display: none; }
+.summary {
+  font-family: var(--serif); font-size: 18px; line-height: 1.6;
+  max-width: 640px; margin: 1rem 0;
+}
+.tag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 1rem; }
+.story-info .engagement-bar { margin-block: 1rem 0; }
+.section-head {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  justify-content: space-between; gap: 8px 24px;
+}
+.section-links { font: 13px/1.6 var(--sans); }
+.chapter-list { list-style: none; margin: 1rem 0 2rem; padding: 0; border-block-start: 1px solid var(--line); }
+.chapter-list li { border-block-end: 1px solid var(--line); }
+.chapter-list a {
+  display: grid; grid-template-columns: 34px 1fr auto; align-items: baseline;
+  gap: 12px; min-height: 54px; padding-block: 8px;
+  text-decoration: none; color: var(--ink);
+}
+.chapter-list a:hover { background: var(--hover); }
+.ch-num { font-family: var(--serif); font-variant-numeric: tabular-nums; color: var(--muted); }
+.chapter-list li.is-read a { color: var(--muted); }
+.chapter-list li.is-current a, .chapter-list li.is-current .ch-num { color: var(--accent); }
+.you-are-here {
+  font: 600 12px/1.6 var(--sans); color: var(--accent); white-space: nowrap;
+}
+.ch-meta { font: 13px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (min-width:768px) {
+  .story-hero { display: grid; grid-template-columns: 220px 1fr; gap: 40px; }
+  .story-info h1 { font-size: 46px; }
+  .chapter-list a { grid-template-columns: 44px 1fr auto; min-height: 56px; }
+}
+@media (min-width:1024px) {
+  .story-hero { grid-template-columns: 300px 1fr; gap: 64px; }
+  .story-info h1 { font-size: 58px; }
+  .story-info > .meta-line { display: none; }
+  .story-stats {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;
+    border-block: 1px solid var(--line); border-block-start: 1px solid var(--ink);
+    padding-block: 12px; margin: 1.25rem 0;
+  }
+  .story-stats dt {
+    font: 600 12px/1.6 var(--sans); text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted);
+  }
+  .story-stats dd {
+    margin: 0; font-family: var(--serif); font-size: 20px;
+    font-variant-numeric: tabular-nums;
+  }
+  .chapter-list a { grid-template-columns: 48px 1fr 120px; min-height: 52px; }
+  .ch-meta { text-align: end; }
+}
+
 /* Breakpoints per the comp: <=767 mobile, 768-1023 tablet, >=1024 desktop. */
 @media (min-width:768px) {
   :root { --read-size:21px; --read-lh:1.72; --read-width:600px; }
