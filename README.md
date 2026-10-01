@@ -43,7 +43,12 @@ boots. The layer fills itself on first visit; `php bin/kip pages:build`
 pre-renders everything (run it after deploys and imports); `php bin/kip
 pages:prune` wipes it plus the framework page cache (run it after editing
 stories through the built-in admin panel until Plan 5 makes the app's own
-writers the only write path, and after template-only deploys).
+writers the only write path, and after template-only deploys). `php bin/kip
+cache:clear` deletes the framework page cache alone (`app/cache.sqlite` and
+its WAL sidecars): a page cached while public stays servable until its TTL
+even after its route gains an auth gate, because the cache answers before
+routing, so clear it on every deploy. `pages:prune` and `db:seed` already
+wipe it; `cache:clear` is the scoped, deploy-time command.
 
 Serving the layer without PHP at the webserver level is OPTIONAL and
 subtle. The PHP fallback in `public/index.php` is the supported path and is
@@ -98,20 +103,27 @@ trust level as `config.php`); a pack that fails to load degrades to
 English with the failure recorded in the error log. Members may also pick
 their own language and theme on the account page; see the next section.
 
-## Per-member language and theme
+## Per-member language, theme, and reader preferences
 
 Members choose their own interface language and theme on the account page.
 Both are stored in `user_prefs` (`lang`, empty string = follow the archive
-default; `theme`, `dark` or `light`) and both reach the render through
-cookies, so no page pays an extra query for them.
+default; `theme`, one of `paper`, `sepia`, or `night`) and both reach the
+render through cookies, so no page pays an extra query for them. The fourth
+theme choice, `auto`, is cookie-level only and never a stored value: saving
+it clears the theme cookie and the row keeps `paper`, so the OS
+`prefers-color-scheme` decides. Archives older than the reader redesign
+stored `light`/`dark`; the cookie read maps them to `paper`/`night` once,
+and migration 026 rebuilt the column with that mapping (SQLite cannot
+alter a CHECK constraint in place).
 
 The cookie-sync architecture. The database row is the source of truth and
 the cross-device record; the `lang` and `theme` cookies are the runtime
 cache. Three write points sync both sides at once: the login (one prefs
 lookup on the auth write path sets the cookies from the stored row; write
 paths sit outside the page query budget), the account preferences save,
-and the `/theme/{dark|light}` toggle, which also writes the row when the
-clicker is logged in. Logout clears both cookies along with the session.
+and the reader's settings POST at `/reader/settings` (the Text sheet),
+which also writes the row when the poster is logged in. Logout clears
+both cookies along with the session.
 The render path never queries prefs: `public/index.php` applies the `lang`
 cookie before routing (validated as a two-letter code; a tampered or junk
 cookie degrades to the archive default, never an error page), and the
@@ -141,9 +153,12 @@ no `margin-left`/`margin-right`, `padding-left`/`padding-right`,
 pinned by a test in `tests/PerUserTest.php`. The layout flips natively
 under `dir="rtl"`: flexbox order reverses, auto margins mirror through
 their logical spellings (`margin-inline-start` and friends), and
-`text-align: center` is direction-neutral. A future stylesheet change
-that reintroduces a physical directional property breaks the pin before
-it ships a half-mirrored page.
+`text-align: center` is direction-neutral. One exception, also pinned:
+the reader's progress bar fill anchors its sized background physically
+(CSS has no logical `background-position`), so a `dir="rtl"` rule
+re-anchors it and the fill grows from the reading edge either way. A
+future stylesheet change that reintroduces a physical directional
+property breaks the pin before it ships a half-mirrored page.
 
 No Accept-Language sniffing, on purpose. The archive language is a config
 decision and the member language is an explicit account choice; nothing
@@ -151,18 +166,61 @@ is auto-detected from the browser (a privacy and surprise stance).
 
 Flags. `peruserlang` gates the language select, the login's lang-cookie
 sync, and the save's lang column; `perusertheme` gates the theme radios,
-the login's theme sync, the save's theme column, and the member toggle's
+the login's theme sync, the save's theme column, and the settings POST's
 row write-through. Both store, never delete: with a flag off the stored
 preference goes inert and returns on re-enable. One documented window:
 the render-time cookie seam sits above the flags database (moving it
 below would put the flags DB in front of the maintenance 503, a
 framework-level page that must never open it), so it consults only the
 config-shipped default. A runtime flag-off therefore stops new cookie
-syncs immediately (logins, saves, and toggles skip them) but a browser
-already carrying the cookie keeps rendering that language or theme until
-its next logout or login clears or re-syncs it. The `/theme` toggle keeps
-writing its cookie with `perusertheme` off: the cookie path is guest core
-that predates the flag.
+syncs immediately (logins and saves skip them) but a browser already
+carrying the cookie keeps rendering that language or theme until its
+next logout or login clears or re-syncs it. `/reader/settings` keeps
+writing its cookies with `perusertheme` off: the cookie path is guest
+core (a cookie-set, never stored state).
+
+Responsive reader. The reading surfaces (story page, chapter reader,
+whole work, recently updated) and the site shell are redesigned around a
+390/834/1440px breakpoint set: a 56px header with a bottom-sheet menu on
+phones, a floating control pill on tablets, and a 1200px shell on
+desktop. Every control is a link, a form, or native CSS (`:target`
+sheets, `:checked` tabs, a scroll-driven progress bar where the browser
+supports it); there is no JavaScript to load, and `prefers-reduced-motion`
+disables the one animation. Printing any page drops the site and reader
+chrome, including a sheet left open at print time.
+
+Reader typography. The chapter reader's Text sheet saves six reading
+preferences into one compact `reader` cookie: text size (16 to 24 px),
+typeface (serif or sans), line spacing, paragraph style (indented or
+spaced), column width, and reading mode (scroll or pages; pages mode
+reflows the chapter into snapped columns with pure CSS). The cookie is
+device-local by design: the per-user theme row covers theme, text
+preferences never touch the database, and every value is whitelisted at
+write time, so a junk cookie degrades to the defaults rather than
+rewriting anything. Saving the all-default combination clears the cookie
+instead of setting it: a visitor who never customizes keeps full
+static-cache hits, because any cookie makes a request live. Cookieless
+cached pages stay byte-stable for the same reason: the layout emits the
+preferences as `data-*` attributes on `<html>` only when a non-default
+cookie is present, and a cookieless render emits none.
+
+Bookmarks. Members bookmark the chapter they are reading from the
+reader's control bar; `bookmarks` keys on (user, story, chapter), so
+re-bookmark is an upsert, and each bookmark carries an optional note
+(trimmed to 500 bytes on the way in, escaped on the way out). Bookmarks
+render in the reader's Contents sheet beside the chapter list, and both
+the add and remove POSTs are token-checked for members.
+
+Reading progress. Every member chapter read upserts
+`reading_history.last_position`, the furthest-read chapter (the marker
+never moves backwards; re-reading chapter 1 does not reset it). The
+redesign surfaces that existing data instead of adding a table: the
+story page shows a Continue reading block (chapter, percent, and minutes
+left at 250 words per minute), marks the current row "You're here",
+shades chapters already read, and `/browse/recent` cards carry a
+Continue pill. The numbers join the page's single query as a LEFT JOIN
+against the existing table; guests see none of this markup, and the
+read beacon stays anonymous.
 
 ## SEO
 
@@ -373,7 +431,8 @@ markdown, avatar, support link, story and series counts) with stories
 and favorites tabs, and a member directory at `/browse/authors` with
 letter filters and a beta-reader filter. Account preferences cover the
 bio and beta-reader flag, a default listing sort, the member's own
-interface language and theme (see Per-member language and theme), a
+interface language and theme (see Per-member language, theme, and reader
+preferences), a
 table-of-contents first reading mode (a cookie, so the bare
 `/story/read/{slug}` redirect costs zero queries), and notification
 toggles for reviews, replies, and favorites. Members contact each other
@@ -663,6 +722,18 @@ it is safe in cron, and the `KIP_BACKUP_DIR` environment variable
 redirects the archive directory. The archive name has one-second
 resolution: two runs in the same second overwrite the same zip.
 
+Rate limiting. Every non-GET request passes a fixed-window limiter keyed
+on the first URL segment and the caller IP, counted in `rate_limits`
+(migration 025; expired windows prune on the same index they seek). The
+shipped `config.php` values: `auth` and `report` at 10 per minute,
+`messages` and `account` at 20, and every other writable surface
+(`reader` settings and bookmarks, `kudos`, `review`, `favorites`,
+`follow`, `story` marks, `comment`) at 30. The limit's 429 response
+carries `Retry-After` with the seconds left in the window. GET renders
+are never counted, so the static cache and the one-query page budget are
+untouched. Dropping a segment's entry disables its limit, and the whole
+`rate_limit` block absent leaves the limiter inert.
+
 ## Feature flags
 
 Every discretionary surface is admin-togglable at `/features` (admins only;
@@ -700,8 +771,8 @@ moment news goes off.
 | pms | `/messages`, thread views, the compose form, and the send POST | 404 |
 | mute | `/mute/add/{slug}` and `/mute/remove/{slug}` | 404; the profile and directory mute buttons and the account block hide, and listings stop filtering for everyone |
 | wrangling | `/wrangling`, the merge form, and the merge and unmerge POSTs | 404 |
-| peruserlang | the language select on the account page, the login's lang-cookie sync, and the save's lang column | the field hides and the stored preference goes inert; new logins stop syncing the lang cookie, and a browser already carrying it keeps it until the next logout or login (the documented window in Per-member language and theme) |
-| perusertheme | the theme radios on the account page, the login's theme sync, the save's theme column, and the member toggle's row write-through | the fields hide and the stored preference goes inert; the toggle keeps writing its cookie (guest core) and the cookie, then the OS, governs as before |
+| peruserlang | the language select on the account page, the login's lang-cookie sync, and the save's lang column | the field hides and the stored preference goes inert; new logins stop syncing the lang cookie, and a browser already carrying it keeps it until the next logout or login (the documented window in Per-member language, theme, and reader preferences) |
+| perusertheme | the theme radios on the account page, the login's theme sync, the save's theme column, and the settings POST's row write-through | the fields hide and the stored preference goes inert; `/reader/settings` keeps writing its cookies (guest core) and the cookie, then the OS, governs as before |
 
 The two flags compose: `comments` is a sub-flag of `news`. News on with
 comments off renders items with their existing comments and counts but no
