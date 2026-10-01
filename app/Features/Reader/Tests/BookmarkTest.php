@@ -153,4 +153,57 @@ final class BookmarkTest extends TestCase
         $this->assertStringNotContainsString('Bookmark this chapter', $guestBody);
         $this->assertStringNotContainsString('bookmarks', $guestBody);
     }
+
+    /** Review CRITICAL (data-migration + red team): a chapter hard-delete with
+     *  no bookmarks cleanup strands member rows whose fold LEFT JOIN then
+     *  yields a null position, and bookmarkRemove 404s because the chapter
+     *  can no longer be resolved. The delete transactions now cascade. */
+    public function test_chapter_hard_delete_cascades_member_bookmarks(): void
+    {
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', ['note' => 'doomed']);
+        $this->assertSame(1, $this->rowCount());
+        $authorId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        (new \App\Repositories\AuthoringRepository($this->db))->deleteChapter('the-rabbit-hole', 2, $authorId);
+        $this->assertSame(0, $this->rowCount(),
+            'deleting the chapter takes its bookmarks with it; no orphaned, un-removable rows');
+        $res = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/1');
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringNotContainsString('doomed', $res->body);
+    }
+
+    /** The defensive render path for a bookmark whose chapters row is gone
+     *  (only reachable by manual corruption now that the deletes cascade):
+     *  the note survives, the page stays 200, and no chapter link is emitted. */
+    public function test_bookmark_whose_chapter_row_is_gone_renders_note_without_link(): void
+    {
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', ['note' => 'orphan note']);
+        $this->db->query('UPDATE bookmarks SET chapter_id = chapter_id + 1000000');
+        $res = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/1');
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('orphan note', $res->body, 'the note survives its chapter row');
+    }
+
+    /** Cross-member isolation (testing specialist): the fold and the actions
+     *  key on the acting member; a bind-order regression must never leak or
+     *  mutate another member's rows. */
+    public function test_members_see_and_mutate_only_their_own_bookmarks(): void
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, is_beta, email_verified_at, approved_at, profile_slug)
+            VALUES ('gamma@example.test', 'x', 'gammafriend', 1, '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00', 'gammafriend')");
+        $gamma = (int) $this->db->one("SELECT id FROM users WHERE penname = 'gammafriend'")['id'];
+        $a = $this->client($this->memberId);
+        $b = $this->client($gamma);
+        $a->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'alpha note']);
+        $b->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', ['note' => 'beta note']);
+        $this->assertSame(2, $this->rowCount());
+        $aBody = $a->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringContainsString('alpha note', $aBody);
+        $this->assertStringNotContainsString('beta note', $aBody);
+        $bBody = $b->get('/story/read/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('beta note', $bBody);
+        $this->assertStringNotContainsString('alpha note', $bBody);
+        $a->postWithToken('/reader/bookmarkremove/the-rabbit-hole/1');
+        $this->assertSame(1, $this->rowCount(), "A's remove never touches B's row");
+        $this->assertStringContainsString('beta note', $b->get('/story/read/the-rabbit-hole/2')->body);
+    }
 }

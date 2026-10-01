@@ -384,6 +384,11 @@ final class AuthoringRepository
         $story = $this->ownStory($slug, $userId);
         $this->db->begin();
         try {
+            // Bookmarks go first, inside the same transaction: a bare chapter
+            // delete would strand member rows whose fold LEFT JOIN then
+            // yields a null position (un-removable; bookmarkRemove cannot
+            // resolve the chapter). Review CRITICAL.
+            $this->db->query('DELETE FROM bookmarks WHERE chapter_id IN (SELECT id FROM chapters WHERE story_id = ? AND position = ?)', [$story['id'], $position]);
             $this->db->query('DELETE FROM chapters WHERE story_id = ? AND position = ?', [$story['id'], $position]);
             $this->db->query('UPDATE chapters SET position = position - 1 WHERE story_id = ? AND position > ?', [$story['id'], $position]);
             $this->touchStory($story['id']);
@@ -515,6 +520,10 @@ final class AuthoringRepository
         $cats = $this->categorySlugs((int) $ch['story_id']);
         $this->db->begin();
         try {
+            // Same stranding guard as deleteChapter (review CRITICAL); the
+            // chapter here is unvalidated so bookmarks on it should not
+            // exist, but validation states can flip.
+            $this->db->query('DELETE FROM bookmarks WHERE chapter_id = ?', [$ch['id']]);
             $this->db->query('DELETE FROM chapters WHERE id = ?', [$ch['id']]);
             $this->db->query('UPDATE chapters SET position = position - 1 WHERE story_id = ? AND position > ?',
                 [$ch['story_id'], $ch['position']]);
