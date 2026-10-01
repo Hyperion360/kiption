@@ -183,6 +183,21 @@ final class BookmarkTest extends TestCase
         $this->assertStringContainsString('orphan note', $res->body, 'the note survives its chapter row');
     }
 
+    /** Invalid UTF-8 in the note: SQLite's json_object would return NULL and
+     *  blank the member's whole bookmark list; the write scrubs instead. */
+    public function test_invalid_utf8_note_does_not_blank_the_bookmarks_blob(): void
+    {
+        // "\xC3(" is an invalid sequence; the rest is valid UTF-8.
+        $res = $this->client($this->memberId)->postWithToken(
+            '/reader/bookmarkadd/the-rabbit-hole/1', ['note' => "\xC3(valid tail)"]);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(1, $this->rowCount());
+        $body = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringContainsString('(valid tail)', $body,
+            'the readable part survives, scrubbed to U+FFFD where the garbage was');
+        $this->assertStringNotContainsString('none yet', $body);
+    }
+
     /** Cross-member isolation (testing specialist): the fold and the actions
      *  key on the acting member; a bind-order regression must never leak or
      *  mutate another member's rows. */

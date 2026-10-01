@@ -84,6 +84,10 @@ final class ReaderController
         $row = $this->bookmarkTarget($slug, $position, $me);
         if ($row === null || $me === 0) { return new Response('Page not found', 404); }
         $note = mb_substr(trim($this->request->postStr('note')), 0, 500);
+        // SQLite's json_object returns NULL for invalid UTF-8, which would
+        // blank the member's whole bookmarks blob (the sheet renders "none
+        // yet" while rows exist). Scrub garbage bytes to U+FFFD.
+        $note = mb_scrub($note, 'UTF-8');
         $this->db->begin();
         $this->db->query(
             'INSERT INTO bookmarks (user_id, story_id, chapter_id, note)
