@@ -8,6 +8,15 @@
   /* Site chrome and engagement controls never reach paper. The footer was
    * retired with the C6 shell, so no footer rule remains to hide. */
   .site-head, .engagement-bar, .chapter-nav, .print-hint { display: none; }
+  /* Reader chrome from the redesign never prints either: the sticky reader
+   * header, the bottom control bar, the focus dock, and every sheet. The
+   * sheet rules carry !important because .sheet:target's display:flex (and
+   * the body:has() scrim sibling) outrank a plain .sheet rule, and a sheet
+   * left open at print time must not ride along onto paper. The boundary
+   * caption stays: end-of-chapter markers are part of a long work; only
+   * their action buttons and the next-chapter link go. */
+  .reader-head, .reader-bar, .reader-dock, .chapter-end-actions, .next-chapter,
+  .sheet, .sheet:target, .scrim { display: none !important; }
   /* Paper fidelity: black on white, full width, no screen typography. */
   body { background: #fff; color: #000; }
   .site-main { max-width: none; padding: 0; }

@@ -161,20 +161,12 @@ return [
     'story.gate_or' => 'or',
     'story.gate_go_back' => 'go back',
 
-    // Member reading progress on the story view (C4): reading_history's
-    // furthest-read position, consumed read-only; guests see none of it.
-    'story.progress_youre_here' => "You're here: {chapter}",
-    'story.progress_continue' => 'Continue reading',
-    'story.progress_pct' => '{n}% read',
-    'story.progress_min_left' => '{n} min left',
-
     // Chapter bookmarks (C5), a member-only reader feature: markers with a
-    // short note, added and removed from the chapter page.
+    // short note, added and removed from the chapter page. The C4 progress
+    // keys died with the C7 hero (reader.you_are_here and reader.continue_sub
+    // replaced them); the unused add/remove aria spellings died with the C8
+    // bar, which labels its buttons with reader.bookmark and common.remove.
     'reader.bookmarks' => 'Bookmarks',
-    'reader.bookmarks_aria' => 'Bookmarks',
-    'reader.bookmark_add' => 'Bookmark this chapter',
-    'reader.bookmark_remove' => 'Remove bookmark',
-    'reader.bookmark_note_placeholder' => 'Note (optional)',
 
     // The redesigned story page (C7, frames M1/T2/D3): hero, stats, and the
     // progress vocabulary shared with the chapter reader.

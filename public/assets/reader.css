@@ -364,6 +364,13 @@ html[data-theme="night"] .error, html[data-theme="night"] [role="alert"] { color
   content: ""; display: block; height: 100%;
   background: linear-gradient(var(--accent), var(--accent)) left center / var(--p-end, 0%) 100% no-repeat;
 }
+/* CSS has no logical background-position, so the sized fill anchors
+   physically; the dir=rtl override re-anchors it at the inline-start edge
+   (right) so a mirrored document fills its progressbar from its reading
+   edge. Pinned in PerUserTest with the other directional rules. */
+html[dir="rtl"] .reader-progress::after {
+  background: linear-gradient(var(--accent), var(--accent)) right center / var(--p-end, 0%) 100% no-repeat;
+}
 @supports (animation-timeline: scroll()) {
   .reader-progress::after {
     animation: reader-progress-fill linear both;

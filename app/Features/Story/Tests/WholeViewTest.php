@@ -147,6 +147,12 @@ final class WholeViewTest extends TestCase
         $this->assertStringContainsString('.site-head', $css, 'the site nav hides in print');
         $this->assertStringContainsString('.engagement-bar', $css, 'the engagement bar hides in print');
         $this->assertStringContainsString('display: none', $css);
+        // Reader chrome the redesign introduced never reaches paper.
+        foreach (['.reader-head', '.reader-bar', '.reader-dock', '.sheet:target'] as $selector) {
+            $this->assertStringContainsString($selector, $css, "{$selector} hides in print");
+        }
+        $this->assertStringContainsString('.chapter-end-actions', $css,
+            'the boundary kudos/review buttons hide in print; the caption itself stays');
     }
 
     /** C9 (frame M3): every chapter closes with the boundary separator (dot

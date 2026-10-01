@@ -285,6 +285,20 @@ final class PerUserTest extends TestCase
                 $label . ': physical text alignment breaks the RTL mirror; use text-align: start'
             );
         }
+        /* The reader progressbar fill is the one place CSS has no logical
+         * spelling: a sized background image anchors physically. The base
+         * rule anchors the fill at the left; the dir=rtl override re-anchors
+         * it at the right, so the fill grows from the inline-start edge in
+         * either direction. Pin the pair: losing the rtl rule would leave a
+         * left-growing bar on a right-reading page. */
+        $reader = (string) preg_replace('#/\*.*?\*/#s', '',
+            (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css'));
+        $this->assertStringContainsString(') left center /', $reader,
+            'the progress fill anchors at the physical left by default');
+        $this->assertStringContainsString('html[dir="rtl"] .reader-progress::after', $reader,
+            'dir=rtl re-anchors the progress fill');
+        $this->assertStringContainsString(') right center /', $reader,
+            'the rtl override anchors the fill at the mirrored inline-start edge');
     }
 
     /** The peruserlang off case (Task 3, the seam ruling folded into ruling
