@@ -1,6 +1,7 @@
 <?php // app/Features/Reader/Tests/RomanTest.php
 namespace App\Features\Reader\Tests;
 use App\Features\Reader\Roman;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 // C7: chapter lists render Roman numerals (the comp's I, II, III rows), so
@@ -18,7 +19,7 @@ final class RomanTest extends TestCase
         ];
     }
 
-    /** @dataProvider numerals */
+    #[DataProvider('numerals')]
     public function test_numeral(int $n, string $expected): void
     {
         $this->assertSame($expected, Roman::numeral($n));
