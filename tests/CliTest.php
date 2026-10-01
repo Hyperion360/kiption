@@ -21,10 +21,11 @@ final class CliTest extends TestCase
     }
 
     /** @return array{0: int, 1: string} exit code, stdout */
-    private function kip(string $args): array
+    private function kip(string $args, string $cacheDsn = ''): array
     {
-        $cmd = sprintf('KIP_DB_DSN=%s %s %s %s 2>&1',
+        $cmd = sprintf('KIP_DB_DSN=%s%s %s %s %s 2>&1',
             escapeshellarg('sqlite:' . $this->path),
+            $cacheDsn === '' ? '' : ' KIP_CACHE_DB_DSN=' . escapeshellarg($cacheDsn),
             escapeshellarg(PHP_BINARY),
             escapeshellarg(dirname(__DIR__) . '/bin/kip'),
             $args);
@@ -95,5 +96,30 @@ final class CliTest extends TestCase
         [, $a] = $this->kip('import:token');
         [, $b] = $this->kip('import:token');
         $this->assertNotSame($a, $b);
+    }
+
+    public function test_cache_clear_deletes_the_page_cache_db_and_its_sidecars(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-cli-cache-' . uniqid();
+        mkdir($dir);
+        $file = $dir . '/cache.sqlite';
+        foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
+            file_put_contents($f, 'x');
+        }
+        [$code, $out] = $this->kip('cache:clear', 'sqlite:' . $file);
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('Page cache cleared', $out);
+        foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
+            $this->assertFileDoesNotExist($f, "{$f} must be gone");
+        }
+        // Absent files are a silent success: exit 0, no error text.
+        [$code, $out] = $this->kip('cache:clear', 'sqlite:' . $file);
+        $this->assertSame(0, $code, $out);
+        $this->assertStringNotContainsString('error', strtolower($out));
+        // A memory cache has no file to clear: clean no-op with a note.
+        [$code, $out] = $this->kip('cache:clear', 'sqlite::memory:');
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('No file-backed page cache configured', $out);
+        exec('rm -rf ' . escapeshellarg($dir));
     }
 }

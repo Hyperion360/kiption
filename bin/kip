@@ -158,6 +158,26 @@ match ($argv[1] ?? 'help') {
         \App\StaticCache\Builder::prune($dir, $config['app_dir']);
         echo "Static layer and framework page cache pruned.\n";
     })(),
+    'cache:clear' => (function () use ($config) {
+        // Deploy-time page-cache invalidation (ported from the Kip skeleton):
+        // a page cached while public stays servable until its TTL even after
+        // #[Auth] is added to its route, because the cache answers before
+        // routing. Clearing on deploy closes that window. The cache database
+        // is disposable by contract; unlinking it (and its WAL sidecars) is
+        // the whole clear, recreated empty on the next request. db:seed and
+        // pages:prune already purge it; this is the deploy-time command. No
+        // file-backed cache configured is a clean no-op with a note.
+        $dsn = $config['cache_db']['dsn'] ?? null;
+        if (!is_string($dsn) || !str_starts_with($dsn, 'sqlite:') || str_contains($dsn, ':memory:')) {
+            echo "No file-backed page cache configured; nothing to clear.\n";
+            return;
+        }
+        $file = substr($dsn, strlen('sqlite:'));
+        foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
+            if (is_file($f)) @unlink($f);
+        }
+        echo "Page cache cleared: {$file}\n";
+    })(),
     'robots' => (function () use ($config) {
         $file = ($config['public_dir'] ?? dirname(__DIR__) . '/public') . '/robots.txt';
         \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true));
@@ -300,5 +320,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
 };
