@@ -33,6 +33,19 @@
     <img class="cover" src="<?= $this->e($story['cover_path']) ?>" alt="<?= $this->e(\App\Lang::t('story.cover_alt')) ?>">
   <?php endif; ?>
   <p><?= $this->e($story['summary']) ?></p>
+  <?php /* C4 member progress, reading_history's furthest-read position; the guest render emits nothing here (cache neutrality) */ ?>
+  <?php if (!empty($progress)): ?>
+    <?php $hereTitle = '';
+    foreach ($chapters as $c) {
+        if ((int) $c['position'] === (int) $progress['last_position']) { $hereTitle = (string) $c['title']; break; }
+    }
+    $hereLabel = $hereTitle !== '' ? $hereTitle : \App\Lang::t('story.chapter_n', ['n' => $progress['last_position']]); ?>
+    <p class="chapter-meta progress"><?= \App\Lang::t('story.progress_youre_here', ['chapter' => $this->e($hereLabel)]) ?>
+      <?php if ($progress['read_pct'] !== null): ?>| <?= \App\Lang::t('story.progress_pct', ['n' => $progress['read_pct']]) ?><?php endif; ?>
+      <?php if ($progress['minutes_left'] !== null): ?>| <?= \App\Lang::t('story.progress_min_left', ['n' => $progress['minutes_left']]) ?><?php endif; ?>
+      | <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $progress['last_position'] ?>"><?= \App\Lang::t('story.progress_continue') ?></a>
+    </p>
+  <?php endif; ?>
   <div class="engagement-bar chapter-meta">
     <span><?= \App\Lang::t('story.kudos_count', ['n' => number_format((int) $kudos_count)]) ?></span>
     <?php if ((int) $kudos_by_me === 1): ?>

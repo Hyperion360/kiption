@@ -154,6 +154,13 @@ return [
     'story.gate_or' => 'or',
     'story.gate_go_back' => 'go back',
 
+    // Member reading progress on the story view (C4): reading_history's
+    // furthest-read position, consumed read-only; guests see none of it.
+    'story.progress_youre_here' => "You're here: {chapter}",
+    'story.progress_continue' => 'Continue reading',
+    'story.progress_pct' => '{n}% read',
+    'story.progress_min_left' => '{n} min left',
+
     // The whole-work reading view (/story/whole/{slug}), which doubles as the print view.
     'story.whole_link' => 'Whole story',
     'story.download_html' => 'Download HTML',

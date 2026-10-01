@@ -96,6 +96,11 @@ final class QueryBudgetTest extends TestCase
     {
         return [['/story/new'], ['/story/edit/the-rabbit-hole'],
                 ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2'],
+                // C4: the member story view runs the progress-folded statement
+                // (reading_history LEFT JOIN + the pct/minutes columns); the
+                // member chapter read below carries the same fold plus the
+                // titled TOC blob, both still one query.
+                ['/story/view/the-rabbit-hole'],
                 ['/story/read/the-rabbit-hole/1'],
                 ['/series/new'], ['/series/edit/down-the-rabbit-hole'],
                 // The contact form targets the OTHER seeded member: the shared login

@@ -49,6 +49,14 @@ final class StoryTest extends TestCase
         @unlink(substr($this->dsn, 7) . '-shm');
     }
 
+    /** The member-path idiom (the KudosTest shape): actingAs plants the
+     *  session the controller's cookies!==[] gate needs to see $me = 1. */
+    private function client(?int $as = null): \Kip\Testing\TestClient
+    {
+        $client = new \Kip\Testing\TestClient($this->app);
+        return $as === null ? $client : $client->actingAs($as);
+    }
+
     public function test_story_landing_shows_metadata_and_toc(): void
     {
         $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
@@ -174,5 +182,64 @@ final class StoryTest extends TestCase
         $res = $this->app->handle(new Request('GET', '/story/view/after-hours', [], [], []));
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('Explicit', $res->body);
+    }
+
+    /** C4: the member render consumes the existing reading_history row (C3's
+     *  removal note: furthest-read last_position semantics, never-backwards).
+     *  Story word_count 300, chapter 1 = 100 words: 33% read, (300-100)/250
+     *  rounds to 1 min left, and the CTA targets the furthest chapter. */
+    public function test_member_view_shows_youre_here_and_continue_reading(): void
+    {
+        (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 1)');
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString("You're here", $body);
+        $this->assertStringContainsString('Continue reading', $body);
+        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/1"', $body);
+        $this->assertStringContainsString('33% read', $body);
+        $this->assertStringContainsString('1 min left', $body);
+    }
+
+    /** Cache neutrality: the guest render adds ZERO progress markup, so the
+     *  anonymous bytes the static cache stores never vary by reader. */
+    public function test_guest_view_has_no_progress_markup_at_all(): void
+    {
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringNotContainsString("You're here", $body);
+        $this->assertStringNotContainsString('Continue reading', $body);
+        $this->assertStringNotContainsString('% read', $body);
+        $this->assertStringNotContainsString('min left', $body);
+        $this->assertStringNotContainsString('progress', $body);
+    }
+
+    /** A member with no reading_history row sees no progress block either:
+     *  the LEFT JOIN went NULL and the columns are absent from the envelope. */
+    public function test_member_without_history_sees_no_progress_block(): void
+    {
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringNotContainsString("You're here", $body);
+        $this->assertStringNotContainsString('Continue reading', $body);
+    }
+
+    /** Step 2b at the data layer: findStoryWithChapter carries the SAME
+     *  titled TOC blob the landing page renders, plus the member-only
+     *  progress columns (the guest row omits them entirely). */
+    public function test_find_with_chapter_carries_titled_toc_and_member_progress(): void
+    {
+        $repo = new \App\Repositories\StoryRepository(new Database($this->dsn));
+        $guest = $repo->findStoryWithChapter('the-rabbit-hole', 1, 0);
+        $this->assertNotNull($guest);
+        $this->assertArrayNotHasKey('read_pct', $guest);
+        $this->assertArrayNotHasKey('minutes_left', $guest);
+        $this->assertArrayNotHasKey('last_position', $guest);
+        $toc = json_decode((string) $guest['chapters_blob'], true);
+        $this->assertSame([['position' => 1, 'title' => 'Down', 'word_count' => 100],
+                           ['position' => 2, 'title' => 'Through', 'word_count' => 200]], $toc);
+
+        (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 2)');
+        $member = $repo->findStoryWithChapter('the-rabbit-hole', 1, 1);
+        $this->assertSame(2, (int) $member['last_position']);
+        $this->assertSame(100, $member['read_pct']); // (100+200) of 300 words
+        $this->assertSame(0, $member['minutes_left']); // nothing left to read
+        $this->assertSame($toc, json_decode((string) $member['chapters_blob'], true));
     }
 }

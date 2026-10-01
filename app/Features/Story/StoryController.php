@@ -21,6 +21,7 @@ final class StoryController
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $story = $this->repo->findStoryBySlug($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
+        $progress = $this->progressOf($story);
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
             $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
@@ -86,6 +87,7 @@ final class StoryController
             'favorite_by_me' => (int) $story['favorite_by_me'],
             'following_author' => (int) $story['following_author'],
             'marked_at_me' => $story['marked_at_me'],
+            'progress' => $progress,
             'reviews' => $reviews,
             'review_count' => (int) $story['review_count'],
             'repliesDropped' => $repliesDropped,
@@ -119,6 +121,7 @@ final class StoryController
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $story = $this->repo->findStoryWithChapter($slug, $position, $me);
         if ($story === null) return new Response('Page not found', 404);
+        $progress = $this->progressOf($story);
         $positions = array_values(array_filter(array_map('intval', explode('~', (string) $story['positions_blob'])), static fn(int $p): bool => $p > 0));
         sort($positions);
         if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
@@ -142,6 +145,15 @@ final class StoryController
             if ($pn < $position) $prev = $pn;
             if ($next === null && $pn > $position) $next = $pn;
         }
+        // The titled TOC blob (C4 step 2b): same decode discipline as view(),
+        // so the contents sheet on chapter pages renders titles the landing
+        // page already shows. Both ride the SAME single query.
+        $chapters = [];
+        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
+        }
+        ksort($chapters);
+        unset($story['chapters_blob']);
         $readTitle = \App\Lang::t('story.chapter_page_title', ['n' => $position, 'chapter' => $chapterTitle, 'story' => $story['title']]);
         $head = $this->head()
             ->withTitle($readTitle)
@@ -168,6 +180,8 @@ final class StoryController
             'total' => $total,
             'prev' => $prev,
             'next' => $next,
+            'chapters' => array_values($chapters),
+            'progress' => $progress,
         ]);
         if ($me !== 0) {
             try {
@@ -584,6 +598,27 @@ final class StoryController
             return $head->withCanonicalSuppressed();
         }
         return $head;
+    }
+
+    /** C4: the member-only progress columns leave the story row and become the
+     *  envelope's progress block. null for guests (the guest query never
+     *  carries the keys: the static cache renders the identical shape) and for
+     *  members with no reading_history row (the LEFT JOIN went NULL).
+     *  @param array<string,mixed> $story mutated: the three keys are unset
+     *  @return array{last_position: int, read_pct: ?int, minutes_left: ?int}|null */
+    private function progressOf(array &$story): ?array
+    {
+        if (!array_key_exists('last_position', $story)) return null;
+        $last = $story['last_position'];
+        $pct = $story['read_pct'];
+        $minutes = $story['minutes_left'];
+        unset($story['last_position'], $story['read_pct'], $story['minutes_left']);
+        if ($last === null) return null;
+        return [
+            'last_position' => (int) $last,
+            'read_pct' => $pct === null ? null : (int) $pct,
+            'minutes_left' => $minutes === null ? null : (int) $minutes,
+        ];
     }
 
     /** Book node shared by view (full TOC) and read (current chapter only). */

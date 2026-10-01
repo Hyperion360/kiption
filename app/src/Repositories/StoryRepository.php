@@ -28,6 +28,26 @@ final class StoryRepository
     public function findStoryBySlug(string $slug, int $me = 0): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
+        // C4 progress fold, member path only: the reading_history LEFT JOIN and
+        // its two derived columns exist ONLY when $me !== 0, so the guest
+        // statement stays byte-identical to the shape the static-cache Builder
+        // renders (guest cached bytes never vary by reader). The member id is
+        // inlined as a cast int, never a bind: the join then seeks reading_history's
+        // (user_id, story_id) PK directly. last_position keeps its existing
+        // furthest-read MAX() semantics (the C3 removal note); read_pct and
+        // minutes_left re-derive from validated chapter word counts at read
+        // time, 250 wpm being the comp's own arithmetic (~248 by its numbers).
+        $progressJoin = $me !== 0 ? ' LEFT JOIN reading_history rh2 ON rh2.story_id = s.id AND rh2.user_id = ' . $me : '';
+        $progressCols = $me !== 0 ? ",
+                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
+                      CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
+                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0)
+                       / NULLIF(s.word_count, 0)) AS INTEGER) END AS read_pct,
+                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
+                      CAST(ROUND((s.word_count - COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
+                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0))
+                       / 250.0) AS INTEGER) END AS minutes_left,
+                    rh2.last_position" : '';
         return $this->db->one(
             'SELECT s.*, u.penname, u.profile_slug, r.label AS rating_label, r.is_adult, r.warning_text,
                     (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count,
@@ -66,10 +86,10 @@ final class StoryRepository
                      JOIN tags t ON t.id = st.tag_id
                      LEFT JOIN tags cu2 ON cu2.id = t.canonical_id
                      JOIN tag_types tt ON tt.id = t.tag_type_id
-                     WHERE st.story_id = s.id) AS tags_blob
+                     WHERE st.story_id = s.id) AS tags_blob' . $progressCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
-             JOIN ratings r ON r.id = s.rating_id
+             JOIN ratings r ON r.id = s.rating_id' . $progressJoin . '
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)',
             [$me, $me, $me, $me, $slug, $me]
@@ -144,6 +164,22 @@ final class StoryRepository
     public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
+        // C4: the titled TOC blob rides every chapter read (findStoryBySlug's
+        // expression verbatim, alias shifted to ch3 because this statement
+        // already aliases chapters as ch and ch2), so the read page can render
+        // a titled contents sheet; the progress fold is the member-only
+        // fragment from findStoryBySlug, same PK seek, same guest omission.
+        $progressJoin = $me !== 0 ? ' LEFT JOIN reading_history rh2 ON rh2.story_id = s.id AND rh2.user_id = ' . $me : '';
+        $progressCols = $me !== 0 ? ",
+                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
+                      CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
+                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0)
+                       / NULLIF(s.word_count, 0)) AS INTEGER) END AS read_pct,
+                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
+                      CAST(ROUND((s.word_count - COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
+                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0))
+                       / 250.0) AS INTEGER) END AS minutes_left,
+                    rh2.last_position" : '';
         return $this->db->one(
             'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.created_at, s.updated_at, s.word_count,
                     s.canonical_url, s.crosspost_url,
@@ -155,11 +191,14 @@ final class StoryRepository
                     MAX(CASE WHEN ch.position = ? THEN ch.notes_after END) AS ch_notes_after,
                     MAX(CASE WHEN ch.position = ? THEN ch.word_count END) AS ch_word_count,
                     (SELECT GROUP_CONCAT(CAST(ch2.position AS TEXT), "~") FROM chapters ch2
-                     WHERE ch2.story_id = s.id AND ch2.validated = 1) AS positions_blob
+                     WHERE ch2.story_id = s.id AND ch2.validated = 1) AS positions_blob,
+                    (SELECT json_group_array(json_object(\'position\', ch3.position, \'title\', ch3.title, \'word_count\', ch3.word_count))
+                     FROM chapters ch3 WHERE ch3.story_id = s.id AND ch3.validated = 1
+                     ORDER BY ch3.position) AS chapters_blob' . $progressCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
-             LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.validated = 1
+             LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.validated = 1' . $progressJoin . '
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)
              GROUP BY s.id',
