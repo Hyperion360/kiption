@@ -1,5 +1,11 @@
 <?php // app/views/story/whole.php ?>
-<?php $this->layout('layout'); ?>
+<?php // C9 (frame M3): every chapter closes with the boundary separator (dots,
+     // roman caption, kudos form, review link) and every later chapter opens
+     // with the comp's next-chapter kicker above its h2.p-name. The anchors,
+     // the print link, the noindex behavior, and the beacon's absence are
+     // pinned by WholeViewTest and stay byte-identical.
+     $this->layout('layout');
+     $roman = static fn (array $c): string => \App\Features\Reader\Roman::numeral((int) $c['position']); ?>
 <?php /* The whole-work reading view doubles as the print view: the media="print"
    stylesheet is pure CSS plus the browser print command (no JS, no ?print=
    URL variant). The read beacon deliberately does NOT embed here: reads count
@@ -23,10 +29,22 @@
       <?php endforeach; ?>
     </ol>
   </nav>
-  <?php foreach ($chapters as $c): ?>
+  <?php foreach ($chapters as $i => $c): ?>
   <section class="prose" id="ch-<?= (int) $c['position'] ?>">
+    <?php if ($i > 0): ?><p class="ch-kicker"><?= \App\Lang::t('story.chapter_n', ['n' => $roman($c)]) ?></p><?php endif; ?>
     <h2 class="p-name"><?= $this->e($c['title'] !== '' ? $c['title'] : \App\Lang::t('story.chapter_n', ['n' => (int) $c['position']])) ?></h2>
     <?= \App\Markdown::render($c['content']) /* markdown at rest; raw HTML cannot be stored */ ?>
   </section>
+  <footer class="chapter-end" role="separator" aria-label="<?= $this->e(\App\Lang::t('reader.end_of_chapter', ['n' => $roman($c)])) ?>">
+    <span class="dots" aria-hidden="true"></span>
+    <p><?= \App\Lang::t('reader.end_of_chapter', ['n' => $roman($c)]) ?></p>
+    <div class="chapter-end-actions">
+      <form method="post" action="/kudos/add/<?= $this->e($story['slug']) ?>" class="inline">
+        <?php if (!empty($csrf)): ?><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><?php endif; ?>
+        <button type="submit"><?= \App\Lang::t('story.leave_kudos') ?></button>
+      </form>
+      <a href="/story/view/<?= $this->e($story['slug']) ?>#reviews"><?= \App\Lang::t('reader.review_link') ?></a>
+    </div>
+  </footer>
   <?php endforeach; ?>
 </article>

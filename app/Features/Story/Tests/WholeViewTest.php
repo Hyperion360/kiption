@@ -148,4 +148,63 @@ final class WholeViewTest extends TestCase
         $this->assertStringContainsString('.engagement-bar', $css, 'the engagement bar hides in print');
         $this->assertStringContainsString('display: none', $css);
     }
+
+    /** C9 (frame M3): every chapter closes with the boundary separator (dot
+     *  ornament, roman caption, kudos form, review link), and every chapter
+     *  after the first opens with the comp's next-chapter kicker above the
+     *  surviving h2.p-name. The last chapter's separator is the final block:
+     *  no kicker can follow it. */
+    public function test_chapter_boundaries_render_separator_actions_and_next_kicker(): void
+    {
+        $res = $this->client()->get('/story/whole/the-rabbit-hole');
+        $this->assertSame(200, $res->status, $res->body);
+        // one separator per chapter, each captioned in roman numerals
+        $this->assertSame(3, substr_count($res->body, '<footer class="chapter-end"'));
+        foreach (['I', 'II', 'III'] as $roman) {
+            $this->assertStringContainsString('aria-label="End of chapter ' . $roman . '"', $res->body);
+        }
+        $this->assertSame(3, substr_count($res->body, '<span class="dots" aria-hidden="true"></span>'));
+        // the engagement pair rides every boundary
+        $this->assertSame(3, substr_count($res->body, 'action="/kudos/add/the-rabbit-hole"'));
+        $this->assertSame(3, substr_count($res->body, 'href="/story/view/the-rabbit-hole#reviews"'));
+        // the next-chapter kicker: never on chapter 1, one per later chapter,
+        // and none after the final separator (no chapter 4 exists)
+        $this->assertSame(2, substr_count($res->body, '<p class="ch-kicker">'));
+        $this->assertStringContainsString('<p class="ch-kicker">Chapter II</p>', $res->body);
+        $this->assertStringContainsString('<p class="ch-kicker">Chapter III</p>', $res->body);
+        $this->assertStringNotContainsString('Chapter IV', $res->body);
+        // the h2.p-name element and class survive the restyle, three times
+        $this->assertSame(3, substr_count($res->body, '<h2 class="p-name">'));
+        // order inside a boundary: section anchor, kicker, heading, separator
+        $sec2 = strpos($res->body, 'id="ch-2"');
+        $kicker2 = strpos($res->body, '<p class="ch-kicker">Chapter II</p>');
+        $h2 = strpos($res->body, '<h2 class="p-name">Through</h2>');
+        $end2 = strpos($res->body, 'aria-label="End of chapter II"');
+        $this->assertGreaterThan($sec2, $kicker2, 'the kicker sits inside the section, above the h2');
+        $this->assertGreaterThan($kicker2, $h2);
+        $this->assertGreaterThan($h2, $end2, 'the separator follows the chapter it closes');
+    }
+
+    /** Members carry the CSRF token on the boundary kudos forms (view.php's
+     *  conditional-token shape); the guest render mints no session and no
+     *  token input. */
+    public function test_boundary_kudos_forms_carry_the_token_for_members_only(): void
+    {
+        $guest = $this->client()->get('/story/whole/the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('name="_token"', $guest);
+        $member = $this->client($this->memberId())->get('/story/whole/the-rabbit-hole')->body;
+        $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $member);
+        $this->assertStringContainsString('name="_token"', $member);
+    }
+
+    /** The M3 boundary styles live in reader.css: the kicker, the restyled
+     *  per-chapter heading with its 40x1 rule, and section rhythm. The
+     *  chapter-end separator styles are C8's, reused unchanged. */
+    public function test_reader_css_styles_the_whole_work_boundaries(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__, 4) . '/public/assets/reader.css');
+        foreach (['.whole-work .ch-kicker', '.whole-work .p-name'] as $selector) {
+            $this->assertStringContainsString($selector, $css, "the {$selector} block renders");
+        }
+    }
 }

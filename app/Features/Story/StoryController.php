@@ -285,6 +285,9 @@ final class StoryController
             'path' => $this->request->path,
             'story' => $story,
             'chapters' => array_values($chapters),
+            // the boundary kudos forms carry the member token (view.php's
+            // conditional-token shape); guests render tokenless forms.
+            'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
         // noindex is unconditional, so the X-Robots-Tag belt rides every render.
         return (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex');

@@ -430,6 +430,23 @@ html[data-mode="pages"] .prose {
 }
 .next-chapter:hover { opacity: .92; color: var(--on-accent); }
 
+/* Whole-work boundaries (C9, frame M3): each chapter closes with the same
+   .chapter-end separator the reader uses, and every chapter after the first
+   opens with the comp's next-chapter block: kicker, serif heading, 40x1
+   rule. Sections breathe between separators; the first needs no gap. */
+.whole-work section.prose { margin-block: 3rem 0; }
+.whole-work section.prose:first-of-type { margin-block-start: 0; }
+.whole-work .ch-kicker {
+  margin: 0 0 .5rem;
+  font: 600 12px/1.5 var(--sans);
+  letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
+}
+.whole-work .p-name { font-size: 30px; line-height: 1.2; margin-block-end: 1rem; }
+.whole-work .p-name::after {
+  content: ""; display: block; width: 40px; height: 1px;
+  margin-block-start: 16px; background: var(--line-strong);
+}
+
 /* Bottom control bar: fixed with safe-area padding on mobile, a floating
    centered pill from 768px, in normal flow under the column from 1024px. */
 .reader-bar {
