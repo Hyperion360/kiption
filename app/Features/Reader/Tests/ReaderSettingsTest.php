@@ -210,4 +210,24 @@ final class ReaderSettingsTest extends TestCase
         // a single non-default field emits exactly its own attribute
         $this->assertSame(' data-mode="pages"', (new Prefs(mode: 'pages'))->dataAttrs());
     }
+
+    /** Adversarial F2: the Text sheet's theme radio must default from the
+     *  member's STORED row when no theme cookie rides the request; otherwise
+     *  a typography-only save rewrites the stored theme from the auto default
+     *  (which maps to paper on the row). */
+    public function test_member_theme_radio_defaults_from_the_row_when_cookie_absent(): void
+    {
+        $this->db->query("INSERT INTO user_prefs (user_id, theme) VALUES (?, 'night') ON CONFLICT(user_id) DO UPDATE SET theme = 'night'",
+            [$this->memberRowId]);
+        $body = $this->client($this->memberRowId)->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringContainsString('name="theme" value="night" checked', $body,
+            'the stored row, not the cookie-absent auto default, is checked');
+        // saving all-default typography with that radio keeps the row intact
+        $this->client($this->memberRowId)->postWithToken('/reader/settings', [
+            'theme' => 'night', 'size' => '19', 'typeface' => 'serif', 'spacing' => 'regular',
+            'paragraphs' => 'indented', 'width' => 'medium', 'mode' => 'scroll',
+            'return_to' => '/story/read/the-rabbit-hole/1',
+        ]);
+        $this->assertSame('night', $this->memberTheme());
+    }
 }

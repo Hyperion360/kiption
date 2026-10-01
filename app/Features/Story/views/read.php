@@ -143,7 +143,8 @@
     <form method="post" action="/reader/settings" class="text-settings">
       <input type="hidden" name="_token" value="<?= $this->e($csrf ?? '') ?>">
       <input type="hidden" name="return_to" value="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>">
-      <?php $t = $theme ?? null; $t = $t === null ? 'auto' : $t; ?>
+      <?php /* theme radio default: cookie (the effective render), else the member's STORED row, else auto. Without the row fallback, a member whose cookie expired would see auto checked, and a typography-only save would rewrite the stored theme to auto's row value (paper). */ ?>
+      <?php $t = $theme ?? ($prefsTheme ?? null); $t = $t === null ? 'auto' : $t; ?>
       <fieldset><legend><?= \App\Lang::t('reader.size') ?> <span class="val"><?= \App\Lang::t('reader.px', ['n' => (int) $p->size]) ?></span></legend>
         <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::SIZES as $s): ?>
           <label><input type="radio" name="size" value="<?= $s ?>"<?= $s === $p->size ? ' checked' : '' ?>><span><?= $s ?></span></label>

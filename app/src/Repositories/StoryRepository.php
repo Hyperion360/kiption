@@ -173,11 +173,15 @@ final class StoryRepository
         // already aliases chapters as ch and ch2), so the read page can render
         // a titled contents sheet AND derive prev/next positions from its keys
         // (review: the old positions_blob GROUP_CONCAT scanned the same
-        // chapter set a second time). The progress fold is the member-only
-        // fragment from findStoryBySlug, same PK seek, same guest omission.
-        $progressJoin = $me !== 0 ? ' LEFT JOIN reading_history rh2 ON rh2.story_id = s.id AND rh2.user_id = ' . $me : '';
+        // chapter set a second time). The member fold also carries the stored
+        // theme row (1:1 PK) so the Text sheet's radio can default from it —
+        // a typography-only save must never rewrite the stored theme from a
+        // cookie-absent default (adversarial finding F2).
+        $progressJoin = $me !== 0 ? ' LEFT JOIN reading_history rh2 ON rh2.story_id = s.id AND rh2.user_id = ' . $me
+            . ' LEFT JOIN user_prefs up ON up.user_id = ' . $me : '';
         $progressCols = $me !== 0 ? ',
-                    rh2.last_position' : '';
+                    rh2.last_position,
+                    up.theme AS prefs_theme' : '';
         // The C5 bookmarks fold, same member-only shape as findStoryBySlug.
         $bookmarksCols = $me !== 0 ? ',
                     (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note))

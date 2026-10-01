@@ -208,6 +208,12 @@ final class StoryController
             'chapters' => array_values($chapters),
             'progress' => $progress,
             'bookmarks' => $bookmarks,
+            // the member's STORED theme row, folded into the same query: the
+            // Text sheet's radio defaults from it when no theme cookie rides
+            // the request, so a typography-only save preserves the row
+            // instead of rewriting it from the auto default (which stores
+            // paper). Guests get null and render exactly as before.
+            'prefsTheme' => $story['prefs_theme'] ?? null,
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
             'me' => $me,
             // ?focus=1 renders the distraction-free shell (D2); the request
