@@ -92,7 +92,10 @@ final class AuthController
             $cookies[] = 'lang=' . $lang . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
         $theme = (string) ($prefs['theme'] ?? '');
-        if (\App\Features::on('perusertheme') && ($theme === 'dark' || $theme === 'light')) {
+        // The post-026 value set: a member's stored sepia/night/paper row
+        // re-syncs its cookie on a new device. auto never reaches a row (the
+        // write points store paper for it), and it is skipped here too.
+        if (\App\Features::on('perusertheme') && \in_array($theme, \App\Theme::VALUES, true) && $theme !== 'auto') {
             $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
         foreach ($cookies as $cookie) {

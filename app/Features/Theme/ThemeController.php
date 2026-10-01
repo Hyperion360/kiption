@@ -11,14 +11,17 @@ final class ThemeController
         private Session $session,
     ) {}
 
+    /** The legacy footer routes stay live until C6 drops their links; they map
+     *  onto the value set at the door (light->paper, dark->night) so no legacy
+     *  value lands in a user_prefs row or a cookie after migration 026. */
     public function light(): Response
     {
-        return $this->switch('light');
+        return $this->switch('paper');
     }
 
     public function dark(): Response
     {
-        return $this->switch('dark');
+        return $this->switch('night');
     }
 
     private function switch(string $theme): Response

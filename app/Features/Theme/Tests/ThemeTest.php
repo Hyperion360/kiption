@@ -39,7 +39,7 @@ final class ThemeTest extends TestCase
         $res = $this->app()->handle(new Request('GET', '/theme/light', ['return_to' => '/browse'], [], []));
         $this->assertSame(302, $res->status);
         $this->assertSame('/browse', $res->headers['Location']);
-        $this->assertStringContainsString('theme=light', $res->headers['Set-Cookie']);
+        $this->assertStringContainsString('theme=paper', $res->headers['Set-Cookie'], 'the legacy route maps light to paper');
         $this->assertStringContainsString('SameSite=Lax', $res->headers['Set-Cookie']);
     }
 

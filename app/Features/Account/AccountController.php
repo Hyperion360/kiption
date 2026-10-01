@@ -183,7 +183,7 @@ final class AccountController
         $theme = null;
         if (\App\Features::on('perusertheme') && \array_key_exists('theme', $this->request->post)) {
             $theme = $this->request->postStr('theme');
-            if ($theme !== 'dark' && $theme !== 'light') {
+            if (!\in_array($theme, \App\Theme::VALUES, true)) {
                 return new Response(\App\Lang::t('account.theme_invalid'), 422);
             }
         }
@@ -204,7 +204,9 @@ final class AccountController
                 'notify_review = excluded.notify_review', 'notify_response = excluded.notify_response',
                 'notify_favorites = excluded.notify_favorites', 'notify_favorite_digest = excluded.notify_favorite_digest'];
             if ($lang !== null) { $cols[] = 'lang'; $binds[] = $lang; $updates[] = 'lang = excluded.lang'; }
-            if ($theme !== null) { $cols[] = 'theme'; $binds[] = $theme; $updates[] = 'theme = excluded.theme'; }
+            // auto stores paper (the post-026 CHECK admits paper/sepia/night
+            // only): OS-default is the absence of a cookie, never a stored one.
+            if ($theme !== null) { $cols[] = 'theme'; $binds[] = $theme === 'auto' ? 'paper' : $theme; $updates[] = 'theme = excluded.theme'; }
             $this->db->query(
                 'INSERT INTO user_prefs (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, \count($cols), '?')) . ')
                 ON CONFLICT(user_id) DO UPDATE SET ' . implode(', ', $updates),
@@ -230,7 +232,12 @@ final class AccountController
                 : 'lang=' . $lang . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
         if ($theme !== null) {
-            $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+            // auto CLEARS the cookie (the reader settings route's economy): a
+            // cookie bearing theme=auto carries no information but still makes
+            // every future request bypass the static cache.
+            $cookies[] = $theme === 'auto'
+                ? \App\Theme::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
+                : \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
         $redirect = Response::redirect('/account');
         foreach ($cookies as $cookie) {

@@ -169,17 +169,17 @@ final class PerUserTest extends TestCase
     {
         $me = $this->client($this->memberId());
         $res = $me->postWithToken('/account/prefs',
-            ['theme' => 'light', 'lang' => '', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '1',
+            ['theme' => 'sepia', 'lang' => '', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '1',
              'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
         $this->assertSame(302, $res->status, $res->body);
         $db = $this->db();
-        $this->assertSame('light', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+        $this->assertSame('sepia', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'the prefs save stores the cross-device record');
         // The exact three-leaf list, one leaf per directive, in emission order.
         $this->assertSame([
             'toc=1; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
-            'theme=light; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+            'theme=sepia; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
         ], $res->headers['Set-Cookie'], 'the save syncs every runtime cookie (ruling 5: every write point writes both)');
         // The Kip 0.5 jar: both set cookies ride the SAME client's next
         // requests, the way a browser replays them. The toc leaf redirects a
@@ -187,39 +187,40 @@ final class PerUserTest extends TestCase
         $redirect = $me->get('/story/read/the-rabbit-hole');
         $this->assertSame(302, $redirect->status, 'the toc cookie carried onto the next request');
         $this->assertSame('/story/view/the-rabbit-hole', $redirect->headers['Location'] ?? '');
-        $this->assertStringContainsString('data-theme="paper"', $me->get('/browse')->body,
+        $this->assertStringContainsString('data-theme="sepia"', $me->get('/browse')->body,
             'the theme cookie carried onto the next request (cookie > OS, ruling 5)');
         $this->assertStringNotContainsString('data-theme=', $this->client()->get('/browse')->body,
             'a cookieless render stays OS-default (the byte-identity pin)');
         // The /theme toggle while logged in ALSO writes the pref (one source of
-        // truth); the guest cookie keeps riding the same response.
+        // truth); the guest cookie keeps riding the same response. The legacy
+        // route names map to the value set: /theme/dark stores and sets night.
         $toggle = $me->get('/theme/dark', ['return_to' => '/browse']);
         $this->assertSame(302, $toggle->status);
-        $this->assertSame('dark', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+        $this->assertSame('night', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'the member toggle persists beside its cookie');
-        $this->assertStringContainsString('theme=dark', implode(';', $this->cookieLeaves($toggle)));
+        $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($toggle)));
         // A prefs-less member toggling gets their row created, not a no-op
         // (the upsert doctrine, plan review finding 5).
         $db->query('DELETE FROM user_prefs WHERE user_id = ?', [$this->memberId()]);
         $this->assertSame(302, $me->get('/theme/light', ['return_to' => '/browse'])->status);
-        $this->assertSame('light', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+        $this->assertSame('paper', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'the toggle upserts the row for prefs-less members');
         // Guests: the cookie path unchanged (the pre-existing ThemeTest pins it
         // unedited; the guest response keeps the scalar Set-Cookie shape).
         $guest = $this->app()->handle(new Request('GET', '/theme/dark', ['return_to' => '/browse'], [], []));
         $this->assertSame(302, $guest->status);
-        $this->assertStringContainsString('theme=dark', implode(';', $this->cookieLeaves($guest)));
+        $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($guest)));
     }
 
     public function test_login_syncs_the_theme_cookie_from_the_pref(): void
     {
         // The seeded member carries no prefs row (see above), so the pref is
         // planted the way a real save would, not UPDATEd into nothing.
-        $this->db()->query('INSERT INTO user_prefs (user_id, theme) VALUES (?, ?)', [$this->memberId(), 'dark']);
+        $this->db()->query('INSERT INTO user_prefs (user_id, theme) VALUES (?, ?)', [$this->memberId(), 'night']);
         $client = $this->client();
         $res = $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $this->assertSame(302, $res->status);
-        $this->assertContains('theme=dark; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+        $this->assertContains('theme=night; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             $this->cookieLeaves($res), 'login re-syncs a stale theme cookie from the pref');
         // The jar carries the leaf onto the same client's next request: the
         // render after login is themed, the browser replay made real.
@@ -296,16 +297,16 @@ final class PerUserTest extends TestCase
     {
         $this->writePack();
         // Plant the row the way a real save would. The lang-only INSERT lets
-        // the theme column take its schema default 'dark', which sharpens the
-        // case: the login still syncs the theme cookie, proving the prefs row
-        // was read and only the lang arm skipped.
+        // the theme column take its schema default 'paper' (post-026), which
+        // sharpens the case: the login still syncs the theme cookie, proving
+        // the prefs row was read and only the lang arm skipped.
         $this->db()->query('INSERT INTO user_prefs (user_id, lang) VALUES (?, ?)', [$this->memberId(), 'xx']);
         \App\Features::toggle('peruserlang', false);
         $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $this->assertSame(302, $res->status);
         $this->assertNotContains('lang=xx; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             $this->cookieLeaves($res), 'the login sync skips the lang cookie');
-        $this->assertContains('theme=dark; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+        $this->assertContains('theme=paper; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             $this->cookieLeaves($res), 'the theme arm still syncs: the row was read, only lang skipped');
         // The cookieless render keeps the archive language, and the stored
         // pref is inert data, never deleted (the toggle-on restore contract).
@@ -329,7 +330,7 @@ final class PerUserTest extends TestCase
      *  predates the flag; only the member pref write-through skips. */
     public function test_perusertheme_off_skips_the_sync_but_the_toggle_keeps_its_cookie(): void
     {
-        $this->db()->query('INSERT INTO user_prefs (user_id, theme) VALUES (?, ?)', [$this->memberId(), 'light']);
+        $this->db()->query('INSERT INTO user_prefs (user_id, theme) VALUES (?, ?)', [$this->memberId(), 'paper']);
         \App\Features::toggle('perusertheme', false);
         $me = $this->client($this->memberId());
         // (a) The login carries no theme sync. The row's lang column defaults
@@ -347,19 +348,19 @@ final class PerUserTest extends TestCase
         $this->assertStringNotContainsString('name="lang"', $me->get('/account')->body, 'both field groups hide with both flags off');
         \App\Features::toggle('peruserlang', true);
         // (c) The toggle still writes its cookie (the unflaggable guest core
-        //  path); the member write-through alone skips.
+        // path); the member write-through alone skips.
         $toggle = $me->get('/theme/dark', ['return_to' => '/browse']);
         $this->assertSame(302, $toggle->status);
-        $this->assertStringContainsString('theme=dark', implode(';', $this->cookieLeaves($toggle)), 'the toggle cookie keeps riding');
-        $this->assertSame('light', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+        $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($toggle)), 'the toggle cookie keeps riding');
+        $this->assertSame('paper', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'the write-through skips while the flag is off');
         // On recovery: the write-through and the login sync return.
         \App\Features::toggle('perusertheme', true);
         $this->assertSame(302, $me->get('/theme/dark', ['return_to' => '/browse'])->status);
-        $this->assertSame('dark', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+        $this->assertSame('night', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'the member toggle persists again');
         $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
-        $this->assertContains('theme=dark; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+        $this->assertContains('theme=night; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             $this->cookieLeaves($res), 'the login sync restores with the flag');
     }
 
@@ -393,7 +394,7 @@ final class PerUserTest extends TestCase
     {
         $me = $this->client($this->memberId());
         $res = $me->postWithToken('/account/prefs',
-            ['theme' => 'dark', 'lang' => 'en', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+            ['theme' => 'night', 'lang' => 'en', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
              'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
         $this->assertSame(302, $res->status, $res->body);
         $this->assertSame('en', $this->db()->one('SELECT lang FROM user_prefs WHERE user_id = ?', [$this->memberId()])['lang'],

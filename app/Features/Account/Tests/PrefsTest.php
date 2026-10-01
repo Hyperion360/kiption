@@ -93,6 +93,39 @@ final class PrefsTest extends TestCase
         $this->assertSame('recent', $db->one('SELECT default_sort FROM user_prefs WHERE user_id = ?', [$this->memberId()])['default_sort']);
     }
 
+    /** The C2 value plumbing: the account radios offer the new theme set.
+     *  auto stores paper (the column CHECK admits paper/sepia/night only)
+     *  and clears the cookie, the same cache-bypass economy the reader
+     *  settings route applies; a real choice stores and syncs year-long. */
+    public function test_theme_radios_store_new_values_and_auto_stores_paper(): void
+    {
+        $me = $this->client($this->memberId());
+        $res = $me->postWithToken('/account/prefs', ['theme' => 'sepia', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+            'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame('sepia', $this->db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme']);
+        $this->assertContains('theme=sepia; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($res));
+        $res = $me->postWithToken('/account/prefs', ['theme' => 'auto', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
+            'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame('paper', $this->db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+            'auto stores paper, never a legacy or out-of-CHECK value');
+        $this->assertContains('theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($res),
+            'auto clears the theme cookie instead of minting one');
+        // the form radios carry the new value set
+        $form = $me->get('/account')->body;
+        foreach (['paper', 'sepia', 'night', 'auto'] as $v) {
+            $this->assertStringContainsString('name="theme" value="' . $v . '"', $form);
+        }
+    }
+
+    /** @return list<string> the Set-Cookie leaves, scalar or list normalized */
+    private function cookieLeaves(\Kip\Http\Response $res): array
+    {
+        $setCookie = $res->headers['Set-Cookie'] ?? [];
+        return is_array($setCookie) ? $setCookie : [$setCookie];
+    }
+
     public function test_toc_first_cookie_redirects_bare_read(): void
     {
         $me = $this->client($this->memberId());

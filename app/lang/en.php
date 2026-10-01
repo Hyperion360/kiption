@@ -40,6 +40,10 @@ return [
     'footer.theme' => 'Theme:',
     'theme.dark' => 'dark',
     'theme.light' => 'light',
+    'theme.paper' => 'paper',
+    'theme.sepia' => 'sepia',
+    'theme.night' => 'night',
+    'theme.auto' => 'auto',
 
     // The default meta description (Head's fallback) and the home page.
     'site.meta_description' => 'A self-hosted fiction archive.',
@@ -593,5 +597,5 @@ return [
     'challenges.title_invalid' => 'Title must be 1 to 120 characters.',
     'challenges.membership_invalid' => 'Membership must be open, moderated, or closed.',
     'account.lang_invalid' => 'Language must be the archive default or an installed pack.',
-    'account.theme_invalid' => 'Theme must be dark or light.',
+    'account.theme_invalid' => 'Theme must be paper, sepia, night or auto.',
 ];

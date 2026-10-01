@@ -88,7 +88,7 @@ final class ReorgShapeTest extends TestCase
                 'app/views must hold only the kernel layout and maintenance page, found ' . $f);
         }
         $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');
-        $this->assertCount(38, $features, 'exactly 38 feature folders expected');
+        $this->assertCount(39, $features, 'exactly 39 feature folders expected');
     }
 
     public function test_no_test_files_outside_the_tests_directory(): void

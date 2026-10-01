@@ -27,11 +27,16 @@
     </fieldset>
     <?php // Both 12d field groups are flag-gated (the mute off-hides precedent):
          // off hides the inputs, and prefs() leaves the stored columns alone. ?>
+    <?php // Stored rows carry paper/sepia/night (026); auto is indistinguishable
+         // from a stored paper, so the stored value checks its own radio and
+         // anything else falls back to auto checked. ?>
     <?php if (\App\Features::on('perusertheme')): ?>
     <fieldset>
       <legend><?= \App\Lang::t('account.theme_legend') ?></legend>
-      <label><input type="radio" name="theme" value="dark"<?= ($themePref ?? '') !== 'light' ? ' checked' : '' ?>> <?= \App\Lang::t('theme.dark') ?></label>
-      <label><input type="radio" name="theme" value="light"<?= ($themePref ?? '') === 'light' ? ' checked' : '' ?>> <?= \App\Lang::t('theme.light') ?></label>
+      <label><input type="radio" name="theme" value="paper"<?= ($themePref ?? '') === 'paper' ? ' checked' : '' ?>> <?= \App\Lang::t('theme.paper') ?></label>
+      <label><input type="radio" name="theme" value="sepia"<?= ($themePref ?? '') === 'sepia' ? ' checked' : '' ?>> <?= \App\Lang::t('theme.sepia') ?></label>
+      <label><input type="radio" name="theme" value="night"<?= ($themePref ?? '') === 'night' ? ' checked' : '' ?>> <?= \App\Lang::t('theme.night') ?></label>
+      <label><input type="radio" name="theme" value="auto"<?= !\in_array($themePref ?? '', ['paper', 'sepia', 'night'], true) ? ' checked' : '' ?>> <?= \App\Lang::t('theme.auto') ?></label>
     </fieldset>
     <?php endif; ?>
     <?php if (\App\Features::on('peruserlang')): ?>
