@@ -73,6 +73,24 @@ final class StaticCacheTest extends TestCase
         $this->assertNull($this->cache->serve($req));
     }
 
+    public function test_maybe_store_refuses_a_list_valued_set_cookie(): void
+    {
+        // The multi-cookie emission shape since the Kip 0.5 sync (login,
+        // logout, prefs save). The refusal scans header NAMES, never values,
+        // so a two-leaf Set-Cookie refuses exactly like the scalar one; this
+        // pins it because before Kip's withAddedHeader such a Response could
+        // not even be constructed.
+        $req = new Request('GET', '/story/view/x', [], [], []);
+        $twoLeaves = new Response('ok', 200, ['Set-Cookie' => [
+            'lang=xx; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+            'theme=dark; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+        ]]);
+        $this->assertSame(['lang=xx; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+            'theme=dark; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax'], $twoLeaves->headers['Set-Cookie']);
+        $this->cache->maybeStore($req, $twoLeaves);
+        $this->assertNull($this->cache->serve($req), 'a list-valued Set-Cookie never lands in the file cache');
+    }
+
     public function test_maybe_store_refuses_noindexed_responses(): void
     {
         $req = new Request('GET', '/browse/category/junk', [], [], []);
