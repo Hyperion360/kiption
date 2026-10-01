@@ -22,6 +22,7 @@ final class StoryController
         $story = $this->repo->findStoryBySlug($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
         $progress = $this->progressOf($story);
+        $bookmarks = $this->bookmarksOf($story);
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
             $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
@@ -88,6 +89,7 @@ final class StoryController
             'following_author' => (int) $story['following_author'],
             'marked_at_me' => $story['marked_at_me'],
             'progress' => $progress,
+            'bookmarks' => $bookmarks,
             'reviews' => $reviews,
             'review_count' => (int) $story['review_count'],
             'repliesDropped' => $repliesDropped,
@@ -122,6 +124,7 @@ final class StoryController
         $story = $this->repo->findStoryWithChapter($slug, $position, $me);
         if ($story === null) return new Response('Page not found', 404);
         $progress = $this->progressOf($story);
+        $bookmarks = $this->bookmarksOf($story);
         $positions = array_values(array_filter(array_map('intval', explode('~', (string) $story['positions_blob'])), static fn(int $p): bool => $p > 0));
         sort($positions);
         if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
@@ -182,6 +185,8 @@ final class StoryController
             'next' => $next,
             'chapters' => array_values($chapters),
             'progress' => $progress,
+            'bookmarks' => $bookmarks,
+            'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
         if ($me !== 0) {
             try {
@@ -619,6 +624,22 @@ final class StoryController
             'read_pct' => $pct === null ? null : (int) $pct,
             'minutes_left' => $minutes === null ? null : (int) $minutes,
         ];
+    }
+
+    /** C5: the member-only bookmarks blob becomes the envelope's bookmark
+     *  list (position + note; a NULL position means the chapter row is gone,
+     *  the note stays). Guests never carry the key: no reader's notes ever
+     *  reach another reader's bytes. @param array<string,mixed> $story mutated
+     *  @return list<array{position: ?int, note: string}> */
+    private function bookmarksOf(array &$story): array
+    {
+        if (!array_key_exists('bookmarks_blob', $story)) return [];
+        $bookmarks = [];
+        foreach (json_decode((string) $story['bookmarks_blob'], true) ?: [] as $b) {
+            $bookmarks[] = ['position' => $b['position'] === null ? null : (int) $b['position'], 'note' => (string) $b['note']];
+        }
+        unset($story['bookmarks_blob']);
+        return $bookmarks;
     }
 
     /** Book node shared by view (full TOC) and read (current chapter only). */

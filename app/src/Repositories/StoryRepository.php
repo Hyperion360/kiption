@@ -48,6 +48,16 @@ final class StoryRepository
                          WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0))
                        / 250.0) AS INTEGER) END AS minutes_left,
                     rh2.last_position" : '';
+        // C5 bookmarks fold, member path only too: notes are free text, so the
+        // blob is JSON (the TOC discipline; no delimiter survives a note).
+        // Ordering rides the derived table (created_at, then chapter_id to
+        // break same-timestamp ties deterministically); the chapters LEFT JOIN
+        // resolves the position for the sheet's links.
+        $bookmarksCols = $me !== 0 ? ',
+                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note))
+                     FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
+                           ORDER BY b.created_at, b.chapter_id) b
+                     LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';
         return $this->db->one(
             'SELECT s.*, u.penname, u.profile_slug, r.label AS rating_label, r.is_adult, r.warning_text,
                     (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count,
@@ -86,7 +96,7 @@ final class StoryRepository
                      JOIN tags t ON t.id = st.tag_id
                      LEFT JOIN tags cu2 ON cu2.id = t.canonical_id
                      JOIN tag_types tt ON tt.id = t.tag_type_id
-                     WHERE st.story_id = s.id) AS tags_blob' . $progressCols . '
+                     WHERE st.story_id = s.id) AS tags_blob' . $progressCols . $bookmarksCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id' . $progressJoin . '
@@ -180,6 +190,12 @@ final class StoryRepository
                          WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0))
                        / 250.0) AS INTEGER) END AS minutes_left,
                     rh2.last_position" : '';
+        // The C5 bookmarks fold, same member-only shape as findStoryBySlug.
+        $bookmarksCols = $me !== 0 ? ',
+                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note))
+                     FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
+                           ORDER BY b.created_at, b.chapter_id) b
+                     LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';
         return $this->db->one(
             'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.created_at, s.updated_at, s.word_count,
                     s.canonical_url, s.crosspost_url,
@@ -194,7 +210,7 @@ final class StoryRepository
                      WHERE ch2.story_id = s.id AND ch2.validated = 1) AS positions_blob,
                     (SELECT json_group_array(json_object(\'position\', ch3.position, \'title\', ch3.title, \'word_count\', ch3.word_count))
                      FROM chapters ch3 WHERE ch3.story_id = s.id AND ch3.validated = 1
-                     ORDER BY ch3.position) AS chapters_blob' . $progressCols . '
+                     ORDER BY ch3.position) AS chapters_blob' . $progressCols . $bookmarksCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id

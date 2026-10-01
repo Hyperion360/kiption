@@ -2,7 +2,7 @@
 namespace App\Features\Reader;
 use Kip\{Database, Session};
 use Kip\Http\{Request, Response};
-use Kip\Routing\Post;
+use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class ReaderController
 {
@@ -59,5 +59,52 @@ final class ReaderController
     private static function pick(mixed $raw, array $allowed, int|string $default): int|string
     {
         return in_array((string) $raw, array_map('strval', $allowed), true) ? $raw : $default;
+    }
+
+    /** (story, chapter) by slug + validated position in ONE query, behind
+     *  StoryController::read()'s exact restricted gate (CAST is load-bearing:
+     *  a bare ? != 0 would compare across storage classes and fail the gate
+     *  open for guests). Members bookmark what they may read; 404 otherwise.
+     *  @return array{sid: int, cid: int}|null */
+    private function bookmarkTarget(string $slug, string $position, int $me): ?array
+    {
+        $row = $this->db->one(
+            'SELECT s.id AS sid, c.id AS cid FROM stories s
+             JOIN chapters c ON c.story_id = s.id AND c.position = ? AND c.validated = 1
+             WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
+               AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)',
+            [(int) $position, $slug, $me]);
+        return $row === null ? null : ['sid' => (int) $row['sid'], 'cid' => (int) $row['cid']];
+    }
+
+    #[AuthAttr] #[Post]
+    public function bookmarkAdd(string $slug, string $position): Response
+    {
+        $me = (int) ($this->session->get('user_id') ?? 0);
+        $row = $this->bookmarkTarget($slug, $position, $me);
+        if ($row === null || $me === 0) { return new Response('Page not found', 404); }
+        $note = mb_substr(trim($this->request->postStr('note')), 0, 500);
+        $this->db->begin();
+        $this->db->query(
+            'INSERT INTO bookmarks (user_id, story_id, chapter_id, note)
+             VALUES (?, ?, ?, ?)
+             ON CONFLICT(user_id, story_id, chapter_id) DO UPDATE SET note = excluded.note',
+            [$me, $row['sid'], $row['cid'], $note]);
+        $this->db->commit();
+        return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
+    }
+
+    #[AuthAttr] #[Post]
+    public function bookmarkRemove(string $slug, string $position): Response
+    {
+        $me = (int) ($this->session->get('user_id') ?? 0);
+        $row = $this->bookmarkTarget($slug, $position, $me);
+        if ($row === null || $me === 0) { return new Response('Page not found', 404); }
+        $this->db->begin();
+        $this->db->query(
+            'DELETE FROM bookmarks WHERE user_id = ? AND story_id = ? AND chapter_id = ?',
+            [$me, $row['sid'], $row['cid']]);
+        $this->db->commit();
+        return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
     }
 }

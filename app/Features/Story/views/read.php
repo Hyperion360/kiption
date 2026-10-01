@@ -26,6 +26,37 @@
       <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= $next ?>"><?= \App\Lang::t('common.next') ?></a>
     <?php endif; ?>
   </nav>
+  <?php /* C5 member bookmarks sheet: zero-JS forms, notes escaped at render; the guest render emits nothing here */ ?>
+  <?php if (!empty($csrf)): ?>
+    <?php $bookmarked = false;
+    foreach ($bookmarks as $b) {
+        if ($b['position'] === $position) { $bookmarked = true; break; }
+    }
+    $titles = [];
+    foreach ($chapters as $c) { $titles[(int) $c['position']] = (string) $c['title']; } ?>
+    <section class="bookmarks chapter-meta" aria-label="<?= $this->e(\App\Lang::t('reader.bookmarks_aria')) ?>">
+      <?php if ($bookmarked): ?>
+        <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= $position ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <button type="submit"><?= \App\Lang::t('reader.bookmark_remove') ?></button>
+        </form>
+      <?php else: ?>
+        <form method="post" action="/reader/bookmarkadd/<?= $this->e($story['slug']) ?>/<?= $position ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <input name="note" maxlength="500" placeholder="<?= $this->e(\App\Lang::t('reader.bookmark_note_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('reader.bookmark_note_placeholder')) ?>">
+          <button type="submit"><?= \App\Lang::t('reader.bookmark_add') ?></button>
+        </form>
+      <?php endif; ?>
+      <?php if ($bookmarks !== []): ?>
+        <h2><?= \App\Lang::t('reader.bookmarks') ?></h2>
+        <ul>
+          <?php foreach ($bookmarks as $b): ?>
+            <li><?php if ($b['position'] !== null): ?><a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $b['position'] ?>"><?= $this->e(($titles[$b['position']] ?? '') !== '' ? $titles[$b['position']] : \App\Lang::t('story.chapter_n', ['n' => (int) $b['position']])) ?></a><?php endif; ?><?= $b['note'] !== '' ? ' - ' . $this->e($b['note']) : '' ?></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </section>
+  <?php endif; ?>
   <?php /* the read beacon: a zero-JS read counter into page_stats; the src carries the story id and the chapter's id (never the position) */ ?>
   <img src="/beacon/read/<?= (int) $story['id'] ?>/<?= (int) $story['ch_id'] ?>" alt="" width="1" height="1" loading="lazy">
 </article>

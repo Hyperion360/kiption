@@ -161,6 +161,14 @@ return [
     'story.progress_pct' => '{n}% read',
     'story.progress_min_left' => '{n} min left',
 
+    // Chapter bookmarks (C5), a member-only reader feature: markers with a
+    // short note, added and removed from the chapter page.
+    'reader.bookmarks' => 'Bookmarks',
+    'reader.bookmarks_aria' => 'Bookmarks',
+    'reader.bookmark_add' => 'Bookmark this chapter',
+    'reader.bookmark_remove' => 'Remove bookmark',
+    'reader.bookmark_note_placeholder' => 'Note (optional)',
+
     // The whole-work reading view (/story/whole/{slug}), which doubles as the print view.
     'story.whole_link' => 'Whole story',
     'story.download_html' => 'Download HTML',
