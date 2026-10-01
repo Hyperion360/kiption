@@ -198,6 +198,21 @@ final class BookmarkTest extends TestCase
         $this->assertStringNotContainsString('none yet', $body);
     }
 
+    /** Adversarial F6: bookmarkTarget enforces the same adult gate read()
+     *  does; members bookmark what they may read. */
+    public function test_adult_story_refuses_bookmarks_until_age_acked(): void
+    {
+        $this->db->query("UPDATE stories SET rating_id = (SELECT id FROM ratings WHERE label = 'Explicit') WHERE slug = 'the-rabbit-hole'");
+        $this->assertSame(404, $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'x'])->status,
+            'no age_ok cookie: the bookmark is refused');
+        $this->assertSame(0, $this->rowCount());
+        $acked = $this->client($this->memberId);
+        $acked->cookie('age_ok', '1');
+        $this->assertSame(302, $acked->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'x'])->status,
+            'the acknowledged member bookmarks normally');
+        $this->assertSame(1, $this->rowCount());
+    }
+
     /** Cross-member isolation (testing specialist): the fold and the actions
      *  key on the acting member; a bind-order regression must never leak or
      *  mutate another member's rows. */

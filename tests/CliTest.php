@@ -23,9 +23,16 @@ final class CliTest extends TestCase
     /** @return array{0: int, 1: string} exit code, stdout */
     private function kip(string $args, string $cacheDsn = ''): array
     {
-        $cmd = sprintf('KIP_DB_DSN=%s%s %s %s %s 2>&1',
+        // KIP_STATIC_CACHE_DIR always points at a throwaway dir: cache:clear
+        // purges the static layer too, and the live public/cache must never
+        // be touched from a test (the same isolation KIP_CACHE_DB_DSN gives
+        // the framework cache database).
+        $staticDir = $this->path . '-static';
+        if (!is_dir($staticDir)) { mkdir($staticDir); }
+        $cmd = sprintf('KIP_DB_DSN=%s%s KIP_STATIC_CACHE_DIR=%s %s %s %s 2>&1',
             escapeshellarg('sqlite:' . $this->path),
             $cacheDsn === '' ? '' : ' KIP_CACHE_DB_DSN=' . escapeshellarg($cacheDsn),
+            escapeshellarg($staticDir),
             escapeshellarg(PHP_BINARY),
             escapeshellarg(dirname(__DIR__) . '/bin/kip'),
             $args);
@@ -108,7 +115,9 @@ final class CliTest extends TestCase
         }
         [$code, $out] = $this->kip('cache:clear', 'sqlite:' . $file);
         $this->assertSame(0, $code, $out);
-        $this->assertStringContainsString('Page cache cleared', $out);
+        $this->assertStringContainsString('framework page cache: ' . $file, $out,
+            'both cache layers are named in the clear output');
+        $this->assertStringContainsString('static layer:', $out);
         foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
             $this->assertFileDoesNotExist($f, "{$f} must be gone");
         }
@@ -116,10 +125,12 @@ final class CliTest extends TestCase
         [$code, $out] = $this->kip('cache:clear', 'sqlite:' . $file);
         $this->assertSame(0, $code, $out);
         $this->assertStringNotContainsString('error', strtolower($out));
-        // A memory cache has no file to clear: clean no-op with a note.
+        // A memory cache has no file to clear: the framework layer is
+        // skipped (no framework line) while the static layer still purges.
         [$code, $out] = $this->kip('cache:clear', 'sqlite::memory:');
         $this->assertSame(0, $code, $out);
-        $this->assertStringContainsString('No file-backed page cache configured', $out);
+        $this->assertStringNotContainsString('framework page cache', $out);
+        $this->assertStringContainsString('static layer:', $out);
         exec('rm -rf ' . escapeshellarg($dir));
     }
 }

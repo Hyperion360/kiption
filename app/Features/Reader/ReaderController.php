@@ -64,12 +64,17 @@ final class ReaderController
     private function bookmarkTarget(string $slug, string $position, int $me): ?array
     {
         $row = $this->db->one(
-            'SELECT s.id AS sid, c.id AS cid FROM stories s
+            'SELECT s.id AS sid, c.id AS cid, r.is_adult FROM stories s
              JOIN chapters c ON c.story_id = s.id AND c.position = ? AND c.validated = 1
+             JOIN ratings r ON r.id = s.rating_id
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)',
             [(int) $position, $slug, $me]);
-        return $row === null ? null : ['sid' => (int) $row['sid'], 'cid' => (int) $row['cid']];
+        if ($row === null) return null;
+        // The adult gate read() enforces (review): members bookmark what they
+        // may read, so an unacknowledged adult story refuses the bookmark.
+        if ((int) $row['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) return null;
+        return ['sid' => (int) $row['sid'], 'cid' => (int) $row['cid']];
     }
 
     #[AuthAttr] #[Post]
@@ -77,6 +82,8 @@ final class ReaderController
     {
         $me = (int) ($this->session->get('user_id') ?? 0);
         $row = $this->bookmarkTarget($slug, $position, $me);
+        // The $me === 0 half is defense-in-depth: the kernel's Auth gate
+        // already rejects logged-out callers, and user ids start at 1.
         if ($row === null || $me === 0) { return new Response('Page not found', 404); }
         $note = mb_substr(trim($this->request->postStr('note')), 0, self::NOTE_MAX);
         // SQLite's json_object returns NULL for invalid UTF-8, which would

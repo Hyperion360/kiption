@@ -162,21 +162,39 @@ match ($argv[1] ?? 'help') {
         // Deploy-time page-cache invalidation (ported from the Kip skeleton):
         // a page cached while public stays servable until its TTL even after
         // #[Auth] is added to its route, because the cache answers before
-        // routing. Clearing on deploy closes that window. The cache database
-        // is disposable by contract; unlinking it (and its WAL sidecars) is
-        // the whole clear, recreated empty on the next request. db:seed and
-        // pages:prune already purge it; this is the deploy-time command. No
-        // file-backed cache configured is a clean no-op with a note.
+        // routing. Clearing on deploy closes that window — for BOTH layers:
+        // the framework cache database below AND the static file layer in
+        // public/cache, which serves anonymous traffic before App boots and
+        // has no TTL at all (review: the first cut cleared only the database
+        // while its output marketed full invalidation). The cache database is
+        // disposable by contract; unlinking it (and its WAL sidecars) is the
+        // whole clear, recreated empty on the next request. db:seed and
+        // pages:prune also purge both; operators rebuilding the static layer
+        // afterwards run pages:build. No file-backed cache configured is a
+        // clean no-op with a note.
+        $cleared = [];
         $dsn = $config['cache_db']['dsn'] ?? null;
-        if (!is_string($dsn) || !str_starts_with($dsn, 'sqlite:') || str_contains($dsn, ':memory:')) {
+        if (is_string($dsn) && str_starts_with($dsn, 'sqlite:') && !str_contains($dsn, ':memory:')) {
+            // SQLite DSNs may carry URI query params (sqlite:/path?mode=ro);
+            // the file stops at the first "?" or a stray param would dodge
+            // the unlink while the command still printed success (review).
+            $file = explode('?', substr($dsn, strlen('sqlite:')), 2)[0];
+            foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
+                if (is_file($f)) @unlink($f);
+            }
+            $cleared[] = "framework page cache: {$file}";
+        }
+        if (!empty($config['static_cache']['enabled']) && is_string($config['static_cache']['dir'] ?? null)
+            && is_dir($config['static_cache']['dir'])) {
+            (new \App\StaticCache\Cache($config['static_cache']['dir']))->purgeAll();
+            $cleared[] = 'static layer: ' . $config['static_cache']['dir'];
+        }
+        if ($cleared === []) {
             echo "No file-backed page cache configured; nothing to clear.\n";
             return;
         }
-        $file = substr($dsn, strlen('sqlite:'));
-        foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
-            if (is_file($f)) @unlink($f);
-        }
-        echo "Page cache cleared: {$file}\n";
+        echo 'Cleared: ' . implode('; ', $cleared) . "\n";
+        echo "Run pages:build to rebuild the static layer if this was a deploy.\n";
     })(),
     'robots' => (function () use ($config) {
         $file = ($config['public_dir'] ?? dirname(__DIR__) . '/public') . '/robots.txt';
