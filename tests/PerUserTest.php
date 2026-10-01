@@ -187,9 +187,9 @@ final class PerUserTest extends TestCase
         $redirect = $me->get('/story/read/the-rabbit-hole');
         $this->assertSame(302, $redirect->status, 'the toc cookie carried onto the next request');
         $this->assertSame('/story/view/the-rabbit-hole', $redirect->headers['Location'] ?? '');
-        $this->assertStringContainsString('data-theme="light"', $me->get('/browse')->body,
+        $this->assertStringContainsString('data-theme="paper"', $me->get('/browse')->body,
             'the theme cookie carried onto the next request (cookie > OS, ruling 5)');
-        $this->assertStringNotContainsString('data-theme="light"', $this->client()->get('/browse')->body,
+        $this->assertStringNotContainsString('data-theme=', $this->client()->get('/browse')->body,
             'a cookieless render stays OS-default (the byte-identity pin)');
         // The /theme toggle while logged in ALSO writes the pref (one source of
         // truth); the guest cookie keeps riding the same response.
@@ -223,7 +223,7 @@ final class PerUserTest extends TestCase
             $this->cookieLeaves($res), 'login re-syncs a stale theme cookie from the pref');
         // The jar carries the leaf onto the same client's next request: the
         // render after login is themed, the browser replay made real.
-        $this->assertStringContainsString('data-theme="dark"', $client->get('/browse')->body,
+        $this->assertStringContainsString('data-theme="night"', $client->get('/browse')->body,
             'the synced cookie rides the next request and themes it');
     }
 

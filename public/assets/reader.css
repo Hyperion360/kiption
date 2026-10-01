@@ -1,28 +1,49 @@
-/* Kiption reading design: Alice tokens, dark default, light via cookie or OS. */
-:root {
-  --bg: #06040d;
-  --ink: #ebe2cf;
-  --dim: #b8ad95;
-  --gold: #f5d98a;
-  --gold-deep: #c9a455;
-  --line: rgba(245, 217, 138, 0.18);
-  --card: rgba(26, 16, 48, 0.6);
+/* Reading themes. Paper is the light default; auto (no data-theme) follows
+   the OS. Night is warm off-white on off-black, never pure white on black. */
+:root{
+  --bg:#f8f7f3; --ink:#1c2320; --ink-2:#4b544e; --muted:#5f6962;
+  --line:#e4e2da; --line-strong:#d6d3c9; --hover:#efede6;
+  --accent:#1f4f42; --accent-hover:#2a6a58; --on-accent:#fff;
+  --track:#e4e2da; --surface:#fff; --scrim:rgba(28,35,32,.45);
+  --pill-bg:#e3ece6; --cover-ink:#f1efe8;
+  --serif:ui-serif,'Iowan Old Style',Charter,'Bitstream Charter',Georgia,serif;
+  --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:ui-monospace,'SF Mono',Menlo,monospace;
+  --read-size:19px; --read-lh:1.7; --read-width:640px;
+  color-scheme:light;
 }
-html[data-theme="light"] {
-  --bg: #faf7f0;
-  --ink: #2a1a0a;
-  --dim: #6b5d48;
-  --gold: #8a6d2f;
-  --gold-deep: #6f5722;
-  --line: rgba(42, 26, 10, 0.15);
-  --card: rgba(42, 26, 10, 0.04);
+html[data-theme="sepia"]{
+  --bg:#f4ecdc; --ink:#33291b; --ink-2:#33291b; --muted:#6f5f47;
+  --line:#e3d6bd; --line-strong:#d4c4a6; --hover:#ece2cc;
+  --accent:#1f4f42; --on-accent:#fff; --track:#e3d6bd; --surface:#f4ecdc;
+  --scrim:rgba(51,41,27,.45); --pill-bg:#e9ddc4; --cover-ink:#f1efe8;
 }
-@media (prefers-color-scheme: light) {
-  html:not([data-theme="dark"]):not([data-theme="light"]) {
-    --bg: #faf7f0; --ink: #2a1a0a; --dim: #6b5d48;
-    --gold: #8a6d2f; --gold-deep: #6f5722;
-    --line: rgba(42, 26, 10, 0.15); --card: rgba(42, 26, 10, 0.04);
+html[data-theme="night"]{
+  --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
+  --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
+  --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513;
+  --track:#262d29; --surface:#1b201d; --scrim:rgba(0,0,0,.55);
+  --pill-bg:#1e2b25; --cover-ink:#f1efe8;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){
+  html:not([data-theme="paper"]):not([data-theme="sepia"]){
+    /* auto + night: same token set as html[data-theme="night"] */
+    --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
+    --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
+    --accent:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d;
+    --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; color-scheme:dark;
   }
+}
+/* Transitional aliases: the pre-redesign component rules below still read the
+   Alice token names (--dim/--gold/--gold-deep/--card). They resolve against
+   the new set until the C6 component rewrite replaces those rules wholesale;
+   the var() indirection keeps them following the active theme block. */
+:root{
+  --dim:var(--ink-2);
+  --gold:var(--accent);
+  --gold-deep:var(--accent);
+  --card:var(--surface);
 }
 * { box-sizing: border-box; }
 body {

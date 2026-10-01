@@ -65,15 +65,15 @@ final class HomeTest extends TestCase
         $this->assertStringContainsString('href="/browse"', $res->body);
     }
 
-    public function test_layout_reflects_light_cookie(): void
+    public function test_layout_reflects_legacy_light_cookie_as_paper(): void
     {
         $res = $this->app()->handle(new Request('GET', '/', [], [], ['theme' => 'light']));
-        $this->assertStringContainsString('data-theme="light"', $res->body);
+        $this->assertStringContainsString('data-theme="paper"', $res->body);
     }
 
-    public function test_layout_reflects_dark_cookie(): void
+    public function test_layout_reflects_legacy_dark_cookie_as_night(): void
     {
         $res = $this->app()->handle(new Request('GET', '/', [], [], ['theme' => 'dark']));
-        $this->assertStringContainsString('data-theme="dark"', $res->body);
+        $this->assertStringContainsString('data-theme="night"', $res->body);
     }
 }

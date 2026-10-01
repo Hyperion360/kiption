@@ -11,10 +11,10 @@ final class ThemeTest extends TestCase
         $this->assertNull(\App\Theme::current(new Request('GET', '/', [], [], [])));
     }
 
-    public function test_current_reads_light_cookie(): void
+    public function test_current_reads_legacy_light_cookie_as_paper(): void
     {
         $req = new Request('GET', '/', [], [], ['theme' => 'light']);
-        $this->assertSame('light', \App\Theme::current($req));
+        $this->assertSame('paper', \App\Theme::current($req));
     }
 
     public function test_current_ignores_garbage_cookie(): void
