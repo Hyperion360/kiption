@@ -53,6 +53,7 @@ final class HomeController
             'title' => \App\Lang::t('nav.brand'),
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->kip->config('nav_file', ''),
             'path' => $this->request->path,
             'loggedIn' => $loggedIn,

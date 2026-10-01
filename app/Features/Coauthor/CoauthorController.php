@@ -97,6 +97,7 @@ final class CoauthorController
             'title' => \App\Lang::t('story.edit_heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('story.edit_heading'))->withCanonical('/story/edit/' . $slug)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => '/story/edit/' . $slug,
             'story' => [

@@ -40,6 +40,7 @@ final class SeriesController
             'title' => $s['title'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'series' => $s, 'items' => $items,
             'isOwner' => $isOwner, 'isAdmin' => $isAdmin, 'me' => $me,
@@ -107,6 +108,7 @@ final class SeriesController
         return $this->view->render('series/form', [
             'title' => $title, 'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'row' => $row, 'error' => $error, 'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
         ]);

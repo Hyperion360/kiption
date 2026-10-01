@@ -87,6 +87,7 @@ final class AnalyticsController
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical('/analytics')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'totals' => $totals,

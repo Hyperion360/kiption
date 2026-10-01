@@ -33,6 +33,7 @@ final class ChallengesController
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical('/challenges'),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'rows' => $rows, 'loggedIn' => $me !== 0,
         ];
@@ -63,6 +64,7 @@ final class ChallengesController
             'title' => $c['title'],
             'head' => $items === [] ? $head->withNoindex() : $head,
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'challenge' => $c, 'items' => $items,
             'isOwner' => $isOwner, 'isAdmin' => $isAdmin, 'me' => $me,
@@ -290,6 +292,7 @@ final class ChallengesController
         return $this->view->render('challenges/form', [
             'title' => $title, 'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'row' => $row, 'error' => $error,
             'prompts' => $row === null ? [] : $this->challenges->promptsForEdit((int) $row['id']),

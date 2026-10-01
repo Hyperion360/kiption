@@ -21,6 +21,7 @@ final class FavoritesController
             'title' => \App\Lang::t('favorites.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('favorites.heading'))->withCanonical('/favorites')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,

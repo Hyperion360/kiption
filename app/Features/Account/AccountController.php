@@ -103,6 +103,7 @@ final class AccountController
             'title' => \App\Lang::t('account.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('account.heading'))->withCanonical('/account')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'me' => $me,

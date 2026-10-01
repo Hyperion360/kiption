@@ -36,6 +36,7 @@ final class ImagesController
             'title' => \App\Lang::t('images.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('images.heading'))->withCanonical('/images')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'files' => $files,

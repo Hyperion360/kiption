@@ -144,6 +144,7 @@ final class NavController
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'rows' => $this->db->all('SELECT id, label, url, position, is_hidden FROM nav_links ORDER BY position, id'),
             'row' => $row, 'error' => $error,

@@ -44,6 +44,7 @@ final class AdminmembersController
             'title' => \App\Lang::t('adminmembers.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('adminmembers.heading'))->withCanonical('/adminmembers')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,

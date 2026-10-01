@@ -33,6 +33,7 @@ final class ListsController
             'title' => $list['title'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'list' => $list, 'items' => $items,
             'isOwner' => $isOwner, 'me' => $me,
@@ -50,6 +51,7 @@ final class ListsController
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical('/lists')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'rows' => $this->lists->indexFor((int) $this->session->get('user_id')),
             'loggedIn' => true,
@@ -184,6 +186,7 @@ final class ListsController
         return $this->view->render('lists/form', [
             'title' => $title, 'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'row' => $row, 'error' => $error,
             'items' => $row === null ? [] : $this->lists->itemsForEdit((int) $row['id']),

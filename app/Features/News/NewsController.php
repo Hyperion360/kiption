@@ -21,11 +21,16 @@ final class NewsController
         if (($r = \App\Features::guard('news')) !== null) return $r;
         [$perPage, $offset] = $this->paginate();
         [$items, $page] = [(new NewsRepository($this->db))->listing($perPage, $offset), $this->page()];
+        // The view()'s own idiom: cookie-gated, so a cookieless guest (the
+        // cacheable shape) never starts a session.
+        $loggedIn = $this->request->cookies !== [] && (int) ($this->session->get('user_id') ?? 0) !== 0;
         return $this->view->render('news/index', [
             'title' => \App\Lang::t('news.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('news.heading'))->withCanonical('/news')
                 ->withDescription(\App\Lang::t('news.meta_description')),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'loggedIn' => $loggedIn,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'items' => $items,
@@ -51,6 +56,7 @@ final class NewsController
             'title' => $fold['news']['title'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'news' => $fold['news'],
@@ -171,6 +177,7 @@ final class NewsController
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'row' => $row, 'error' => $error,
             'csrf' => $this->session->csrfToken(), 'loggedIn' => true,

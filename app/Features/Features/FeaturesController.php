@@ -31,6 +31,7 @@ final class FeaturesController
                 baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
             )->withTitle($title)->withCanonical('/features')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'features' => Features::all(),

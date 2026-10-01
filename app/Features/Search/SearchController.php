@@ -36,6 +36,7 @@ final class SearchController
         $head = $this->head()->withTitle(\App\Lang::t('search.heading'))->withCanonical('/search')->withNoindex();
         $out = $this->view->render('search/index', [
             'title' => \App\Lang::t('search.heading'), 'head' => $head, 'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'q' => $q, 'filters' => $filters, 'result' => $result,
             'ratings' => $result['ratings'], 'categories' => $result['categories'],

@@ -59,6 +59,7 @@ final class StatsController
             'title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical('/stats')->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,

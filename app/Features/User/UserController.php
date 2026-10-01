@@ -36,6 +36,7 @@ final class UserController
             'title' => $profile['penname'],
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'slug' => $slug,
@@ -136,6 +137,7 @@ final class UserController
             'title' => $contactTitle,
             'head' => $this->head()->withTitle($contactTitle)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'slug' => $slug,
@@ -156,10 +158,15 @@ final class UserController
         $head = $this->head()->withTitle($title)
             ->withDescription(\App\Lang::t('user.listing_meta', ['title' => $title, 'site' => (string) $this->app->config('site_name', 'Kiption')]))
             ->withCanonical($baseUrl);
+        // The cookie-gated idiom: the listing is a public page, so cookieless
+        // guests never start a session.
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $data = [
             'title' => $title,
             'head' => $tab['stories'] === [] ? $head->withNoindex() : $head,
             'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'loggedIn' => $me !== 0,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'stories' => $tab['stories'],
