@@ -31,7 +31,7 @@ html[data-theme="night"]{
     /* auto + night: same token set as html[data-theme="night"] */
     --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
     --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
-    --accent:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d;
+    --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d;
     --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; color-scheme:dark;
   }
 }
@@ -523,6 +523,13 @@ html[data-mode="pages"] .prose {
 /* Focus variant (D2): the layout hides .site-head under body.focus; the
    reader adds a right-edge vertical dock of three 48px controls. */
 body.focus .site-head { display: none; }
+/* M2/T1: below the desktop breakpoint the reading surfaces drop the site
+   header too - the reader header, back arrow, contents sheet, and bottom
+   bar carry navigation. :has() rides the same progressive allowance as the
+   scrim: engines without it keep the site header, which stays usable. */
+@media (max-width:1023px) {
+  body:has(.reader) .site-head, body:has(.whole-work) .site-head { display: none; }
+}
 .reader-dock {
   position: fixed; inset-inline-end: 28px; bottom: 28px; z-index: 30;
   display: flex; flex-direction: column;
@@ -642,10 +649,12 @@ body.focus .site-head { display: none; }
   .site-main { max-width: 1200px; margin-inline: auto; padding: 48px 40px 96px; }
 }
 @media (max-width:767px) {
-  /* Mobile chrome: the nav row scrolls horizontally instead of wrapping the
-     header past its 56px row; gutters tighten to the comp's 20px. The chip
-     row bleeds to the viewport edge the way the comp draws it. */
-  .site-nav { overflow-x: auto; }
+  /* Mobile chrome (M1): the header is brand + Menu; the sheet owns the nav
+     links. Hiding the inline row is what keeps the header from pushing the
+     document past the viewport (nowrap links have a min-content width no
+     flex child shrinks below). Gutters tighten to the comp's 20px and the
+     chip row bleeds to the viewport edge the way the comp draws it. */
+  .site-nav { display: none; }
   .site-main { padding: 28px 20px 48px; }
   .sheet:target { padding-inline: 20px; }
   .filter-chips { margin-inline: -20px; padding-inline: 20px; }

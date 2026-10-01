@@ -103,6 +103,7 @@ return [
     // Story listing atoms shared by browse, search, series, and the story page.
     'story.by' => 'by',
     'story.words' => 'words',
+    'story.words_label' => 'Words',
     'story.updated' => 'updated {date}',
     'story.complete' => 'Complete',
     'story.wip' => 'WIP',

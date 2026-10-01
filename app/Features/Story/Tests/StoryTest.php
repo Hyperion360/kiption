@@ -285,7 +285,7 @@ final class StoryTest extends TestCase
         $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
         $this->assertStringContainsString('<dl class="story-stats">', $body);
         $this->assertStringContainsString('<dt>Rating</dt><dd>Teen</dd>', $body);
-        $this->assertStringContainsString('<dt>words</dt><dd>300</dd>', $body);
+        $this->assertStringContainsString('<dt>Words</dt><dd>300</dd>', $body);
         $this->assertStringContainsString('<dt>Kudos</dt><dd>0</dd>', $body);
         $this->assertStringContainsString('<dt>Reviews</dt><dd>0</dd>', $body);
         // the one markup / two presentations pair: the mobile meta line rides

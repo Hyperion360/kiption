@@ -46,7 +46,7 @@
         <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?></p>
       <dl class="story-stats">
         <dt><?= \App\Lang::t('story.rating') ?></dt><dd><?= $this->e($story['rating_label']) ?></dd>
-        <dt><?= \App\Lang::t('story.words') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd>
+        <dt><?= \App\Lang::t('story.words_label') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd>
         <?php if ($progress !== null && $progress['minutes_left'] !== null): ?><dt><?= \App\Lang::t('reader.time_left') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd><?php endif; ?>
         <dt><?= \App\Lang::t('story.kudos_label') ?></dt><dd><?= number_format((int) $kudos_count) ?></dd>
         <dt><?= \App\Lang::t('story.reviews_heading') ?></dt><dd><?= number_format((int) $review_count) ?></dd>
