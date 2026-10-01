@@ -2894,8 +2894,10 @@ None requiring action.
   settings route clears the theme cookie) and never reaches a row.
 - bookmarks (027): PK (user_id, story_id, chapter_id) makes re-bookmarking
   an upsert; idx_bookmarks_user_story (user_id, story_id, created_at,
-  chapter_id) serves the reader envelope's fold with no TEMP B-TREE. Notes
-  are capped at 500 bytes by the controller, not the schema.
+  chapter_id) serves the reader envelope's fold with no TEMP B-TREE;
+  idx_bookmarks_chapter (chapter_id) serves the chapter hard-delete
+  paths' cleanup as a seek. Notes are capped at 500 characters by the
+  controller (mb_substr, scrubbed to valid UTF-8), not the schema.
 - reading_progress does NOT exist and must not be added: member reading
   progress lives in reading_history.last_position (furthest-read,
   never-backwards, written by EngagementRepository::recordProgress). The

@@ -224,21 +224,15 @@ final class AccountController
         // session cookie survives beside them). A lang switch back to ''
         // CLEARS the cookie: the browser must not keep rendering the old pack
         // until logout.
-        $cookies = [$toc === '1'
-            ? 'toc=1; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax'
-            : 'toc=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'];
+        $cookies = [\App\Cookie::long('toc', $toc === '1' ? '1' : '')];
         if ($lang !== null) {
-            $cookies[] = $lang === ''
-                ? 'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
-                : 'lang=' . $lang . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+            $cookies[] = \App\Cookie::long('lang', $lang);
         }
         if ($theme !== null) {
             // auto CLEARS the cookie (the reader settings route's economy): a
             // cookie bearing theme=auto carries no information but still makes
             // every future request bypass the static cache.
-            $cookies[] = $theme === 'auto'
-                ? \App\Theme::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
-                : \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+            $cookies[] = \App\Cookie::long(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme);
         }
         $redirect = Response::redirect('/account');
         foreach ($cookies as $cookie) {

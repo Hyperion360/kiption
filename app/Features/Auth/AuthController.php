@@ -89,14 +89,14 @@ final class AuthController
         $cookies = [];
         $lang = (string) ($prefs['lang'] ?? '');
         if (\App\Features::on('peruserlang') && preg_match('/^[a-z]{2}$/', $lang) === 1) {
-            $cookies[] = 'lang=' . $lang . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+            $cookies[] = \App\Cookie::long('lang', $lang);
         }
         $theme = (string) ($prefs['theme'] ?? '');
         // The post-026 value set: a member's stored sepia/night/paper row
         // re-syncs its cookie on a new device. auto never reaches a row (the
         // write points store paper for it), and it is skipped here too.
         if (\App\Features::on('perusertheme') && \in_array($theme, \App\Theme::VALUES, true) && $theme !== 'auto') {
-            $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
+            $cookies[] = \App\Cookie::long(\App\Theme::COOKIE, $theme);
         }
         foreach ($cookies as $cookie) {
             $redirect = $redirect->withAddedHeader('Set-Cookie', $cookie);
@@ -202,8 +202,8 @@ final class AuthController
         // not a stale member preference. One withAddedHeader leaf per cleared
         // cookie, the same chain shape the login sync uses.
         return Response::redirect('/')
-            ->withAddedHeader('Set-Cookie', 'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax')
-            ->withAddedHeader('Set-Cookie', \App\Theme::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax');
+            ->withAddedHeader('Set-Cookie', \App\Cookie::long('lang', ''))
+            ->withAddedHeader('Set-Cookie', \App\Cookie::long(\App\Theme::COOKIE, ''));
     }
 
     public function forgot(): string

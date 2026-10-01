@@ -202,12 +202,22 @@ instead of setting it: a visitor who never customizes keeps full
 static-cache hits, because any cookie makes a request live. Cookieless
 cached pages stay byte-stable for the same reason: the layout emits the
 preferences as `data-*` attributes on `<html>` only when a non-default
-cookie is present, and a cookieless render emits none.
+cookie is present, and a cookieless render emits none. One deliberate
+consequence: the `reader` cookie outlives logout (typography is a
+device comfort setting, not an identity one), so a browser that ever
+customized it keeps bypassing the static cache until the cookie is
+cleared or reset to defaults. Every preference cookie (theme, reader,
+lang, toc, age_ok) is minted through one builder that appends `Secure`
+whenever the request arrived over HTTPS, mirroring the session cookie.
 
 Bookmarks. Members bookmark the chapter they are reading from the
 reader's control bar; `bookmarks` keys on (user, story, chapter), so
 re-bookmark is an upsert, and each bookmark carries an optional note
-(trimmed to 500 bytes on the way in, escaped on the way out). Bookmarks
+(trimmed to 500 characters on the way in, escaped on the way out; the
+note is scrubbed to valid UTF-8 so one garbage byte cannot null the
+member's whole bookmarks blob). Deleting a chapter removes its
+bookmarks in the same transaction, so rows never outlive their
+chapter. Bookmarks
 render in the reader's Contents sheet beside the chapter list, and both
 the add and remove POSTs are token-checked for members.
 

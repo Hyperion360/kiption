@@ -6,7 +6,8 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class ReaderController
 {
-    private const YEAR = 31536000;
+    /** Bookmark notes cap; README/DBMAP document it as 500 characters. */
+    private const NOTE_MAX = 500;
 
     public function __construct(
         private Request $request,
@@ -44,15 +45,9 @@ final class ReaderController
         // information. theme=auto and all-default typography CLEAR their
         // cookies — a visitor who saves defaults keeps full cache hits.
         $r = Response::redirect($to);
-        $themeCookie = $theme === 'auto'
-            ? \App\Theme::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
-            : \App\Theme::COOKIE . '=' . $theme . '; Max-Age=' . self::YEAR . '; Path=/; HttpOnly; SameSite=Lax';
-        $r = $r->withAddedHeader('Set-Cookie', $themeCookie);
+        $r = $r->withAddedHeader('Set-Cookie', \App\Cookie::long(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme));
         $isDefault = $prefs->cookieValue() === (new Prefs())->cookieValue();
-        $readerCookie = $isDefault
-            ? Prefs::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'
-            : Prefs::COOKIE . '=' . $prefs->cookieValue() . '; Max-Age=' . self::YEAR . '; Path=/; HttpOnly; SameSite=Lax';
-        return $r->withAddedHeader('Set-Cookie', $readerCookie);
+        return $r->withAddedHeader('Set-Cookie', \App\Cookie::long(Prefs::COOKIE, $isDefault ? '' : $prefs->cookieValue()));
     }
 
     /** Whitelist or default; the cookie is only ever built from these. */
@@ -83,7 +78,7 @@ final class ReaderController
         $me = (int) ($this->session->get('user_id') ?? 0);
         $row = $this->bookmarkTarget($slug, $position, $me);
         if ($row === null || $me === 0) { return new Response('Page not found', 404); }
-        $note = mb_substr(trim($this->request->postStr('note')), 0, 500);
+        $note = mb_substr(trim($this->request->postStr('note')), 0, self::NOTE_MAX);
         // SQLite's json_object returns NULL for invalid UTF-8, which would
         // blank the member's whole bookmarks blob (the sheet renders "none
         // yet" while rows exist). Scrub garbage bytes to U+FFFD.
