@@ -35,59 +35,234 @@ html[data-theme="night"]{
     --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; color-scheme:dark;
   }
 }
-/* Transitional aliases: the pre-redesign component rules below still read the
-   Alice token names (--dim/--gold/--gold-deep/--card). They resolve against
-   the new set until the C6 component rewrite replaces those rules wholesale;
-   the var() indirection keeps them following the active theme block. */
-:root{
-  --dim:var(--ink-2);
-  --gold:var(--accent);
-  --gold-deep:var(--accent);
-  --card:var(--surface);
-}
+
+/* Component layer (C6). Every rule reads the token blocks above; class
+   names are the pre-redesign vocabulary so screens not yet redesigned
+   inherit the new look unchanged. Square corners, 1px hairlines, 44px
+   tap-target floor, logical properties throughout (dir=rtl mirrors free). */
+
 * { box-sizing: border-box; }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: Georgia, 'Times New Roman', serif;
-  line-height: 1.6;
+  font: 16px/1.6 var(--sans);
 }
-a { color: var(--gold-deep); }
-a:hover { color: var(--gold); }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.site-head { border-bottom: 1px solid var(--line); }
-.site-nav {
-  max-width: 960px; margin: 0 auto; padding: 0.75rem 1rem;
-  display: flex; gap: 1.25rem; align-items: baseline; flex-wrap: wrap;
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Site header: one row, hairline bottom, nav links between the brand and
+   the Menu control (mobile) or the search form (desktop). */
+.site-head {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 56px; padding-inline: 20px;
+  background: var(--bg);
+  border-block-end: 1px solid var(--line);
 }
-.site-nav .brand { font-variant: small-caps; letter-spacing: 0.08em; color: var(--ink); }
-/* margin-inline-start keeps the toggle pinned to the far end under dir=rtl too. */
-.site-nav .theme-toggle { margin-inline-start: auto; }
-.site-main { max-width: 960px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.brand {
+  font-family: var(--serif); font-variant: small-caps; letter-spacing: .08em;
+  font-size: 20px; color: var(--ink); text-decoration: none; white-space: nowrap;
+}
+.site-nav { display: flex; align-items: center; gap: 2px; min-height: 44px; }
+.site-nav a, .nav-account {
+  display: inline-flex; align-items: center; min-height: 44px;
+  padding-inline: 10px; white-space: nowrap; text-decoration: none;
+  font: 500 15px/1 var(--sans); color: var(--ink-2);
+}
+.site-nav a:hover, .nav-account:hover { color: var(--ink); }
+.nav-search { display: none; }
+.nav-search input {
+  width: 300px; min-height: 40px; padding: 4px 10px;
+  border: 1px solid var(--line-strong); border-radius: 0;
+  background: var(--surface); color: var(--ink); font: 15px var(--sans);
+}
+.nav-menu-link {
+  margin-inline-start: auto;
+  display: inline-flex; align-items: center; min-height: 44px;
+  padding-inline: 12px; text-decoration: none;
+  font: 600 15px/1 var(--sans); color: var(--ink);
+}
+
+/* Main column: mobile gutters by default, the 1200px shell from 1024px. */
+.site-main { padding: 32px 24px 64px; }
+
+/* Retired with the C6 shell: no page emits .site-foot or .theme-toggle
+   anymore. The footer rule stays one release so a stale cached page or an
+   add-on view keeps a sane footer; the toggle link class is gone outright. */
 .site-foot {
-  border-top: 1px solid var(--line); color: var(--dim);
-  text-align: center; padding: 1rem; font-size: 0.85rem;
+  border-block-start: 1px solid var(--line); color: var(--muted);
+  text-align: center; padding: 16px; font: 13px var(--sans);
 }
-/* Reading column: the core of the product. */
+
+/* Sheets: the zero-JS dialog pattern. Hidden until :target, then a fixed
+   panel anchored to the bottom edge. The scrim dims the page behind an open
+   sheet where body:has() is available; where it is not, the sheet's own
+   opaque surface and max-height keep it fully usable on its own. */
+.sheet { display: none; }
+.sheet:target {
+  display: flex; flex-direction: column;
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+  max-height: 85vh; overflow-y: auto;
+  background: var(--surface);
+  border-block-start: 1px solid var(--line-strong);
+  padding: 8px 24px 24px;
+  box-shadow: 0 -12px 40px -12px var(--scrim);
+}
+.sheet-handle { display: block; width: 36px; height: 4px; margin: 4px auto 8px; background: var(--line-strong); }
+.sheet-done {
+  margin-inline-start: auto;
+  display: inline-flex; align-items: center; min-height: 44px;
+  padding-inline: 12px; text-decoration: none;
+  font: 600 15px/1 var(--sans); color: var(--accent);
+}
+.sheet:target nav { display: flex; flex-direction: column; padding-block: 4px; }
+.sheet:target nav a {
+  display: flex; align-items: center; min-height: 48px;
+  padding-inline: 4px; text-decoration: none; color: var(--ink);
+  font: 15px/1.3 var(--sans);
+  border-block-end: 1px solid var(--line);
+}
+.sheet:target nav a:last-child { border-block-end: none; }
+.scrim { display: none; }
+body:has(.sheet:target) .scrim {
+  display: block; position: fixed; inset: 0; z-index: 30;
+  background: var(--scrim);
+}
+/* An empty hash-target for the Done links to land on; never visible. */
+.skip-close { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* Typography: serif headings at weight 400, balanced wrapping, tabular
+   numerals wherever counts render. */
+h1, h2, h3, h4 {
+  font-family: var(--serif); font-weight: 400;
+  line-height: 1.15; text-wrap: balance; margin: 0 0 .75rem;
+}
+h1 { font-size: 36px; }
+h2 { font-size: 22px; }
+h3, h4 { font-size: 18px; }
+.meta, .chapter-meta {
+  color: var(--muted); font-family: var(--sans);
+  font-size: 13px; line-height: 1.5;
+}
+.meta { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+kbd {
+  font-family: var(--mono); font-size: .85em;
+  border: 1px solid var(--line-strong); padding: 1px 5px;
+}
+
+/* Reading column: the core of the product. Token-driven so C8's data-attr
+   overrides only ever rebind --read-size/-lh/-width. Book paragraphs: the
+   first sits flush, every later one indents (the spaced mode opts out). */
 .prose {
-  max-width: 680px; margin: 0 auto;
-  font-size: clamp(1.1rem, 0.5rem + 1.5vw, 1.3rem); line-height: 1.85;
+  font-family: var(--serif);
+  font-size: var(--read-size); line-height: var(--read-lh);
+  max-width: var(--read-width); margin-inline: auto;
+  text-wrap: pretty; hyphens: auto;
 }
-.prose p { margin: 0 0 1.5em; }
-.chapter-meta { color: var(--dim); font-size: 0.9rem; }
+.prose p { margin: 0; }
+html:not([data-paragraphs="spaced"]) .prose p + p { text-indent: 1.4em; }
+html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
+.prose ul, .prose ol { margin: 0 0 1em; padding-inline-start: 1.5em; }
+.prose blockquote { margin: 0 0 1em; padding-inline-start: 1em; border-inline-start: 2px solid var(--line-strong); }
+.prose img { max-width: 100%; height: auto; }
+.chapter-meta { margin-block: .25rem; }
+.chapter-nav {
+  display: flex; justify-content: space-between; gap: 1rem;
+  max-width: var(--read-width); margin-inline: auto; margin-block: 2.5rem;
+}
+
+/* Listings and cards. */
 .story-list { list-style: none; margin: 0; padding: 0; }
-.story-list li {
-  border: 1px solid var(--line); background: var(--card);
-  padding: 1rem 1.25rem; margin-bottom: 1rem;
-}
-.story-list .meta { color: var(--dim); font-size: 0.9rem; }
+.story-list li { border-block-start: 1px solid var(--line); padding: 20px 0; }
+.story-list li:last-child { border-block-end: 1px solid var(--line); }
+.story-list > li > a:first-child { font-family: var(--serif); font-size: 22px; line-height: 1.25; }
 .badge {
-  display: inline-block; border: 1px solid var(--line); border-radius: 3px;
-  font-size: 0.75rem; padding: 0 0.4em; color: var(--dim);
+  display: inline-block; border: 1px solid var(--line-strong); border-radius: 0;
+  padding: 2px 8px; font: 500 11px/1.6 var(--sans);
+  letter-spacing: .04em; color: var(--ink-2);
 }
 .card {
   max-width: 480px; margin: 4rem auto; text-align: center;
-  border: 1px solid var(--line); background: var(--card); padding: 2.5rem 2rem;
+  border: 1px solid var(--line-strong); background: var(--surface);
+  padding: 2.5rem 2rem;
 }
-.chapter-nav { display: flex; justify-content: space-between; gap: 1rem; margin-top: 2.5rem; }
+.auth-card, .profile-card {
+  border: 1px solid var(--line); background: var(--surface);
+  padding: 1.5rem; margin-block-end: 2rem;
+}
+
+/* Engagement, reviews, whole-work surfaces. */
+.engagement-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;
+  border-block: 1px solid var(--line); padding-block: 12px;
+}
+.review { border-block-start: 1px solid var(--line); padding-block: 1.5rem; }
+.review-reply {
+  margin: 1rem 0; padding-inline-start: 1rem;
+  border-inline-start: 2px solid var(--line-strong);
+}
+.whole-toc { margin-block: 1.5rem 2.5rem; }
+.print-hint { display: block; margin-block-start: .5rem; font: 12px var(--sans); color: var(--muted); }
+
+/* Forms and controls: 44px floor, square corners, hairline borders. */
+label { display: block; margin-block-end: .5rem; font: 13px/1.5 var(--sans); color: var(--ink-2); }
+input, select, textarea {
+  min-height: 44px; padding: 6px 12px;
+  border: 1px solid var(--line-strong); border-radius: 0;
+  background: var(--surface); color: var(--ink); font: 16px var(--sans);
+}
+input[type="checkbox"], input[type="radio"] { min-height: 0; width: auto; }
+input[type="search"] { min-height: 40px; }
+textarea { min-height: 96px; }
+button {
+  min-height: 44px; padding: 8px 16px;
+  border: 1px solid var(--line-strong); border-radius: 0;
+  background: transparent; color: var(--ink);
+  font: 500 15px var(--sans); cursor: pointer;
+}
+button:hover { background: var(--hover); color: var(--ink); }
+.inline { display: inline-flex; align-items: center; gap: 8px; }
+.error, [role="alert"] { color: #b3261e; font-weight: 600; }
+html[data-theme="night"] .error, html[data-theme="night"] [role="alert"] { color: #f0856d; }
+@media (prefers-color-scheme: dark){
+  html:not([data-theme="paper"]):not([data-theme="sepia"]) .error,
+  html:not([data-theme="paper"]):not([data-theme="sepia"]) [role="alert"] { color: #f0856d; }
+}
+
+/* Breakpoints per the comp: <=767 mobile, 768-1023 tablet, >=1024 desktop. */
+@media (min-width:768px) {
+  :root { --read-size:21px; --read-lh:1.72; --read-width:600px; }
+  .site-head { min-height: 64px; padding-inline: 24px; }
+  .brand { font-size: 22px; }
+  h1 { font-size: 40px; }
+  h2 { font-size: 24px; }
+  .site-main { padding: 40px 32px 80px; }
+}
+@media (min-width:1024px) {
+  :root { --read-size:20px; --read-lh:1.72; --read-width:640px; }
+  .site-head { min-height: 68px; padding-inline: 40px; gap: 24px; }
+  .brand { font-size: 24px; }
+  .site-nav { gap: 8px; }
+  .site-nav a, .nav-account { padding-inline: 12px; }
+  .nav-search { display: block; margin-inline-start: auto; }
+  .nav-menu-link { display: none; }
+  h1 { font-size: 44px; }
+  .site-main { max-width: 1200px; margin-inline: auto; padding: 48px 40px 96px; }
+}
+@media (max-width:767px) {
+  /* Mobile chrome: the nav row scrolls horizontally instead of wrapping the
+     header past its 56px row; gutters tighten to the comp's 20px. */
+  .site-nav { overflow-x: auto; }
+  .site-main { padding: 28px 20px 48px; }
+  .sheet:target { padding-inline: 20px; }
+}
+
+/* Motion kill switch: nothing animates for reduced-motion visitors. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

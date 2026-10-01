@@ -23,11 +23,15 @@ return [
     'common.language_hint' => 'Language (e.g. en, pt-BR)',
     'common.works_count' => '{n} works',
 
-    // Site chrome: the layout's nav, footer, and feed fallbacks.
+    // Site chrome: the layout's header nav, the menu sheet, and feed fallbacks.
     'nav.brand' => 'Kiption',
     'nav.home' => 'Home',
     'nav.browse' => 'Browse',
     'nav.recent' => 'Recent',
+    'nav.search' => 'Search',
+    'nav.search_placeholder' => 'Search stories',
+    'nav.account' => 'Account',
+    'nav.menu' => 'Menu',
     'nav.login' => 'Log in',
     'nav.logout' => 'Log out',
     'nav.notifications' => 'Notifications',
@@ -36,10 +40,7 @@ return [
     'nav.queue' => 'Queue',
     'nav.post_news' => 'Post news',
     'nav.site_label' => 'Site',
-    'footer.powered_by' => 'Powered by Kiption',
-    'footer.theme' => 'Theme:',
-    'theme.dark' => 'dark',
-    'theme.light' => 'light',
+    'common.done' => 'Done',
     'theme.paper' => 'paper',
     'theme.sepia' => 'sepia',
     'theme.night' => 'night',

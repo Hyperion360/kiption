@@ -5,8 +5,9 @@
  * the affordance is the browser print command, no JavaScript anywhere.
  */
 @media print {
-  /* Site chrome and engagement controls never reach paper. */
-  .site-head, .site-foot, .theme-toggle, .engagement-bar, .chapter-nav, .print-hint { display: none; }
+  /* Site chrome and engagement controls never reach paper. The footer was
+   * retired with the C6 shell, so no footer rule remains to hide. */
+  .site-head, .engagement-bar, .chapter-nav, .print-hint { display: none; }
   /* Paper fidelity: black on white, full width, no screen typography. */
   body { background: #fff; color: #000; }
   .site-main { max-width: none; padding: 0; }

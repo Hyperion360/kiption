@@ -191,25 +191,29 @@ final class PerUserTest extends TestCase
             'the theme cookie carried onto the next request (cookie > OS, ruling 5)');
         $this->assertStringNotContainsString('data-theme=', $this->client()->get('/browse')->body,
             'a cookieless render stays OS-default (the byte-identity pin)');
-        // The /theme toggle while logged in ALSO writes the pref (one source of
-        // truth); the guest cookie keeps riding the same response. The legacy
-        // route names map to the value set: /theme/dark stores and sets night.
-        $toggle = $me->get('/theme/dark', ['return_to' => '/browse']);
-        $this->assertSame(302, $toggle->status);
+        // The /reader/settings save while logged in ALSO writes the pref (one
+        // source of truth); the cookies keep riding the same response. The
+        // legacy /theme/{light,dark} routes were retired with the C6 footer
+        // (their links were the only entry points); ReaderSettingsTest pins
+        // the full leaf list, the CSRF shapes, and the fallback matrix.
+        $toggle = $me->postWithToken('/reader/settings', ['theme' => 'night', 'return_to' => '/browse']);
+        $this->assertSame(302, $toggle->status, $toggle->body);
         $this->assertSame('night', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
-            'the member toggle persists beside its cookie');
+            'the member settings save persists beside its cookie');
         $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($toggle)));
-        // A prefs-less member toggling gets their row created, not a no-op
+        // A prefs-less member saving gets their row created, not a no-op
         // (the upsert doctrine, plan review finding 5).
         $db->query('DELETE FROM user_prefs WHERE user_id = ?', [$this->memberId()]);
-        $this->assertSame(302, $me->get('/theme/light', ['return_to' => '/browse'])->status);
+        $this->assertSame(302, $me->postWithToken('/reader/settings', ['theme' => 'paper', 'return_to' => '/browse'])->status);
         $this->assertSame('paper', $db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
-            'the toggle upserts the row for prefs-less members');
-        // Guests: the cookie path unchanged (the pre-existing ThemeTest pins it
-        // unedited; the guest response keeps the scalar Set-Cookie shape).
-        $guest = $this->app()->handle(new Request('GET', '/theme/dark', ['return_to' => '/browse'], [], []));
-        $this->assertSame(302, $guest->status);
-        $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($guest)));
+            'the settings save upserts the row for prefs-less members');
+        // Guests: the cookie path unchanged (cookie-only, no row).
+        $guest = $this->client();
+        $saved = $guest->post('/reader/settings', ['theme' => 'night', 'return_to' => '/browse']);
+        $this->assertSame(302, $saved->status, $saved->body);
+        $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($saved)));
+        $this->assertStringContainsString('data-theme="night"', $guest->get('/browse')->body,
+            'the guest cookie carries onto the next request and themes it');
     }
 
     public function test_login_syncs_the_theme_cookie_from_the_pref(): void
@@ -254,15 +258,14 @@ final class PerUserTest extends TestCase
      *  physical directional property outside comments, so dir="rtl" flips the
      *  layout natively (flex order reverses, auto margins mirror through their
      *  logical spellings, text-align: center is direction-neutral). The pin
-     *  covers every stylesheet under public/, not just the one the ruling's
-     *  probe read: reader.css is the file the layout links (the probe's
-     *  style.css is not referenced by any view), and print.css rides the
-     *  whole-work print view. A future change that reintroduces margin-left
-     *  or friends breaks this test before it ships a half-mirrored RTL page. */
+     *  covers every stylesheet under public/assets (style.css at public/ root
+     *  was the pre-redesign orphan, deleted with the C6 shell): reader.css is
+     *  the file the layout links, and print.css rides the whole-work print
+     *  view. A future change that reintroduces margin-left or friends breaks
+     *  this test before it ships a half-mirrored RTL page. */
     public function test_stylesheets_carry_no_physical_directional_properties(): void
     {
         $files = [
-            'public/style.css' => dirname(__DIR__) . '/public/style.css',
             'public/assets/reader.css' => dirname(__DIR__) . '/public/assets/reader.css',
             'public/assets/print.css' => dirname(__DIR__) . '/public/assets/print.css',
         ];
@@ -347,18 +350,18 @@ final class PerUserTest extends TestCase
         \App\Features::toggle('peruserlang', false);
         $this->assertStringNotContainsString('name="lang"', $me->get('/account')->body, 'both field groups hide with both flags off');
         \App\Features::toggle('peruserlang', true);
-        // (c) The toggle still writes its cookie (the unflaggable guest core
-        // path); the member write-through alone skips.
-        $toggle = $me->get('/theme/dark', ['return_to' => '/browse']);
-        $this->assertSame(302, $toggle->status);
-        $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($toggle)), 'the toggle cookie keeps riding');
+        // (c) The settings save still writes its cookie (the unflaggable guest
+        // core path); the member write-through alone skips.
+        $toggle = $me->postWithToken('/reader/settings', ['theme' => 'night']);
+        $this->assertSame(302, $toggle->status, $toggle->body);
+        $this->assertStringContainsString('theme=night', implode(';', $this->cookieLeaves($toggle)), 'the settings cookie keeps riding');
         $this->assertSame('paper', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'the write-through skips while the flag is off');
         // On recovery: the write-through and the login sync return.
         \App\Features::toggle('perusertheme', true);
-        $this->assertSame(302, $me->get('/theme/dark', ['return_to' => '/browse'])->status);
+        $this->assertSame(302, $me->postWithToken('/reader/settings', ['theme' => 'night'])->status);
         $this->assertSame('night', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
-            'the member toggle persists again');
+            'the member write-through persists again');
         $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $this->assertContains('theme=night; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             $this->cookieLeaves($res), 'the login sync restores with the flag');
