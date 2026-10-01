@@ -16,6 +16,9 @@ final class Theme
     public static function current(Request $request): ?string
     {
         $t = $request->cookies[self::COOKIE] ?? '';
+        // PHP parses Cookie: theme[]=x into an array in $_COOKIE; the LEGACY
+        // lookup below would TypeError on it. Non-string reads as absent.
+        if (!\is_string($t)) { return null; }
         $t = self::LEGACY[$t] ?? $t;
         return in_array($t, self::VALUES, true) && $t !== 'auto' ? $t : null;
     }

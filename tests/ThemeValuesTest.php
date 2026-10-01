@@ -58,6 +58,20 @@ final class ThemeValuesTest extends TestCase
         $this->assertNull(\App\Theme::current(new Request('GET', '/', [], [], [])));
     }
 
+    public function test_array_cookie_never_fatals_the_render(): void
+    {
+        // PHP parses Cookie: theme[]=x into an array in $_COOKIE, which the
+        // legacy map lookup would TypeError on (red-team finding, verified by
+        // execution: one crafted header 500'd every themed page). A non-string
+        // cookie is simply absent.
+        $this->assertNull(\App\Theme::current(new Request('GET', '/', [], [], ['theme' => ['x']])));
+        $body = $this->render(['theme' => ['x'], 'reader' => ['y']]);
+        $this->assertStringNotContainsString('data-theme=', $body,
+            'an array theme cookie renders theme-neutral');
+        $this->assertStringNotContainsString('data-mode=', $body,
+            'an array reader cookie renders pref-neutral');
+    }
+
     public function test_layout_emits_the_new_data_theme_values(): void
     {
         $this->assertStringContainsString('data-theme="sepia"', $this->render(['theme' => 'sepia']));

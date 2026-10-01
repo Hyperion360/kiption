@@ -186,6 +186,20 @@ final class ReaderSettingsTest extends TestCase
         $this->assertSame(21, Prefs::current($valid)->size);
     }
 
+    public function test_wrong_segment_count_and_array_cookie_read_as_all_defaults(): void
+    {
+        // PHP parses Cookie: reader[]=x into an array in $_COOKIE; substr_count
+        // would TypeError on it. Any non-string and any wrong dash count is
+        // "no cookie": all defaults, never a 500 (red-team finding).
+        foreach (['21-serif', 'a-b-c-d-e-f-g', '19-serif-regular-indented-medium'] as $raw) {
+            $this->assertSame('19-serif-regular-indented-medium-scroll',
+                Prefs::current(new Request('GET', '/', [], [], ['reader' => $raw]))->cookieValue(),
+                "{$raw} has the wrong segment count and reads as defaults");
+        }
+        $this->assertSame('19-serif-regular-indented-medium-scroll',
+            Prefs::current(new Request('GET', '/', [], [], ['reader' => ['x']]))->cookieValue());
+    }
+
     public function test_prefs_data_attrs_are_empty_for_defaults(): void
     {
         $this->assertSame('', (new Prefs())->dataAttrs(),

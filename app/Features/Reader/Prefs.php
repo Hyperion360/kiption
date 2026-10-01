@@ -29,7 +29,10 @@ final class Prefs
     public static function current(?Request $request): self
     {
         $raw = $request?->cookies[self::COOKIE] ?? '';
-        if (substr_count($raw, '-') !== 5) { return new self(); }
+        // PHP parses Cookie: reader[]=x into an array; substr_count would
+        // TypeError on it. Non-string or wrong segment count reads as
+        // "no cookie": all defaults.
+        if (!\is_string($raw) || substr_count($raw, '-') !== 5) { return new self(); }
         [$size, $typeface, $spacing, $paragraphs, $width, $mode] = explode('-', $raw);
         $size = (int) $size;
         return new self(
