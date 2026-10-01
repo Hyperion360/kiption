@@ -4,21 +4,15 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5b1106c53ff95c31eb0f56ffa6c502be",
+    "content-hash": "b153a3d763adaacaa85bdd6a2194b84d",
     "packages": [
         {
             "name": "kip/framework",
             "version": "dev-main",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/Hyperion360/kip.git",
-                "reference": "e18114e63834e844d75a53bdea1c6259bbbebe1e"
-            },
             "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/e18114e63834e844d75a53bdea1c6259bbbebe1e",
-                "reference": "e18114e63834e844d75a53bdea1c6259bbbebe1e",
-                "shasum": ""
+                "type": "path",
+                "url": "/Users/danilosapad/Sites/MVC-Lite",
+                "reference": "5865455d054e7b13c533e8e6e3668c94e543fd91"
             },
             "require": {
                 "ext-pdo": "*",
@@ -28,11 +22,10 @@
                 "phpstan/phpstan": "^2.2",
                 "phpunit/phpunit": "^11"
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.2.x-dev"
+                    "dev-main": "0.5.x-dev"
                 }
             },
             "autoload": {
@@ -75,7 +68,9 @@
                 "issues": "https://github.com/Hyperion360/kip/issues",
                 "source": "https://github.com/Hyperion360/kip"
             },
-            "time": "2026-09-28T14:48:47+00:00"
+            "transport-options": {
+                "relative": false
+            }
         }
     ],
     "packages-dev": [
