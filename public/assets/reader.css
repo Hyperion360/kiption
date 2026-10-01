@@ -324,6 +324,238 @@ html[data-theme="night"] .error, html[data-theme="night"] [role="alert"] { color
   .ch-meta { text-align: end; }
 }
 
+/* Chapter reader (C8, frames M2/T1/D1 + focus D2): sticky header with the
+   story-span progressbar, end-of-chapter block, bottom control bar, sheet
+   tabs, and the text-settings segmented controls. The reading column itself
+   is the .prose block above; the data-attr overrides below rebind its
+   tokens only when a cookie set a non-default value (Prefs::dataAttrs). */
+.reader { padding-block-end: 88px; }
+.reader-head {
+  position: sticky; top: 0; z-index: 20;
+  display: grid; grid-template-columns: 44px 1fr 44px; grid-template-rows: auto 2px;
+  align-items: center; column-gap: 12px;
+  min-height: 52px; padding-inline: 8px;
+  background: var(--bg); border-block-end: 1px solid var(--line);
+}
+.reader-back {
+  grid-column: 1; display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; text-decoration: none;
+  color: var(--ink); font-size: 22px; line-height: 1;
+}
+.reader-titles { grid-column: 2; min-width: 0; display: flex; flex-direction: column; }
+.rt-story, .rt-chapter {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rt-story { font: 600 15px/1.3 var(--sans); color: var(--ink); }
+.rt-chapter { font: 13px/1.4 var(--sans); color: var(--muted); }
+.reader-pct {
+  grid-column: 3; text-align: end;
+  font: 600 15px var(--sans); font-variant-numeric: tabular-nums; color: var(--ink-2);
+}
+/* Progressbar: the track spans the header's second row; the fill paints the
+   chapter's span of the whole story. The static fallback is the --p-end
+   gradient; where scroll() timelines exist the fill animates from the
+   chapter's start to its end as the page scrolls (A.3). */
+.reader-progress {
+  grid-column: 1 / -1; grid-row: 2;
+  height: 2px; background: var(--track);
+}
+.reader-progress::after {
+  content: ""; display: block; height: 100%;
+  background: linear-gradient(var(--accent), var(--accent)) left center / var(--p-end, 0%) 100% no-repeat;
+}
+@supports (animation-timeline: scroll()) {
+  .reader-progress::after {
+    animation: reader-progress-fill linear both;
+    animation-timeline: scroll(root);
+  }
+}
+@keyframes reader-progress-fill {
+  from { background-size: var(--p-start, 0%) 100%; }
+  to { background-size: var(--p-end, 0%) 100%; }
+}
+.reader-main { padding-block: 2rem 0.5rem; }
+
+/* Typography preference overrides (html attrs from Prefs::dataAttrs). */
+html[data-size="16"] { --read-size: 16px; }
+html[data-size="17"] { --read-size: 17px; }
+html[data-size="18"] { --read-size: 18px; }
+html[data-size="20"] { --read-size: 20px; }
+html[data-size="21"] { --read-size: 21px; }
+html[data-size="22"] { --read-size: 22px; }
+html[data-size="23"] { --read-size: 23px; }
+html[data-size="24"] { --read-size: 24px; }
+html[data-spacing="snug"] { --read-lh: 1.6; }
+html[data-spacing="airy"] { --read-lh: 1.85; }
+html[data-typeface="sans"] .prose { font-family: var(--sans); }
+html[data-width="narrow"] { --read-width: 560px; }
+html[data-width="wide"] { --read-width: 720px; }
+/* Paged mode: the column becomes a horizontal deck of page-sized columns
+   with mandatory snap (the comp's CSS-columns reading mode, zero JS). */
+html[data-mode="pages"] .reader-main {
+  overflow-x: auto; scroll-snap-type: x mandatory;
+}
+html[data-mode="pages"] .prose {
+  max-width: none; column-width: var(--read-width); column-gap: 48px;
+  height: 70vh;
+}
+
+/* End-of-chapter block (M3/D2): dot ornament, kudos + review actions, and
+   the next-chapter link. */
+.chapter-end {
+  max-width: var(--read-width); margin: 3rem auto 0; padding-block: 24px;
+  border-block: 1px solid var(--line-strong); text-align: center;
+}
+.chapter-end .dots { display: block; margin-block-end: 12px; }
+.dots::before {
+  content: ""; display: inline-block; width: 4px; height: 4px;
+  background: var(--muted); box-shadow: 12px 0 0 var(--muted), -12px 0 0 var(--muted);
+}
+.chapter-end p {
+  margin: 0 0 16px; font: 600 12px/1.5 var(--sans);
+  letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+.chapter-end-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.chapter-end-actions a {
+  display: inline-flex; align-items: center; min-height: 44px; padding-inline: 16px;
+  border: 1px solid var(--line-strong); text-decoration: none;
+  font: 500 15px var(--sans); color: var(--ink);
+}
+.chapter-end-actions a:hover { background: var(--hover); }
+.next-chapter {
+  display: inline-flex; align-items: center; min-height: 44px;
+  margin-block-start: 16px; padding-inline: 24px;
+  background: var(--accent); color: var(--on-accent); text-decoration: none;
+  font: 600 15px var(--sans);
+}
+.next-chapter:hover { opacity: .92; color: var(--on-accent); }
+
+/* Bottom control bar: fixed with safe-area padding on mobile, a floating
+   centered pill from 768px, in normal flow under the column from 1024px. */
+.reader-bar {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 30;
+  display: flex; align-items: stretch; justify-content: space-around;
+  background: var(--bg); border-block-start: 1px solid var(--line-strong);
+  padding-block-end: max(18px, env(safe-area-inset-bottom, 0px));
+}
+.reader-bar a, .reader-bar button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 52px; min-width: 56px; padding-inline: 12px;
+  background: none; border: 0; cursor: pointer; text-decoration: none;
+  font: 600 15px var(--sans); color: var(--ink);
+}
+.reader-bar a:hover, .reader-bar button:hover { color: var(--accent-hover); background: none; }
+.bar-chapter {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: 600 15px var(--sans); font-variant-numeric: tabular-nums;
+}
+.bar-chapter a {
+  min-height: 0; min-width: 0; padding-inline: 8px;
+  font-size: 20px; color: var(--accent);
+}
+.bar-bookmark button.is-saved { color: var(--accent); }
+
+/* Focus variant (D2): the layout hides .site-head under body.focus; the
+   reader adds a right-edge vertical dock of three 48px controls. */
+body.focus .site-head { display: none; }
+.reader-dock {
+  position: fixed; inset-inline-end: 28px; bottom: 28px; z-index: 30;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--line-strong);
+}
+.reader-dock a {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; text-decoration: none;
+  color: var(--ink); font-size: 18px; line-height: 1;
+  border-block-end: 1px solid var(--line);
+}
+.reader-dock a:hover { background: var(--hover); }
+.reader-dock a:last-child { border-block-end: 0; }
+
+/* Reader sheets beyond the C6 shell pattern: radio-tabbed panes in
+   #contents, and the segmented settings groups in #text. */
+.ctab-radio {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  overflow: hidden; clip-path: inset(50%);
+}
+.sheet-tabs { display: flex; gap: 24px; border-block-end: 1px solid var(--line-strong); }
+.sheet-tabs label {
+  display: inline-flex; align-items: center; min-height: 44px;
+  font: 600 15px/1 var(--sans); color: var(--muted); cursor: pointer;
+  border-block-end: 2px solid transparent; margin-block-end: -1px;
+}
+#ctab-contents:checked ~ .sheet-tabs label[for="ctab-contents"],
+#ctab-bookmarks:checked ~ .sheet-tabs label[for="ctab-bookmarks"] {
+  color: var(--ink); border-block-end-color: var(--accent);
+}
+.pane-bookmarks { display: none; }
+#ctab-bookmarks:checked ~ .pane-bookmarks { display: block; }
+.sheet-title { font-size: 18px; margin-block: 1rem .25rem; }
+.bookmark-list { list-style: none; margin: 0; padding: 0; }
+.bookmark-list li { border-block-end: 1px solid var(--line); padding-block: 12px; }
+.bm-chapter { font: 600 15px/1.6 var(--sans); }
+.bm-note {
+  margin: 4px 0; font-family: var(--serif); font-style: italic;
+  font-size: 16px; line-height: 1.5; color: var(--ink-2);
+}
+.text-settings fieldset {
+  border: 1px solid var(--line-strong); margin: 0 0 12px; padding: 12px;
+}
+.text-settings legend {
+  padding-inline: 4px; font: 600 12px/1.5 var(--sans);
+  text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+}
+.text-settings legend .val { color: var(--ink); text-transform: none; letter-spacing: 0; }
+.segmented { display: flex; }
+.segmented label {
+  flex: 1; display: flex; margin: 0; cursor: pointer;
+  border-inline-start: 1px solid var(--line-strong);
+}
+.segmented label:first-child { border-inline-start: 0; }
+.segmented input {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  overflow: hidden; clip-path: inset(50%);
+}
+.segmented input + span {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  min-height: 44px; font: 15px var(--sans); color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.segmented input:checked + span { background: var(--ink); color: var(--bg); }
+.segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Theme swatches (M4): a chip previewing each palette, ringed when chosen. */
+.segmented.swatches { flex-wrap: wrap; }
+.swatch { flex-direction: column; gap: 8px; padding: 8px; border-inline-start: 0; }
+.swatch .swatch-aa {
+  min-height: 0; height: 46px; width: 100%;
+  font-family: var(--serif); font-size: 20px;
+}
+.swatch-paper .swatch-aa { background: #f8f7f3; color: #1c2320; }
+.swatch-sepia .swatch-aa { background: #f4ecdc; color: #33291b; }
+.swatch-night .swatch-aa { background: #121513; color: #d6dcd7; }
+.swatch-auto .swatch-aa { background: linear-gradient(90deg, #f8f7f3 50%, #121513 50%); color: #1c2320; }
+.swatch input:checked ~ .swatch-aa { box-shadow: inset 0 0 0 2px var(--accent); }
+@media (min-width:768px) {
+  .reader-head { min-height: 56px; padding-inline: 16px; }
+  .reader-bar {
+    inset-inline: auto; bottom: 28px; left: 50%; transform: translateX(-50%);
+    border: 1px solid var(--line-strong); background: var(--surface);
+    box-shadow: 0 12px 30px -16px var(--scrim);
+    padding-block-end: 0;
+  }
+  .reader-bar a, .reader-bar button { min-width: 48px; }
+  .reader { padding-block-end: 48px; }
+}
+@media (min-width:1024px) {
+  .reader-head { min-height: 60px; }
+  .reader-bar {
+    position: static; left: auto; bottom: auto; transform: none;
+    max-width: var(--read-width); margin: 2.5rem auto 0;
+    justify-content: space-between; box-shadow: none;
+  }
+  .reader { padding-block-end: 0; }
+}
+
 /* Breakpoints per the comp: <=767 mobile, 768-1023 tablet, >=1024 desktop. */
 @media (min-width:768px) {
   :root { --read-size:21px; --read-lh:1.72; --read-width:600px; }

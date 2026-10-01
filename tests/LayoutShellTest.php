@@ -155,4 +155,28 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('.story-info>.meta-line{display:none', str_replace(' ', '', $css),
             'desktop swaps the meta line for the stats dl (one markup, two presentations)');
     }
+
+    /** C8: the reader-shell components exist as real rules: the control bar
+     *  at all three placements, the scroll-driven progress enhancement with
+     *  its static fallback, the pref overrides, and focus chrome hiding. */
+    public function test_reader_css_carries_the_chapter_reader_components(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
+        $flat = str_replace(' ', '', $css);
+        foreach (['.reader-head', '.reader-progress', '.reader-bar', '.reader-dock',
+                  '.chapter-end', '.ctab-radio', '.segmented', '.swatch'] as $selector) {
+            $this->assertStringContainsString($selector, $css, "the {$selector} component is styled");
+        }
+        $this->assertStringContainsString('@supports(animation-timeline:scroll())', $flat,
+            'the scroll-driven progress enhancement ships inside @supports');
+        $this->assertStringContainsString('animation-timeline:scroll(root)', $flat);
+        $this->assertStringContainsString('--p-end,0%)100%', $flat,
+            'the static fallback paints the --p-end gradient without timeline support');
+        $this->assertStringContainsString('html[data-mode="pages"]', $css, 'paged mode rides CSS columns');
+        $this->assertStringContainsString('column-width:var(--read-width)', $flat, 'columns sized by the width token');
+        $this->assertStringContainsString('html[data-width="wide"]', $css, 'the width pref override exists');
+        $this->assertStringContainsString('html[data-typeface="sans"]', $css, 'the typeface pref override exists');
+        $this->assertStringContainsString('body.focus.site-head{display:none', $flat,
+            'focus mode hides the site header via body.focus');
+    }
 }

@@ -161,6 +161,21 @@ final class StoryController
         }
         ksort($chapters);
         unset($story['chapters_blob']);
+        // C8: the chapter's span of the whole story in percent, folded from
+        // the SAME blob in PHP (no query): the reader header's progressbar
+        // paints --p-start..--p-end and its readout. Derived from story data
+        // only, so the cookieless render the static cache stores is
+        // reader-neutral bytes (the member's own marker lives on the story
+        // page, whose reading_history fold C4 already owns).
+        $wordsBefore = 0;
+        $wordsThrough = 0;
+        foreach ($chapters as $c) {
+            if ((int) $c['position'] < $position) { $wordsBefore += (int) $c['word_count']; }
+            if ((int) $c['position'] <= $position) { $wordsThrough += (int) $c['word_count']; }
+        }
+        $totalWords = (int) $story['word_count'];
+        $pctStart = $totalWords > 0 ? min(100, (int) round(100 * $wordsBefore / $totalWords)) : 0;
+        $pctEnd = $totalWords > 0 ? min(100, (int) round(100 * $wordsThrough / $totalWords)) : 0;
         $readTitle = \App\Lang::t('story.chapter_page_title', ['n' => $position, 'chapter' => $chapterTitle, 'story' => $story['title']]);
         $head = $this->head()
             ->withTitle($readTitle)
@@ -193,6 +208,13 @@ final class StoryController
             'progress' => $progress,
             'bookmarks' => $bookmarks,
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
+            'me' => $me,
+            // ?focus=1 renders the distraction-free shell (D2); the request
+            // bears a query string, so it is never served from nor stored to
+            // the static cache, and the canonical link stays the clean URL.
+            'focus' => ($this->request->get['focus'] ?? '') === '1',
+            'pct_start' => $pctStart,
+            'pct_end' => $pctEnd,
         ]);
         if ($me !== 0) {
             try {
