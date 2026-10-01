@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "/Users/danilosapad/Sites/MVC-Lite",
-                "reference": "5865455d054e7b13c533e8e6e3668c94e543fd91"
+                "reference": "2979b924372eaaec4f48b4fe11337e3362cdf45b"
             },
             "require": {
                 "ext-pdo": "*",
