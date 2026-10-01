@@ -146,6 +146,18 @@ final class BrowseTest extends TestCase
         $this->assertStringNotContainsString($hidden, $res->body, "filter={$filter} must drop the non-matching story");
     }
 
+    public function test_under10k_boundary_is_exclusive_at_exactly_10000(): void
+    {
+        // Testing specialist: the SQL is word_count < 10000; a story at
+        // exactly 10k words is NOT under 10k. An off-by-one drift to <= would
+        // change the documented semantics without failing any other pin.
+        $this->seedFilterFixture();
+        (new Database($this->dsn))->query("UPDATE stories SET word_count = 10000 WHERE slug = 'the-long-finish'");
+        $body = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'under10k'], [], []))->body;
+        $this->assertStringNotContainsString('The Long Finish', $body, 'exactly 10k is not under 10k');
+        $this->assertStringContainsString('The Rabbit Hole', $body);
+    }
+
     public function test_unknown_filter_reads_as_no_filter(): void
     {
         $this->seedFilterFixture();

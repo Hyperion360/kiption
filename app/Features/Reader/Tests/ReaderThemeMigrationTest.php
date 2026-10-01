@@ -54,9 +54,14 @@ final class ReaderThemeMigrationTest extends TestCase
 
     public function test_migration_rebuild_maps_theme_and_keeps_every_column_round_trip(): void
     {
-        // Batch 1: everything through 025, then the seeded legacy row.
+        // Batch 1: everything through 025, then the seeded legacy rows.
         (new Migrator($this->db, $this->baseDirs()))->migrate();
         $this->seedMemberWithFullPrefs();
+        // The light arm too (testing specialist: a typo in either CASE branch
+        // would otherwise ship green; dark is the round-trip row above).
+        $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('rtm-light@e.test', ?, 'rtmlight')",
+            [password_hash('password123', PASSWORD_DEFAULT)]);
+        $this->db->query('INSERT INTO user_prefs (user_id, theme) VALUES ((SELECT id FROM users WHERE penname = \'rtmlight\'), \'light\')');
 
         // Up: 026 runs alone (its own batch, the real Migrator mechanics).
         $ran = (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
@@ -64,6 +69,8 @@ final class ReaderThemeMigrationTest extends TestCase
         $up = $this->prefsRow();
         $this->assertNotNull($up, 'the row survived the rebuild');
         $this->assertSame('night', $up['theme'], 'legacy dark maps to night');
+        $this->assertSame('paper', $this->db->one("SELECT theme FROM user_prefs WHERE user_id = (SELECT id FROM users WHERE penname = 'rtmlight')")['theme'],
+            'legacy light maps to paper');
         $this->assertSame(0, (int) $up['notify_review']);
         $this->assertSame(0, (int) $up['notify_response']);
         $this->assertSame(0, (int) $up['notify_favorites']);
@@ -92,6 +99,8 @@ final class ReaderThemeMigrationTest extends TestCase
         $down = $this->prefsRow();
         $this->assertNotNull($down, 'the row survived the down rebuild too');
         $this->assertSame('dark', $down['theme'], 'night maps back to dark');
+        $this->assertSame('light', $this->db->one("SELECT theme FROM user_prefs WHERE user_id = (SELECT id FROM users WHERE penname = 'rtmlight')")['theme'],
+            'paper maps back to light');
         $this->assertSame(0, (int) $down['notify_review']);
         $this->assertSame(0, (int) $down['notify_response']);
         $this->assertSame(0, (int) $down['notify_favorites']);

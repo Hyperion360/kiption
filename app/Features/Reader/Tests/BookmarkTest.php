@@ -198,6 +198,17 @@ final class BookmarkTest extends TestCase
         $this->assertStringNotContainsString('none yet', $body);
     }
 
+    /** The cap is 500 characters, not bytes (docs corrected alongside); a
+     *  multibyte note stores up to ~2000 bytes legally. */
+    public function test_multibyte_note_honors_the_500_character_cap(): void
+    {
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1',
+            ['note' => str_repeat("\u{00E9}", 600)]);
+        $note = (string) $this->db->one('SELECT note FROM bookmarks')['note'];
+        $this->assertSame(500, mb_strlen($note), '600 multibyte chars truncate to exactly 500 chars');
+        $this->assertGreaterThan(500, strlen($note), 'the stored bytes exceed 500: the cap is characters');
+    }
+
     /** Adversarial F6: bookmarkTarget enforces the same adult gate read()
      *  does; members bookmark what they may read. */
     public function test_adult_story_refuses_bookmarks_until_age_acked(): void
