@@ -4,6 +4,19 @@ return [
     'db'      => ['dsn' => getenv('KIP_DB_DSN') ?: 'sqlite:' . __DIR__ . '/app/data.sqlite'], // KIP_DB_DSN: tests/CLI point bin/kip at a throwaway DB
     'log_db'  => ['dsn' => 'sqlite:' . __DIR__ . '/app/logs.sqlite', 'retention_days' => 30],
     'cache_db' => ['dsn' => 'sqlite:' . __DIR__ . '/app/cache.sqlite', 'ttl_seconds' => 3600],
+    'rate_limit' => [   // per first URL segment, fixed window, non-GET/HEAD only; table rate_limits (migration 025)
+        'auth'      => ['max' => 10, 'window' => 60],  // login/register/remind
+        'reader'    => ['max' => 30, 'window' => 60],  // settings + bookmarks (Phase C routes)
+        'kudos'     => ['max' => 30, 'window' => 60],
+        'review'    => ['max' => 30, 'window' => 60],
+        'favorites' => ['max' => 30, 'window' => 60],
+        'follow'    => ['max' => 30, 'window' => 60],
+        'story'     => ['max' => 30, 'window' => 60],  // mark, review-add forms
+        'report'    => ['max' => 10, 'window' => 60],
+        'messages'  => ['max' => 20, 'window' => 60],
+        'account'   => ['max' => 20, 'window' => 60],
+        'comment'   => ['max' => 30, 'window' => 60],
+    ],
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),
     'admin'   => ['enabled' => true],   // /admin CRUD panel, gate: users.is_admin = 1
