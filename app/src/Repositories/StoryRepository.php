@@ -35,19 +35,15 @@ final class StoryRepository
         // inlined as a cast int, never a bind: the join then seeks reading_history's
         // (user_id, story_id) PK directly. last_position keeps its existing
         // furthest-read MAX() semantics (the C3 removal note); read_pct and
-        // minutes_left re-derive from validated chapter word counts at read
-        // time, 250 wpm being the comp's own arithmetic (~248 by its numbers).
+        // minutes_left derive in StoryController::progressOf() from the
+        // validated chapters blob the page already decoded (review: the SQL
+        // pair below ran the identical chapter-range SUM twice per render),
+        // clamped against stale word_count there. marked_at rides the join
+        // too (the old scalar subquery read the same PK row a second time).
         $progressJoin = $me !== 0 ? ' LEFT JOIN reading_history rh2 ON rh2.story_id = s.id AND rh2.user_id = ' . $me : '';
-        $progressCols = $me !== 0 ? ",
-                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
-                      CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
-                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0)
-                       / NULLIF(s.word_count, 0)) AS INTEGER) END AS read_pct,
-                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
-                      CAST(ROUND((s.word_count - COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
-                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0))
-                       / 250.0) AS INTEGER) END AS minutes_left,
-                    rh2.last_position" : '';
+        $progressCols = $me !== 0 ? ',
+                    rh2.last_position,
+                    rh2.marked_at AS marked_at_me' : '';
         // C5 bookmarks fold, member path only too: notes are free text, so the
         // blob is JSON (the TOC discipline; no delimiter survives a note).
         // Ordering rides the derived table (created_at, then chapter_id to
@@ -65,7 +61,6 @@ final class StoryRepository
                     (SELECT COUNT(*) FROM story_kudos k2 WHERE k2.story_id = s.id AND k2.user_id = ?) AS kudos_by_me,
                     (SELECT COUNT(*) FROM favorites f2 WHERE f2.story_id = s.id AND f2.user_id = ?) AS favorite_by_me,
                     (SELECT COUNT(*) FROM follows fo WHERE fo.author_id = s.author_id AND fo.follower_id = ?) AS following_author,
-                    (SELECT rh.marked_at FROM reading_history rh WHERE rh.story_id = s.id AND rh.user_id = ?) AS marked_at_me,
                     (SELECT GROUP_CONCAT(c.name, ", ") FROM story_categories sc
                      JOIN categories c ON c.id = sc.category_id
                      WHERE sc.story_id = s.id) AS category_names,
@@ -102,7 +97,7 @@ final class StoryRepository
              JOIN ratings r ON r.id = s.rating_id' . $progressJoin . '
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)',
-            [$me, $me, $me, $me, $slug, $me]
+            [$me, $me, $me, $slug, $me]
         );
     }
 
@@ -127,7 +122,6 @@ final class StoryRepository
                     (SELECT COUNT(*) FROM story_kudos k2 WHERE k2.story_id = s.id AND k2.user_id = ?) AS kudos_by_me,
                     (SELECT COUNT(*) FROM favorites f2 WHERE f2.story_id = s.id AND f2.user_id = ?) AS favorite_by_me,
                     (SELECT COUNT(*) FROM follows fo WHERE fo.author_id = s.author_id AND fo.follower_id = ?) AS following_author,
-                    (SELECT rh.marked_at FROM reading_history rh WHERE rh.story_id = s.id AND rh.user_id = ?) AS marked_at_me,
                     (SELECT GROUP_CONCAT(c.name, ", ") FROM story_categories sc
                      JOIN categories c ON c.id = sc.category_id
                      WHERE sc.story_id = s.id) AS category_names,
@@ -157,7 +151,7 @@ final class StoryRepository
              JOIN ratings r ON r.id = s.rating_id
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)',
-            [$me, $me, $me, $me, $slug, $me]
+            [$me, $me, $me, $slug, $me]
         );
     }
 
@@ -177,19 +171,13 @@ final class StoryRepository
         // C4: the titled TOC blob rides every chapter read (findStoryBySlug's
         // expression verbatim, alias shifted to ch3 because this statement
         // already aliases chapters as ch and ch2), so the read page can render
-        // a titled contents sheet; the progress fold is the member-only
+        // a titled contents sheet AND derive prev/next positions from its keys
+        // (review: the old positions_blob GROUP_CONCAT scanned the same
+        // chapter set a second time). The progress fold is the member-only
         // fragment from findStoryBySlug, same PK seek, same guest omission.
         $progressJoin = $me !== 0 ? ' LEFT JOIN reading_history rh2 ON rh2.story_id = s.id AND rh2.user_id = ' . $me : '';
-        $progressCols = $me !== 0 ? ",
-                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
-                      CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
-                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0)
-                       / NULLIF(s.word_count, 0)) AS INTEGER) END AS read_pct,
-                    CASE WHEN rh2.last_position IS NULL THEN NULL ELSE
-                      CAST(ROUND((s.word_count - COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
-                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh2.last_position), 0))
-                       / 250.0) AS INTEGER) END AS minutes_left,
-                    rh2.last_position" : '';
+        $progressCols = $me !== 0 ? ',
+                    rh2.last_position' : '';
         // The C5 bookmarks fold, same member-only shape as findStoryBySlug.
         $bookmarksCols = $me !== 0 ? ',
                     (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note))
@@ -206,8 +194,6 @@ final class StoryRepository
                     MAX(CASE WHEN ch.position = ? THEN ch.content END) AS ch_content,
                     MAX(CASE WHEN ch.position = ? THEN ch.notes_after END) AS ch_notes_after,
                     MAX(CASE WHEN ch.position = ? THEN ch.word_count END) AS ch_word_count,
-                    (SELECT GROUP_CONCAT(CAST(ch2.position AS TEXT), "~") FROM chapters ch2
-                     WHERE ch2.story_id = s.id AND ch2.validated = 1) AS positions_blob,
                     (SELECT json_group_array(json_object(\'position\', ch3.position, \'title\', ch3.title, \'word_count\', ch3.word_count))
                      FROM chapters ch3 WHERE ch3.story_id = s.id AND ch3.validated = 1
                      ORDER BY ch3.position) AS chapters_blob' . $progressCols . $bookmarksCols . '
@@ -248,9 +234,9 @@ final class StoryRepository
         $progressCols = $viewer > 0 ? ',
                     rr.last_position,
                     CASE WHEN rr.last_position IS NULL THEN NULL ELSE
-                      CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
+                      MIN(100, CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
                          WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rr.last_position), 0)
-                       / NULLIF(s.word_count, 0)) AS INTEGER) END AS read_pct' : '';
+                       / NULLIF(s.word_count, 0)) AS INTEGER)) END AS read_pct' : '';
         return $this->db->all(
             'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, s.created_at,
                     u.penname, r.label AS rating_label' . $progressCols . '

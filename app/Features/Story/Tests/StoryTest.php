@@ -239,9 +239,41 @@ final class StoryTest extends TestCase
         (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 2)');
         $member = $repo->findStoryWithChapter('the-rabbit-hole', 1, 1);
         $this->assertSame(2, (int) $member['last_position']);
-        $this->assertSame(100, $member['read_pct']); // (100+200) of 300 words
-        $this->assertSame(0, $member['minutes_left']); // nothing left to read
+        // read_pct/minutes_left no longer ride the SQL (the chapter-range SUM
+        // ran twice per render); StoryController::progressOf derives both
+        // from this row plus the TOC above, clamped. The derivation itself is
+        // pinned through the rendered member page below and in PerUserTest.
+        $this->assertArrayNotHasKey('read_pct', $member);
+        $this->assertArrayNotHasKey('minutes_left', $member);
         $this->assertSame($toc, json_decode((string) $member['chapters_blob'], true));
+    }
+
+    /** Review follow-up: the derived progress is clamped on both axes. A
+     *  stale stories.word_count (chapters edited after the cached total) can
+     *  push pct past 100 and minutes negative; the member page must render
+     *  100% and 0 minutes, never "101%" or "about -1 min left". */
+    public function test_member_progress_renders_clamped_when_word_count_is_stale(): void
+    {
+        (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 2)');
+        (new Database($this->dsn))->query("UPDATE stories SET word_count = 150 WHERE slug = 'the-rabbit-hole'");
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('100%', $body);
+        $this->assertStringNotContainsString('101%', $body);
+        $this->assertStringNotContainsString('about -', $body);
+    }
+
+    /** Review follow-up (red team): Continue never links a position that no
+     *  longer validates. The member read chapter 3; the author then deleted
+     *  it; the landing CTA must fall back to the highest surviving position
+     *  (or vanish when nothing at or below survives), never 404. */
+    public function test_continue_clamps_to_surviving_positions(): void
+    {
+        $db = new Database($this->dsn);
+        $db->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 3)');
+        $db->query('DELETE FROM chapters WHERE story_id = 1 AND position = 3');
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('/story/read/the-rabbit-hole/3', $body,
+            'the dead position is never linked');
     }
 
     /** C7 (frames M1/T2/D3): the hero grid pairs a cover column (uploaded

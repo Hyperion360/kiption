@@ -91,7 +91,8 @@ final class StoryRepositoryTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame('Through', $row['ch_title']);
         $this->assertSame('Through the door.', $row['ch_content']);
-        $this->assertSame('1~2', $row['positions_blob']);
+        $this->assertSame([1, 2], array_column(json_decode((string) $row['chapters_blob'], true), 'position'),
+            'prev/next positions derive from the TOC keys (positions_blob is gone; one chapter scan, not two)');
         $this->assertSame('Demo Author', $row['penname']);
     }
 
@@ -145,7 +146,7 @@ final class StoryRepositoryTest extends TestCase
         $this->db->onQuery(function (string $s) use (&$sql): void { $sql = $s; });
         (new StoryRepository($this->db))->findStoryBySlug('the-rabbit-hole');
         $this->db->onQuery(fn () => null);
-        $plan = $this->db->all('EXPLAIN QUERY PLAN ' . (string) $sql, [0, 0, 0, 0, 'the-rabbit-hole', 0]);
+        $plan = $this->db->all('EXPLAIN QUERY PLAN ' . (string) $sql, [0, 0, 0, 'the-rabbit-hole', 0]);
         $text = implode(' ', array_column($plan, 'detail'));
         $this->assertStringContainsString('USING INDEX idx_reviews_roots', $text,
             'the roots window must walk idx_reviews_roots (alias-tolerant: SQLite emits the table alias)');

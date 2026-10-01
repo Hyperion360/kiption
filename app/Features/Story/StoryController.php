@@ -21,14 +21,14 @@ final class StoryController
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $story = $this->repo->findStoryBySlug($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
-        $progress = $this->progressOf($story);
-        $bookmarks = $this->bookmarksOf($story);
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
             $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
         }
         ksort($chapters);
         unset($story['chapters_blob']);
+        $progress = $this->progressOf($story, $chapters);
+        $bookmarks = $this->bookmarksOf($story);
         $seriesLinks = json_decode((string) $story['series_blob'], true) ?: [];
         unset($story['series_blob']);
         $coauthors = json_decode((string) $story['coauthors_blob'], true) ?: [];
@@ -89,7 +89,7 @@ final class StoryController
             'favorite_count' => (int) $story['favorite_count'],
             'favorite_by_me' => (int) $story['favorite_by_me'],
             'following_author' => (int) $story['following_author'],
-            'marked_at_me' => $story['marked_at_me'],
+            'marked_at_me' => $story['marked_at_me'] ?? null,
             'progress' => $progress,
             'bookmarks' => $bookmarks,
             'reviews' => $reviews,
@@ -125,13 +125,23 @@ final class StoryController
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $story = $this->repo->findStoryWithChapter($slug, $position, $me);
         if ($story === null) return new Response('Page not found', 404);
-        $progress = $this->progressOf($story);
-        $bookmarks = $this->bookmarksOf($story);
-        $positions = array_values(array_filter(array_map('intval', explode('~', (string) $story['positions_blob'])), static fn(int $p): bool => $p > 0));
-        sort($positions);
+        // The titled TOC blob (C4 step 2b): same decode discipline as view(),
+        // so the contents sheet on chapter pages renders titles the landing
+        // page already shows, AND the prev/next position list is simply its
+        // keys (review: positions_blob re-scanned the same chapter set).
+        // Both ride the SAME single query.
+        $chapters = [];
+        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
+        }
+        ksort($chapters);
+        unset($story['chapters_blob']);
+        $positions = array_keys($chapters);
         if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
             return new Response('Page not found', 404);
         }
+        $progress = $this->progressOf($story, $chapters);
+        $bookmarks = $this->bookmarksOf($story);
         $chapterTitle = $story['ch_title'] !== '' && $story['ch_title'] !== null ? $story['ch_title'] : \App\Lang::t('story.chapter_n', ['n' => $position]);
         if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
             return $this->view->render('story/gate', [
@@ -152,15 +162,6 @@ final class StoryController
             if ($pn < $position) $prev = $pn;
             if ($next === null && $pn > $position) $next = $pn;
         }
-        // The titled TOC blob (C4 step 2b): same decode discipline as view(),
-        // so the contents sheet on chapter pages renders titles the landing
-        // page already shows. Both ride the SAME single query.
-        $chapters = [];
-        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
-            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
-        }
-        ksort($chapters);
-        unset($story['chapters_blob']);
         // C8: the chapter's span of the whole story in percent, folded from
         // the SAME blob in PHP (no query): the reader header's progressbar
         // paints --p-start..--p-end and its readout. Derived from story data
@@ -649,18 +650,37 @@ final class StoryController
      *  members with no reading_history row (the LEFT JOIN went NULL).
      *  @param array<string,mixed> $story mutated: the three keys are unset
      *  @return array{last_position: int, read_pct: ?int, minutes_left: ?int}|null */
-    private function progressOf(array &$story): ?array
+    /** The comp's own reading-speed arithmetic (~248 by its numbers). */
+    private const WORDS_PER_MINUTE = 250;
+
+    /** The reading-history fold's PHP side. last_position rides the member's
+     *  LEFT JOIN; read_pct and minutes_left derive here from the validated
+     *  chapters array the page already decoded (review: the SQL pair ran the
+     *  identical chapter-range SUM twice per render), clamped on both axes:
+     *  stale stories.word_count can push pct past 100 and minutes negative,
+     *  and a chapter delete can leave last_position pointing at a position
+     *  that no longer validates (Continue would 404). When nothing at or
+     *  below last_position survives, the member simply gets no progress.
+     *  @param array<int, array{position: int, word_count: int}> $chapters ksorted by position
+     *  @return array{last_position: int, read_pct: ?int, minutes_left: ?int}|null */
+    private function progressOf(array &$story, array $chapters): ?array
     {
         if (!array_key_exists('last_position', $story)) return null;
         $last = $story['last_position'];
-        $pct = $story['read_pct'];
-        $minutes = $story['minutes_left'];
-        unset($story['last_position'], $story['read_pct'], $story['minutes_left']);
+        unset($story['last_position']);
         if ($last === null) return null;
+        $last = (int) $last;
+        $clamped = null;
+        $wordsThrough = 0;
+        foreach ($chapters as $p => $c) {
+            if ($p <= $last) { $clamped = $p; $wordsThrough += (int) $c['word_count']; }
+        }
+        if ($clamped === null) return null;
+        $total = (int) $story['word_count'];
         return [
-            'last_position' => (int) $last,
-            'read_pct' => $pct === null ? null : (int) $pct,
-            'minutes_left' => $minutes === null ? null : (int) $minutes,
+            'last_position' => $clamped,
+            'read_pct' => $total > 0 ? min(100, (int) round(100 * $wordsThrough / $total)) : 0,
+            'minutes_left' => max(0, (int) round(($total - $wordsThrough) / self::WORDS_PER_MINUTE)),
         ];
     }
 
