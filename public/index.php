@@ -102,23 +102,9 @@ $response = $app->handle($request);
 if ($static !== null) {
     $static->maybeStore($request, $response);
 }
-// Set-Cookie wire translation: Kip\Response carries headers as a name => value
-// map, so multiple cookies (the login sync's lang + theme pair) ride ONE
-// 'Set-Cookie' entry as a list, and Response::send() emits each header with
-// replace semantics, which would strip the session cookie a fresh login or
-// logout regenerate just emitted. Unfold the entry into one append header per
-// cookie and drop it from the map before send; the map stays the contract
-// tests read, the wire stays one line per cookie with the session beside them.
-$wireCookies = [];
-$wireHeaders = $response->headers;
-if (\array_key_exists('Set-Cookie', $wireHeaders)) {
-    $wireCookies = (array) $wireHeaders['Set-Cookie'];
-    unset($wireHeaders['Set-Cookie']);
-    $response = new \Kip\Http\Response($response->body, $response->status, $wireHeaders);
-}
-foreach ($wireCookies as $cookie) {
-    header('Set-Cookie: ' . $cookie, false);
-}
+// Multi-cookie Set-Cookie needs no wire translation since the Kip 0.5 sync:
+// Response carries list-valued headers and send() emits each leaf with append
+// semantics, so the session cookie survives beside them natively.
 $response->send();
 ob_end_flush();
 // Work queued with App::defer() runs after the response is out. Under PHP-FPM the

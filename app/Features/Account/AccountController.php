@@ -215,12 +215,12 @@ final class AccountController
         // the beta badge flips directory membership too, not just the profile card
         (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors();
         // The cookie sync (ruling 5): the save is a write point, so the pref and
-        // the runtime cookie land together. The toc directive keeps its scalar
-        // bytes when it rides alone (Response has no cookie helper, finding 11;
-        // multiple directives ride the Set-Cookie map entry as a list, the
-        // Task-1 seam public/index.php unfolds at send time). A lang switch
-        // back to '' CLEARS the cookie: the browser must not keep rendering the
-        // old pack until logout.
+        // the runtime cookie land together. Every directive is one
+        // withAddedHeader leaf, the same chain shape whatever the count
+        // (Response::send() emits list leaves with append semantics, so the
+        // session cookie survives beside them). A lang switch back to ''
+        // CLEARS the cookie: the browser must not keep rendering the old pack
+        // until logout.
         $cookies = [$toc === '1'
             ? 'toc=1; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax'
             : 'toc=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax'];
@@ -232,10 +232,11 @@ final class AccountController
         if ($theme !== null) {
             $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
-        if (\count($cookies) === 1) {
-            return Response::redirect('/account')->withHeader('Set-Cookie', $cookies[0]);
+        $redirect = Response::redirect('/account');
+        foreach ($cookies as $cookie) {
+            $redirect = $redirect->withAddedHeader('Set-Cookie', $cookie);
         }
-        return new Response('', 302, ['Location' => '/account', 'Set-Cookie' => $cookies]);
+        return $redirect;
     }
 
     /** Any account-side change (avatar, support link, prefs) refreshes the

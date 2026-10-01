@@ -41,8 +41,10 @@ final class PrefsTest extends TestCase
     }
 
     /** The factory keeps the App instance as $this->app (the SeriesTest idiom,
-     *  plan review finding 3): the toc assertions drive App::handle directly
-     *  because TestClient headers never reach Request->cookies (finding 2). */
+     *  plan review finding 3). Since the Kip 0.5 sync, TestClient keeps a real
+     *  cookie jar, so the toc assertion replays the saved cookie on the same
+     *  client; the cookieless case still drives App::handle with an explicit
+     *  empty jar. */
     private function client(?int $as = null): TestClient
     {
         $this->app = $this->newApp();
@@ -96,12 +98,13 @@ final class PrefsTest extends TestCase
         $me = $this->client($this->memberId());
         $res = $me->postWithToken('/account/prefs', ['bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '1',
             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
-        $this->assertStringContainsString('toc=1', $res->headers['Set-Cookie'] ?? '');
-        // ThemeTest idiom (plan review finding 2): a Cookie HEADER never reaches
-        // Request->cookies under TestClient; the fifth Request constructor arg is
-        // the cookie jar. Drive the app directly.
-        $redirect = $this->app->handle(new \Kip\Http\Request('GET', '/story/read/the-rabbit-hole', [], [], ['toc' => '1']));
-        $this->assertSame(302, $redirect->status);
+        // The save rides one list leaf even when it is the only directive
+        // (the withAddedHeader chain, one shape for every count).
+        $this->assertSame(['toc=1; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax'], $res->headers['Set-Cookie'] ?? null);
+        // The Kip 0.5 jar replays the cookie on the same client's next
+        // request, the browser's part: the bare read now redirects.
+        $redirect = $me->get('/story/read/the-rabbit-hole');
+        $this->assertSame(302, $redirect->status, 'the saved toc cookie carried onto the next request');
         $this->assertSame('/story/view/the-rabbit-hole', $redirect->headers['Location'] ?? '');
         // without the cookie: chapter 1 exactly as before
         $plain = $this->app->handle(new \Kip\Http\Request('GET', '/story/read/the-rabbit-hole', [], [], []));

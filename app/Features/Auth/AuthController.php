@@ -75,13 +75,12 @@ final class AuthController
      *  of truth, the 'lang' and 'theme' cookies are the runtime cache the
      *  render path reads (zero queries per page). The one SELECT rides this
      *  write path (budget-exempt); a member with no prefs row, or empty prefs,
-     *  gets the plain redirect with no cookie directives. The directives ride
-     *  the Response's Set-Cookie entry as a LIST: Kip\Response maps headers
-     *  name => value (a second withHeader call would overwrite the first),
-     *  and public/index.php unfolds the list into one append header per
-     *  cookie at send time so the session cookie survives beside them.
-     *  Flag-off skips the writes (the 12d off semantics): the stored pref
-     *  goes inert instead of landing in the browser's runtime cache. */
+     *  gets the plain redirect with no cookie directives. Each directive is
+     *  one withAddedHeader leaf on the redirect: Response::send() emits list
+     *  leaves with append semantics, so the session cookie the login just
+     *  regenerated survives beside them. Flag-off skips the writes (the 12d
+     *  off semantics): the stored pref goes inert instead of landing in the
+     *  browser's runtime cache. */
     private function redirectWithPrefCookies(int $userId): Response
     {
         $redirect = Response::redirect('/');
@@ -96,8 +95,10 @@ final class AuthController
         if (\App\Features::on('perusertheme') && ($theme === 'dark' || $theme === 'light')) {
             $cookies[] = \App\Theme::COOKIE . '=' . $theme . '; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax';
         }
-        if ($cookies === []) return $redirect;
-        return new Response($redirect->body, $redirect->status, ['Location' => '/', 'Set-Cookie' => $cookies]);
+        foreach ($cookies as $cookie) {
+            $redirect = $redirect->withAddedHeader('Set-Cookie', $cookie);
+        }
+        return $redirect;
     }
 
     /** eFiction imports carry unsalted md5 hashes: on the first successful
@@ -195,12 +196,11 @@ final class AuthController
         $this->auth->logout();
         // The cookie-sync mirror: the session dies, so the runtime cache dies
         // with it; the next render on this browser is the archive default,
-        // not a stale member preference. The list shape matches the login
-        // sync (public/index.php unfolds it at send time).
-        return new Response('', 302, ['Location' => '/', 'Set-Cookie' => [
-            'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
-            \App\Theme::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
-        ]]);
+        // not a stale member preference. One withAddedHeader leaf per cleared
+        // cookie, the same chain shape the login sync uses.
+        return Response::redirect('/')
+            ->withAddedHeader('Set-Cookie', 'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax')
+            ->withAddedHeader('Set-Cookie', \App\Theme::COOKIE . '=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax');
     }
 
     public function forgot(): string
