@@ -86,7 +86,7 @@ final class LayoutShellTest extends TestCase
     {
         $guest = $this->client()->get('/')->body;
         $this->assertStringContainsString('<div id="menu" class="sheet" role="dialog"', $guest);
-        $this->assertStringContainsString('class="sheet-done" href="#"', $guest, 'Done closes the sheet by clearing :target');
+        $this->assertStringContainsString('class="sheet-done" href="#sheet-close"', $guest, 'Done closes the sheet by retargeting :target at the fixed close anchor (never the document top)');
         // Guest sheet: login link, no member links.
         $this->assertStringContainsString('href="/auth/login"', $guest, 'a guest sees the login link in the sheet');
         $this->assertStringNotContainsString('href="/notifications"', $guest);

@@ -45,11 +45,11 @@
         <?php if ($story['round_robin']): ?><span class="badge"><?= \App\Lang::t('story.round_robin') ?></span><?php endif; ?>
         <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?></p>
       <dl class="story-stats">
-        <dt><?= \App\Lang::t('story.rating') ?></dt><dd><?= $this->e($story['rating_label']) ?></dd>
-        <dt><?= \App\Lang::t('story.words_label') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd>
-        <?php if ($progress !== null && $progress['minutes_left'] !== null): ?><dt><?= \App\Lang::t('reader.time_left') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd><?php endif; ?>
-        <dt><?= \App\Lang::t('story.kudos_label') ?></dt><dd><?= number_format((int) $kudos_count) ?></dd>
-        <dt><?= \App\Lang::t('story.reviews_heading') ?></dt><dd><?= number_format((int) $review_count) ?></dd>
+        <div><dt><?= \App\Lang::t('story.rating') ?></dt><dd><?= $this->e($story['rating_label']) ?></dd></div>
+        <div><dt><?= \App\Lang::t('story.words_label') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd></div>
+        <?php if ($progress !== null && $progress['minutes_left'] !== null): ?><div><dt><?= \App\Lang::t('reader.time_left') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd></div><?php endif; ?>
+        <div><dt><?= \App\Lang::t('story.kudos_label') ?></dt><dd><?= number_format((int) $kudos_count) ?></dd></div>
+        <div><dt><?= \App\Lang::t('story.reviews_heading') ?></dt><dd><?= number_format((int) $review_count) ?></dd></div>
       </dl>
       <p class="summary"><?= $this->e($story['summary']) ?></p>
       <?php if (($story['gift_to'] ?? '') !== ''): ?>

@@ -5,7 +5,7 @@
   --line:#e4e2da; --line-strong:#d6d3c9; --hover:#efede6;
   --accent:#1f4f42; --accent-hover:#2a6a58; --on-accent:#fff;
   --track:#e4e2da; --surface:#fff; --scrim:rgba(28,35,32,.45);
-  --pill-bg:#e3ece6; --cover-ink:#f1efe8;
+  --pill-bg:#e3ece6; --cover-ink:#f1efe8; --danger:#b3261e;
   --serif:ui-serif,'Iowan Old Style',Charter,'Bitstream Charter',Georgia,serif;
   --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:ui-monospace,'SF Mono',Menlo,monospace;
@@ -16,14 +16,14 @@ html[data-theme="sepia"]{
   --bg:#f4ecdc; --ink:#33291b; --ink-2:#33291b; --muted:#6f5f47;
   --line:#e3d6bd; --line-strong:#d4c4a6; --hover:#ece2cc;
   --accent:#1f4f42; --on-accent:#fff; --track:#e3d6bd; --surface:#f4ecdc;
-  --scrim:rgba(51,41,27,.45); --pill-bg:#e9ddc4; --cover-ink:#f1efe8;
+  --scrim:rgba(51,41,27,.45); --pill-bg:#e9ddc4; --cover-ink:#f1efe8; --danger:#b3261e;
 }
 html[data-theme="night"]{
   --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
   --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
   --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513;
   --track:#262d29; --surface:#1b201d; --scrim:rgba(0,0,0,.55);
-  --pill-bg:#1e2b25; --cover-ink:#f1efe8;
+  --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d;
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark){
@@ -32,7 +32,7 @@ html[data-theme="night"]{
     --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
     --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
     --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d;
-    --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; color-scheme:dark;
+    --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; color-scheme:dark;
   }
 }
 
@@ -51,6 +51,9 @@ body {
 a { color: var(--accent); }
 a:hover { color: var(--accent-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+::selection { background: var(--pill-bg); }
+html { scrollbar-color: var(--line-strong) var(--bg); }
+input, select, textarea { caret-color: var(--accent); }
 
 /* Site header: one row, hairline bottom, nav links between the brand and
    the Menu control (mobile) or the search form (desktop). */
@@ -130,7 +133,7 @@ body:has(.sheet:target) .scrim {
   background: var(--scrim);
 }
 /* An empty hash-target for the Done links to land on; never visible. */
-.skip-close { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.skip-close { position: fixed; inset-block-start: 0; inset-inline-start: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 /* Typography: serif headings at weight 400, balanced wrapping, tabular
    numerals wherever counts render. */
@@ -197,7 +200,7 @@ html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;
   border-block: 1px solid var(--line); padding-block: 12px;
 }
-.review { border-block-start: 1px solid var(--line); padding-block: 1.5rem; }
+.review { border-block-start: 1px solid var(--line); padding-block: 1.5rem; max-width: 720px; }
 .review-reply {
   margin: 1rem 0; padding-inline-start: 1rem;
   border-inline-start: 2px solid var(--line-strong);
@@ -223,12 +226,7 @@ button {
 }
 button:hover { background: var(--hover); color: var(--ink); }
 .inline { display: inline-flex; align-items: center; gap: 8px; }
-.error, [role="alert"] { color: #b3261e; font-weight: 600; }
-html[data-theme="night"] .error, html[data-theme="night"] [role="alert"] { color: #f0856d; }
-@media (prefers-color-scheme: dark){
-  html:not([data-theme="paper"]):not([data-theme="sepia"]) .error,
-  html:not([data-theme="paper"]):not([data-theme="sepia"]) [role="alert"] { color: #f0856d; }
-}
+.error, [role="alert"] { color: var(--danger); font-weight: 600; }
 
 /* Story page (C7, frames M1/T2/D3): hero grid, typographic cover card,
    Continue CTA, stats, Roman-numeral chapter rows. One markup, two
@@ -308,10 +306,15 @@ html[data-theme="night"] .error, html[data-theme="night"] [role="alert"] { color
   .story-info h1 { font-size: 58px; }
   .story-info > .meta-line { display: none; }
   .story-stats {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, auto));
+    justify-content: start; gap: 16px;
     border-block: 1px solid var(--line); border-block-start: 1px solid var(--ink);
     padding-block: 12px; margin: 1.25rem 0;
   }
+  /* Each pair rides inside a wrapper div (view.php), so a dt and its dd
+     never land on different grid rows when the member-only time_left
+     changes the item count (review; the comp wraps pairs too). */
+  .story-stats > div { min-width: 0; }
   .story-stats dt {
     font: 600 12px/1.6 var(--sans); text-transform: uppercase;
     letter-spacing: .06em; color: var(--muted);
@@ -397,12 +400,13 @@ html[data-spacing="airy"] { --read-lh: 1.85; }
 html[data-typeface="sans"] .prose { font-family: var(--sans); }
 html[data-width="narrow"] { --read-width: 560px; }
 html[data-width="wide"] { --read-width: 720px; }
-/* Paged mode: the column becomes a horizontal deck of page-sized columns
-   with mandatory snap (the comp's CSS-columns reading mode, zero JS). */
-html[data-mode="pages"] .reader-main {
-  overflow-x: auto; scroll-snap-type: x mandatory;
-}
-html[data-mode="pages"] .prose {
+/* Paged mode (scoped to the reader's own prose: .prose is shared by
+   reviews, news, and messages, which must never reflow into a deck).
+   The columns themselves scroll freely inside .reader-main; the snap
+   rule from the first cut is gone because multicol columns are not
+   snap targets, so mandatory snapping never engaged (review). */
+html[data-mode="pages"] .reader-main { overflow-x: auto; }
+html[data-mode="pages"] .reader-main .prose {
   max-width: none; column-width: var(--read-width); column-gap: 48px;
   height: 70vh;
 }
@@ -489,7 +493,7 @@ html[data-mode="pages"] .prose {
 }
 .continue-pill {
   display: inline-flex; align-items: center;
-  min-height: 34px; margin-block-start: 12px; padding-inline: 14px;
+  min-height: 40px; margin-block-start: 12px; padding-inline: 14px;
   background: var(--pill-bg); color: var(--accent); text-decoration: none;
   font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums;
 }
@@ -515,7 +519,7 @@ html[data-mode="pages"] .prose {
   font: 600 15px var(--sans); font-variant-numeric: tabular-nums;
 }
 .bar-chapter a {
-  min-height: 0; min-width: 0; padding-inline: 8px;
+  min-height: 44px; min-width: 44px; padding-inline: 8px;
   font-size: 20px; color: var(--accent);
 }
 .bar-bookmark button.is-saved { color: var(--accent); }
@@ -559,6 +563,12 @@ body.focus .site-head { display: none; }
 #ctab-contents:checked ~ .sheet-tabs label[for="ctab-contents"],
 #ctab-bookmarks:checked ~ .sheet-tabs label[for="ctab-bookmarks"] {
   color: var(--ink); border-block-end-color: var(--accent);
+}
+/* The radios are visually clipped, so the UA focus ring dies with them;
+   paint it on the label instead (the .segmented rule's own pattern). */
+#ctab-contents:focus-visible ~ .sheet-tabs label[for="ctab-contents"],
+#ctab-bookmarks:focus-visible ~ .sheet-tabs label[for="ctab-bookmarks"] {
+  outline: 2px solid var(--accent); outline-offset: 2px;
 }
 .pane-bookmarks { display: none; }
 #ctab-bookmarks:checked ~ .pane-bookmarks { display: block; }

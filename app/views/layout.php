@@ -49,12 +49,15 @@
   <main class="site-main"><?= $content ?></main>
   <?php /* No footer: the comp ships none on any frame. Theme and text
      settings live in the reader's Text sheet (C8); the menu sheet below
-     carries every navigation link. */ ?>
-  <a class="skip-close" href="#"></a>
+     carries every navigation link. The span is the sheets' shared close
+     target: it sits in a fixed 1px box, so landing on it never scrolls;
+     Done links point here instead of "#" (which jumps to the document
+     top and loses a mid-chapter reading position). */ ?>
+  <span id="sheet-close" class="skip-close" tabindex="-1"></span>
   <div class="scrim" aria-hidden="true"></div>
   <div id="menu" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t('nav.menu')) ?>">
-    <a class="sheet-handle" href="#" aria-hidden="true"></a>
-    <a class="sheet-done" href="#"><?= \App\Lang::t('common.done') ?></a>
+    <a class="sheet-handle" href="#sheet-close" aria-hidden="true" tabindex="-1"></a>
+    <a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>
     <nav aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
       <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>

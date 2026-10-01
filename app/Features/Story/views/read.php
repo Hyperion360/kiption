@@ -90,7 +90,7 @@
     <?php else: ?><a href="/auth/login"><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
   </nav>
   <div id="contents" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t($member ? 'reader.contents_bookmarks' : 'reader.contents')) ?>">
-    <a class="sheet-handle" href="#" aria-hidden="true"></a><a class="sheet-done" href="#"><?= \App\Lang::t('common.done') ?></a>
+    <a class="sheet-handle" href="#sheet-close" aria-hidden="true" tabindex="-1"></a><a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>
     <?php /* radio tabs: two native radios + :checked CSS switch the panes (zero JS) */ ?>
     <?php if ($member): ?>
     <input type="radio" name="ctab" id="ctab-contents" class="ctab-radio" checked>
@@ -139,7 +139,7 @@
     <?php endif; ?>
   </div>
   <div id="text" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t('reader.text_aria')) ?>">
-    <a class="sheet-handle" href="#" aria-hidden="true"></a><a class="sheet-done" href="#"><?= \App\Lang::t('common.done') ?></a>
+    <a class="sheet-handle" href="#sheet-close" aria-hidden="true" tabindex="-1"></a><a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>
     <form method="post" action="/reader/settings" class="text-settings">
       <input type="hidden" name="_token" value="<?= $this->e($csrf ?? '') ?>">
       <input type="hidden" name="return_to" value="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>">
