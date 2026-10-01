@@ -139,6 +139,56 @@ final class StaticCacheTest extends TestCase
         $this->assertNull($this->cache->serve($cookied));
     }
 
+    /** C12: the theme and reader cookies the redesign rides must not change
+     *  the anonymous bytes: a cookieless story/view or story/read render
+     *  carries no data-theme and none of the six typography attributes, so
+     *  every cookieless visitor (and the static cache between them) sees the
+     *  same markup and theme/prefs stay purely client-side state. */
+    public function test_cookieless_story_renders_carry_no_theme_or_reader_pref_attributes(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'kiption-wire-') . '.sqlite';
+        $dsn = 'sqlite:' . $path;
+        $db = new \Kip\Database($dsn);
+        (new \Kip\Migrations\Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $app = new \Kip\App([
+            'env' => 'prod',
+            'views' => dirname(__DIR__) . '/app/views',
+            'app_dir' => dirname(__DIR__) . '/app',
+            'db' => ['dsn' => $dsn],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-static-upl'],
+        ]);
+        foreach (['/story/view/the-rabbit-hole', '/story/read/the-rabbit-hole/1'] as $uri) {
+            $res = $app->handle(new Request('GET', $uri, [], [], []));
+            $this->assertSame(200, $res->status, $res->body);
+            foreach (['data-theme', 'data-size', 'data-typeface', 'data-spacing', 'data-paragraphs', 'data-width', 'data-mode'] as $attr) {
+                $this->assertStringNotContainsString($attr . '=', $res->body,
+                    "{$uri}: {$attr} would make the cached anonymous bytes vary by reader");
+            }
+        }
+        @unlink($path); @unlink($path . '-wal'); @unlink($path . '-shm');
+    }
+
+    /** C12: the flip side of neutrality. A theme=sepia or reader=<prefs>
+     *  cookie makes the request live: it is never served the anonymous
+     *  variant, and its own render never lands in the file cache. */
+    public function test_theme_and_reader_cookies_refuse_serve_and_store(): void
+    {
+        $anon = new Request('GET', '/story/view/x', [], [], []);
+        $this->cache->maybeStore($anon, new Response('anon', 200));
+        $this->assertNotNull($this->cache->serve($anon), 'the anonymous variant fills first');
+        $this->assertNull($this->cache->serve(new Request('GET', '/story/view/x', [], [], ['theme' => 'sepia'])),
+            'a theme cookie is never served the anonymous page');
+        $this->assertNull($this->cache->serve(new Request('GET', '/story/view/x', [], [], ['reader' => '21-sans-airy-spaced-wide-pages'])),
+            'a reader cookie is never served the anonymous page');
+        // Neither cooks a variant into storage, even with a clean response.
+        $this->cache->purgeAll();
+        $this->cache->maybeStore(new Request('GET', '/story/view/x', [], [], ['theme' => 'night']), new Response('themed', 200));
+        $this->cache->maybeStore(new Request('GET', '/story/view/x', [], [], ['reader' => '21-serif-regular-indented-medium-scroll']), new Response('typed', 200));
+        $this->assertNull($this->cache->serve($anon), 'no cookied variant was stored');
+    }
+
     public function test_maintenance_marker_purges_once(): void
     {
         $req = new Request('GET', '/story/view/x', [], [], []);
