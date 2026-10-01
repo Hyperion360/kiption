@@ -55,7 +55,12 @@ final class QueryBudgetTest extends TestCase
 
     public static function pages(): array
     {
-        return [['/'], ['/browse'], ['/browse/recent'], ['/browse/category/general'],
+        return [['/'], ['/browse'], ['/browse/recent'],
+                // C10: the recent-screen facets fold into the ONE listing
+                // query as WHERE clauses; every filtered shape stays budget-1
+                // (and cache-ineligible by the queryless rule).
+                ['/browse/recent?filter=complete'], ['/browse/recent?filter=wip'], ['/browse/recent?filter=under10k'],
+                ['/browse/category/general'],
                 ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3'],
                 ['/story/read/after-hours/1'], // adult story, cookieless: the age-gate render is a page shape too
                 // The whole-work view rides the same one-query fold (finding 6:
@@ -210,5 +215,33 @@ final class QueryBudgetTest extends TestCase
         $this->assertSame(200, $res->status);
         $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $res->body, 'the muter really lost the listing rows');
         $this->assertLessThanOrEqual(1, $queries, "member /browse/recent ran {$queries} content queries, budget is 1");
+    }
+
+    /** C10's heaviest listing shape: a MEMBER render with an active filter,
+     *  the mute clause, AND the progress fold (reading_history LEFT JOIN +
+     *  derived read_pct) in the same single statement. The pill in the body
+     *  proves the member path really engaged, so the row cannot pass
+     *  vacuously through the anonymous shape. */
+    public function test_member_recent_listing_with_filter_and_progress_stays_inside_the_one_query_budget(): void
+    {
+        (new Database('sqlite:' . $this->path))->query(
+            'INSERT INTO reading_history (user_id, story_id, last_position)
+             VALUES ((SELECT id FROM users WHERE penname = ?), (SELECT id FROM stories WHERE slug = ?), 2)',
+            ['betafriend', 'the-rabbit-hole']
+        );
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            $queries++;
+        });
+        $res = $client->get('/browse/recent', ['filter' => 'under10k']);
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('continue-pill', $res->body, 'the progress fold really engaged');
+        $this->assertLessThanOrEqual(1, $queries, "member filtered /browse/recent ran {$queries} content queries, budget is 1");
     }
 }

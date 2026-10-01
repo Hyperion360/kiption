@@ -225,19 +225,40 @@ final class StoryRepository
     /** @return list<array<string,mixed>> The listings stay guest-cacheable:
      *  restricted works never appear here and members reach them by direct
      *  URL (the story queries gate per-viewer instead). A viewer > 0
-     *  additionally drops that member's muted authors (the Task 2 clause);
-     *  the anonymous statement stays byte-identical, muted never mentioned. */
-    public function recentStories(int $perPage, int $offset, int $viewer = 0): array
+     *  additionally drops that member's muted authors (the Task 2 clause)
+     *  and folds her reading progress (the C4 member-only envelope idiom:
+     *  the reading_history LEFT JOIN and the derived read_pct exist only
+     *  when the viewer is a member, so the anonymous statement stays
+     *  byte-identical and cached bytes never vary by reader; the viewer id
+     *  is inlined as an int, never a bind, so the join seeks the
+     *  (user_id, story_id) PK directly). $filter is the recent screen's
+     *  facet (C10): the controller whitelists it, and anything the match
+     *  below does not know reads as unfiltered, like the junk page param.
+     *  @param string $filter ''|complete|wip|under10k */
+    public function recentStories(int $perPage, int $offset, int $viewer = 0, string $filter = ''): array
     {
         $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
+        $facet = match ($filter) {
+            'complete' => ' AND s.completed = 1',
+            'wip' => ' AND s.completed = 0',
+            'under10k' => ' AND s.word_count < 10000',
+            default => '',
+        };
+        $progressJoin = $viewer > 0 ? ' LEFT JOIN reading_history rr ON rr.story_id = s.id AND rr.user_id = ' . $viewer : '';
+        $progressCols = $viewer > 0 ? ',
+                    rr.last_position,
+                    CASE WHEN rr.last_position IS NULL THEN NULL ELSE
+                      CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
+                         WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rr.last_position), 0)
+                       / NULLIF(s.word_count, 0)) AS INTEGER) END AS read_pct' : '';
         return $this->db->all(
             'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, s.created_at,
-                    u.penname, r.label AS rating_label
+                    u.penname, r.label AS rating_label' . $progressCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
-             JOIN ratings r ON r.id = s.rating_id
+             JOIN ratings r ON r.id = s.rating_id' . $progressJoin . '
              WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0'
-            . $mute .
+            . $facet . $mute .
             ' ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
             $viewer > 0 ? [$viewer, $perPage, $offset] : [$perPage, $offset]

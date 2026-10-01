@@ -447,6 +447,47 @@ html[data-mode="pages"] .prose {
   margin-block-start: 16px; background: var(--line-strong);
 }
 
+/* Recently updated (C10, frame M6): filter chips and M6 story cards. The
+   chip row scrolls horizontally and bleeds to the viewport edge on mobile;
+   the active chip is the ink/bg inversion (the comp's filled state), every
+   chip keeps the 38px comp height inside the 44px tap-target floor via
+   padding. Cards: serif title, strong byline, meta line, two-line clamp. */
+.filter-chips {
+  display: flex; gap: 8px; margin: 0 0 1.5rem;
+  overflow-x: auto; padding-block: 3px;
+}
+.chip {
+  display: inline-flex; align-items: center;
+  min-height: 38px; padding-inline: 14px;
+  white-space: nowrap; text-decoration: none;
+  border: 1px solid var(--line-strong);
+  font: 500 13px/1 var(--sans); color: var(--ink-2);
+}
+.chip:hover { background: var(--hover); color: var(--ink); }
+.chip.is-active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.story-card .story-title {
+  display: block; font-family: var(--serif);
+  font-size: 22px; line-height: 1.25; text-decoration: none;
+}
+.story-card .byline { margin: .25rem 0 .375rem; font-size: 14px; }
+.story-card .summary {
+  margin: .5rem 0 0; font-family: var(--serif);
+  font-size: 16px; line-height: 1.55;
+}
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.continue-pill {
+  display: inline-flex; align-items: center;
+  min-height: 34px; margin-block-start: 12px; padding-inline: 14px;
+  background: var(--pill-bg); color: var(--accent); text-decoration: none;
+  font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums;
+}
+.continue-pill:hover { opacity: .92; color: var(--accent); }
+
 /* Bottom control bar: fixed with safe-area padding on mobile, a floating
    centered pill from 768px, in normal flow under the column from 1024px. */
 .reader-bar {
@@ -595,10 +636,12 @@ body.focus .site-head { display: none; }
 }
 @media (max-width:767px) {
   /* Mobile chrome: the nav row scrolls horizontally instead of wrapping the
-     header past its 56px row; gutters tighten to the comp's 20px. */
+     header past its 56px row; gutters tighten to the comp's 20px. The chip
+     row bleeds to the viewport edge the way the comp draws it. */
   .site-nav { overflow-x: auto; }
   .site-main { padding: 28px 20px 48px; }
   .sheet:target { padding-inline: 20px; }
+  .filter-chips { margin-inline: -20px; padding-inline: 20px; }
 }
 
 /* Motion kill switch: nothing animates for reduced-motion visitors. */

@@ -93,6 +93,12 @@ return [
     'browse.no_members' => 'No members here yet.',
     'browse.meta_beta' => 'Beta readers in the member directory.',
     'browse.meta_authors' => 'All members of the archive, with story counts.',
+    // The recently-updated facets (C10, frame M6): chips that fold into the
+    // one listing query, plus the member's Continue pill on a card.
+    'browse.filter_aria' => 'Filter stories',
+    'browse.filter_wip' => 'In progress',
+    'browse.filter_under10k' => 'Under 10k',
+    'browse.continue_pill' => 'Continue · {roman}, {pct}%',
 
     // Story listing atoms shared by browse, search, series, and the story page.
     'story.by' => 'by',

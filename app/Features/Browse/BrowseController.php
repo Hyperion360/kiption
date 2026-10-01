@@ -6,6 +6,11 @@ use App\Repositories\UserRepository;
 
 final class BrowseController
 {
+    /** The recent screen's facets (C10, frame M6): the chip values the
+     *  repository folds into the listing query. Off-whitelist values read
+     *  as unfiltered, the junk-page-param coercion. */
+    private const RECENT_FILTERS = ['complete', 'wip', 'under10k'];
+
     public function __construct(
         private View $view,
         private Request $request,
@@ -46,7 +51,13 @@ final class BrowseController
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
-        $stories = $this->stories->recentStories($perPage, $offset, \App\Features::on('mute') ? $me : 0);
+        // The M6 facets ride the ONE listing query as WHERE clauses (never a
+        // second query); off-whitelist values are no filter. Filtered pages
+        // carry a query string, so they are cache-ineligible by design, and
+        // the canonical stays the bare /browse/recent path either way.
+        $filter = (string) ($this->request->get['filter'] ?? '');
+        $filter = in_array($filter, self::RECENT_FILTERS, true) ? $filter : '';
+        $stories = $this->stories->recentStories($perPage, $offset, \App\Features::on('mute') ? $me : 0, $filter);
         $items = [];
         foreach ($stories as $i => $s) {
             $items[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => '/story/view/' . $s['slug'], 'name' => $s['title']];
@@ -64,6 +75,8 @@ final class BrowseController
             'stories' => $stories,
             'page' => $page,
             'baseUrl' => '/browse/recent',
+            'filter' => $filter,
+            'chips' => true,
         ]);
     }
 
