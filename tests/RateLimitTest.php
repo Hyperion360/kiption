@@ -88,4 +88,39 @@ final class RateLimitTest extends TestCase
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM rate_limits')['n'],
             'nothing was recorded: page-serving routes stay untouched by the limiter');
     }
+
+    public function test_expired_window_stops_counting_and_prunes(): void
+    {
+        // A row from a dead window carries no hits forward; the next hit
+        // starts a fresh window row, and that upsert retires the stale one
+        // (the prune runs exactly then; idx_rate_limits_window serves it).
+        $this->db->query('INSERT INTO rate_limits (prefix, ip, window_start, hits) VALUES (?,?,?,?)',
+            ['T', '127.0.0.1', time() - 61, 2]);
+        $client = new TestClient(new App($this->config()));
+        $this->assertNotSame(429, $client->post('/t/x')->status,
+            'an expired window does not carry its hits forward');
+        $this->assertSame(0, (int) $this->db->one(
+            'SELECT COUNT(*) AS n FROM rate_limits WHERE window_start < ?', [time() - 60])['n'],
+            'the new-window upsert retired the stale row');
+    }
+
+    public function test_shipped_config_limits_a_real_route(): void
+    {
+        // Testing specialist finding: the mechanism is pinned with a synthetic
+        // prefix, but nothing tied the SHIPPED config.php map to a real route;
+        // deleting or misspelling a production segment would ship green. This
+        // loads the real config (paths overridden) and drives /auth/attempt
+        // past the shipped auth bucket.
+        $config = require dirname(__DIR__) . '/config.php';
+        $config['db'] = ['dsn' => 'sqlite:' . $this->path];
+        $config['log_db'] = ['dsn' => 'sqlite::memory:'];
+        $config['cache_db'] = ['dsn' => 'sqlite::memory:'];
+        $client = new TestClient(new App($config));
+        for ($i = 0; $i < 10; $i++) {
+            $client->post('/auth/attempt', ['email' => 'x' . $i . '@x.test', 'password' => 'nope']);
+        }
+        $over = $client->post('/auth/attempt', ['email' => 'over@x.test', 'password' => 'nope']);
+        $this->assertSame(429, $over->status, 'the 11th auth POST trips the shipped auth bucket (max 10)');
+        $this->assertGreaterThanOrEqual(1, (int) ($over->headers['Retry-After'] ?? '0'));
+    }
 }

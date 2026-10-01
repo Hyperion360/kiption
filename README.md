@@ -726,13 +726,17 @@ Rate limiting. Every non-GET request passes a fixed-window limiter keyed
 on the first URL segment and the caller IP, counted in `rate_limits`
 (migration 025; expired windows prune on the same index they seek). The
 shipped `config.php` values: `auth` and `report` at 10 per minute,
-`messages` and `account` at 20, and every other writable surface
-(`reader` settings and bookmarks, `kudos`, `review`, `favorites`,
-`follow`, `story` marks, `comment`) at 30. The limit's 429 response
-carries `Retry-After` with the seconds left in the window. GET renders
-are never counted, so the static cache and the one-query page budget are
-untouched. Dropping a segment's entry disables its limit, and the whole
-`rate_limit` block absent leaves the limiter inert.
+`messages`, `account`, `user` contact and `challenges` at 20, `images`
+at 10 (per-request upload cost), the moderation surfaces (`wrangling`,
+`adminstories`, `notifications`) at 60 so bulk work never trips, and
+every other writable segment (news comments included; the news surface
+POSTs to `/news/comment/{id}`, so its bucket key is `news`) at 30. The
+limit's 429 response carries `Retry-After` with the seconds left in the
+window. GET renders are never counted, so the static cache and the
+one-query page budget are untouched. Every POST-bearing first segment
+has a bucket; a test drives `/auth/attempt` past the shipped map, so
+deleting or misspelling an entry fails the suite rather than silently
+disabling its limit.
 
 ## Feature flags
 

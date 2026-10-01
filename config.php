@@ -15,7 +15,28 @@ return [
         'report'    => ['max' => 10, 'window' => 60],
         'messages'  => ['max' => 20, 'window' => 60],
         'account'   => ['max' => 20, 'window' => 60],
-        'comment'   => ['max' => 30, 'window' => 60],
+        // Review follow-up: every POST-bearing first segment is throttled.
+        // 'news' replaces the dead 'comment' key (news comments POST to
+        // /news/comment/{id}; the first segment is 'news'). Admin and
+        // wrangling get looser budgets so bulk moderation never trips.
+        'news'          => ['max' => 30, 'window' => 60],  // news comments
+        'user'          => ['max' => 20, 'window' => 60],  // member contact (messaging-class)
+        'lists'         => ['max' => 30, 'window' => 60],
+        'series'        => ['max' => 30, 'window' => 60],
+        'challenges'    => ['max' => 20, 'window' => 60],
+        'chapter'       => ['max' => 30, 'window' => 60],
+        'coauthor'      => ['max' => 30, 'window' => 60],
+        'mute'          => ['max' => 30, 'window' => 60],
+        'notifications' => ['max' => 60, 'window' => 60],
+        'page'          => ['max' => 30, 'window' => 60],
+        'nav'           => ['max' => 30, 'window' => 60],
+        'queue'         => ['max' => 30, 'window' => 60],
+        'templates'     => ['max' => 30, 'window' => 60],
+        'features'      => ['max' => 30, 'window' => 60],
+        'images'        => ['max' => 10, 'window' => 60],  // per-request upload cost
+        'wrangling'     => ['max' => 60, 'window' => 60],
+        'adminstories'  => ['max' => 60, 'window' => 60],
+        'adminmembers'  => ['max' => 30, 'window' => 60],
     ],
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),
