@@ -218,43 +218,6 @@ html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
   padding: 1.5rem; margin-block-end: 2rem;
 }
 
-/* Engagement (M1/T2/D3): the bar is the wrapper; its comp anatomy is the
-   three outlined action cells (kudos, favorite, later), square corners and
-   a 48px floor, with the small member links in the muted row underneath. */
-.engagement-bar {
-  border-block-start: 1px solid var(--line); padding-block-start: 12px;
-}
-.action-row {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
-}
-.action-cell {
-  display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-  min-height: 48px; border: 1px solid var(--line-strong);
-}
-.action-cell form { display: flex; align-items: stretch; }
-.action-cell .action-btn, .action-cell .action-link {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  min-height: 46px; padding: 4px 8px;
-  background: none; border: 0; cursor: pointer;
-  font: 600 14px/1.2 var(--sans); font-variant-numeric: tabular-nums;
-  color: var(--ink); text-decoration: none; text-align: center;
-}
-.action-cell .action-btn:hover, .action-cell .action-link:hover { background: var(--hover); color: var(--ink); }
-.action-cell .is-on { color: var(--accent); }
-/* The already-kudos'd member reads a label + state pair instead of the form. */
-.action-label {
-  display: block; padding: 6px 8px 0; text-align: center;
-  font: 600 14px/1.3 var(--sans); font-variant-numeric: tabular-nums;
-}
-.action-state { display: block; padding: 0 8px 6px; text-align: center; font: 12px/1.4 var(--sans); color: var(--muted); }
-.action-aux {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
-  margin-block-start: 10px; font: 13px/1.6 var(--sans);
-}
-.action-aux a { color: var(--muted); }
-.action-aux a:hover { color: var(--ink); }
-.action-aux input { min-height: 36px; padding: 4px 10px; font-size: 13px; }
-.action-aux button { min-height: 36px; padding: 4px 12px; font-size: 13px; }
 .review { border-block-start: 1px solid var(--line); padding-block: 1.5rem; max-width: 720px; }
 .review-reply {
   margin: 1rem 0; padding-inline-start: 1rem;
@@ -283,10 +246,18 @@ button:hover { background: var(--hover); color: var(--ink); }
 .inline { display: inline-flex; align-items: center; gap: 8px; }
 .error, [role="alert"] { color: var(--danger); font-weight: 600; }
 
-/* Story page (C7, frames M1/T2/D3): hero grid, typographic cover card,
-   Continue CTA, stats, Roman-numeral chapter rows. One markup, two
-   presentations: the meta line below 1024px, the definition list above. */
-.story-hero { margin-block-end: 2.5rem; }
+/* Story page (C7, frames M1/T2/D3), values from the comp source. One
+   markup, three arrangements: mobile stacks info, actions, chapters (the
+   cover hides); tablet pairs the cover with the info column and puts the
+   actions under it (T2); desktop is two columns, cover + Continue + action
+   cells on the left, info + chapters + reviews on the right (D3). The
+   .story-side/.story-main wrappers dissolve (display:contents) below 1024px
+   so their children can join one grid. */
+.story-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
+.story-side, .story-main { display: contents; }
+.story-info { order: 1; } .story-actions { order: 2; } .chapters { order: 3; } .story-reviews { order: 4; }
+.story-info { display: flex; flex-direction: column; gap: 12px; }
+.story-info > * { margin: 0; }
 .story-cover { max-width: 300px; }
 .story-cover .cover {
   display: block; width: 100%; height: auto;
@@ -294,110 +265,184 @@ button:hover { background: var(--hover); color: var(--ink); }
   border: 1px solid var(--line-strong);
 }
 .cover-card {
-  display: flex; flex-direction: column; gap: 12px;
-  aspect-ratio: 2 / 3; padding: 20px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  aspect-ratio: 2 / 3; padding: 22px 20px;
   /* fixed brand green (A.1): the cover card does not re-theme */
   background: #1f4f42; color: var(--cover-ink);
 }
-.cover-kicker {
-  font: 600 11px/1.4 var(--sans); letter-spacing: .16em;
-  text-transform: uppercase; opacity: .75;
-}
-.cover-title {
-  font-family: var(--serif); font-size: 28px; line-height: 1.15;
-  margin-block-start: auto;
-}
-.cover-author { font-family: var(--serif); font-style: italic; font-size: 14px; opacity: .9; }
+.cover-kicker { font: 11px/1.4 var(--sans); letter-spacing: .16em; text-transform: uppercase; opacity: .8; }
+.cover-title { font-family: var(--serif); font-size: 28px; line-height: 1.1; }
+.cover-author { font-family: var(--serif); font-style: italic; font-size: 15px; opacity: .85; }
+.story-actions { display: flex; flex-direction: column; gap: 14px; }
+/* Continue reading: the solid brand-green block in M1/T2/D3 (the light
+   pill is M6's .continue-pill, a different component). */
 .continue-cta {
-  display: flex; flex-direction: column; gap: 2px; justify-content: center;
-  min-height: 58px; margin-block-start: 12px; padding: 10px 16px;
-  background: var(--pill-bg); color: var(--accent); text-decoration: none;
+  display: flex; flex-direction: column; gap: 3px; justify-content: center;
+  min-height: 60px; padding: 10px 18px;
+  background: #1f4f42; color: #fff; text-decoration: none;
 }
-.continue-cta:hover { opacity: .92; color: var(--accent); }
+.continue-cta:hover { opacity: .92; color: #fff; }
 .continue-label { font: 600 16px/1.3 var(--sans); }
 .continue-sub { font: 13px/1.4 var(--sans); opacity: .85; font-variant-numeric: tabular-nums; }
 .eyebrow {
-  margin: 0 0 .5rem;
-  font: 600 12px/1.5 var(--sans); letter-spacing: .12em;
+  font: 12px/1.5 var(--sans); letter-spacing: .12em;
   text-transform: uppercase; color: var(--muted);
 }
 /* D3 appends "Updated {date}" to the eyebrow on desktop only; the span
    rides every render so the bytes stay one shape, CSS picks the widths. */
 .story-info .eyebrow-updated { display: none; }
-.story-info h1 { margin-block-end: .5rem; }
-.byline { margin: 0 0 .75rem; color: var(--ink-2); font-size: 15px; }
-.byline a { font-weight: 600; }
+.story-info h1 { font-size: 36px; line-height: 1.08; letter-spacing: -.015em; }
+.byline { color: var(--ink-2); font-size: 15px; }
+.byline a { color: var(--ink); font-weight: 600; }
+.byline a:hover { color: var(--accent); }
 /* The byline Follow toggle reads as text, not as a control. */
 .story-info .byline .follow-btn {
   min-height: 0; padding: 0; background: none; border: 0; cursor: pointer;
-  font: 600 13px/1.5 var(--sans); color: var(--accent);
+  font: 15px/1.5 var(--sans); color: var(--ink-2);
 }
-.story-info .byline .follow-btn:hover { background: none; color: var(--accent-hover); }
-.story-info .byline .follow-state { font-size: 13px; color: var(--muted); }
+.story-info .byline .follow-btn:hover { background: none; color: var(--accent); text-decoration: underline; }
+.story-info .byline .follow-state { color: var(--muted); }
+.story-info .meta-line { font-size: 13px; }
 .story-stats { display: none; }
 .summary {
-  font-family: var(--serif); font-size: 18px; line-height: 1.6;
-  max-width: 640px; margin: 1rem 0;
+  font-family: var(--serif); font-size: 17px; line-height: 1.6;
+  max-width: 640px; text-wrap: pretty;
 }
-.tag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 1rem; }
-/* The ratings join's assurance sits right under the chips (D3). */
-.story-warnings { margin-block: 0 1rem; }
-.story-info .engagement-bar { margin-block: 1rem 0; }
-.section-head {
-  display: flex; flex-wrap: wrap; align-items: baseline;
-  justify-content: space-between; gap: 8px 24px;
+/* Tag chips (D3/T2): outlined, square, the warnings line closes the row. */
+.story-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-chips { display: contents; }
+.tag-chip, .story-tags .story-warnings {
+  display: inline-flex; align-items: center; margin: 0;
+  padding: 5px 10px; border: 1px solid var(--line-strong);
+  font: 13px/1.4 var(--sans); color: var(--ink-2);
 }
-.section-links { font: 13px/1.6 var(--sans); }
-.chapter-list { list-style: none; margin: 1rem 0 2rem; padding: 0; border-block-start: 1px solid var(--line); }
-.chapter-list li { border-block-end: 1px solid var(--line); }
+.story-notes { border-inline-start: 2px solid var(--line-strong); padding-inline-start: 14px; color: var(--ink-2); font-size: 15px; }
+.story-notes p { margin: 0 0 .5em; }
+.story-notes .notes-label { font: 12px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+/* Engagement: the three action cells share one 1px box (M1/D3). */
+.engagement-bar { display: flex; flex-direction: column; gap: 10px; }
+.action-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line-strong); }
+.action-cell { display: flex; flex-direction: column; justify-content: center; min-height: 46px; }
+.action-cell + .action-cell { border-inline-start: 1px solid var(--line-strong); }
+.action-cell form { display: flex; align-items: stretch; flex: 1; }
+.action-cell .action-btn, .action-cell .action-link {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  min-height: 46px; padding: 4px 8px;
+  background: none; border: 0; cursor: pointer;
+  font: 500 14px/1.2 var(--sans); font-variant-numeric: tabular-nums;
+  color: var(--ink); text-decoration: none; text-align: center;
+}
+.action-cell .action-btn:hover, .action-cell .action-link:hover { background: var(--hover); color: var(--ink); }
+.action-cell .is-on { color: var(--accent); font-weight: 600; }
+/* The already-kudos'd member reads a label + state pair instead of the form. */
+.action-label { display: block; padding: 6px 8px 0; text-align: center; font: 500 14px/1.3 var(--sans); font-variant-numeric: tabular-nums; }
+.action-state { display: block; padding: 0 8px 6px; text-align: center; font: 12px/1.4 var(--sans); color: var(--muted); }
+.action-aux { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font: 13px/1.6 var(--sans); }
+.action-aux a, .action-aux summary { color: var(--muted); }
+.action-aux a:hover, .action-aux summary:hover { color: var(--ink); }
+.action-aux button { min-height: 36px; padding: 4px 12px; font-size: 13px; }
+.report-disclosure summary { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.report-disclosure[open] { flex-basis: 100%; }
+.report-disclosure form { margin-block-start: 8px; flex-wrap: wrap; }
+.report-disclosure input { min-height: 36px; padding: 4px 10px; font-size: 13px; flex: 1; min-width: 180px; }
+/* Chapters (M1 rows; T2/D3 widen the numeral column and the title). */
+.chapters { display: flex; flex-direction: column; gap: 8px; }
+.section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.section-head h2 { margin: 0; font-size: 24px; }
+.section-links { display: flex; flex-wrap: wrap; gap: 6px 20px; font: 13px/1.6 var(--sans); }
+.chapter-list { list-style: none; margin: 0; padding: 0; }
+.chapter-list li { border-block-start: 1px solid var(--line); }
 .chapter-list a {
-  display: grid; grid-template-columns: 34px 1fr auto; align-items: baseline;
-  gap: 12px; min-height: 54px; padding-block: 8px;
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center;
+  gap: 8px; min-height: 54px; padding-block: 8px;
   text-decoration: none; color: var(--ink);
 }
 .chapter-list a:hover { background: var(--hover); }
-.ch-num { font-family: var(--serif); font-variant-numeric: tabular-nums; color: var(--muted); }
-.chapter-list li.is-read a { color: var(--muted); }
+.ch-num { font-family: var(--serif); font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); padding-inline-start: 4px; }
+.chapter-list .ch-title { font-family: var(--serif); font-size: 16.5px; min-width: 0; }
+.chapter-list li.is-read .ch-title { color: var(--ink-2); }
 .chapter-list li.is-current a, .chapter-list li.is-current .ch-num { color: var(--accent); }
-/* Comp rows: serif ~17px titles; the member's current chapter carries the
-   accent "You're here" line under its title, read chapters say "Read". */
-.chapter-list .ch-title { font-family: var(--serif); font-size: 17px; }
-.ch-here { display: block; color: var(--accent); font: 600 13px var(--sans); }
-.ch-meta { font: 13px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chapter-list li.is-current .ch-title { font-weight: 600; }
+.ch-here { display: block; color: var(--accent); font: 12px/1.5 var(--sans); }
+.ch-meta { font: 12px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; padding-inline-end: 4px; }
+/* Reviews: a quiet section under the chapters; the form is the Kip blog's
+   white comment card (S3). */
+.story-reviews { display: flex; flex-direction: column; gap: 12px; margin-block-start: 24px; }
+.story-reviews > h2 { margin: 0; font-size: 24px; }
+.story-reviews .review { max-width: none; padding-block: 16px; }
+.story-reviews .review form.inline { margin-block-start: 8px; flex-wrap: wrap; }
+.story-reviews .review form.inline input { flex: 1; min-width: 180px; min-height: 36px; font-size: 14px; }
+.story-reviews .review form.inline button { min-height: 36px; font-size: 13px; }
 @media (min-width:768px) {
-  .story-hero { display: grid; grid-template-columns: 220px 1fr; gap: 40px; }
-  .story-info h1 { font-size: 46px; }
+  /* T2: cover beside the info column, the actions under the info. */
+  .story-hero {
+    grid-template-columns: 220px minmax(0, 1fr); column-gap: 40px; row-gap: 20px;
+    grid-template-areas: "cover info" "cover actions" "chapters chapters" "reviews reviews";
+    align-items: start;
+  }
+  .story-cover { grid-area: cover; }
+  .story-info { grid-area: info; gap: 14px; }
+  .story-actions { grid-area: actions; flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+  .chapters { grid-area: chapters; margin-block-start: 12px; }
+  .story-reviews { grid-area: reviews; }
+  .story-info h1 { font-size: 46px; line-height: 1.05; }
+  .summary { font-size: 18px; }
+  .byline { font-size: 16px; }
   /* T2 merges byline and meta into one line: "by Name · Teen · 600 words ...". */
   .story-info .byline { display: inline; }
-  .story-info .meta-line { display: inline; margin-inline-start: 8px; }
-  .story-info .meta-line::before { content: "· "; }
-  .chapter-list a { grid-template-columns: 44px 1fr auto; min-height: 56px; }
+  .story-info .meta-line { display: inline; font-size: 16px; color: var(--ink-2); }
+  .story-info .byline:has(+ .meta-line) { display: inline; }
+  .continue-cta { min-height: 58px; padding: 0 22px; }
+  .story-actions .engagement-bar { flex: 1 1 320px; }
+  .action-row { min-height: 58px; }
+  .section-head h2, .story-reviews > h2 { font-size: 28px; }
+  .section-links { font-size: 14px; }
+  .chapter-list a { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; min-height: 56px; padding-block: 0; }
+  .ch-num { font-size: 15px; padding-inline-start: 0; }
+  .chapter-list .ch-title { font-size: 18px; }
+  .ch-here { display: inline; margin-inline-start: 10px; font-size: 12.5px; font-weight: 500; }
+  .ch-meta { font-size: 13px; }
+  .chapter-list li:not(.is-read) .ch-meta::after { content: var(--words-unit, ""); }
 }
 @media (min-width:1024px) {
-  .story-hero { grid-template-columns: 300px 1fr; gap: 64px; }
-  .story-info h1 { font-size: 58px; }
+  /* D3: two real columns again; the wrappers come back as boxes. */
+  .story-page { padding-block-start: 8px; }
+  .story-hero { display: grid; grid-template-columns: 300px minmax(0, 1fr); grid-template-areas: none; gap: 64px; }
+  .story-side { display: flex; flex-direction: column; gap: 14px; }
+  .story-main { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+  .story-cover, .story-info, .story-actions, .chapters, .story-reviews { grid-area: auto; }
+  .story-actions { flex-direction: column; gap: 14px; }
+  .story-actions .engagement-bar { flex: none; }
+  .continue-cta { min-height: 58px; padding: 0 20px; gap: 2px; }
+  .action-row { min-height: 0; }
+  .action-cell, .action-cell .action-btn, .action-cell .action-link { min-height: 44px; }
+  .cover-card { padding: 26px 24px; }
+  .cover-title { font-size: 34px; line-height: 1.08; }
+  .cover-author { font-size: 16px; }
+  .story-info { gap: 14px; }
+  .story-info h1 { font-size: 58px; line-height: 1.02; letter-spacing: -.02em; }
   .story-info > .meta-line { display: none; }
+  .story-info .byline { display: block; }
   .story-info .eyebrow-updated { display: inline; }
   .story-stats {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, auto));
-    justify-content: start; gap: 16px;
-    border-block: 1px solid var(--line); border-block-start: 1px solid var(--ink);
-    padding-block: 12px; margin: 1.25rem 0;
+    display: grid; grid-template-columns: repeat(6, auto);
+    justify-content: start; gap: 4px 40px;
+    border-block-start: 1px solid var(--ink); border-block-end: 1px solid var(--line);
+    padding-block: 18px; margin-block: 14px;
   }
   /* Each pair rides inside a wrapper div (view.php), so a dt and its dd
      never land on different grid rows when the member-only time_left
      changes the item count (review; the comp wraps pairs too). */
-  .story-stats > div { min-width: 0; }
-  .story-stats dt {
-    font: 600 12px/1.6 var(--sans); text-transform: uppercase;
-    letter-spacing: .06em; color: var(--muted);
-  }
-  .story-stats dd {
-    margin: 0; font-family: var(--serif); font-size: 20px;
-    font-variant-numeric: tabular-nums;
-  }
-  .chapter-list a { grid-template-columns: 48px 1fr 120px; min-height: 52px; }
+  .story-stats > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .story-stats dt { font: 12px/1.5 var(--sans); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .story-stats dd { margin: 0; font-family: var(--serif); font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .summary { font-size: 19px; }
+  .story-tags { margin-block-start: 0; }
+  .chapters { margin-block-start: 0; gap: 6px; }
+  .chapter-list a { grid-template-columns: 48px minmax(0, 1fr) 120px; min-height: 52px; }
+  .ch-num { padding-inline-start: 4px; }
   .ch-meta { text-align: end; }
+  .ch-here { margin-inline-start: 12px; }
 }
 
 /* Chapter reader (C8, frames M2/T1/D1 + focus D2): sticky header with the
@@ -877,9 +922,9 @@ body.focus .js .hint-keys { bottom: 56px; }
   /* Contents annotations (member): minutes-left on the current chapter,
      bookmark counts elsewhere; word counts give way to them. */
   .ch-note { display: inline; font: 12px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
-  .chapter-list .ch-meta { display: none; }
-  .chapter-list a { grid-template-columns: 34px 1fr; }
-  .chapter-list li.is-current { box-shadow: inset 3px 0 0 var(--accent); }
+  .reader .chapter-list .ch-meta { display: none; }
+  .reader .chapter-list a { grid-template-columns: 34px 1fr; }
+  .reader .chapter-list li.is-current { box-shadow: inset 3px 0 0 var(--accent); }
   .reader-main { grid-area: main; padding-block: 3rem; }
   .reader-bar { display: none; }
   /* D2 focus (desktop): the distraction-free variant. One centered column;

@@ -338,7 +338,7 @@ final class StoryTest extends TestCase
     {
         (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 2)');
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
-        $this->assertStringContainsString('<ol class="chapter-list">', $body);
+        $this->assertStringContainsString('<ol class="chapter-list" style="--words-unit:\' words\'">', $body, 'the list carries the T2/D3 word unit');
         $this->assertStringContainsString('<li class="is-read">', $body, 'chapter 1 sits behind the furthest read');
         $this->assertStringContainsString('<span class="ch-meta">Read</span>', $body, 'read chapters label the state, not the word count');
         $this->assertStringContainsString('<li class="is-current">', $body);

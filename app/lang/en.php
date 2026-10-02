@@ -248,6 +248,7 @@ return [
 
     // The whole-work reading view (/story/whole/{slug}), which doubles as the print view.
     'story.whole_link' => 'Whole work',
+    'story.leave_review' => 'Leave a review',
     'story.download_html' => 'HTML',
     'story.download_epub' => 'EPUB',
     'story.whole_page_title' => '{title} - the complete work',

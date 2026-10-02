@@ -31,6 +31,7 @@
      $warning = trim((string) ($story['warning_text'] ?? '')); ?>
 <article class="story-page">
   <div class="story-hero">
+    <div class="story-side">
     <aside class="story-cover">
       <?php if (!empty($story['cover_path'])): ?>
         <img class="cover" src="<?= $this->e($story['cover_path']) ?>" alt="">
@@ -39,50 +40,13 @@
           <span class="cover-title"><?= $this->e($story['title']) ?></span>
           <span class="cover-author"><?= $this->e($story['penname']) ?></span></div>
       <?php endif; ?>
+    </aside>
+    <div class="story-actions">
       <?php if ($last !== null): ?>
       <a class="continue-cta" href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $last ?>">
         <span class="continue-label"><?= \App\Lang::t('reader.continue') ?></span>
         <span class="continue-sub"><?= \App\Lang::t('reader.continue_sub', ['roman' => \App\Features\Reader\Roman::numeral((int) $last), 'title' => $this->e($hereTitle !== '' ? $hereTitle : \App\Lang::t('story.chapter_n', ['n' => (int) $last])), 'pct' => $readPct]) ?></span></a>
       <?php endif; ?>
-    </aside>
-    <div class="story-info">
-      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => date('M j', strtotime((string) $story['updated_at']))])) ?></span><?php endif; ?></p>
-      <h1><?= $this->e($story['title']) ?></h1>
-      <?php /* the byline is a div because the Follow toggle is a form: the
-           HTML parser auto-closes a p element when a form element opens,
-           which would break the comp's one-line byline at tablet and
-           desktop widths. */ ?>
-      <div class="byline"><?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?><?php if (!empty($csrf)): ?><?php if ((int) $following_author === 1): ?> · <span class="follow-state"><?= \App\Lang::t('story.you_follow_author') ?></span><?php else: ?> · <form method="post" action="/follow/author/<?= (int) $story['author_id'] ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="follow-btn"><?= \App\Lang::t('story.follow_author') ?></button></form><?php endif; ?><?php endif; ?></div>
-      <?php /* one markup, two presentations: the meta line shows below 1024px, the stats dl from 1024px up. The reading time is public (word_count at 250 wpm); the member-only minutes-left note joins it. */ ?>
-      <p class="meta meta-line"><?= $this->e($story['rating_label']) ?> · <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?> · <?= \App\Lang::t('reader.chapters_n', ['n' => count($chapters)]) ?> · <?= \App\Lang::t('story.read_time', ['time' => $readTime]) ?><?php if ($progress !== null && $progress['minutes_left'] !== null): ?> · <?= \App\Lang::t('reader.about_left', ['min' => (int) $progress['minutes_left']]) ?><?php endif; ?>
-        <?php if ((int) $story['is_adult'] === 1): ?><span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
-        <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge"><?= \App\Lang::t('story.registered_only') ?></span><?php endif; ?>
-        <?php if ($story['round_robin']): ?><span class="badge"><?= \App\Lang::t('story.round_robin') ?></span><?php endif; ?>
-        <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?></p>
-      <dl class="story-stats">
-        <div><dt><?= \App\Lang::t('story.rating') ?></dt><dd><?= $this->e($story['rating_label']) ?></dd></div>
-        <div><dt><?= \App\Lang::t('story.words_label') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd></div>
-        <div><dt><?= \App\Lang::t('reader.time_left') ?></dt><dd><?= $this->e($readTime) ?></dd></div>
-        <?php if ($progress !== null && $progress['minutes_left'] !== null): ?><div><dt><?= \App\Lang::t('story.time_left_label') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd></div><?php endif; ?>
-        <div><dt><?= \App\Lang::t('story.kudos_label') ?></dt><dd><?= number_format((int) $kudos_count) ?></dd></div>
-        <div><dt><?= \App\Lang::t('story.reviews_heading') ?></dt><dd><?= number_format((int) $review_count) ?></dd></div>
-      </dl>
-      <p class="summary"><?= $this->e($story['summary']) ?></p>
-      <?php if (($story['gift_to'] ?? '') !== ''): ?>
-      <p class="meta"><?= \App\Lang::t('story.gift_line', ['name' => $this->e($story['gift_to'])]) ?></p>
-      <?php endif; ?>
-      <?php if (($story['crosspost_url'] ?? '') !== ''): ?>
-      <p class="meta"><?= \App\Lang::t('story.crossposted_from') ?> <a href="<?= $this->e($story['crosspost_url']) ?>" rel="nofollow"><?= \App\Lang::t('story.crosspost_original') ?></a>.</p>
-      <?php endif; ?>
-      <?php if ($series !== []): ?>
-      <p class="meta"><?= \App\Lang::t('story.series_label') ?>
-        <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>
-      </p>
-      <?php endif; ?>
-      <?php if ($tags !== []): ?>
-      <div class="tag-chips"><?php foreach ($tags as $typeName => $names): ?><span class="badge"><?= $this->e($typeName) ?>: <?= $this->e(implode(', ', $names)) ?></span><?php endforeach; ?></div>
-      <?php endif; ?>
-      <p class="meta story-warnings"><?= $warning !== '' ? $this->e($warning) : \App\Lang::t('story.no_warnings') ?></p>
       <?php /* The comp's three action cells (D3): kudos, favorite, later.
            Guests get the kudos form (guest kudos are keyed by IP) and login
            links for the member-only cells. The smaller member affordances
@@ -131,11 +95,12 @@
               <button type="submit"><?= \App\Lang::t('story.leave_coauthor') ?></button>
             </form>
             <?php endif; ?>
+            <details class="report-disclosure"><summary><?= \App\Lang::t('story.report_short') ?></summary>
             <form method="post" action="/report/story/<?= $this->e($story['slug']) ?>" class="inline">
               <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
               <input name="reason" required maxlength="500" placeholder="<?= $this->e(\App\Lang::t('story.report_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('story.report_placeholder')) ?>">
               <button type="submit"><?= \App\Lang::t('story.report') ?></button>
-            </form>
+            </form></details>
           <?php endif; ?>
           <?php if (!empty($story['support_url'])): ?>
           <a href="<?= $this->e($story['support_url']) ?>" rel="noopener nofollow"><?= \App\Lang::t('story.support') ?></a>
@@ -143,19 +108,66 @@
         </div>
       </div>
     </div>
-  </div>
-  <?php if (($story['notes'] ?? '') !== ''): ?>
-    <div class="chapter-meta"><?= \App\Markdown::render($story['notes']) ?></div>
-  <?php endif; ?>
+    </div>
+    <div class="story-main">
+    <div class="story-info">
+      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => date('M j', strtotime((string) $story['updated_at']))])) ?></span><?php endif; ?></p>
+      <h1><?= $this->e($story['title']) ?></h1>
+      <?php /* the byline is a div because the Follow toggle is a form: the
+           HTML parser auto-closes a p element when a form element opens,
+           which would break the comp's one-line byline at tablet and
+           desktop widths. */ ?>
+      <div class="byline"><?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?><?php if (!empty($csrf)): ?><?php if ((int) $following_author === 1): ?> · <span class="follow-state"><?= \App\Lang::t('story.you_follow_author') ?></span><?php else: ?> · <form method="post" action="/follow/author/<?= (int) $story['author_id'] ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="follow-btn"><?= \App\Lang::t('story.follow_author') ?></button></form><?php endif; ?><?php endif; ?></div>
+      <?php /* one markup, two presentations: the meta line shows below 1024px, the stats dl from 1024px up. The reading time is public (word_count at 250 wpm); the member-only minutes-left note joins it. */ ?>
+      <p class="meta meta-line"><?= $this->e($story['rating_label']) ?> · <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?> · <?= \App\Lang::t('reader.chapters_n', ['n' => count($chapters)]) ?> · <?= \App\Lang::t('story.read_time', ['time' => $readTime]) ?><?php if ($progress !== null && $progress['minutes_left'] !== null): ?> · <?= \App\Lang::t('reader.about_left', ['min' => (int) $progress['minutes_left']]) ?><?php endif; ?>
+        <?php if ((int) $story['is_adult'] === 1): ?><span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
+        <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge"><?= \App\Lang::t('story.registered_only') ?></span><?php endif; ?>
+        <?php if ($story['round_robin']): ?><span class="badge"><?= \App\Lang::t('story.round_robin') ?></span><?php endif; ?>
+        <?php if (($story['language'] ?? '') !== ''): ?><span class="badge"><?= $this->e($story['language']) ?></span><?php endif; ?></p>
+      <dl class="story-stats">
+        <div><dt><?= \App\Lang::t('story.rating') ?></dt><dd><?= $this->e($story['rating_label']) ?></dd></div>
+        <div><dt><?= \App\Lang::t('story.words_label') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd></div>
+        <div><dt><?= \App\Lang::t('reader.time_left') ?></dt><dd><?= $this->e($readTime) ?></dd></div>
+        <?php if ($progress !== null && $progress['minutes_left'] !== null): ?><div><dt><?= \App\Lang::t('story.time_left_label') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd></div><?php endif; ?>
+        <div><dt><?= \App\Lang::t('story.kudos_label') ?></dt><dd><?= number_format((int) $kudos_count) ?></dd></div>
+        <div><dt><?= \App\Lang::t('story.reviews_heading') ?></dt><dd><?= number_format((int) $review_count) ?></dd></div>
+      </dl>
+      <p class="summary"><?= $this->e($story['summary']) ?></p>
+      <?php if (($story['gift_to'] ?? '') !== ''): ?>
+      <p class="meta"><?= \App\Lang::t('story.gift_line', ['name' => $this->e($story['gift_to'])]) ?></p>
+      <?php endif; ?>
+      <?php if (($story['crosspost_url'] ?? '') !== ''): ?>
+      <p class="meta"><?= \App\Lang::t('story.crossposted_from') ?> <a href="<?= $this->e($story['crosspost_url']) ?>" rel="nofollow"><?= \App\Lang::t('story.crosspost_original') ?></a>.</p>
+      <?php endif; ?>
+      <?php if ($series !== []): ?>
+      <p class="meta"><?= \App\Lang::t('story.series_label') ?>
+        <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>
+      </p>
+      <?php endif; ?>
+      <?php /* D3 chips: one outlined chip per tag (the type rides the
+           title attribute), and the warnings line closes the row as the
+           comp's last chip. Tags are not links yet: no tag-browse route. */ ?>
+      <div class="story-tags">
+      <?php if ($tags !== []): ?>
+      <div class="tag-chips"><?php foreach ($tags as $typeName => $names): ?><?php foreach ($names as $tagName): ?><span class="tag-chip" title="<?= $this->e($typeName) ?>"><?= $this->e($tagName) ?></span><?php endforeach; ?><?php endforeach; ?></div>
+      <?php endif; ?>
+      <p class="meta story-warnings"><?= $warning !== '' ? $this->e($warning) : \App\Lang::t('story.no_warnings') ?></p>
+      </div>
+      <?php if (($story['notes'] ?? '') !== ''): ?>
+      <aside class="story-notes" aria-label="<?= $this->e(\App\Lang::t('story.notes')) ?>"><p class="notes-label"><?= \App\Lang::t('story.notes') ?></p><?= \App\Markdown::render($story['notes']) ?></aside>
+      <?php endif; ?>
+    </div>
   <section class="chapters" aria-labelledby="chapters-h">
     <div class="section-head"><h2 id="chapters-h"><?= \App\Lang::t('story.chapters') ?></h2>
       <?php if (\App\Features::on('exports')): ?>
       <nav class="section-links">
-        <a href="/story/whole/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.whole_link') ?></a> · <a href="/story/download/<?= $this->e($story['slug']) ?>/epub"><?= \App\Lang::t('story.download_epub') ?></a> · <a href="/story/download/<?= $this->e($story['slug']) ?>/html"><?= \App\Lang::t('story.download_html') ?></a>
+        <a href="/story/whole/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.whole_link') ?></a> <a href="/story/download/<?= $this->e($story['slug']) ?>/epub"><?= \App\Lang::t('story.download_epub') ?></a> <a href="/story/download/<?= $this->e($story['slug']) ?>/html"><?= \App\Lang::t('story.download_html') ?></a>
       </nav>
       <?php endif; ?>
     </div>
-    <ol class="chapter-list">
+    <?php /* T2/D3 print "6,904 words"; M1 prints the bare count. The unit
+         rides a custom property so the pinned count span stays bare. */ ?>
+    <ol class="chapter-list" style="--words-unit:'<?= $this->e(str_replace(["'", '\\'], '', ' ' . \App\Lang::t('story.words'))) ?>'">
       <?php foreach ($chapters as $c):
           $pos = (int) $c['position'];
           $cur = $last !== null && $pos === (int) $last;
@@ -169,6 +181,7 @@
       <?php endforeach; ?>
     </ol>
   </section>
+  <section class="story-reviews" aria-labelledby="reviews">
   <h2 id="reviews"><?= \App\Lang::t('story.reviews_heading') . ' (' . number_format((int) $review_count) . ')' ?></h2>
   <?php if ($reviews === []): ?><p class="chapter-meta"><?= \App\Lang::t('common.none_yet') ?></p>
   <?php else: ?>
@@ -210,18 +223,23 @@
     <?php if ($review_count > count($reviews) || $repliesDropped): ?><p class="chapter-meta"><?= \App\Lang::t('story.recent_50') ?></p><?php endif; ?>
   <?php endif; ?>
   <?php if (!empty($csrf)): ?>
-    <form method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
+    <form class="form-card review-form" method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
+      <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
       <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
       <label><?= \App\Lang::t('story.rating_optional') ?> <select name="rating"><option value="">&#8211;</option><?php for ($i = 0; $i <= 10; $i++): ?><option value="<?= $i ?>"><?= $i ?></option><?php endfor; ?></select></label>
-      <button type="submit"><?= \App\Lang::t('story.post_review') ?></button>
+      <button type="submit" class="btn-primary"><?= \App\Lang::t('story.post_review') ?></button>
     </form>
   <?php else: ?>
-    <form method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
+    <form class="form-card review-form" method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
+      <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <label><?= \App\Lang::t('story.name') ?> <input name="guest_name" required maxlength="40"></label>
       <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
       <label><?= \App\Lang::t('story.rating_optional') ?> <select name="rating"><option value="">&#8211;</option><?php for ($i = 0; $i <= 10; $i++): ?><option value="<?= $i ?>"><?= $i ?></option><?php endfor; ?></select></label>
-      <button type="submit"><?= \App\Lang::t('story.post_review_guest') ?></button>
+      <button type="submit" class="btn-primary"><?= \App\Lang::t('story.post_review_guest') ?></button>
     </form>
   <?php endif; ?>
+  </section>
+    </div>
+  </div>
 </article>
