@@ -94,6 +94,8 @@ final class DemoTest extends TestCase
         $this->db->query("INSERT INTO categories (name, slug, parent_id) VALUES ('High fantasy', 'high-fantasy', (SELECT id FROM categories WHERE slug = 'fantasy'))");
         $this->db->query("INSERT INTO characters (name, slug, category_id) VALUES ('Operator hero', 'operator-hero', (SELECT id FROM categories WHERE slug = 'fantasy'))");
         $this->db->query("INSERT INTO tags (tag_type_id, name) VALUES ((SELECT id FROM tag_types WHERE name = 'warning'), 'Slow burn')");
+        // and an operator tag an admin merged into the demo's Cozy
+        $this->db->query("INSERT INTO tags (tag_type_id, name, canonical_id) VALUES ((SELECT id FROM tag_types WHERE name = 'content'), 'Snug', (SELECT id FROM tags WHERE name = 'Cozy'))");
         \App\Demo::run($this->db, true);
         $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM categories WHERE slug = 'high-fantasy'"), 'a child category survives');
         $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM characters WHERE name = 'Operator hero'"), 'a character survives');
