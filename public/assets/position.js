@@ -6,8 +6,8 @@
  * ever mapped into that band (an appended fragment stamps its own span on
  * its article; the active article's stamp wins while it is the one being
  * read). Writes go to the inline style and the accessibility tree, never
- * to a cookie; where the CSS scroll-timeline runs it keeps owning the
- * paint and the last writer wins gracefully. The loader appends this file
+ * to a cookie; the bar gains is-live, which retires the CSS scroll-timeline
+ * animation so the fill is interpolated once, here. The loader appends this file
  * only when the page carries [data-js-module="position"], and window.Kip
  * exists before any module runs. */
 'use strict';
@@ -78,6 +78,7 @@
       queued = true;
       window.requestAnimationFrame(function () { queued = false; paint(); });
     };
+    bar.classList.add('is-live'); /* this module owns the fill now (reader.css) */
     window.addEventListener('scroll', schedule, { passive: true });
     if (main) { main.addEventListener('scroll', schedule, { passive: true }); }
     schedule(); /* the first paint matches wherever a deep link landed */

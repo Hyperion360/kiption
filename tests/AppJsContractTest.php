@@ -195,4 +195,15 @@ final class AppJsContractTest extends TestCase
         $this->assertStringContainsString("key === 'j' || (key === 'arrowright' && arrows)", $js);
         $this->assertStringContainsString("key === 'k' || (key === 'arrowleft' && arrows)", $js);
     }
+
+    /** One owner for the progress fill: the position module marks its bar
+     *  is-live and the CSS scroll-timeline animation stands down, so the fill
+     *  is not interpolated twice (qa-full /review, Codex). */
+    public function test_the_position_module_owns_the_fill_alone(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/position.js');
+        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
+        $this->assertStringContainsString("bar.classList.add('is-live')", $js);
+        $this->assertStringContainsString('.reader-progress.is-live::after { animation: none; }', $css);
+    }
 }

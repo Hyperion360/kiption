@@ -719,6 +719,10 @@ html[dir="rtl"] .reader-progress::after {
     animation: reader-progress-fill linear both;
     animation-timeline: scroll(root);
   }
+  /* Once the position module paints the already-interpolated --p-end, the
+     scroll timeline would interpolate it a second time and lag the fill
+     behind the readout: the module's bar drops the animation. */
+  .reader-progress.is-live::after { animation: none; }
 }
 @keyframes reader-progress-fill {
   from { background-size: var(--p-start, 0%) 100%; }
