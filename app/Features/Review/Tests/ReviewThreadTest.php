@@ -58,7 +58,7 @@ final class ReviewThreadTest extends TestCase
         $this->assertSame(302, $res->status, $res->body);
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('Thanks for reading!', $body);
-        $this->assertStringContainsString('| author', $body);
+        $this->assertStringContainsString('· author', $body);
     }
 
     public function test_reply_notifies_root_author_not_self(): void
