@@ -108,8 +108,8 @@ final class PrefsTest extends TestCase
         $res = $me->postWithToken('/account/prefs', ['theme' => 'auto', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
         $this->assertSame(302, $res->status, $res->body);
-        $this->assertSame('paper', $this->db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
-            'auto stores paper, never a legacy or out-of-CHECK value');
+        $this->assertNull($this->db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
+            'auto stores NULL (029): the login sync then leaves the device on its OS setting');
         $this->assertContains('theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($res),
             'auto clears the theme cookie instead of minting one');
         // the form radios carry the new value set

@@ -2736,7 +2736,7 @@ CREATE TABLE "user_prefs" (
             notify_favorites INTEGER NOT NULL DEFAULT 1,
             default_sort TEXT NOT NULL DEFAULT 'recent' CHECK (default_sort IN ('recent', 'alpha')),
             toc_first INTEGER NOT NULL DEFAULT 0,
-            theme TEXT NOT NULL DEFAULT 'paper' CHECK (theme IN ('paper', 'sepia', 'night')),
+            theme TEXT DEFAULT NULL CHECK (theme IS NULL OR theme IN ('paper', 'sepia', 'night')),
             digest_sent_at TEXT,
             notify_favorite_digest INTEGER NOT NULL DEFAULT 0,
             lang TEXT NOT NULL DEFAULT ''
@@ -2755,7 +2755,7 @@ CREATE TABLE "user_prefs" (
 | notify_favorites | INTEGER | 1 | false |  |  |  |
 | default_sort | TEXT | 'recent' | false |  |  |  |
 | toc_first | INTEGER | 0 | false |  |  |  |
-| theme | TEXT | 'paper' | false |  |  |  |
+| theme | TEXT | NULL | true |  |  |  |
 | digest_sent_at | TEXT |  | true |  |  |  |
 | notify_favorite_digest | INTEGER | 0 | false |  |  |  |
 | lang | TEXT | '' | false |  |  |  |
@@ -2767,7 +2767,7 @@ CREATE TABLE "user_prefs" (
 | user_id | PRIMARY KEY | PRIMARY KEY (user_id) |
 | - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
 | - | CHECK | CHECK (default_sort IN ('recent', 'alpha')) |
-| - | CHECK | CHECK (theme IN ('paper', 'sepia', 'night')) |
+| - | CHECK | CHECK (theme IS NULL OR theme IN ('paper', 'sepia', 'night')) |
 
 ## Relations
 
@@ -2892,6 +2892,11 @@ None requiring action.
   ten columns and mapped light to paper, dark to night. Stored theme
   values are paper/sepia/night only; auto is a cookie-level choice (the
   settings route clears the theme cookie) and never reaches a row.
+- user_prefs (029): REBUILT again so theme is nullable, NULL meaning Auto.
+  001's DEFAULT 'dark' had given every prefs row created for another reason
+  a theme nobody chose (night after 026), which the login sync applied; all
+  stored themes reset to NULL. Auto now stores NULL and the login sync sets
+  no theme cookie for it.
 - bookmarks (027): PK (user_id, story_id, chapter_id) makes re-bookmarking
   an upsert; idx_bookmarks_user_story (user_id, story_id, created_at,
   chapter_id) serves the reader envelope's fold with no TEMP B-TREE;

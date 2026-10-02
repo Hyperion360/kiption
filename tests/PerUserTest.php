@@ -310,14 +310,27 @@ final class PerUserTest extends TestCase
      *  never open it), so a browser already carrying lang=xx keeps rendering
      *  that pack until its next logout or login; new logins stop syncing
      *  the cookie the moment the flag drops, which is what this case pins. */
+    /** The reported bug (2026-10-02): logging in switched the site to dark.
+     *  A prefs row created for any other reason used to carry the schema's
+     *  default theme (001: dark, night after 026) and the login sync applied
+     *  it. Since 029 such a row holds NULL and the login sets no theme cookie. */
+    public function test_login_never_applies_a_theme_the_member_did_not_choose(): void
+    {
+        $this->db()->query('INSERT INTO user_prefs (user_id, lang) VALUES (?, ?)', [$this->memberId(), '']);
+        $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertSame(302, $res->status);
+        foreach ($this->cookieLeaves($res) as $leaf) {
+            $this->assertStringStartsNotWith('theme=', $leaf, 'no theme cookie for a member who never chose one');
+        }
+    }
+
     public function test_peruserlang_off_stops_the_login_sync_and_keeps_cookieless_renders_archive_lang(): void
     {
         $this->writePack();
-        // Plant the row the way a real save would. The lang-only INSERT lets
-        // the theme column take its schema default 'paper' (post-026), which
-        // sharpens the case: the login still syncs the theme cookie, proving
-        // the prefs row was read and only the lang arm skipped.
-        $this->db()->query('INSERT INTO user_prefs (user_id, lang) VALUES (?, ?)', [$this->memberId(), 'xx']);
+        // Plant a row with a real theme choice beside the lang: the login still
+        // syncs the theme cookie, proving the prefs row was read and only the
+        // lang arm skipped. (A lang-only row carries NULL theme since 029.)
+        $this->db()->query('INSERT INTO user_prefs (user_id, lang, theme) VALUES (?, ?, ?)', [$this->memberId(), 'xx', 'paper']);
         \App\Features::toggle('peruserlang', false);
         $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $this->assertSame(302, $res->status);

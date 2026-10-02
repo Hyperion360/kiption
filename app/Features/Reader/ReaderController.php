@@ -35,12 +35,13 @@ final class ReaderController
 
         // Write-through for members (the ThemeController idiom, phase 12d): the
         // row re-syncs the cookie at the next login. Guests stay cookie-only.
-        // auto stores paper: the column CHECK admits paper/sepia/night only.
+        // Auto stores NULL (029): the login sync then sets no theme cookie, so
+        // the member's devices follow their own OS setting.
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         if ($me !== 0 && \App\Features::on('perusertheme')) {
             $this->db->query(
                 'INSERT INTO user_prefs (user_id, theme) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET theme = excluded.theme',
-                [$me, $theme === 'auto' ? 'paper' : $theme]);
+                [$me, $theme === 'auto' ? null : $theme]);
         }
 
         // Cache-bypass economy (codex finding): a cookie-bearing request never

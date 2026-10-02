@@ -220,9 +220,9 @@ final class AccountController
                 'notify_review = excluded.notify_review', 'notify_response = excluded.notify_response',
                 'notify_favorites = excluded.notify_favorites', 'notify_favorite_digest = excluded.notify_favorite_digest'];
             if ($lang !== null) { $cols[] = 'lang'; $binds[] = $lang; $updates[] = 'lang = excluded.lang'; }
-            // auto stores paper (the post-026 CHECK admits paper/sepia/night
-            // only): OS-default is the absence of a cookie, never a stored one.
-            if ($theme !== null) { $cols[] = 'theme'; $binds[] = $theme === 'auto' ? 'paper' : $theme; $updates[] = 'theme = excluded.theme'; }
+            // Auto stores NULL (029): the login sync sets no theme cookie for
+            // it, so each device follows its own OS setting.
+            if ($theme !== null) { $cols[] = 'theme'; $binds[] = $theme === 'auto' ? null : $theme; $updates[] = 'theme = excluded.theme'; }
             $this->db->query(
                 'INSERT INTO user_prefs (' . implode(', ', $cols) . ') VALUES (' . implode(', ', array_fill(0, \count($cols), '?')) . ')
                 ON CONFLICT(user_id) DO UPDATE SET ' . implode(', ', $updates),

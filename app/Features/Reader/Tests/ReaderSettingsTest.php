@@ -63,10 +63,10 @@ final class ReaderSettingsTest extends TestCase
         return is_array($setCookie) ? $setCookie : [$setCookie];
     }
 
-    private function memberTheme(): string
+    private function memberTheme(): ?string
     {
         $row = $this->db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberRowId]);
-        return $row === null ? '(no row)' : (string) $row['theme'];
+        return $row === null ? '(no row)' : $row['theme'];
     }
 
     public function test_guest_settings_sets_both_cookies_and_redirects(): void
@@ -123,11 +123,11 @@ final class ReaderSettingsTest extends TestCase
         $res = $me->postWithToken('/reader/settings', ['theme' => 'sepia']);
         $this->assertSame(302, $res->status, $res->body);
         $this->assertSame('sepia', $this->memberTheme(), 'the member write-through persists the row');
-        // auto stores paper (the CHECK admits paper/sepia/night only) and
-        // clears the cookie: OS-default is the absence of a cookie.
+        // auto stores NULL (029) and clears the cookie: OS-default is the
+        // absence of a cookie, and the login sync sets none for NULL.
         $res = $me->postWithToken('/reader/settings', ['theme' => 'auto']);
         $this->assertSame(302, $res->status);
-        $this->assertSame('paper', $this->memberTheme());
+        $this->assertNull($this->memberTheme());
         $this->assertContains('theme=; Max-Age=0; Path=/; SameSite=Lax', $this->cookieLeaves($res));
     }
 
@@ -245,7 +245,7 @@ final class ReaderSettingsTest extends TestCase
         $this->assertSame('night', $this->memberTheme());
         $res = $me->postWithToken('/reader/settings', ['reset' => '1', 'return_to' => '/story/read/the-rabbit-hole/1']);
         $this->assertSame(302, $res->status, $res->body);
-        $this->assertSame('paper', $this->memberTheme(), 'reset stores auto as paper on the row');
+        $this->assertNull($this->memberTheme(), 'reset stores Auto (NULL) on the row');
         $leaves = $this->cookieLeaves($res);
         $this->assertContains('theme=; Max-Age=0; Path=/; SameSite=Lax', $leaves, 'the theme cookie clears');
         $this->assertContains('reader=; Max-Age=0; Path=/; SameSite=Lax', $leaves, 'the reader cookie clears');
