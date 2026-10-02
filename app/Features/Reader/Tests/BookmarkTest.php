@@ -380,4 +380,16 @@ final class BookmarkTest extends TestCase
         }
         $this->assertNull($this->lastPosition());
     }
+
+    /** A bookmark on a chapter later unpublished keeps its note but links
+     *  nowhere: the chapter page would 404 (qa-full /pentest T5). */
+    public function test_bookmark_on_an_unpublished_chapter_keeps_its_note_without_a_link(): void
+    {
+        $c = $this->client($this->memberId);
+        $c->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', ['note' => 'chapter two thought']);
+        $this->db->query("UPDATE chapters SET validated = 0 WHERE position = 2 AND story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole')");
+        $body = $c->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringContainsString('chapter two thought', $body);
+        $this->assertStringNotContainsString('class="bm-chapter" href="/story/read/the-rabbit-hole/2"', $body);
+    }
 }

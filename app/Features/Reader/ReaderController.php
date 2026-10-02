@@ -96,12 +96,15 @@ final class ReaderController
         // Only the note form sends the field. The ribbon button does not, so a
         // repeat bookmark (double click, resubmit, stale tab) keeps the note.
         $hasNote = array_key_exists('note', $this->request->post);
+        // One statement re-checks the chapter at write time: deleted or
+        // unpublished since bookmarkTarget read it, the insert writes no row
+        // (never a foreign-key 500 from migration 030's cascade keys).
         $this->write(fn () => $this->db->query(
             'INSERT INTO bookmarks (user_id, story_id, chapter_id, note)
-             VALUES (?, ?, ?, ?)
+             SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM chapters WHERE id = ? AND validated = 1)
              ON CONFLICT(user_id, story_id, chapter_id) DO UPDATE SET note = '
              . ($hasNote ? 'excluded.note' : 'bookmarks.note'),
-            [$row['me'], $row['sid'], $row['cid'], $note]));
+            [$row['me'], $row['sid'], $row['cid'], $note, $row['cid']]));
         return self::backToChapter($slug, $position);
     }
 

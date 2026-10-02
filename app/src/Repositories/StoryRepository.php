@@ -161,14 +161,15 @@ final class StoryRepository
      *  JSON (the TOC discipline; no delimiter survives a note). Ordering rides
      *  the derived table (created_at, then chapter_id to break same-timestamp
      *  ties deterministically); the chapters LEFT JOIN resolves the position
-     *  for the sheet's links. $me is an int, so interpolation is safe. */
+     *  for the sheet's links, only while the chapter is published: an
+     *  unpublished chapter's bookmark keeps its note and loses its link. $me is an int, so interpolation is safe. */
     private static function bookmarksFold(int $me): string
     {
         return $me !== 0 ? ',
                     (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note, \'at\', b.created_at))
                      FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
                            ORDER BY b.created_at, b.chapter_id) b
-                     LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';
+                     LEFT JOIN chapters cb ON cb.id = b.chapter_id AND cb.validated = 1) AS bookmarks_blob' : '';
     }
 
     public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
