@@ -607,6 +607,14 @@ html[data-mode="pages"] .reader-main .prose {
    .chapter-end separator the reader uses, and every chapter after the first
    opens with the comp's next-chapter block: kicker, serif heading, 40x1
    rule. Sections breathe between separators; the first needs no gap. */
+/* Whole-work head: the story page's eyebrow / serif title / meta line. */
+.whole-head { display: flex; flex-direction: column; gap: 10px; max-width: var(--read-width); margin-inline: auto; }
+.whole-head > * { margin: 0; }
+.whole-head h1 a { color: var(--ink); text-decoration: none; }
+.whole-head h1 a:hover { color: var(--accent); }
+.whole-head .meta { font-size: 13px; }
+.whole-toc { max-width: var(--read-width); margin: 32px auto 48px; }
+.whole-toc h2 { font-size: 24px; margin: 0 0 8px; }
 .whole-work section.prose { margin-block: 3rem 0; }
 .whole-work section.prose:first-of-type { margin-block-start: 0; }
 .whole-work .ch-kicker {
@@ -718,7 +726,7 @@ body.focus .site-head { display: none; }
    bar carry navigation. :has() rides the same progressive allowance as the
    scrim: engines without it keep the site header, which stays usable. */
 @media (max-width:1023px) {
-  body:has(.whole-work) .site-head, body:has(.reader) .site-head { display: none; }
+  body:has(.reader) .site-head { display: none; }
   /* keyboard hints are a desktop affordance; on tablet they collide with the pill */
   .js .hint-keys { display: none; }
 }
@@ -729,8 +737,10 @@ body.focus .site-head { display: none; }
 .reader-breadcrumb { display: flex; align-items: center; column-gap: 12px; }
 .rt-left { display: inline-flex; align-items: baseline; gap: 12px; min-width: 0; }
 .reader-breadcrumb .rt-sep { color: var(--muted); }
-.reader-breadcrumb .rt-story { font-size: 15px; }
-.reader-breadcrumb .rt-chapter { font-size: 13px; }
+.reader-breadcrumb { min-height: 44px; }
+.reader-breadcrumb .rt-brand { display: inline; font: 13px var(--serif); font-variant: small-caps; letter-spacing: .08em; color: var(--ink-2); text-decoration: none; }
+.reader-breadcrumb .rt-story, .reader-breadcrumb .rt-chapter { font: 13px var(--sans); color: var(--muted); }
+.reader-breadcrumb .reader-progress { height: 1px; }
 .reader-breadcrumb .reader-pct { display: inline; margin-inline-start: auto; font-weight: 400; font-size: 13px; white-space: nowrap; }
 .reader-breadcrumb .reader-progress { position: absolute; inset-inline: 0; bottom: 0; }
 .focus-hint {
@@ -749,7 +759,7 @@ body.focus .site-head { display: none; }
   font: 13px/1.6 var(--sans); color: var(--muted);
 }
 .js .hint-keys kbd { color: var(--ink); }
-body.focus .js .hint-keys { bottom: 56px; }
+.js body.focus .hint-keys { bottom: 56px; }
 .reader-dock {
   position: fixed; inset-inline-end: 28px; bottom: 28px; z-index: 30;
   display: flex; flex-direction: column;
@@ -1040,11 +1050,12 @@ body.focus .js .hint-keys { bottom: 56px; }
   .reader .chapter-list li.is-current .ch-num { color: var(--accent); }
   /* D1 chapter opening: left-aligned kicker, 44px title, short ink rule. */
   .reader-main { grid-area: main; padding: 64px 48px 3rem; }
-  .reader-main .prose > .ch-kicker { text-align: start; }
+  .reader:not(.reader-focus) .reader-main .prose > .ch-kicker { text-align: start; }
   #contents .sheet-tabs { margin: 0 14px 14px; gap: 20px; }
   #contents .sheet-tabs label { font: 12px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase; min-height: 32px; }
-  .reader-main .p-name { text-align: start; font-size: 44px; margin-block-end: 36px; }
-  .reader-main .p-name::after { margin-inline: 0; }
+  .reader-main .p-name { font-size: 44px; margin-block-end: 36px; }
+  .reader:not(.reader-focus) .reader-main .p-name { text-align: start; }
+  .reader:not(.reader-focus) .reader-main .p-name::after { margin-inline: 0; }
   .reader-bar { display: none; }
   /* D2 focus (desktop): the distraction-free variant. One centered column;
      the panes yield (the dock's Contents/Text still open the sheets as the
