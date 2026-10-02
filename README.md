@@ -190,11 +190,25 @@ Scripting is progressive enhancement, never a requirement: pages are
 fully usable without it, and one hand-written vanilla layer
 (`public/assets/app.js`, loaded with `defer`, no build step or
 dependency) adds keyboard shortcuts (J/K chapters, F focus, T text,
-Esc), live reading position, infinite scroll for chapters and
-listings, instant preference application, and the header theme quick
-toggle. Every feature module loads only when its markup marker is
-present, and every behavior has a no-script path (forms, `:target`
-sheets, the pager, the Text sheet's Save). Printing any page drops the site and reader
+Esc), live reading position in the reader header, infinite scroll for
+chapters and listings, instant preference application, and the header
+theme quick toggle. Every feature module loads only when its markup
+marker is present, and every behavior has a no-script path (forms,
+`:target` sheets, the pager, the Text sheet's Save). Fragment renders
+of chapters always answer with `X-Robots-Tag: noindex`, apply the same
+gates as the chapter page (age, restricted, validation), and never
+write reading progress - progress records when the chapter page itself
+is read, exactly as before.
+
+Discovery surfaces. `/browse/recent` carries the comp's chip rows:
+the built-in completion/length filters plus category chips folded from
+the listing's own query (one query total; a category chip narrows by a
+bound EXISTS probe, and junk values render the empty state, never an
+error). `/series` indexes every series with validated-story counts,
+and `/browse/authors` remains the member directory; both are paged,
+guest-cacheable, and purged with the content they count. The seeded
+starter nav links Browse, Recent, Authors, Series, Library (operator-
+managed afterwards via the nav admin). Printing any page drops the site and reader
 chrome, including a sheet left open at print time.
 
 Reader typography. The chapter reader's Text sheet saves six reading
