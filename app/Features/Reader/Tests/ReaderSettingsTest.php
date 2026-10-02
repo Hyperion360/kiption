@@ -131,6 +131,19 @@ final class ReaderSettingsTest extends TestCase
         $this->assertContains('theme=; Max-Age=0; Path=/; SameSite=Lax', $this->cookieLeaves($res));
     }
 
+    /** perusertheme off: the member's choice still lands in the cookie, but
+     *  the user_prefs row is never written (testing specialist). */
+    public function test_perusertheme_off_skips_the_member_row(): void
+    {
+        $this->db->query("INSERT OR REPLACE INTO feature_flags (key, enabled) VALUES ('perusertheme', 0)");
+        \App\Features::init($this->db, []);
+        $res = $this->client($this->memberRowId)->postWithToken('/reader/settings', ['theme' => 'sepia']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertContains('theme=sepia; Max-Age=31536000; Path=/; SameSite=Lax', $this->cookieLeaves($res));
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM user_prefs WHERE user_id = ?', [$this->memberRowId])['c'],
+            'no write-through while the flag is off');
+    }
+
     public function test_unsafe_return_to_falls_back_to_the_root(): void
     {
         $res = $this->client()->post('/reader/settings', ['theme' => 'sepia', 'return_to' => 'https://evil.test/x']);

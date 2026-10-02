@@ -228,6 +228,21 @@ final class BookmarkTest extends TestCase
         $this->assertSame(1, $this->rowCount());
     }
 
+    /** The remove action shares the add's gate (bookmarkTarget): without the
+     *  age acknowledgement an adult story's bookmark is neither confirmed nor
+     *  removed (testing specialist). */
+    public function test_adult_story_refuses_bookmark_removal_until_age_acked(): void
+    {
+        $acked = $this->client($this->memberId);
+        $acked->cookie('age_ok', '1');
+        $acked->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'x']);
+        $this->db->query("UPDATE stories SET rating_id = (SELECT id FROM ratings WHERE label = 'Explicit') WHERE slug = 'the-rabbit-hole'");
+        $this->assertSame(404, $this->client($this->memberId)->postWithToken('/reader/bookmarkremove/the-rabbit-hole/1')->status);
+        $this->assertSame(1, $this->rowCount(), 'refused: the row stays');
+        $this->assertSame(302, $acked->postWithToken('/reader/bookmarkremove/the-rabbit-hole/1')->status);
+        $this->assertSame(0, $this->rowCount());
+    }
+
     /** Cross-member isolation (testing specialist): the fold and the actions
      *  key on the acting member; a bind-order regression must never leak or
      *  mutate another member's rows. */
