@@ -291,7 +291,6 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   margin-block-end: 12px; font: 400 15px/1.4 var(--sans); color: var(--ink);
 }
 /* Account settings: each form is its own block under the Settings rule. */
-.settings-heading { margin-block: 48px 0; padding-block-start: 24px; border-block-start: 1px solid var(--ink); }
 .settings-group > form { padding-block: 16px 20px; }
 .settings-group > form + form:not(:has(> .section-label:first-of-type)) { padding-block-start: 0; }
 .settings-group .section-label { margin-block: 28px 12px; }
@@ -328,7 +327,6 @@ button:disabled { opacity: .5; cursor: not-allowed; }
    strong ink rule), small uppercase section labels, a readable centered
    column for text pages, admin-style tables, and plain empty states. */
 .page { max-width: 760px; margin-inline: auto; }
-.page-wide { max-width: none; }
 .page-head { display: flex; flex-direction: column; gap: 8px; padding-block-end: 24px; margin-block-end: 8px; border-block-end: 1px solid var(--ink); }
 .page-head > * { margin: 0; }
 .page-head h1 { font-size: 38px; line-height: 1.05; }

@@ -31,7 +31,6 @@ return [
     'nav.recent' => 'Recent',
     'nav.search' => 'Search',
     'nav.search_placeholder' => 'Search stories',
-    'nav.account' => 'Account',
     'nav.library' => 'Library',
     'nav.operator' => 'Operator',
     'nav.you' => 'You',
@@ -200,8 +199,8 @@ return [
 
     // Chapter bookmarks (C5), a member-only reader feature: markers with a
     // short note, added and removed from the chapter page. The C4 progress
-    // keys died with the C7 hero (reader.you_are_here and reader.continue_sub
-    // replaced them); the unused add/remove aria spellings died with the C8
+    // keys died with the C7 hero, and its own reader.you_are_here
+    // died with the redesign (story.you_are_here is the live spelling); the unused add/remove aria spellings died with the C8
     // bar, which labels its buttons with reader.bookmark and common.remove.
     'reader.bookmarks' => 'Bookmarks',
     'reader.where_left_off' => 'Where you left off',
@@ -214,7 +213,6 @@ return [
     'story.cover_kicker' => 'A Kiption Story',
     'reader.continue' => 'Continue reading',
     'reader.continue_sub' => 'Chapter {roman} · {title} · {pct}%',
-    'reader.you_are_here' => "You're here · {pct}%",
     'reader.chapters_n' => '{n} chapters',
     'reader.about_left' => 'about {min} min left',
     'reader.time_left' => 'Reading time',

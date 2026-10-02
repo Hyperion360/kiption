@@ -12,10 +12,6 @@
     $: function (sel, root) { return (root || document).querySelector(sel); },
     $$: function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); },
     cookie: {
-      get: function (name) {
-        var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-        return m ? decodeURIComponent(m[1]) : '';
-      },
       set: function (name, value) {
         /* Secure on HTTPS, matching the server's App\Cookie, so a control
            move never strips the attribute the server set. */

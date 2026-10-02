@@ -14,15 +14,6 @@
   var KEYS = ['size', 'typeface', 'spacing', 'paragraphs', 'width', 'mode'];
   var DEFAULT_STRING = KEYS.map(function (k) { return DEFAULTS[k]; }).join('-');
 
-  /* The effective theme: the root attribute the last application left, else
-     the cookie (document.cookie can throw in sandboxed contexts), else auto. */
-  Kip.readTheme = function () {
-    var t = document.documentElement.getAttribute('data-theme');
-    if (t) { return t; }
-    try { t = Kip.cookie.get('theme'); } catch (e) { t = ''; }
-    return t || 'auto';
-  };
-
   /* The quick toggle's setter: syncs the checked swatch radio (so the text
      sheet opens agreeing with what is on screen), the root attribute, and
      the cookie. auto removes both attribute and cookie: absence IS auto,
