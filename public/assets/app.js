@@ -29,6 +29,19 @@
     /* Run a module init now if the DOM is ready, else on DOMContentLoaded
        (defer scripts run before that event, but dynamically appended ones
        may land after it). */
+    /* The one theme setter (header toggle and Text controls alike): the
+       root attribute, the cookie, and the Text sheet's swatch radio when
+       that sheet is on the page, so it opens agreeing with the screen.
+       auto removes attribute and cookie: absence IS auto, exactly like the
+       server renders it. */
+    setTheme: function (t) {
+      var auto = t === 'auto' || t === '';
+      var radio = Kip.$('[data-js="settings-form"] [data-js-pref="theme"][value="' + (auto ? 'auto' : t) + '"]');
+      if (radio) { radio.checked = true; }
+      if (auto) { document.documentElement.removeAttribute('data-theme'); }
+      else { document.documentElement.setAttribute('data-theme', t); }
+      Kip.cookie.set('theme', auto ? '' : t);
+    },
     init: function (fn) {
       if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', fn); }
       else { fn(); }

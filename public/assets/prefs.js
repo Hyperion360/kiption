@@ -14,22 +14,6 @@
   var KEYS = ['size', 'typeface', 'spacing', 'paragraphs', 'width', 'mode'];
   var DEFAULT_STRING = KEYS.map(function (k) { return DEFAULTS[k]; }).join('-');
 
-  /* The quick toggle's setter: syncs the checked swatch radio (so the text
-     sheet opens agreeing with what is on screen), the root attribute, and
-     the cookie. auto removes both attribute and cookie: absence IS auto,
-     exactly like the server renders it. */
-  Kip.setTheme = function (t) {
-    var radio = Kip.$('[data-js="settings-form"] [data-js-pref="theme"][value="' + t + '"]');
-    if (radio) { radio.checked = true; }
-    if (t === 'auto' || t === '') {
-      document.documentElement.removeAttribute('data-theme');
-      Kip.cookie.set('theme', '');
-    } else {
-      document.documentElement.setAttribute('data-theme', t);
-      Kip.cookie.set('theme', t);
-    }
-  };
-
   /* Read all seven controls, then apply: the six-segment reader cookie,
      both cookies deleted when everything is default, the data-size /
      typeface / spacing / paragraphs / width / mode and data-theme
@@ -50,13 +34,11 @@
     var parts = [];
     KEYS.forEach(function (k) { parts.push(values[k]); });
     Kip.cookie.set('reader', parts.join('-') === DEFAULT_STRING ? '' : parts.join('-'));
-    Kip.cookie.set('theme', theme === 'auto' || theme === '' ? '' : theme);
     KEYS.forEach(function (k) {
       if (values[k] === DEFAULTS[k]) { document.documentElement.removeAttribute('data-' + k); }
       else { document.documentElement.setAttribute('data-' + k, values[k]); }
     });
-    if (theme === 'auto' || theme === '') { document.documentElement.removeAttribute('data-theme'); }
-    else { document.documentElement.setAttribute('data-theme', theme); }
+    Kip.setTheme(theme);
     var out = form.querySelector('.size-readout');
     if (out) { out.textContent = size + ' px'; }
   };

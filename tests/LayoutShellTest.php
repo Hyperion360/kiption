@@ -161,7 +161,9 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString("isDark() ? 'paper' : 'night'", $js, 'the light/dark flip');
         $this->assertStringContainsString("prefers-color-scheme: dark", $js, 'Auto resolves through the OS setting');
         $this->assertStringContainsString("setAttribute('aria-label'", $js, 'the label names the next state');
-        $this->assertStringContainsString('Kip.setTheme', $js, 'application goes through the prefs module when it is present');
+        $this->assertStringContainsString('Kip.setTheme(next)', $js, 'application goes through the one core setter');
+        $this->assertStringContainsString('setTheme: function', (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js'),
+            'which lives in app.js, loaded on every page');
     }
 
     public function test_the_toggle_label_key_exists(): void

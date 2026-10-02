@@ -7,10 +7,9 @@
  * in the reader's Text sheet and in Settings. The current state is read
  * from the root data-theme attribute: it is the state the page actually
  * applied (the theme cookie is script-writable, Cookie::pref, but can lag
- * a cached render); absence is Auto. Application goes
- * through Kip.setTheme when the prefs module is present (it also syncs the
- * Text sheet's checked swatch), else the same contract is set by hand:
- * attribute plus cookie. This is a device-local convenience: no member row
+ * a cached render); absence is Auto. Application goes through the core
+ * Kip.setTheme (app.js): attribute, cookie, and the Text sheet's swatch
+ * when that sheet is on the page. This is a device-local convenience: no member row
  * is written - Save and Settings stay the durable writes. */
 'use strict';
 (function (Kip) {
@@ -32,8 +31,7 @@
     label();
     btn.addEventListener('click', function () {
       var next = isDark() ? 'paper' : 'night';
-      if (typeof Kip.setTheme === 'function') { Kip.setTheme(next); }
-      else { root.setAttribute('data-theme', next); Kip.cookie.set('theme', next); }
+      Kip.setTheme(next);
       label();
     });
   });
