@@ -193,6 +193,8 @@ final class BrowseTest extends TestCase
         $filtered = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'complete'], [], []))->body;
         $this->assertStringContainsString('<a class="chip is-active" href="/browse/recent?filter=complete" aria-current="true">Complete</a>', $filtered);
         $this->assertStringNotContainsString('aria-current="true">All</a>', $filtered);
+        // All clears every facet: the only way back to the unfiltered list
+        $this->assertStringContainsString('<a class="chip" href="/browse/recent">All</a>', $filtered);
         // chips are recent-screen only; the category listing never renders them
         $category = $this->app->handle(new Request('GET', '/browse/category/general', [], [], []))->body;
         $this->assertStringNotContainsString('filter-chips', $category);

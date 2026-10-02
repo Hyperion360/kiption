@@ -11,13 +11,14 @@
      $activeFilter = (string) ($filter ?? '');
      $activeCat = (string) ($cat ?? '');
      // Pager and All-chip URLs: the pager keeps BOTH facets (cat and
-     // filter); the All chip drops cat and keeps filter. Chips never carry
+     // filter); the All chip clears both, the one way back to the whole
+     // list (every filter chip sets a filter). Chips never carry
      // ?page= (a facet click resets to page 1); only the pager does.
      $keep = [];
      if ($activeCat !== '') $keep[] = 'cat=' . rawurlencode($activeCat);
      if ($activeFilter !== '') $keep[] = 'filter=' . rawurlencode($activeFilter);
      $pagerPrefix = $keep === [] ? '?page=' : '?' . implode('&amp;', $keep) . '&amp;page=';
-     $allHref = $this->e($baseUrl) . ($activeFilter !== '' ? '?filter=' . rawurlencode($activeFilter) : '');
+     $allHref = $this->e($baseUrl);
      $allActive = $activeCat === '' && $activeFilter === '';
      // The category chips come from the stories already on the page: the
      // cats_blob fold decoded once here, distinct slug=>name pairs (the
