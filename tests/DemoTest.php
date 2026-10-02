@@ -88,7 +88,17 @@ final class DemoTest extends TestCase
         $this->db->query("INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), (SELECT id FROM tags WHERE name = 'Major character death'))");
         $this->db->query("INSERT INTO pages (slug, title, body) VALUES ('guidelines', 'Rules', 'Operator rules.')");
         \App\Demo::run($this->db);
+        // operator rows that hang off demo-named rows: a child category and a
+        // character under the demo's Fantasy, and a warning tag sharing a
+        // demo tag's name (the demo's Slow burn is a content tag)
+        $this->db->query("INSERT INTO categories (name, slug, parent_id) VALUES ('High fantasy', 'high-fantasy', (SELECT id FROM categories WHERE slug = 'fantasy'))");
+        $this->db->query("INSERT INTO characters (name, slug, category_id) VALUES ('Operator hero', 'operator-hero', (SELECT id FROM categories WHERE slug = 'fantasy'))");
+        $this->db->query("INSERT INTO tags (tag_type_id, name) VALUES ((SELECT id FROM tag_types WHERE name = 'warning'), 'Slow burn')");
         \App\Demo::run($this->db, true);
+        $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM categories WHERE slug = 'high-fantasy'"), 'a child category survives');
+        $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM characters WHERE name = 'Operator hero'"), 'a character survives');
+        $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id WHERE tt.name = 'warning' AND t.name = 'Slow burn'"),
+            'a same-named tag of another type survives');
         $this->assertSame('The operator wrote this.', (string) $this->db->one("SELECT description FROM categories WHERE slug = 'mystery'")['description']);
         $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM tag_types WHERE name = 'warning'"), 'a tag type the demo never created survives');
         $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE t.name = 'Major character death'"),

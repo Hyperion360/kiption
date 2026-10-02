@@ -136,15 +136,18 @@ final class Demo
         }
         // Shared-namespace rows go only when they are provably ours: the
         // exact text this class writes, and nothing still pointing at them.
+        // Nothing may cascade out from under them either: a category with a
+        // child category or a character stays, and a tag matches on its
+        // type as well as its name.
         foreach (self::CATEGORIES as $slug => [, $desc]) {
             $this->db->query('DELETE FROM categories WHERE slug = ? AND description = ?
-                AND NOT EXISTS (SELECT 1 FROM story_categories sc WHERE sc.category_id = categories.id)', [$slug, $desc]);
+                AND NOT EXISTS (SELECT 1 FROM story_categories sc WHERE sc.category_id = categories.id)
+                AND NOT EXISTS (SELECT 1 FROM categories ch WHERE ch.parent_id = categories.id)
+                AND NOT EXISTS (SELECT 1 FROM characters cr WHERE cr.category_id = categories.id)', [$slug, $desc]);
         }
-        foreach (self::TAGS as [, $name]) {
-            $this->db->query('DELETE FROM tags WHERE name = ? AND NOT EXISTS (SELECT 1 FROM story_tags st WHERE st.tag_id = tags.id)', [$name]);
-        }
-        foreach (['Found Family', 'slowburn'] as $name) {
-            $this->db->query('DELETE FROM tags WHERE name = ? AND NOT EXISTS (SELECT 1 FROM story_tags st WHERE st.tag_id = tags.id)', [$name]);
+        foreach (array_merge(self::TAGS, [['genre', 'Found Family'], ['content', 'slowburn']]) as [$type, $name]) {
+            $this->db->query('DELETE FROM tags WHERE name = ? AND tag_type_id = (SELECT id FROM tag_types WHERE name = ?)
+                AND NOT EXISTS (SELECT 1 FROM story_tags st WHERE st.tag_id = tags.id)', [$name, $type]);
         }
         $this->db->query("DELETE FROM tag_types WHERE name = 'setting' AND NOT EXISTS (SELECT 1 FROM tags t WHERE t.tag_type_id = tag_types.id)");
         foreach (self::PAGES as $slug => [$title, $body]) {
