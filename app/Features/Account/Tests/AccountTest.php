@@ -78,6 +78,27 @@ final class AccountTest extends TestCase
         $this->assertStringContainsString('name="robots" content="noindex"', $res->body);
     }
 
+    /** The Library/Settings split: the Library is the reading shelf with a
+     *  Settings link and no preference forms; Settings carries every form,
+     *  its eyebrow links back, and a save lands on Settings again. */
+    public function test_library_and_settings_are_separate_pages(): void
+    {
+        $client = $this->client();
+        $library = $client->get('/account')->body;
+        $this->assertStringContainsString('<h1>Library</h1>', $library);
+        $this->assertStringContainsString('<a href="/account/settings">Settings</a>', $library);
+        $this->assertStringNotContainsString('action="/account/prefs"', $library);
+        $this->assertStringNotContainsString('action="/account/avatar"', $library);
+        $settings = $client->get('/account/settings');
+        $this->assertSame(200, $settings->status);
+        $this->assertStringContainsString('<h1>Settings</h1>', $settings->body);
+        $this->assertStringContainsString('action="/account/prefs"', $settings->body);
+        $this->assertStringContainsString('action="/account/avatar"', $settings->body);
+        $this->assertStringContainsString('<a href="/account">Library</a>', $settings->body);
+        $saved = $client->postWithToken('/account/support', ['support_url' => 'https://example.test/tip']);
+        $this->assertSame('/account/settings', $saved->headers['Location'] ?? '');
+    }
+
     public function test_avatar_upload_stores_and_replaces(): void
     {
         $client = $this->client();

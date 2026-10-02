@@ -242,15 +242,15 @@ final class PerUserTest extends TestCase
         $this->assertNull($this->db()->one('SELECT * FROM user_prefs WHERE user_id = ?', [$this->memberId()]),
             'the 422 fires before the upsert (the schema CHECK is only the backstop)');
         // The form lists installed packs and the theme radios; off hides both field groups
-        $form = $me->get('/account')->body;
+        $form = $me->get('/account/settings')->body;
         $this->assertStringContainsString('name="lang"', $form);
         $this->assertStringContainsString('name="theme"', $form);
         $this->assertStringContainsString('<option value="en"', $form, 'the select options come from Lang::installed()');
         \App\Features::toggle('peruserlang', false);
-        $this->assertStringNotContainsString('name="lang"', $me->get('/account')->body);
+        $this->assertStringNotContainsString('name="lang"', $me->get('/account/settings')->body);
         \App\Features::toggle('peruserlang', true);
         \App\Features::toggle('perusertheme', false);
-        $this->assertStringNotContainsString('name="theme"', $me->get('/account')->body);
+        $this->assertStringNotContainsString('name="theme"', $me->get('/account/settings')->body);
         \App\Features::toggle('perusertheme', true);
     }
 
@@ -358,11 +358,11 @@ final class PerUserTest extends TestCase
         $this->assertArrayNotHasKey('Set-Cookie', $res->headers, 'no prefs sync at all while the flag is off');
         // (b) The form hides the theme group while the lang group stays (its
         //  own flag is still on); with both flags off both groups hide.
-        $form = $me->get('/account')->body;
+        $form = $me->get('/account/settings')->body;
         $this->assertStringNotContainsString('name="theme"', $form);
         $this->assertStringContainsString('name="lang"', $form, 'the lang group is gated by peruserlang, not this flag');
         \App\Features::toggle('peruserlang', false);
-        $this->assertStringNotContainsString('name="lang"', $me->get('/account')->body, 'both field groups hide with both flags off');
+        $this->assertStringNotContainsString('name="lang"', $me->get('/account/settings')->body, 'both field groups hide with both flags off');
         \App\Features::toggle('peruserlang', true);
         // (c) The settings save still writes its cookie (the unflaggable guest
         // core path); the member write-through alone skips.

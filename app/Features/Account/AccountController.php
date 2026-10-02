@@ -14,8 +14,23 @@ final class AccountController
         private Storage $storage,
     ) {}
 
+    /** The Library: the reading shelf, the member's own work and follows. */
     #[AuthAttr]
     public function index(): string
+    {
+        return $this->view->render('account/show', $this->page('/account', \App\Lang::t('account.library_heading')));
+    }
+
+    /** Settings: profile, display, notification and muting preferences.
+     *  Same one-query fold as the Library (the 0me row carries every field). */
+    #[AuthAttr]
+    public function settings(): string
+    {
+        return $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings')));
+    }
+
+    /** @return array<string, mixed> the shared envelope of both account pages */
+    private function page(string $canonical, string $title): array
     {
         $userId = (int) $this->session->get('user_id');
         // The muted-authors block folds into the compound as a seventh branch
@@ -99,9 +114,9 @@ final class AccountController
             // cannot vary per branch, so the member's own list re-sorts in place.
             usort($stories, static fn(array $x, array $y): int => strcasecmp((string) $x['b'], (string) $y['b']));
         }
-        return $this->view->render('account/show', [
-            'title' => \App\Lang::t('account.heading'),
-            'head' => $this->head()->withTitle(\App\Lang::t('account.heading'))->withCanonical('/account')->withNoindex(),
+        return [
+            'title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical($canonical)->withNoindex(),
             'theme' => \App\Theme::current($this->request),
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
@@ -118,7 +133,7 @@ final class AccountController
             'themePref' => (string) ($me['o'] ?? ''),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
-        ]);
+        ];
     }
 
     #[AuthAttr] #[Post]
@@ -142,7 +157,7 @@ final class AccountController
             @unlink($dir . '/' . basename((string) $old['avatar_path']));
         }
         $this->purgeOwnProfile($userId);
-        return Response::redirect('/account');
+        return Response::redirect('/account/settings');
     }
 
     #[AuthAttr] #[Post]
@@ -156,7 +171,7 @@ final class AccountController
         $userId = (int) $this->session->get('user_id');
         $this->db->query('UPDATE users SET support_url = ? WHERE id = ?', [$url === '' ? null : $url, $userId]);
         $this->purgeOwnProfile($userId);
-        return Response::redirect('/account');
+        return Response::redirect('/account/settings');
     }
 
     #[AuthAttr] #[Post]
@@ -234,7 +249,7 @@ final class AccountController
             // every future request bypass the static cache.
             $cookies[] = \App\Cookie::long(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme);
         }
-        $redirect = Response::redirect('/account');
+        $redirect = Response::redirect('/account/settings');
         foreach ($cookies as $cookie) {
             $redirect = $redirect->withAddedHeader('Set-Cookie', $cookie);
         }

@@ -113,7 +113,7 @@ final class PrefsTest extends TestCase
         $this->assertContains('theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($res),
             'auto clears the theme cookie instead of minting one');
         // the form radios carry the new value set
-        $form = $me->get('/account')->body;
+        $form = $me->get('/account/settings')->body;
         foreach (['paper', 'sepia', 'night', 'auto'] as $v) {
             $this->assertStringContainsString('name="theme" value="' . $v . '"', $form);
         }
@@ -161,13 +161,13 @@ final class PrefsTest extends TestCase
     {
         $me = $this->client($this->memberId());
         // before any save there is no prefs row: the toggles fail-safe ON (COALESCE)
-        $before = $me->get('/account')->body;
+        $before = $me->get('/account/settings')->body;
         $this->assertStringContainsString('name="notify_review" value="1" checked', $before);
         $this->assertStringContainsString('name="notify_response" value="1" checked', $before);
         $this->assertStringContainsString('name="notify_favorites" value="1" checked', $before);
         $me->postWithToken('/account/prefs', ['bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
             'notify_review' => '0', 'notify_response' => '0', 'notify_favorites' => '0', 'notify_favorite_digest' => '']);
-        $after = $me->get('/account')->body;
+        $after = $me->get('/account/settings')->body;
         // the three inputs render without the checked attribute
         foreach (['notify_review', 'notify_response', 'notify_favorites'] as $field) {
             $this->assertStringContainsString('<input type="checkbox" name="' . $field . '" value="1">', $after);
