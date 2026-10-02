@@ -68,7 +68,10 @@ final class BrowseTest extends TestCase
         $res = $this->app->handle(new Request('GET', '/browse/category/general', [], [], []));
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('The Rabbit Hole', $res->body);
-        $this->assertStringContainsString('/browse/category/general?page=2', $res->body);
+        // a short listing has no older page, so no Older link
+        $this->assertStringNotContainsString('/browse/category/general?page=2', $res->body);
+        $full = $this->pagedApp()->handle(new Request('GET', '/browse/category/general', [], [], []));
+        $this->assertStringContainsString('/browse/category/general?page=2', $full->body, 'a full page links its older page');
     }
 
     public function test_unknown_category_renders_honest_empty_state(): void
@@ -93,6 +96,13 @@ final class BrowseTest extends TestCase
         $this->assertStringContainsString('<h1>Recently updated</h1>', $recent->body);
         $category = $this->app->handle(new Request('GET', '/browse/category/general', [], [], []));
         $this->assertStringContainsString('<h1>Category: general</h1>', $category->body);
+    }
+
+    /** One story per page: a single row fills a page, so Older links
+     *  exist exactly where an older page does. */
+    private function pagedApp(): App
+    {
+        return new App(['items_per_page' => 1] + $this->config());
     }
 
     private function config(): array
@@ -198,11 +208,17 @@ final class BrowseTest extends TestCase
             $this->assertStringContainsString($chip, $body);
         }
         $this->assertStringNotContainsString('?filter=complete&amp;page=1"', $body, 'no chip URL carries page 1');
-        // the pager keeps the active facet on both directions
+        // the pager keeps the active facet on both directions (a full page 2
+        // of complete works at one per page has both neighbours)
+        $first = $this->pagedApp()->handle(new Request('GET', '/browse/recent', ['filter' => 'complete'], [], []))->body;
+        $this->assertStringContainsString('href="/browse/recent?filter=complete&amp;page=2"', $first, 'the Older link keeps the filter');
+        $second = $this->pagedApp()->handle(new Request('GET', '/browse/recent', ['filter' => 'complete', 'page' => '2'], [], []))->body;
+        $this->assertStringContainsString('href="/browse/recent?filter=complete&amp;page=1"', $second, 'the Newer link keeps the filter');
+        // page 3 sits past the two complete works: Newer only, never Older
         $this->assertStringContainsString('href="/browse/recent?filter=complete&amp;page=2"', $body, 'the Newer link keeps the filter');
-        $this->assertStringContainsString('href="/browse/recent?filter=complete&amp;page=4"', $body, 'the Older link keeps the filter');
+        $this->assertStringNotContainsString('href="/browse/recent?filter=complete&amp;page=4"', $body, 'no Older link past the end');
         // unfiltered pages keep the plain pager URL
-        $plain = $this->app->handle(new Request('GET', '/browse/recent', ['page' => '2'], [], []))->body;
+        $plain = $this->pagedApp()->handle(new Request('GET', '/browse/recent', ['page' => '2'], [], []))->body;
         $this->assertStringContainsString('href="/browse/recent?page=1"', $plain);
         $this->assertStringContainsString('href="/browse/recent?page=3"', $plain);
     }
@@ -295,9 +311,10 @@ final class BrowseTest extends TestCase
     public function test_pager_links_preserve_cat_and_filter(): void
     {
         $this->seedChipFixture();
-        $body = $this->app->handle(new Request('GET', '/browse/recent', ['cat' => 'general', 'filter' => 'complete', 'page' => '3'], [], []))->body;
-        $this->assertStringContainsString('href="/browse/recent?cat=general&amp;filter=complete&amp;page=2"', $body, 'the Newer link keeps cat and filter');
-        $this->assertStringContainsString('href="/browse/recent?cat=general&amp;filter=complete&amp;page=4"', $body, 'the Older link keeps cat and filter');
+        $first = $this->pagedApp()->handle(new Request('GET', '/browse/recent', ['cat' => 'general', 'filter' => 'complete'], [], []))->body;
+        $this->assertStringContainsString('href="/browse/recent?cat=general&amp;filter=complete&amp;page=2"', $first, 'the Older link keeps cat and filter');
+        $second = $this->pagedApp()->handle(new Request('GET', '/browse/recent', ['cat' => 'general', 'filter' => 'complete', 'page' => '2'], [], []))->body;
+        $this->assertStringContainsString('href="/browse/recent?cat=general&amp;filter=complete&amp;page=1"', $second, 'the Newer link keeps cat and filter');
     }
 
     public function test_cat_composes_with_filter(): void

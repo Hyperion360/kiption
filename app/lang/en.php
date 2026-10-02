@@ -10,6 +10,7 @@ return [
     'common.body' => 'Body',
     'common.create' => 'Create',
     'common.save' => 'Save',
+    'common.pages_aria' => 'Pages',
     'common.delete' => 'Delete',
     'common.edit' => 'Edit',
     'common.remove' => 'Remove',

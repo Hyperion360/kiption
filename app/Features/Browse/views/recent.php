@@ -40,11 +40,11 @@
 <?php if (!empty($chips)): ?>
 <nav class="filter-chips" aria-label="<?= $this->e(\App\Lang::t('browse.filter_aria')) ?>">
   <a class="chip<?= $allActive ? ' is-active' : '' ?>" href="<?= $allHref ?>"<?= $allActive ? ' aria-current="true"' : '' ?>><?= \App\Lang::t('browse.all') ?></a>
-<?php foreach ($catChips as $chipSlug => $chipName): ?>
-  <a class="chip<?= $activeCat === $chipSlug ? ' is-active' : '' ?>" href="<?= $this->e($baseUrl) ?>?cat=<?= rawurlencode($chipSlug) ?><?= $activeFilter !== '' ? '&amp;filter=' . rawurlencode($activeFilter) : '' ?>"<?= $activeCat === $chipSlug ? ' aria-current="true"' : '' ?>><?= $this->e($chipName) ?></a>
-<?php endforeach; ?>
 <?php foreach ($chipSet as [$value, $key]): ?>
   <a class="chip<?= $activeFilter === $value ? ' is-active' : '' ?>" href="<?= $this->e($baseUrl) ?><?= $value !== '' ? '?filter=' . $value : '' ?>"<?= $activeFilter === $value ? ' aria-current="true"' : '' ?>><?= \App\Lang::t($key) ?></a>
+<?php endforeach; ?>
+<?php foreach ($catChips as $chipSlug => $chipName): ?>
+  <a class="chip<?= $activeCat === $chipSlug ? ' is-active' : '' ?>" href="<?= $this->e($baseUrl) ?>?cat=<?= rawurlencode($chipSlug) ?><?= $activeFilter !== '' ? '&amp;filter=' . rawurlencode($activeFilter) : '' ?>"<?= $activeCat === $chipSlug ? ' aria-current="true"' : '' ?>><?= $this->e($chipName) ?></a>
 <?php endforeach; ?>
 </nav>
 <?php endif; ?>
@@ -62,5 +62,9 @@
   <li class="meta"><?= \App\Lang::t(!empty($chips) && $activeCat !== '' ? 'browse.no_cat_stories' : 'story.no_stories') ?></li>
 <?php endif; ?>
 </ul>
-<?php if ($page > 1): ?><a href="<?= $this->e($baseUrl) ?><?= $pagerPrefix ?><?= $page - 1 ?>"><?= \App\Lang::t('common.newer') ?></a><?php endif; ?>
-<a href="<?= $this->e($baseUrl) ?><?= $pagerPrefix ?><?= $page + 1 ?>"><?= \App\Lang::t('common.older') ?></a>
+<?php if ($page > 1 || !empty($hasOlder)): /* no Older link past the last full page */ ?>
+<nav class="pager" aria-label="<?= $this->e(\App\Lang::t('common.pages_aria')) ?>">
+<?php if ($page > 1): ?><a href="<?= $this->e($baseUrl) ?><?= $pagerPrefix ?><?= $page - 1 ?>" rel="prev"><?= \App\Lang::t('common.newer') ?></a><?php endif; ?>
+<?php if (!empty($hasOlder)): ?><a class="pager-next" href="<?= $this->e($baseUrl) ?><?= $pagerPrefix ?><?= $page + 1 ?>" rel="next"><?= \App\Lang::t('common.older') ?></a><?php endif; ?>
+</nav>
+<?php endif; ?>
