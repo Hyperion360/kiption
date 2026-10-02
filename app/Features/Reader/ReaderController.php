@@ -97,11 +97,15 @@ final class ReaderController
         // blank the member's whole bookmarks blob (the sheet renders "none
         // yet" while rows exist). Scrub garbage bytes to U+FFFD.
         $note = mb_scrub($note, 'UTF-8');
+        // Only the note form sends the field. The ribbon button does not, so a
+        // repeat bookmark (double click, resubmit, stale tab) keeps the note.
+        $hasNote = array_key_exists('note', $this->request->post);
         $this->db->begin();
         $this->db->query(
             'INSERT INTO bookmarks (user_id, story_id, chapter_id, note)
              VALUES (?, ?, ?, ?)
-             ON CONFLICT(user_id, story_id, chapter_id) DO UPDATE SET note = excluded.note',
+             ON CONFLICT(user_id, story_id, chapter_id) DO UPDATE SET note = '
+             . ($hasNote ? 'excluded.note' : 'bookmarks.note'),
             [$me, $row['sid'], $row['cid'], $note]);
         $this->db->commit();
         return Response::redirect('/story/read/' . $slug . '/' . (int) $position);

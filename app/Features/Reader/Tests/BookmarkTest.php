@@ -267,4 +267,18 @@ final class BookmarkTest extends TestCase
         $fk = $this->db->all('PRAGMA foreign_key_list(bookmarks)');
         $this->assertEqualsCanonicalizing(['users', 'stories', 'chapters'], array_column($fk, 'table'));
     }
+
+    /** The ribbon button posts no note field. A double click, a resubmit or a
+     *  stale tab re-bookmarking a chapter must keep its saved note; only the
+     *  note form (which always sends the field) may change or clear it. */
+    public function test_rebookmark_without_note_field_keeps_the_note(): void
+    {
+        $c = $this->client($this->memberId);
+        $c->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'keep me']);
+        $c->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', []);
+        $this->assertSame('keep me', (string) $this->db->one('SELECT note FROM bookmarks')['note']);
+        $c->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => '']);
+        $this->assertSame('', (string) $this->db->one('SELECT note FROM bookmarks')['note'], 'an explicit empty note clears it');
+        $this->assertSame(1, $this->rowCount());
+    }
 }
