@@ -960,8 +960,6 @@ body.focus .site-head { display: none; }
    scrim: engines without it keep the site header, which stays usable. */
 @media (max-width:1023px) {
   body:has(.reader) .site-head { display: none; }
-  /* keyboard hints are a desktop affordance; on tablet they collide with the pill */
-  .js .hint-keys { display: none; }
 }
 /* The regular reader head keeps brand/byline/controls desktop-only; the
    focus breadcrumb (D2) shows brand + separators at every width and never
@@ -994,7 +992,9 @@ body.focus .site-head { display: none; }
 .js .hint-keys kbd { color: var(--ink); }
 .js body.focus .hint-keys { bottom: 56px; }
 /* Below the desktop floor the reader bar owns the bottom edge, and the
-   hint row collided with it on tablets (design review, run 3). */
+   hint row collided with it on tablets (design review, run 3). An earlier
+   copy of this rule sat above the .js reveal and lost the cascade; the rule
+   has to follow the reveal. */
 @media (max-width:1023px) { .js .hint-keys { display: none; } }
 .reader-dock {
   position: fixed; inset-inline-end: 28px; bottom: 28px; z-index: 30;
