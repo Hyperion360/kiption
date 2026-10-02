@@ -21,8 +21,18 @@
      $chapterTitle = $rawTitle !== '' ? $rawTitle : \App\Lang::t('story.chapter_n', ['n' => (int) $position]);
      $endLabel = $rawTitle !== ''
          ? \App\Lang::t('reader.end_of_chapter_titled', ['n' => $roman, 'title' => $rawTitle])
-         : \App\Lang::t('reader.end_of_chapter', ['n' => $roman]); ?>
-<div class="reader<?= $focus ? ' reader-focus' : '' ?>">
+         : \App\Lang::t('reader.end_of_chapter', ['n' => $roman]);
+     // The keys module's wiring (AppJsContractTest): every URL the keyboard
+     // shortcuts navigate to is resolved here, never invented client-side.
+     // The attributes render always - focus mode or not - and carry story
+     // data only, so the cached guest bytes stay stable.
+     $baseUrl = '/story/read/' . $story['slug'] . '/' . (int) $position; ?>
+<div class="reader<?= $focus ? ' reader-focus' : '' ?>" data-js-module="keys"
+     data-prev="<?= $this->e($prev !== null ? $baseUrl . '/' . (int) $prev : '') ?>"
+     data-next="<?= $this->e($next !== null ? $baseUrl . '/' . (int) $next : '') ?>"
+     data-focus-url="<?= $this->e($baseUrl . '?focus=1') ?>"
+     data-exit-focus="<?= $this->e($baseUrl) ?>"
+     data-text-url="<?= $this->e($baseUrl . '#text') ?>">
   <?php /* D2 focus: the comp's breadcrumb bar (brand · story · chapter, chapter-of right).
          Regular D1 desktop: the top bar gains brand + byline + the three dark
          controls (CSS shows them only at 1024+). */ ?>
@@ -251,4 +261,14 @@
     <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" aria-label="<?= $this->e(\App\Lang::t('reader.exit_focus')) ?>">×</a>
   </nav>
   <?php endif; ?>
+  <?php /* The keyboard hint bar (keys module): always-present markup so the
+     bytes never depend on scripting, hidden until the enhancement layer
+     runs (html.js reveals it; noscript never sees it). Each string's first
+     word is the key cap, the rest the label; the strings ride reader.keys_*. */ ?>
+  <div class="hint-keys" hidden>
+    <?php foreach (['reader.keys_next', 'reader.keys_prev', 'reader.keys_focus', 'reader.keys_text', 'reader.keys_close'] as $keysHint):
+        $cap = explode(' ', (string) \App\Lang::t($keysHint), 2); ?>
+    <span class="hint-item"><kbd><?= $this->e($cap[0]) ?></kbd><?= isset($cap[1]) && $cap[1] !== '' ? ' ' . $this->e($cap[1]) : '' ?></span>
+    <?php endforeach; ?>
+  </div>
 </div>

@@ -12,8 +12,9 @@ use PHPUnit\Framework\TestCase;
 // group is the comp's slider row), the end-of-chapter block with the
 // next-chapter anatomy, and the focus variant. The h-entry microformats
 // block and the read beacon are pinned byte-exact by MicroformatsTest; this
-// file pins the shell around them. Zero JavaScript anywhere: links, forms,
-// native inputs, and :target only.
+// file pins the shell around them. No scripting in the shell itself: links,
+// forms, native inputs, and :target only; the deferred enhancement layer is
+// pinned in LayoutShellTest and the keys contract in AppJsContractTest.
 final class ReadShellTest extends TestCase
 {
     private string $path = '';
@@ -188,15 +189,19 @@ final class ReadShellTest extends TestCase
         $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2"', $focus);
         // the focus variant never earns its own canonical URL
         $this->assertStringContainsString('<link rel="canonical" href="https://archive.example/story/read/the-rabbit-hole/2">', $focus);
-        $this->assertStringNotContainsString('focus=1', $focus);
+        $this->assertStringNotContainsString('href="[^"]*focus=1', $focus); // links stay clean; the keys module's data-focus-url attr legitimately carries the query
     }
 
     public function test_no_javascript_anywhere_on_the_read_page(): void
     {
         $body = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
-        // the only <script> allowed is the inert JSON-LD payload
-        $this->assertSame(0, preg_match_all('#<script(?![^>]*application/ld\+json)#', $body),
-            'no executable script tags ship');
+        // The progressive-enhancement policy (Task 1): exactly one script tag
+        // beyond the inert JSON-LD payload, the deferred loader; nothing
+        // inline, no event-handler attributes anywhere.
+        $this->assertSame(1, preg_match_all('#<script src="/assets/app\.js" defer></script>#', $body),
+            'only the deferred loader ships');
+        $this->assertSame(2, substr_count($body, '<script'),
+            'the loader plus the data-only JSON-LD, nothing else');
         $this->assertSame(0, preg_match_all('/\son[a-z]+\s*=/i', $body),
             'no inline event handler attributes ship');
     }
