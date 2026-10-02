@@ -63,8 +63,8 @@ final class FavoritesTest extends TestCase
         $this->assertSame(1, (int) $this->db->one(
             "SELECT COUNT(*) c FROM notifications WHERE kind = 'favorite' AND user_id = 1")['c']);
         $body = $client->get('/story/view/the-rabbit-hole')->body;
-        $this->assertStringContainsString('Favorites: 1', $body);
-        $this->assertStringContainsString('In your favorites', $body);
+        $this->assertStringContainsString('action="/favorites/toggle/the-rabbit-hole"', $body, 'the on state stays a toggle');
+        $this->assertStringContainsString('Favorited', $body);
         $res = $client->postWithToken('/favorites/toggle/the-rabbit-hole'); // toggle off
         $this->assertSame(302, $res->status);
         $this->assertSame(0, (int) $this->db->one(

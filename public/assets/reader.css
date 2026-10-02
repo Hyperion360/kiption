@@ -86,6 +86,14 @@ input, select, textarea { caret-color: var(--accent); }
   padding-inline: 12px; text-decoration: none;
   font: 600 15px/1 var(--sans); color: var(--ink);
 }
+/* The plain /search link sits between the nav and the Menu control; it is
+   the search affordance wherever the input form is hidden (below 1024px). */
+.nav-search-link {
+  display: inline-flex; align-items: center; min-height: 44px;
+  padding-inline: 10px; white-space: nowrap; text-decoration: none;
+  font: 500 15px/1 var(--sans); color: var(--ink-2);
+}
+.nav-search-link:hover { color: var(--ink); }
 
 /* Main column: mobile gutters by default, the 1200px shell from 1024px. */
 .site-main { padding: 32px 24px 64px; }
@@ -195,11 +203,43 @@ html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
   padding: 1.5rem; margin-block-end: 2rem;
 }
 
-/* Engagement, reviews, whole-work surfaces. */
+/* Engagement (M1/T2/D3): the bar is the wrapper; its comp anatomy is the
+   three outlined action cells (kudos, favorite, later), square corners and
+   a 48px floor, with the small member links in the muted row underneath. */
 .engagement-bar {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;
-  border-block: 1px solid var(--line); padding-block: 12px;
+  border-block-start: 1px solid var(--line); padding-block-start: 12px;
 }
+.action-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.action-cell {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+  min-height: 48px; border: 1px solid var(--line-strong);
+}
+.action-cell form { display: flex; align-items: stretch; }
+.action-cell .action-btn, .action-cell .action-link {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  min-height: 46px; padding: 4px 8px;
+  background: none; border: 0; cursor: pointer;
+  font: 600 14px/1.2 var(--sans); font-variant-numeric: tabular-nums;
+  color: var(--ink); text-decoration: none; text-align: center;
+}
+.action-cell .action-btn:hover, .action-cell .action-link:hover { background: var(--hover); color: var(--ink); }
+.action-cell .is-on { color: var(--accent); }
+/* The already-kudos'd member reads a label + state pair instead of the form. */
+.action-label {
+  display: block; padding: 6px 8px 0; text-align: center;
+  font: 600 14px/1.3 var(--sans); font-variant-numeric: tabular-nums;
+}
+.action-state { display: block; padding: 0 8px 6px; text-align: center; font: 12px/1.4 var(--sans); color: var(--muted); }
+.action-aux {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  margin-block-start: 10px; font: 13px/1.6 var(--sans);
+}
+.action-aux a { color: var(--muted); }
+.action-aux a:hover { color: var(--ink); }
+.action-aux input { min-height: 36px; padding: 4px 10px; font-size: 13px; }
+.action-aux button { min-height: 36px; padding: 4px 12px; font-size: 13px; }
 .review { border-block-start: 1px solid var(--line); padding-block: 1.5rem; max-width: 720px; }
 .review-reply {
   margin: 1rem 0; padding-inline-start: 1rem;
@@ -266,15 +306,27 @@ button:hover { background: var(--hover); color: var(--ink); }
   font: 600 12px/1.5 var(--sans); letter-spacing: .12em;
   text-transform: uppercase; color: var(--muted);
 }
+/* D3 appends "Updated {date}" to the eyebrow on desktop only; the span
+   rides every render so the bytes stay one shape, CSS picks the widths. */
+.story-info .eyebrow-updated { display: none; }
 .story-info h1 { margin-block-end: .5rem; }
 .byline { margin: 0 0 .75rem; color: var(--ink-2); font-size: 15px; }
 .byline a { font-weight: 600; }
+/* The byline Follow toggle reads as text, not as a control. */
+.story-info .byline .follow-btn {
+  min-height: 0; padding: 0; background: none; border: 0; cursor: pointer;
+  font: 600 13px/1.5 var(--sans); color: var(--accent);
+}
+.story-info .byline .follow-btn:hover { background: none; color: var(--accent-hover); }
+.story-info .byline .follow-state { font-size: 13px; color: var(--muted); }
 .story-stats { display: none; }
 .summary {
   font-family: var(--serif); font-size: 18px; line-height: 1.6;
   max-width: 640px; margin: 1rem 0;
 }
 .tag-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 1rem; }
+/* The ratings join's assurance sits right under the chips (D3). */
+.story-warnings { margin-block: 0 1rem; }
 .story-info .engagement-bar { margin-block: 1rem 0; }
 .section-head {
   display: flex; flex-wrap: wrap; align-items: baseline;
@@ -292,19 +344,25 @@ button:hover { background: var(--hover); color: var(--ink); }
 .ch-num { font-family: var(--serif); font-variant-numeric: tabular-nums; color: var(--muted); }
 .chapter-list li.is-read a { color: var(--muted); }
 .chapter-list li.is-current a, .chapter-list li.is-current .ch-num { color: var(--accent); }
-.you-are-here {
-  font: 600 12px/1.6 var(--sans); color: var(--accent); white-space: nowrap;
-}
+/* Comp rows: serif ~17px titles; the member's current chapter carries the
+   accent "You're here" line under its title, read chapters say "Read". */
+.chapter-list .ch-title { font-family: var(--serif); font-size: 17px; }
+.ch-here { display: block; color: var(--accent); font: 600 13px var(--sans); }
 .ch-meta { font: 13px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (min-width:768px) {
   .story-hero { display: grid; grid-template-columns: 220px 1fr; gap: 40px; }
   .story-info h1 { font-size: 46px; }
+  /* T2 merges byline and meta into one line: "by Name · Teen · 600 words ...". */
+  .story-info .byline { display: inline; }
+  .story-info .meta-line { display: inline; margin-inline-start: 8px; }
+  .story-info .meta-line::before { content: "· "; }
   .chapter-list a { grid-template-columns: 44px 1fr auto; min-height: 56px; }
 }
 @media (min-width:1024px) {
   .story-hero { grid-template-columns: 300px 1fr; gap: 64px; }
   .story-info h1 { font-size: 58px; }
   .story-info > .meta-line { display: none; }
+  .story-info .eyebrow-updated { display: inline; }
   .story-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, auto));
     justify-content: start; gap: 16px;
@@ -706,15 +764,19 @@ body.focus .site-head { display: none; }
   .brand { font-size: 22px; }
   h1 { font-size: 40px; }
   h2 { font-size: 24px; }
-  .site-main { padding: 40px 32px 80px; }
+  /* T2: the nav cluster right-aligns so it sits beside the Menu link. */
+  .site-nav { margin-inline-start: auto; }
+  .nav-menu-link { margin-inline-start: 0; }
+  .site-main { padding: 40px 64px 80px; }
 }
 @media (min-width:1024px) {
   :root { --read-size:20px; --read-lh:1.72; --read-width:640px; }
   .site-head { min-height: 68px; padding-inline: 40px; gap: 24px; }
   .brand { font-size: 24px; }
-  .site-nav { gap: 8px; }
+  .site-nav { gap: 8px; margin-inline-start: 0; }
   .site-nav a, .nav-account { padding-inline: 12px; }
   .nav-search { display: block; margin-inline-start: auto; }
+  .nav-search-link { display: none; }
   .nav-menu-link { display: none; }
   h1 { font-size: 44px; }
   .site-main { max-width: 1200px; margin-inline: auto; padding: 48px 40px 96px; }
@@ -724,8 +786,13 @@ body.focus .site-head { display: none; }
      links. Hiding the inline row is what keeps the header from pushing the
      document past the viewport (nowrap links have a min-content width no
      flex child shrinks below). Gutters tighten to the comp's 20px and the
-     chip row bleeds to the viewport edge the way the comp draws it. */
+     chip row bleeds to the viewport edge the way the comp draws it. M1 is
+     content-first: the cover column (and the Continue CTA riding it) hides,
+     leaving eyebrow, title, byline, meta, summary. */
   .site-nav { display: none; }
+  .nav-search-link { margin-inline-start: auto; }
+  .nav-menu-link { margin-inline-start: 0; }
+  .story-cover { display: none; }
   .site-main { padding: 28px 20px 48px; }
   .sheet:target { padding-inline: 20px; }
   .filter-chips { margin-inline: -20px; padding-inline: 20px; }

@@ -201,7 +201,10 @@ final class StoryTest extends TestCase
     }
 
     /** Cache neutrality: the guest render adds ZERO progress markup, so the
-     *  anonymous bytes the static cache stores never vary by reader. */
+     *  anonymous bytes the static cache stores never vary by reader. (The
+     *  bare word "progress" is no longer a marker: story.wip renders the
+     *  public status "In progress"; the assertions target the progress
+     *  markup's own vocabulary instead.) */
     public function test_guest_view_has_no_progress_markup_at_all(): void
     {
         $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
@@ -209,7 +212,9 @@ final class StoryTest extends TestCase
         $this->assertStringNotContainsString('Continue reading', $body);
         $this->assertStringNotContainsString('% read', $body);
         $this->assertStringNotContainsString('min left', $body);
-        $this->assertStringNotContainsString('progress', $body);
+        $this->assertStringNotContainsString('read_pct', $body);
+        $this->assertStringNotContainsString('last_position', $body);
+        $this->assertStringNotContainsString('ch-here', $body);
     }
 
     /** A member with no reading_history row sees no progress block either:
@@ -302,14 +307,16 @@ final class StoryTest extends TestCase
     }
 
     /** category_names is a nullable ", "-joined GROUP_CONCAT string; the
-     *  eyebrow re-separates it with middle dots and never leads with a dot. */
+     *  eyebrow re-separates it with middle dots and never leads with a dot.
+     *  The D3 "Updated {date}" span rides the eyebrow for the desktop
+     *  presentation (CSS hides it below 1024px, bytes stay one shape). */
     public function test_eyebrow_joins_categories_and_status_with_middle_dots(): void
     {
         $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
-        $this->assertStringContainsString('<p class="eyebrow">General · WIP</p>', $body);
+        $this->assertStringContainsString('<p class="eyebrow">General · In progress<span class="eyebrow-updated"> · Updated ', $body);
         // after-hours: completed and uncategorized (nullable GROUP_CONCAT)
         $body = $this->app->handle(new Request('GET', '/story/view/after-hours', [], [], []))->body;
-        $this->assertStringContainsString('<p class="eyebrow">Complete</p>', $body);
+        $this->assertStringContainsString('<p class="eyebrow">Complete<span class="eyebrow-updated"> · Updated ', $body);
     }
 
     public function test_stats_definition_list_carries_the_public_counters(): void
@@ -318,11 +325,13 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('<dl class="story-stats">', $body);
         $this->assertStringContainsString('<dt>Rating</dt><dd>Teen</dd>', $body);
         $this->assertStringContainsString('<dt>Words</dt><dd>300</dd>', $body);
+        $this->assertStringContainsString('<dt>Reading time</dt><dd>1 min</dd>', $body,
+            'the public estimate sits between Words and Kudos (D3: 300 words at 250 wpm)');
         $this->assertStringContainsString('<dt>Kudos</dt><dd>0</dd>', $body);
         $this->assertStringContainsString('<dt>Reviews</dt><dd>0</dd>', $body);
         // the one markup / two presentations pair: the mobile meta line rides
-        // along (CSS picks one per breakpoint)
-        $this->assertStringContainsString('Teen · 300 words · 2 chapters', $body);
+        // along (CSS picks one per breakpoint) with the public reading time
+        $this->assertStringContainsString('Teen · 300 words · 2 chapters · about 1 min', $body);
     }
 
     public function test_chapter_list_carries_read_current_states_and_counts(): void
@@ -331,26 +340,49 @@ final class StoryTest extends TestCase
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('<ol class="chapter-list">', $body);
         $this->assertStringContainsString('<li class="is-read">', $body, 'chapter 1 sits behind the furthest read');
+        $this->assertStringContainsString('<span class="ch-meta">Read</span>', $body, 'read chapters label the state, not the word count');
         $this->assertStringContainsString('<li class="is-current">', $body);
         $this->assertStringContainsString('aria-current="page"', $body);
-        $this->assertStringContainsString('<span class="ch-meta">100</span>', $body, 'bare tabular word count per row');
-        $this->assertStringContainsString('<span class="ch-meta">200</span>', $body);
-        $this->assertStringContainsString('<span class="ch-title">Down</span>', $body);
+        $this->assertStringContainsString('<span class="ch-meta">200</span>', $body, 'the current chapter keeps its word count');
+        $this->assertStringContainsString('<span class="ch-title">Down</span>', $body, 'read chapter rows stay plain');
+        $this->assertStringContainsString('<span class="ch-title">Through<span class="ch-here">You\'re here · 100%</span></span>',
+            $body, "the current chapter carries the accent You're-here line under its title");
     }
 
-    /** The engagement row and reviews section keep their structure; only the
-     *  wrapper classes change (every pinned microformat/id survives). */
+    /** The comp's three action cells (D3) keep every endpoint and token;
+     *  the Follow toggle moves up into the byline. Reviews survive. */
     public function test_engagement_and_reviews_structure_survive_the_redesign(): void
     {
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('<div class="engagement-bar', $body);
+        $this->assertStringContainsString('<div class="action-row">', $body, 'the comp three-cell action row');
+        $this->assertStringContainsString('Kudos · 0', $body, 'cell 1 labels the kudos form with the count');
         $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/favorites/toggle/the-rabbit-hole"', $body);
-        $this->assertStringContainsString('action="/follow/author/1"', $body);
+        $this->assertStringContainsString('action="/follow/author/1"', $body, 'the Follow toggle rides the byline');
         $this->assertStringContainsString('action="/story/mark/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/report/story/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/review/add/the-rabbit-hole"', $body, 'the guest review form survives');
         $this->assertStringContainsString('<h2 id="reviews">', $body);
         $this->assertStringContainsString('</article>', $body);
+    }
+
+    /** M1/D3 cells and the assurance line: guests get the kudos form (guest
+     *  kudos are IP-keyed) and login links for the member-only cells; the
+     *  ratings join's warning_text renders verbatim or as the assurance. */
+    public function test_guest_cells_offer_login_links_and_the_warnings_line_renders(): void
+    {
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('<p class="meta story-warnings">No major warnings</p>', $body,
+            'an empty warning_text renders the comp assurance line');
+        $this->assertStringContainsString('href="/auth/login">Favorite</a>', $body);
+        $this->assertStringContainsString('href="/auth/login">Later</a>', $body);
+        $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $body, 'guest kudos stay IP-keyed');
+        $this->assertStringNotContainsString('action="/favorites/toggle', $body, 'guests get no favorite form');
+        $this->assertStringNotContainsString('action="/story/mark', $body, 'guests get no later form');
+        $this->assertStringNotContainsString('action="/follow/author', $body, 'guests render no follow toggle');
+        $body = $this->app->handle(new Request('GET', '/story/view/after-hours', [], [], []))->body;
+        $this->assertStringContainsString('<p class="meta story-warnings">Adult content ahead.</p>', $body,
+            'a set warning_text renders verbatim');
     }
 }

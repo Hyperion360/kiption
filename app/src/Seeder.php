@@ -34,7 +34,16 @@ final class Seeder
         $db->query('INSERT INTO tag_types (name) VALUES (?)', ['genre']);
         $tagTypeId = (int) $db->lastInsertId();
         $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Fantasy']);
+        $fantasyTagId = (int) $db->lastInsertId();
         $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Adventure']);
+        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Found family']);
+        $foundFamilyTagId = (int) $db->lastInsertId();
+        $db->query('INSERT INTO tag_types (name) VALUES (?)', ['content']);
+        $contentTypeId = (int) $db->lastInsertId();
+        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$contentTypeId, 'Coming of age']);
+        $comingOfAgeTagId = (int) $db->lastInsertId();
+        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$contentTypeId, 'Maritime']);
+        $maritimeTagId = (int) $db->lastInsertId();
         $db->query('INSERT INTO categories (name, slug, description) VALUES (?, ?, ?)',
             ['General', 'general', 'Stories that fit nowhere finer.']);
         $db->query('INSERT INTO users (email, password_hash, penname, role, email_verified_at, approved_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -59,6 +68,12 @@ final class Seeder
                 [$pos, $title, $body, $words]);
         }
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story1 . ', ' . $categoryId . ')');
+        // The demo story carries the chip row the comps draw (M1/D3): four
+        // tags across two types. Warnings stay a rating concern; the ratings
+        // row's empty warning_text renders the "No major warnings" line.
+        foreach ([$fantasyTagId, $foundFamilyTagId, $comingOfAgeTagId, $maritimeTagId] as $tagId) {
+            $db->query('INSERT INTO story_tags (story_id, tag_id) VALUES (' . $story1 . ', ' . $tagId . ')');
+        }
         // Story 2: explicit complete, 1 chapter (exercises the age gate).
         $db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, 1, 100, ?, ?)',
             ['After Hours', 'after-hours', 'What the warning is for.', $authorId, $explicitId, '2026-09-01T09:00:00Z', '2026-09-12T09:00:00Z']);

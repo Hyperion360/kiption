@@ -44,6 +44,10 @@
     <form class="nav-search" role="search" action="/search" method="get">
       <input type="search" name="q" aria-label="<?= $this->e(\App\Lang::t('nav.search')) ?>" placeholder="<?= $this->e(\App\Lang::t('nav.search_placeholder')) ?>">
     </form>
+    <?php /* Below 1024px the search input is hidden and this plain link is
+       the search affordance, sitting between the nav and the Menu control;
+       the desktop stylesheet swaps the link back out for the form. */ ?>
+    <a class="nav-search-link" href="/search"><?= \App\Lang::t('nav.search') ?></a>
     <a class="nav-menu-link" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
   <main class="site-main"><?= $content ?></main>

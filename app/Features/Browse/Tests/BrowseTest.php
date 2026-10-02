@@ -218,7 +218,7 @@ final class BrowseTest extends TestCase
         // badge, summary clamped to two lines
         $this->assertStringContainsString('<a class="story-title" href="/story/view/the-rabbit-hole">The Rabbit Hole</a>', $body);
         $this->assertStringContainsString('<strong>Demo Author</strong>', $body);
-        $this->assertStringContainsString('<span class="badge">WIP</span>', $body);
+        $this->assertStringContainsString('<span class="badge">In progress</span>', $body);
         $this->assertStringContainsString('5,000 words', $body);
         $this->assertStringContainsString('class="summary clamp-2"', $body);
     }

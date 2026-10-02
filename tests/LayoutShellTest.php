@@ -61,6 +61,9 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('href="/browse/recent"', $body);
         // The search affordance on small screens is the plain /search link.
         $this->assertStringContainsString('<a href="/search">Search</a>', $body);
+        // The below-1024px search link sits between the nav and the Menu
+        // control; the stylesheet swaps it for the input form from 1024px.
+        $this->assertStringContainsString('<a class="nav-search-link" href="/search">Search</a>', $body);
         // The Menu control is a plain anchor (CSS-only :target pattern, no
         // aria-expanded to maintain without scripting).
         $this->assertStringContainsString('<a class="nav-menu-link" href="#menu">Menu</a>', $body);
@@ -147,13 +150,18 @@ final class LayoutShellTest extends TestCase
     {
         $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
         foreach (['.story-hero', '.cover-card', '.continue-cta', '.story-stats',
-                  '.chapter-list', '.eyebrow', '.you-are-here'] as $selector) {
+                  '.chapter-list', '.eyebrow', '.ch-here', '.action-row', '.story-warnings'] as $selector) {
             $this->assertStringContainsString($selector, $css, "the {$selector} component is styled");
         }
-        $this->assertStringContainsString('aspect-ratio:2/3', str_replace(' ', '', $css),
+        $flat = str_replace(' ', '', $css);
+        $this->assertStringContainsString('aspect-ratio:2/3', $flat,
             'the cover card keeps the comp 2:3 ratio');
-        $this->assertStringContainsString('.story-info>.meta-line{display:none', str_replace(' ', '', $css),
+        $this->assertStringContainsString('.story-info>.meta-line{display:none', $flat,
             'desktop swaps the meta line for the stats dl (one markup, two presentations)');
+        $this->assertStringContainsString('.nav-search-link{display:none', $flat,
+            'desktop swaps the search link for the input form');
+        $this->assertStringContainsString('.story-cover{display:none', $flat,
+            'M1 is content-first: the cover column hides below 768px');
     }
 
     /** C8: the reader-shell components exist as real rules: the control bar

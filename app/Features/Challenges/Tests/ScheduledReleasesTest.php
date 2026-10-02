@@ -86,11 +86,14 @@ final class ScheduledReleasesTest extends TestCase
     {
         $fan = $this->plantFollower();
         $me = $this->client($this->authorId());
+        // The fixture title must not collide with any public UI label (the
+        // story page's mark-for-later cell reads "Later"), so the invisible
+        // chapter carries a distinctive name the page can never render.
         $res = $me->postWithToken('/chapter/create/the-rabbit-hole',
-            ['title' => 'Later', 'content' => 'Scheduled words for tomorrow.', 'publish_at' => '2099-01-01T00:00:00Z']);
+            ['title' => 'Unpublished Nine', 'content' => 'Scheduled words for tomorrow.', 'publish_at' => '2099-01-01T00:00:00Z']);
         $this->assertSame(302, $res->status, $res->body);
         $db = $this->db();
-        $row = $db->one("SELECT validated, publish_at FROM chapters WHERE title = 'Later'");
+        $row = $db->one("SELECT validated, publish_at FROM chapters WHERE title = 'Unpublished Nine'");
         $this->assertSame(0, (int) $row['validated']);
         $this->assertSame('2099-01-01T00:00:00Z', $row['publish_at']);
         // The Demo Author is a validated_author, so autoValidates() is true:
@@ -99,7 +102,7 @@ final class ScheduledReleasesTest extends TestCase
         $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM notifications WHERE user_id = ?', [$fan])['c'],
             'a scheduled create never notifies');
         // invisible to readers: not in the TOC blob
-        $this->assertStringNotContainsString('Later', $this->client()->get('/story/view/the-rabbit-hole')->body);
+        $this->assertStringNotContainsString('Unpublished Nine', $this->client()->get('/story/view/the-rabbit-hole')->body);
         // the bare datetime-local shape (no zone, no seconds) stores canonical UTC Z-form
         $this->assertSame(302, $me->postWithToken('/chapter/create/the-rabbit-hole',
             ['title' => 'Bare', 'content' => 'Words.', 'publish_at' => '2099-01-01T00:00'])->status);
