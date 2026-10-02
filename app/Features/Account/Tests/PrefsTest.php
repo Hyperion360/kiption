@@ -104,13 +104,13 @@ final class PrefsTest extends TestCase
             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
         $this->assertSame(302, $res->status, $res->body);
         $this->assertSame('sepia', $this->db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme']);
-        $this->assertContains('theme=sepia; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($res));
+        $this->assertContains('theme=sepia; Max-Age=31536000; Path=/; SameSite=Lax', $this->cookieLeaves($res));
         $res = $me->postWithToken('/account/prefs', ['theme' => 'auto', 'bio' => '', 'is_beta' => '', 'default_sort' => 'recent', 'toc_first' => '',
             'notify_review' => '', 'notify_response' => '', 'notify_favorites' => '', 'notify_favorite_digest' => '']);
         $this->assertSame(302, $res->status, $res->body);
         $this->assertNull($this->db->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'auto stores NULL (029): the login sync then leaves the device on its OS setting');
-        $this->assertContains('theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($res),
+        $this->assertContains('theme=; Max-Age=0; Path=/; SameSite=Lax', $this->cookieLeaves($res),
             'auto clears the theme cookie instead of minting one');
         // the form radios carry the new value set
         $form = $me->get('/account/settings')->body;

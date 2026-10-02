@@ -141,7 +141,7 @@ final class PerUserTest extends TestCase
         // append semantics, so both cookies die beside the session cookie.
         $this->assertSame([
             'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
-            'theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
+            'theme=; Max-Age=0; Path=/; SameSite=Lax',
         ], $res->headers['Set-Cookie'], 'logout clears the synced cookies as one list');
     }
 
@@ -179,7 +179,7 @@ final class PerUserTest extends TestCase
         $this->assertSame([
             'toc=1; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             'lang=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
-            'theme=sepia; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+            'theme=sepia; Max-Age=31536000; Path=/; SameSite=Lax',
         ], $res->headers['Set-Cookie'], 'the save syncs every runtime cookie (ruling 5: every write point writes both)');
         // The Kip 0.5 jar: both set cookies ride the SAME client's next
         // requests, the way a browser replays them. The toc leaf redirects a
@@ -224,7 +224,7 @@ final class PerUserTest extends TestCase
         $client = $this->client();
         $res = $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $this->assertSame(302, $res->status);
-        $this->assertContains('theme=night; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+        $this->assertContains('theme=night; Max-Age=31536000; Path=/; SameSite=Lax',
             $this->cookieLeaves($res), 'login re-syncs a stale theme cookie from the pref');
         // The jar carries the leaf onto the same client's next request: the
         // render after login is themed, the browser replay made real.
@@ -336,7 +336,7 @@ final class PerUserTest extends TestCase
         $this->assertSame(302, $res->status);
         $this->assertNotContains('lang=xx; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             $this->cookieLeaves($res), 'the login sync skips the lang cookie');
-        $this->assertContains('theme=paper; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+        $this->assertContains('theme=paper; Max-Age=31536000; Path=/; SameSite=Lax',
             $this->cookieLeaves($res), 'the theme arm still syncs: the row was read, only lang skipped');
         // The cookieless render keeps the archive language, and the stored
         // pref is inert data, never deleted (the toggle-on restore contract).
@@ -390,7 +390,7 @@ final class PerUserTest extends TestCase
         $this->assertSame('night', $this->db()->one('SELECT theme FROM user_prefs WHERE user_id = ?', [$this->memberId()])['theme'],
             'the member write-through persists again');
         $res = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
-        $this->assertContains('theme=night; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
+        $this->assertContains('theme=night; Max-Age=31536000; Path=/; SameSite=Lax',
             $this->cookieLeaves($res), 'the login sync restores with the flag');
     }
 

@@ -96,7 +96,7 @@ final class AuthController
         // re-syncs its cookie on a new device. auto never reaches a row (the
         // write points store paper for it), and it is skipped here too.
         if (\App\Features::on('perusertheme') && \in_array($theme, \App\Theme::VALUES, true) && $theme !== 'auto') {
-            $cookies[] = \App\Cookie::long(\App\Theme::COOKIE, $theme);
+            $cookies[] = \App\Cookie::pref(\App\Theme::COOKIE, $theme);
         }
         foreach ($cookies as $cookie) {
             $redirect = $redirect->withAddedHeader('Set-Cookie', $cookie);
@@ -203,7 +203,7 @@ final class AuthController
         // cookie, the same chain shape the login sync uses.
         return Response::redirect('/')
             ->withAddedHeader('Set-Cookie', \App\Cookie::long('lang', ''))
-            ->withAddedHeader('Set-Cookie', \App\Cookie::long(\App\Theme::COOKIE, ''));
+            ->withAddedHeader('Set-Cookie', \App\Cookie::pref(\App\Theme::COOKIE, ''));
     }
 
     public function forgot(): string

@@ -5,8 +5,9 @@
  * setting) it goes to Night. Its label always names the next state, so
  * the result of a click is never a guess. Sepia and Auto stay one tap away
  * in the reader's Text sheet and in Settings. The current state is read
- * from the root data-theme attribute ONLY: the server's theme cookie is
- * HttpOnly, invisible to every script; absence is Auto. Application goes
+ * from the root data-theme attribute: it is the state the page actually
+ * applied (the theme cookie is script-writable, Cookie::pref, but can lag
+ * a cached render); absence is Auto. Application goes
  * through Kip.setTheme when the prefs module is present (it also syncs the
  * Text sheet's checked swatch), else the same contract is set by hand:
  * attribute plus cookie. This is a device-local convenience: no member row

@@ -247,7 +247,7 @@ final class AccountController
             // auto CLEARS the cookie (the reader settings route's economy): a
             // cookie bearing theme=auto carries no information but still makes
             // every future request bypass the static cache.
-            $cookies[] = \App\Cookie::long(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme);
+            $cookies[] = \App\Cookie::pref(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme);
         }
         $redirect = Response::redirect('/account/settings');
         foreach ($cookies as $cookie) {
