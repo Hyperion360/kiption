@@ -32,6 +32,7 @@ return [
     'nav.search_placeholder' => 'Search stories',
     'nav.account' => 'Account',
     'nav.menu' => 'Menu',
+    'nav.theme_toggle' => 'Theme',
     'nav.login' => 'Log in',
     'nav.logout' => 'Log out',
     'nav.notifications' => 'Notifications',
@@ -474,6 +475,8 @@ return [
     'series.slug_placeholder' => 'story-slug',
     'series.add_yours' => 'Add your story',
     'series.meta_by' => 'A series by {name}.',
+    'series.index_heading' => 'Series',
+    'series.none_yet' => 'No series yet.',
 
     // Reading lists (Phase 11).
     'lists.new' => 'New reading list',
