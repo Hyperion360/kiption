@@ -130,6 +130,19 @@ final class ReadShellTest extends TestCase
         $this->assertStringNotContainsString('Where you left off', $guest);
     }
 
+    /** The keys module's J/K targets are sibling chapter URLs. They were
+     *  built on the current chapter's URL, so chapter 2 pointed at
+     *  /story/read/<slug>/2/3, a 404 (qa-full: /review + Codex). */
+    public function test_keyboard_navigation_targets_are_real_chapter_urls(): void
+    {
+        $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('data-prev="/story/read/the-rabbit-hole/1"', $body);
+        $this->assertStringContainsString('data-next="/story/read/the-rabbit-hole/3"', $body);
+        $this->assertSame(200, $this->client()->get('/story/read/the-rabbit-hole/3')->status, 'the J target resolves');
+        $first = $this->client()->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringContainsString('data-prev=""', $first, 'no previous chapter, no target');
+    }
+
     public function test_guest_bar_bookmark_is_a_login_link_not_a_form(): void
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;

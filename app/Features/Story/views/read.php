@@ -28,8 +28,8 @@
      // FRAGMENT endpoint; data-next stays the keys module's read URL).
      $baseUrl = '/story/read/' . $story['slug'] . '/' . (int) $position; ?>
 <div class="reader<?= $focus ? ' reader-focus' : '' ?>" data-js-module="keys"
-     data-prev="<?= $this->e($prev !== null ? $baseUrl . '/' . (int) $prev : '') ?>"
-     data-next="<?= $this->e($next !== null ? $baseUrl . '/' . (int) $next : '') ?>"
+     data-prev="<?= $this->e($prev !== null ? '/story/read/' . $story['slug'] . '/' . (int) $prev : '') ?>"
+     data-next="<?= $this->e($next !== null ? '/story/read/' . $story['slug'] . '/' . (int) $next : '') ?>"
      data-focus-url="<?= $this->e($baseUrl . '?focus=1') ?>"
      data-exit-focus="<?= $this->e($baseUrl) ?>"
      data-text-url="<?= $this->e($baseUrl . '#text') ?>"
