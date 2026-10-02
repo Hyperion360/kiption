@@ -252,8 +252,13 @@ final class StoryRepository
                      WHERE sc2.story_id = s.id AND c2.slug = ?)'
             : '';
         $progressJoin = $viewer > 0 ? ' LEFT JOIN reading_history rr ON rr.story_id = s.id AND rr.user_id = ' . $viewer : '';
+        // The resume point clamps to the furthest chapter at or below it that
+        // still validates (StoryController::progressOf's rule), so a deleted
+        // or unpublished chapter never yields a 404 Continue link; NULL when
+        // nothing survives, and the card shows no pill.
         $progressCols = $viewer > 0 ? ',
-                    rr.last_position,
+                    (SELECT MAX(c3.position) FROM chapters c3 WHERE c3.story_id = s.id AND c3.validated = 1
+                       AND c3.position <= rr.last_position) AS last_position,
                     CASE WHEN rr.last_position IS NULL THEN NULL ELSE
                       MIN(100, CAST(ROUND(100.0 * COALESCE((SELECT SUM(c2.word_count) FROM chapters c2
                          WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rr.last_position), 0)

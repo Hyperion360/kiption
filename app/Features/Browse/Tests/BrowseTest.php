@@ -346,6 +346,10 @@ final class BrowseTest extends TestCase
         $db->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (2, 1, 1)');
         $member = $this->client(2)->get('/browse/recent')->body;
         $this->assertStringContainsString('<a class="continue-pill" href="/story/read/the-rabbit-hole/1">Continue · I, 50%</a>', $member);
+        // a resume point past the surviving chapters clamps to the last one
+        // that still validates, like the story page (never a 404 link)
+        $db->query('UPDATE reading_history SET last_position = 5 WHERE user_id = 2 AND story_id = 1');
+        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2">Continue', $this->client(2)->get('/browse/recent')->body);
         // Reading progress is not a mute feature: switching mute off must not
         // take the member's pill with it (qa-full /review, Codex).
         $db->query("INSERT OR REPLACE INTO feature_flags (key, enabled) VALUES ('mute', 0)");
