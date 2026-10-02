@@ -7,11 +7,13 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 // C8 (frames M2/T1/D1 + focus D2): the chapter reader shell. Sticky reader
-// header with the story-span progressbar, bottom control bar, :target sheets
-// for contents/bookmarks and text settings, the end-of-chapter block, and
-// the focus variant. The h-entry microformats block and the read beacon are
-// pinned byte-exact by MicroformatsTest; this file pins the shell around
-// them. Zero JavaScript anywhere: links, forms, radios, and :target only.
+// header with the story-span progressbar, icon-over-caption bottom control
+// bar, :target sheets for contents/bookmarks and text settings (the size
+// group is the comp's slider row), the end-of-chapter block with the
+// next-chapter anatomy, and the focus variant. The h-entry microformats
+// block and the read beacon are pinned byte-exact by MicroformatsTest; this
+// file pins the shell around them. Zero JavaScript anywhere: links, forms,
+// native inputs, and :target only.
 final class ReadShellTest extends TestCase
 {
     private string $path = '';
@@ -54,7 +56,8 @@ final class ReadShellTest extends TestCase
         $this->assertStringContainsString('<header class="reader-head">', $body);
         $this->assertStringContainsString('<a class="reader-back" href="/story/view/the-rabbit-hole" aria-label="Back to story">←</a>', $body);
         $this->assertStringContainsString('<span class="rt-story">The Rabbit Hole</span>', $body);
-        $this->assertStringContainsString('<span class="rt-chapter">Chapter 2 of 3</span>', $body);
+        // line 2: "ROMAN · title" when the chapter carries a title
+        $this->assertStringContainsString('<span class="rt-chapter">II · Through</span>', $body);
         $this->assertStringContainsString('<span class="reader-pct">50%</span>', $body);
         // the story-span progressbar: static --p-end fallback + scroll-driven
         // --p-start..--p-end enhancement, valuenow at the chapter's end
@@ -74,25 +77,33 @@ final class ReadShellTest extends TestCase
         $this->assertStringContainsString('<nav class="reader-bar"', $body);
         $this->assertStringContainsString('href="#contents"', $body);
         $this->assertStringContainsString('href="#text"', $body);
-        // the stepper: prev/next chapter links around the "n / m" readout
+        // icon-over-caption items; the ‹ › stepper arrows are gone (prev/next
+        // ride the chapter-nav block above the bar)
         $this->assertStringContainsString('<span class="bar-chapter">', $body);
-        $this->assertStringContainsString('<span>2 / 3</span>', $body);
-        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/1"', $body);
-        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/3"', $body);
+        $this->assertStringContainsString('<span class="bar-count">2 / 3</span>', $body);
+        $this->assertStringContainsString('<span class="bar-caption">Chapter</span>', $body);
+        $this->assertStringContainsString('<span class="bar-caption">Contents</span>', $body);
+        $this->assertStringContainsString('<span class="bar-caption">Text</span>', $body);
+        $this->assertStringNotContainsString('‹', $body);
+        $this->assertStringNotContainsString('›', $body);
         // the member bookmark form (the flat-router URL spelling)
         $this->assertStringContainsString('action="/reader/bookmarkadd/the-rabbit-hole/2"', $body);
         $this->assertStringContainsString('name="_token"', $body);
-        // a member who saved this chapter sees the remove form instead
+        // a member who saved this chapter sees the remove form, filled ribbon,
+        // and the Saved caption instead
         $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', ['note' => 'x']);
         $saved = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
         $this->assertStringContainsString('action="/reader/bookmarkremove/the-rabbit-hole/2"', $saved);
+        $this->assertStringContainsString('<button type="submit" class="is-saved" aria-label="Saved">', $saved);
+        $this->assertStringContainsString('<span class="bar-caption">Saved</span>', $saved);
         $this->assertStringNotContainsString('action="/reader/bookmarkadd/the-rabbit-hole/2"', $saved);
     }
 
     public function test_guest_bar_bookmark_is_a_login_link_not_a_form(): void
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('<a href="/auth/login">Bookmark</a>', $body);
+        $this->assertStringContainsString('<a href="/auth/login" aria-label="Bookmark">', $body);
+        $this->assertStringContainsString('<span class="bar-caption">Bookmark</span>', $body);
         $this->assertStringNotContainsString('bookmarkadd', $body);
         $this->assertStringNotContainsString('bookmarkremove', $body);
     }
@@ -131,25 +142,35 @@ final class ReadShellTest extends TestCase
             $this->assertStringContainsString($radio, $body, "the {$radio} group renders");
         }
         $this->assertSame(7, substr_count($body, '<fieldset>'));
-        // cookieless defaults: 19px serif, theme auto
-        $this->assertStringContainsString('<input type="radio" name="size" value="19" checked>', $body);
+        // the size group is the comp's slider row now: native range 16..24 with
+        // the current px readout on the legend line
+        $this->assertStringContainsString('<input type="range" name="size" min="16" max="24" step="1" value="19"', $body,
+            'cookieless default is 19px');
+        $this->assertStringContainsString('aria-label="Text size"', $body);
+        $this->assertStringContainsString('<span class="size-readout">19 px</span>', $body);
         $this->assertStringContainsString('<input type="radio" name="theme" value="auto" checked>', $body);
-        $this->assertStringContainsString('value="16"', $body, 'the size range spans the Prefs whitelist');
-        $this->assertStringContainsString('value="24"', $body);
     }
 
     public function test_end_of_chapter_block_with_kudos_review_and_next(): void
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('<footer class="chapter-end" role="separator" aria-label="End of chapter II">', $body);
+        // the caption names the chapter when it carries a title, sentence case
+        $this->assertStringContainsString('<footer class="chapter-end" role="separator" aria-label="End of chapter II · Through">', $body);
+        $this->assertStringContainsString('<p>End of chapter II · Through</p>', $body);
         $this->assertStringContainsString('<span class="dots" aria-hidden="true"></span>', $body);
         $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $body);
-        $this->assertStringContainsString('href="/story/view/the-rabbit-hole#reviews"', $body, 'the review action lands on the story reviews');
-        $this->assertStringContainsString('<a class="next-chapter" href="/story/read/the-rabbit-hole/3">Next chapter</a>', $body);
-        // the last chapter closes without a next link
+        $this->assertStringContainsString('href="/story/view/the-rabbit-hole#reviews">Review · 0</a>', $body,
+            'the review action lands on the story reviews, counted from the same query');
+        // the comp's next-chapter block: "continues below" kicker over the
+        // next chapter's own title, the block itself the link
+        $this->assertStringContainsString('<div class="next-chapter">', $body);
+        $this->assertStringContainsString('<span class="ch-kicker">Chapter III continues below</span>', $body);
+        $this->assertStringContainsString('<span class="next-title">Up</span>', $body);
+        $this->assertStringContainsString('<a href="/story/read/the-rabbit-hole/3">', $body);
+        // the last chapter closes without a next block
         $last = $this->client()->get('/story/read/the-rabbit-hole/3')->body;
         $this->assertStringNotContainsString('class="next-chapter"', $last);
-        $this->assertStringContainsString('aria-label="End of chapter III"', $last);
+        $this->assertStringContainsString('aria-label="End of chapter III · Up"', $last);
     }
 
     public function test_focus_variant_renders_dock_and_hides_chrome(): void

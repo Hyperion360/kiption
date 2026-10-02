@@ -176,7 +176,9 @@ final class StoryRepository
         // chapter set a second time). The member fold also carries the stored
         // theme row (1:1 PK) so the Text sheet's radio can default from it —
         // a typography-only save must never rewrite the stored theme from a
-        // cookie-absent default (adversarial finding F2).
+        // cookie-absent default (adversarial finding F2). The review count
+        // rides the same statement (alias r4, distinct from ratings r): the
+        // chapter-end Review link reads it instead of spending a query.
         $progressJoin = $me !== 0 ? ' LEFT JOIN reading_history rh2 ON rh2.story_id = s.id AND rh2.user_id = ' . $me
             . ' LEFT JOIN user_prefs up ON up.user_id = ' . $me : '';
         $progressCols = $me !== 0 ? ',
@@ -200,7 +202,8 @@ final class StoryRepository
                     MAX(CASE WHEN ch.position = ? THEN ch.word_count END) AS ch_word_count,
                     (SELECT json_group_array(json_object(\'position\', ch3.position, \'title\', ch3.title, \'word_count\', ch3.word_count))
                      FROM chapters ch3 WHERE ch3.story_id = s.id AND ch3.validated = 1
-                     ORDER BY ch3.position) AS chapters_blob' . $progressCols . $bookmarksCols . '
+                     ORDER BY ch3.position) AS chapters_blob,
+                    (SELECT COUNT(*) FROM reviews r4 WHERE r4.story_id = s.id AND r4.parent_id IS NULL) AS review_count' . $progressCols . $bookmarksCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
