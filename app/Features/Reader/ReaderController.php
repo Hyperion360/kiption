@@ -23,14 +23,9 @@ final class ReaderController
         $reset = $this->request->postStr('reset') === '1';
         $theme = $reset ? 'auto' : $this->request->postStr('theme');
         $theme = in_array($theme, \App\Theme::VALUES, true) ? $theme : 'auto';
-        $prefs = $reset ? new Prefs() : new Prefs(
-            self::pick((int) $this->request->postStr('size'), Prefs::SIZES, 19),
-            self::pick($this->request->postStr('typeface'), Prefs::TYPEFACES, 'serif'),
-            self::pick($this->request->postStr('spacing'), Prefs::SPACINGS, 'regular'),
-            self::pick($this->request->postStr('paragraphs'), Prefs::PARAGRAPHS, 'indented'),
-            self::pick($this->request->postStr('width'), Prefs::WIDTHS, 'medium'),
-            self::pick($this->request->postStr('mode'), Prefs::MODES, 'scroll'),
-        );
+        $prefs = $reset ? new Prefs() : Prefs::fromParts(...array_map(
+            fn (string $k): string => $this->request->postStr($k),
+            ['size', 'typeface', 'spacing', 'paragraphs', 'width', 'mode']));
         $to = \App\Redirects::safeReturn($this->request->postStr('return_to'));
 
         // Write-through for members (phase 12d): the user_prefs row re-syncs
@@ -55,12 +50,6 @@ final class ReaderController
         $r = $r->withAddedHeader('Set-Cookie', \App\Cookie::pref(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme));
         $isDefault = $prefs->cookieValue() === (new Prefs())->cookieValue();
         return $r->withAddedHeader('Set-Cookie', \App\Cookie::pref(Prefs::COOKIE, $isDefault ? '' : $prefs->cookieValue()));
-    }
-
-    /** Whitelist or default; the cookie is only ever built from these. */
-    private static function pick(mixed $raw, array $allowed, int|string $default): int|string
-    {
-        return in_array((string) $raw, array_map('strval', $allowed), true) ? $raw : $default;
     }
 
     /** (story, chapter) by slug + validated position in ONE query, behind

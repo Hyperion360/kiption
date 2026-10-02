@@ -33,15 +33,23 @@ final class Prefs
         // TypeError on it. Non-string or wrong segment count reads as
         // "no cookie": all defaults.
         if (!\is_string($raw) || substr_count($raw, '-') !== 5) { return new self(); }
-        [$size, $typeface, $spacing, $paragraphs, $width, $mode] = explode('-', $raw);
-        $size = (int) $size;
+        return self::fromParts(...explode('-', $raw));
+    }
+
+    /** The one whitelist-or-default rule, for the cookie's six segments and
+     *  the settings form's six fields alike: each value off its whitelist
+     *  falls back to the constructor default. */
+    public static function fromParts(string $size, string $typeface, string $spacing, string $paragraphs, string $width, string $mode): self
+    {
+        $d = new self();
+        $pick = static fn (mixed $v, array $allowed, mixed $default): mixed => in_array($v, $allowed, true) ? $v : $default;
         return new self(
-            in_array($size, self::SIZES, true) ? $size : 19,
-            in_array($typeface, self::TYPEFACES, true) ? $typeface : 'serif',
-            in_array($spacing, self::SPACINGS, true) ? $spacing : 'regular',
-            in_array($paragraphs, self::PARAGRAPHS, true) ? $paragraphs : 'indented',
-            in_array($width, self::WIDTHS, true) ? $width : 'medium',
-            in_array($mode, self::MODES, true) ? $mode : 'scroll',
+            $pick((int) $size, self::SIZES, $d->size),
+            $pick($typeface, self::TYPEFACES, $d->typeface),
+            $pick($spacing, self::SPACINGS, $d->spacing),
+            $pick($paragraphs, self::PARAGRAPHS, $d->paragraphs),
+            $pick($width, self::WIDTHS, $d->width),
+            $pick($mode, self::MODES, $d->mode),
         );
     }
 
