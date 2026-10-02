@@ -324,6 +324,19 @@ final class PerUserTest extends TestCase
         }
     }
 
+    /** A browser may still hold a theme cookie the old login sync minted
+     *  HttpOnly, which scripts cannot overwrite. When the account stores
+     *  Auto, login keeps this browser's own theme (D4) but re-issues it
+     *  script-writable, and a legacy dark value lands as night. */
+    public function test_login_reissues_this_browsers_theme_script_writable(): void
+    {
+        $client = $this->client();
+        $client->cookie('theme', 'dark');
+        $res = $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertSame(302, $res->status);
+        $this->assertContains('theme=night; Max-Age=31536000; Path=/; SameSite=Lax', $this->cookieLeaves($res));
+    }
+
     public function test_peruserlang_off_stops_the_login_sync_and_keeps_cookieless_renders_archive_lang(): void
     {
         $this->writePack();

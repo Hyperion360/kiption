@@ -97,6 +97,11 @@ final class AuthController
         // write points store paper for it), and it is skipped here too.
         if (\App\Features::on('perusertheme') && \in_array($theme, \App\Theme::VALUES, true) && $theme !== 'auto') {
             $cookies[] = \App\Cookie::pref(\App\Theme::COOKIE, $theme);
+        } elseif (($own = \App\Theme::current($this->request)) !== null) {
+            // Auto stored: this browser keeps its own theme (D4), re-issued
+            // script-writable. An older login minted it HttpOnly, which the
+            // toggle cannot overwrite; legacy light/dark land as paper/night.
+            $cookies[] = \App\Cookie::pref(\App\Theme::COOKIE, $own);
         }
         foreach ($cookies as $cookie) {
             $redirect = $redirect->withAddedHeader('Set-Cookie', $cookie);
