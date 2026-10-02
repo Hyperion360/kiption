@@ -221,6 +221,7 @@ CREATE TABLE categories (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_categories_order | CREATE INDEX idx_categories_order ON categories (position, name) |
 | sqlite_autoindex_categories_1 | UNIQUE (slug) |
 
 ## Relations
@@ -2901,6 +2902,9 @@ None requiring action.
   a theme nobody chose (night after 026), which the login sync applied; all
   stored themes reset to NULL. Auto now stores NULL and the login sync sets
   no theme cookie for it.
+- categories (031): idx_categories_order (position, name) serves both
+  category listings (/browse and /feed/subscribe) in the operator's order
+  with no TEMP B-TREE.
 - bookmarks (027): PK (user_id, story_id, chapter_id) makes re-bookmarking
   an upsert; idx_bookmarks_user_story (user_id, story_id, created_at,
   chapter_id) serves the reader envelope's fold with no TEMP B-TREE;

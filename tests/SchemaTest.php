@@ -146,6 +146,20 @@ final class SchemaTest extends TestCase
         $this->assertStringNotContainsString('SCAN', $countPlan);
     }
 
+    /** Both category listings (/browse and /feed/subscribe) walk the
+     *  operator's order through migration 031's index: no TEMP B-TREE. */
+    public function test_category_listings_are_sort_free(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        foreach (['SELECT slug, name FROM categories ORDER BY position, name',
+                  'SELECT c.id, c.name, c.slug FROM categories c ORDER BY c.position, c.name'] as $sql) {
+            $plan = implode("\n", array_column($db->all('EXPLAIN QUERY PLAN ' . $sql), 'detail'));
+            $this->assertStringContainsString('idx_categories_order', $plan, $sql);
+            $this->assertStringNotContainsString('TEMP B-TREE', $plan, $sql);
+        }
+    }
+
     private function seedStory(Database $db): void
     {
         $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)', ['a@x.test', 'h', 'Author']);

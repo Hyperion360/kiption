@@ -24,7 +24,7 @@ final class FeedController
         if (($r = \App\Features::guard('feeds')) !== null) return $r;
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $base = rtrim((string) $this->app->config('base_url', 'http://localhost'), '/');
-        $categories = $this->db->all('SELECT slug, name FROM categories ORDER BY name');
+        $categories = $this->db->all('SELECT slug, name FROM categories ORDER BY position, name');
         $title = \App\Lang::t('feed.subscribe_heading');
         return new Response($this->view->render('feed/subscribe', [
             'title' => $title,
