@@ -162,6 +162,7 @@ CREATE TABLE "bookmarks" (
 | Name | Definition |
 | ---- | ---------- |
 | idx_bookmarks_chapter | CREATE INDEX idx_bookmarks_chapter ON bookmarks (chapter_id) |
+| idx_bookmarks_story | CREATE INDEX idx_bookmarks_story ON bookmarks (story_id) |
 | idx_bookmarks_user_story | CREATE INDEX idx_bookmarks_user_story ON bookmarks (user_id, story_id, created_at, chapter_id) |
 | sqlite_autoindex_bookmarks_1 | PRIMARY KEY (user_id, story_id, chapter_id) |
 
@@ -2911,7 +2912,8 @@ None requiring action.
   idx_bookmarks_chapter (chapter_id) serves the chapter hard-delete
   paths' cleanup and the chapter cascade as a seek. Since 030 all three
   ids carry FOREIGN KEY ... ON DELETE CASCADE, so deleting a user, story
-  or chapter removes its bookmarks (030 dropped pre-existing orphans). Notes are capped at 500 characters by the
+  or chapter removes its bookmarks (030 dropped pre-existing orphans).
+  idx_bookmarks_story (032) makes the story cascade a seek. Notes are capped at 500 characters by the
   controller (mb_substr, scrubbed to valid UTF-8), not the schema.
 - reading_progress does NOT exist and must not be added: member reading
   progress lives in reading_history.last_position (furthest-read,

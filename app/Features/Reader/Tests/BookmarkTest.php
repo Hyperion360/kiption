@@ -342,4 +342,42 @@ final class BookmarkTest extends TestCase
             $this->assertStringNotContainsString('secret margin note', $res->body, $path);
         }
     }
+
+    /** Migration 030's rebuild: a valid bookmark keeps its note and date,
+     *  rows pointing at a missing user, story or chapter are dropped, and
+     *  both 027/028 indexes come back; down() keeps the row and indexes.
+     *  The orphans are seeded with enforcement off, the only way a pre-030
+     *  database could have held them. */
+    public function test_030_keeps_valid_rows_and_prunes_orphans(): void
+    {
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'keep this']);
+        $before = $this->db->one('SELECT note, created_at, chapter_id, story_id FROM bookmarks');
+        $this->db->query('PRAGMA foreign_keys = OFF');
+        $this->db->query('INSERT INTO bookmarks (user_id, story_id, chapter_id) VALUES (999999, ?, ?)', [$before['story_id'], $before['chapter_id']]);
+        $this->db->query('INSERT INTO bookmarks (user_id, story_id, chapter_id) VALUES (?, 999999, ?)', [$this->memberId, $before['chapter_id']]);
+        $this->db->query('INSERT INTO bookmarks (user_id, story_id, chapter_id) VALUES (?, ?, 999999)', [$this->memberId, $before['story_id']]);
+        $this->db->query('PRAGMA foreign_keys = ON');
+        $this->assertSame(4, $this->rowCount());
+        $m030 = require dirname(__DIR__) . '/migrations/030_bookmarks_foreign_keys.php';
+        $indexes = fn (): array => array_column($this->db->all("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'bookmarks' AND name LIKE 'idx_%' ORDER BY name"), 'name');
+        $m030->up($this->db);
+        $this->assertSame(1, $this->rowCount(), 'only the valid row survives');
+        $after = $this->db->one('SELECT note, created_at FROM bookmarks');
+        $this->assertSame([$before['note'], $before['created_at']], [$after['note'], $after['created_at']]);
+        $this->assertContains('idx_bookmarks_user_story', $indexes());
+        $this->assertContains('idx_bookmarks_chapter', $indexes());
+        $m030->down($this->db);
+        $this->assertSame(1, $this->rowCount());
+        $this->assertSame([], $this->db->all('PRAGMA foreign_key_list(bookmarks)'), 'down restores the key-less shape');
+        $this->assertContains('idx_bookmarks_user_story', $indexes());
+    }
+
+    /** Junk positions never write progress (testing specialist). */
+    public function test_progress_rejects_junk_positions(): void
+    {
+        foreach (['abc', '0', '-1', '1.5e3'] as $p) {
+            $this->assertSame(404, $this->client($this->memberId)->postWithToken('/reader/progress/the-rabbit-hole/' . $p, [])->status, $p);
+        }
+        $this->assertNull($this->lastPosition());
+    }
 }

@@ -160,6 +160,18 @@ final class SchemaTest extends TestCase
         }
     }
 
+    /** Deleting a story cascades into bookmarks (030's foreign key): the
+     *  cascade's lookup by story_id must be a seek, not a scan of every
+     *  member's bookmarks under the write lock (migration 032). */
+    public function test_bookmark_story_cascade_is_a_seek(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $plan = implode("\n", array_column($db->all('EXPLAIN QUERY PLAN DELETE FROM bookmarks WHERE story_id = 1'), 'detail'));
+        $this->assertStringContainsString('idx_bookmarks_story', $plan);
+        $this->assertStringNotContainsString('SCAN', $plan);
+    }
+
     private function seedStory(Database $db): void
     {
         $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)', ['a@x.test', 'h', 'Author']);
