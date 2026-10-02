@@ -150,4 +150,45 @@ final class SeriesIndexTest extends TestCase
         $this->assertSame(200, $res->status, $res->body);
         $this->assertStringContainsString('No series yet.', $res->body); // series.none_yet
     }
+
+    /** /series is guest-cached, so its counts follow the guest gate of the
+     *  series page itself: a restricted story is not counted for guests. */
+    public function test_guest_counts_exclude_restricted_stories(): void
+    {
+        $a = $this->userId('Alpha Pen', 'alpha@e.test');
+        $se = $this->seriesId($a, 'Alpha Sagas', 'alpha-sagas');
+        $this->item($se, $this->storyId($a, 'Open', 'open'));
+        $hidden = $this->storyId($a, 'Members only', 'members-only');
+        $this->db->query('UPDATE stories SET is_restricted = 1 WHERE id = ?', [$hidden]);
+        $this->item($se, $hidden);
+        $body = $this->get('/series')->body;
+        $this->assertStringContainsString('1 works', $body);
+        $this->assertStringNotContainsString('2 works', $body);
+    }
+
+    /** A total that is an exact multiple of the page size has no older page:
+     *  the pager must not link to an empty one. */
+    public function test_no_older_link_when_total_is_an_exact_multiple(): void
+    {
+        $a = $this->userId('Alpha Pen', 'alpha@e.test');
+        $this->seriesId($a, 'Alpha Sagas', 'alpha-sagas');
+        $this->seriesId($a, 'Zebra Works', 'zebra-works');
+        $body = $this->get('/series', [], ['items_per_page' => 2])->body;
+        $this->assertStringContainsString('Zebra Works', $body);
+        $this->assertStringNotContainsString('rel="next"', $body);
+        $this->assertStringContainsString('rel="next"', $this->get('/series', [], ['items_per_page' => 1])->body);
+    }
+
+    /** Equal titles page deterministically (title, then id): neither series
+     *  is skipped or repeated across the page boundary. */
+    public function test_equal_titles_page_without_skips_or_repeats(): void
+    {
+        $a = $this->userId('Alpha Pen', 'alpha@e.test');
+        $this->seriesId($a, 'Same Title', 'same-one');
+        $this->seriesId($a, 'Same Title', 'same-two');
+        $one = $this->get('/series', [], ['items_per_page' => 1])->body;
+        $two = $this->get('/series', ['page' => '2'], ['items_per_page' => 1])->body;
+        $this->assertStringContainsString('/series/view/same-one', $one);
+        $this->assertStringContainsString('/series/view/same-two', $two);
+    }
 }

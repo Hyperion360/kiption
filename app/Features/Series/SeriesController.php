@@ -31,7 +31,11 @@ final class SeriesController
         // The cookie-gated $me idiom (plan review finding 13): never a bare
         // session read, or the cookieless cacheable path starts a session.
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
-        $seriesRows = $this->series->indexPage($perPage, ($page - 1) * $perPage);
+        // One extra row decides "older" exactly: a total that is a multiple
+        // of the page size no longer links to an empty page.
+        $seriesRows = $this->series->indexPage($perPage + 1, ($page - 1) * $perPage, $me);
+        $hasOlder = count($seriesRows) > $perPage;
+        $seriesRows = array_slice($seriesRows, 0, $perPage);
         return $this->view->render('series/index', [
             'title' => \App\Lang::t('series.index_heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('series.index_heading'))->withCanonical($this->request->path),
@@ -41,7 +45,7 @@ final class SeriesController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'baseUrl' => '/series',
             'series' => $seriesRows,
-            'hasOlder' => count($seriesRows) === $perPage,
+            'hasOlder' => $hasOlder,
             'page' => $page,
         ]);
     }
@@ -93,6 +97,7 @@ final class SeriesController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $me = (int) $this->session->get('user_id');
         $slug = $this->series->create($me, $title, $summary, $membership);
+        $this->staticCache()->purgeSeries($slug); // its row joins the cached index
         return Response::redirect('/series/view/' . $slug);
     }
 

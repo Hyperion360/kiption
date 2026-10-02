@@ -234,6 +234,19 @@ final class StaticCacheTest extends TestCase
         $this->assertNotNull($this->cache->serve(new Request('GET', '/story/view/y', [], [], [])), 'unrelated story survives');
     }
 
+    /** A series write (create, rename, items) changes its index row too, so
+     *  purgeSeries drops the /series index along with the series page. */
+    public function test_purge_series_removes_its_page_and_the_index(): void
+    {
+        foreach (['/series', '/series/view/a', '/series/view/b'] as $p) {
+            $this->cache->maybeStore(new Request('GET', $p, [], [], []), new Response($p, 200));
+        }
+        $this->cache->purgeSeries('a');
+        $this->assertNull($this->cache->serve(new Request('GET', '/series/view/a', [], [], [])), 'its page purged');
+        $this->assertNull($this->cache->serve(new Request('GET', '/series', [], [], [])), 'the index purged');
+        $this->assertNotNull($this->cache->serve(new Request('GET', '/series/view/b', [], [], [])), 'another series survives');
+    }
+
     public function test_purge_story_hits_its_categories(): void
     {
         $this->cache->maybeStore(new Request('GET', '/browse/category/general', [], [], []), new Response('c', 200));

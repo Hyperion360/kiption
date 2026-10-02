@@ -102,10 +102,14 @@ final class Cache
         if ($f !== null && is_file($f)) @unlink($f);
     }
 
+    /** A series page plus the /series index: every series write (create,
+     *  rename, items) can change its index row (title, owner, count). */
     public function purgeSeries(string $slug): void
     {
-        $f = $this->fileFor('/series/view/' . $slug);
-        if ($f !== null && is_file($f)) @unlink($f);
+        foreach (['/series/view/' . $slug, '/series'] as $p) {
+            $f = $this->fileFor($p);
+            if ($f !== null && is_file($f)) @unlink($f);
+        }
     }
 
     /** A challenge's two cached surfaces: its view page plus the challenges
