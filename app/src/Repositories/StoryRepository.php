@@ -44,16 +44,7 @@ final class StoryRepository
         $progressCols = $me !== 0 ? ',
                     rh2.last_position,
                     rh2.marked_at AS marked_at_me' : '';
-        // C5 bookmarks fold, member path only too: notes are free text, so the
-        // blob is JSON (the TOC discipline; no delimiter survives a note).
-        // Ordering rides the derived table (created_at, then chapter_id to
-        // break same-timestamp ties deterministically); the chapters LEFT JOIN
-        // resolves the position for the sheet's links.
-        $bookmarksCols = $me !== 0 ? ',
-                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note, \'at\', b.created_at))
-                     FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
-                           ORDER BY b.created_at, b.chapter_id) b
-                     LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';
+        $bookmarksCols = self::bookmarksFold($me);
         return $this->db->one(
             'SELECT s.*, u.penname, u.profile_slug, r.label AS rating_label, r.is_adult, r.warning_text,
                     (SELECT COUNT(*) FROM story_kudos k WHERE k.story_id = s.id) AS kudos_count,
@@ -165,6 +156,21 @@ final class StoryRepository
      *  ch_id pivots the chapter's id for the read beacon img (finding 5:
      *  the beacon wants chapters.id, never the position).
      *  @return array<string,mixed>|null */
+    /** C5 bookmarks fold, the member path only (guests get ''), shared by
+     *  the story page and the reader: notes are free text, so the blob is
+     *  JSON (the TOC discipline; no delimiter survives a note). Ordering rides
+     *  the derived table (created_at, then chapter_id to break same-timestamp
+     *  ties deterministically); the chapters LEFT JOIN resolves the position
+     *  for the sheet's links. $me is an int, so interpolation is safe. */
+    private static function bookmarksFold(int $me): string
+    {
+        return $me !== 0 ? ',
+                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note, \'at\', b.created_at))
+                     FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
+                           ORDER BY b.created_at, b.chapter_id) b
+                     LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';
+    }
+
     public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
@@ -184,12 +190,7 @@ final class StoryRepository
         $progressCols = $me !== 0 ? ',
                     rh2.last_position,
                     up.theme AS prefs_theme' : '';
-        // The C5 bookmarks fold, same member-only shape as findStoryBySlug.
-        $bookmarksCols = $me !== 0 ? ',
-                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note, \'at\', b.created_at))
-                     FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
-                           ORDER BY b.created_at, b.chapter_id) b
-                     LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';
+        $bookmarksCols = self::bookmarksFold($me);
         return $this->db->one(
             'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.created_at, s.updated_at, s.word_count,
                     s.canonical_url, s.crosspost_url,
