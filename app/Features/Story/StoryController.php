@@ -743,16 +743,14 @@ final class StoryController
         return $head;
     }
 
-    /** C4: the member-only progress columns leave the story row and become the
-     *  envelope's progress block. null for guests (the guest query never
-     *  carries the keys: the static cache renders the identical shape) and for
-     *  members with no reading_history row (the LEFT JOIN went NULL).
-     *  @param array<string,mixed> $story mutated: the three keys are unset
-     *  @return array{last_position: int, read_pct: ?int, minutes_left: ?int}|null */
     /** The comp's own reading-speed arithmetic (~248 by its numbers). */
     private const WORDS_PER_MINUTE = 250;
 
-    /** The reading-history fold's PHP side. last_position rides the member's
+    /** C4: the member-only progress column leaves the story row and becomes
+     *  the envelope's progress block. null for guests (the guest query never
+     *  carries the key: the static cache renders the identical shape) and for
+     *  members with no reading_history row (the LEFT JOIN went NULL).
+     *  The reading-history fold's PHP side. last_position rides the member's
      *  LEFT JOIN; read_pct and minutes_left derive here from the validated
      *  chapters array the page already decoded (review: the SQL pair ran the
      *  identical chapter-range SUM twice per render), clamped on both axes:

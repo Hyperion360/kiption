@@ -33,8 +33,8 @@ final class ReaderController
         );
         $to = \App\Redirects::safeReturn($this->request->postStr('return_to'));
 
-        // Write-through for members (the ThemeController idiom, phase 12d): the
-        // row re-syncs the cookie at the next login. Guests stay cookie-only.
+        // Write-through for members (phase 12d): the user_prefs row re-syncs
+        // the cookie at the next login (AuthController::redirectWithPrefCookies). Guests stay cookie-only.
         // Auto stores NULL (029): the login sync then sets no theme cookie, so
         // the member's devices follow their own OS setting.
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
