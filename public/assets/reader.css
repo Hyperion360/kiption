@@ -295,6 +295,12 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)):hover { background: #1f4f42; color: #fff; opacity: .92; }
 .link-btn { min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .link-btn:hover { background: none; color: var(--accent-hover); }
+/* Form card (Kip blog S3 "Leave a comment"): a white surface holding a
+   short title, the fields, and the primary action. */
+.form-card { max-width: 640px; margin-block: 8px 0; padding: 24px; background: var(--surface); border: 1px solid var(--line-strong); }
+.form-card-title { margin: 0 0 16px; font: 600 15px/1.4 var(--sans); color: var(--ink); }
+.site-main .form-card select { max-width: 240px; }
+
 /* Alerts (S5): a tinted box with the message and its fix; notices are the
    quiet green twin. */
 .error, [role="alert"] {
