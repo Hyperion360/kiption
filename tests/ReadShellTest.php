@@ -150,7 +150,7 @@ final class ReadShellTest extends TestCase
             'cookieless default is 19px');
         $this->assertStringContainsString('aria-label="Text size"', $body);
         $this->assertStringContainsString('<span class="size-readout">19 px</span>', $body);
-        $this->assertStringContainsString('<input type="radio" name="theme" value="auto" checked>', $body);
+        $this->assertStringContainsString('<input type="radio" name="theme" value="auto" checked data-js-pref="theme">', $body);
     }
 
     public function test_end_of_chapter_block_with_kudos_review_and_next(): void
