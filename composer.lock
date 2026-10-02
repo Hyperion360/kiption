@@ -4,15 +4,21 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b153a3d763adaacaa85bdd6a2194b84d",
+    "content-hash": "5f48af4e90f3fce18e9ddeada71b0146",
     "packages": [
         {
             "name": "kip/framework",
             "version": "dev-main",
-            "dist": {
-                "type": "path",
-                "url": "/Users/danilosapad/Sites/MVC-Lite",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Hyperion360/kip.git",
                 "reference": "2979b924372eaaec4f48b4fe11337e3362cdf45b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/2979b924372eaaec4f48b4fe11337e3362cdf45b",
+                "reference": "2979b924372eaaec4f48b4fe11337e3362cdf45b",
+                "shasum": ""
             },
             "require": {
                 "ext-pdo": "*",
@@ -22,6 +28,7 @@
                 "phpstan/phpstan": "^2.2",
                 "phpunit/phpunit": "^11"
             },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -68,9 +75,7 @@
                 "issues": "https://github.com/Hyperion360/kip/issues",
                 "source": "https://github.com/Hyperion360/kip"
             },
-            "transport-options": {
-                "relative": false
-            }
+            "time": "2026-10-01T13:47:13+00:00"
         }
     ],
     "packages-dev": [
