@@ -257,15 +257,24 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .site-main form:where(:not(.inline):not(.text-settings)) textarea { width: 100%; font: 400 17px/1.6 var(--serif); }
 .site-main fieldset:not(.text-settings fieldset) { border: 1px solid var(--line); padding: 16px 18px 4px; margin: 0 0 18px; }
 .site-main fieldset legend { padding-inline: 6px; font: 600 12px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+/* A checkbox or radio label reads as one row: control, then its text. */
+.site-main form label:has(> input:is([type="checkbox"], [type="radio"])) {
+  display: flex; flex-direction: row; align-items: center; gap: 10px;
+  margin-block-end: 12px; font: 400 15px/1.4 var(--sans); color: var(--ink);
+}
+/* Account settings: each form is its own block under the Settings rule. */
+.settings-heading { margin-block: 48px 0; padding-block-start: 24px; border-block-start: 1px solid var(--ink); }
+.settings-group > form { padding-block: 20px; border-block-end: 1px solid var(--line); }
+.settings-group .avatar { display: block; margin-block: 16px 0; border: 1px solid var(--line-strong); }
 .field-hint { display: block; font: 400 13px/1.5 var(--sans); color: var(--muted); }
 /* The primary action: the last direct-child submit of a stacked form. */
 .btn-primary,
-.site-main form:where(:not(.inline):not(.text-settings)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)) {
+.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)) {
   min-height: 48px; padding-inline: 24px;
   background: #1f4f42; border-color: #1f4f42; color: #fff; font-weight: 500;
 }
 .btn-primary:hover,
-.site-main form:where(:not(.inline):not(.text-settings)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)):hover { background: #1f4f42; color: #fff; opacity: .92; }
+.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)):hover { background: #1f4f42; color: #fff; opacity: .92; }
 .link-btn { min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .link-btn:hover { background: none; color: var(--accent-hover); }
 /* Alerts (S5): a tinted box with the message and its fix; notices are the
@@ -326,6 +335,21 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .auth-card form :where(input:not([type="checkbox"]):not([type="hidden"]), select) { max-width: none; }
 .auth-card form:not(.inline) > button:last-of-type { width: 100%; }
 .auth-card .auth-links { margin: 18px 0 0; font: 14px var(--sans); color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+/* Safety net for screens still written as a bare h1 plus content: the
+   leading h1 reads as a page head and the screen keeps the readable column,
+   so no view falls back to an unstyled document. (Recently updated is a
+   drawn screen, M6: its h1 sits on the chip row with no rule.) */
+.site-main > h1:first-child:not(:has(+ .filter-chips)), .site-main > :is(section, article):first-child > h1:first-child {
+  font-size: 38px; line-height: 1.05;
+  padding-block-end: 24px; margin-block-end: 24px; border-block-end: 1px solid var(--ink);
+}
+.site-main:has(> h1:first-child) > h2, .site-main > section > h2, .site-main > article > h2 { margin-block: 32px 12px; }
+@media (min-width:768px) { :is(.site-main > h1:first-child:not(:has(+ .filter-chips)), .site-main > :is(section, article):first-child > h1:first-child) { font-size: 48px; } }
+@media (min-width:1024px) {
+  :is(.site-main > h1:first-child:not(:has(+ .filter-chips)), .site-main > :is(section, article):first-child > h1:first-child) { font-size: 56px; }
+  .site-main:has(> h1:first-child), .site-main:has(> section:first-child > h1), .site-main:has(> article:first-child > h1) { max-width: 920px; }
+}
+
 /* Row lists (browse categories): serif name left, count right, hairlines
    between, the chapter-list row vocabulary without numerals. */
 .row-list { list-style: none; margin: 0; padding: 0; }

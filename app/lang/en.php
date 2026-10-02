@@ -46,10 +46,10 @@ return [
     'nav.post_news' => 'Post news',
     'nav.site_label' => 'Site',
     'common.done' => 'Done',
-    'theme.paper' => 'paper',
-    'theme.sepia' => 'sepia',
-    'theme.night' => 'night',
-    'theme.auto' => 'auto',
+    'theme.paper' => 'Paper',
+    'theme.sepia' => 'Sepia',
+    'theme.night' => 'Night',
+    'theme.auto' => 'Auto',
 
     // The default meta description (Head's fallback) and the home page.
     'site.meta_description' => 'A self-hosted fiction archive.',
@@ -312,6 +312,8 @@ return [
 
     // The account page.
     'account.heading' => 'Your account',
+    'account.library_heading' => 'Library',
+    'account.settings' => 'Settings',
     'account.avatar_alt' => 'Your avatar',
     'account.avatar_label' => 'Avatar (PNG/JPG/WEBP/GIF, max 2 MiB)',
     'account.upload' => 'Upload',
