@@ -230,4 +230,26 @@ final class ReaderSettingsTest extends TestCase
         ]);
         $this->assertSame('night', $this->memberTheme());
     }
+
+    /** The D1 desktop panel's Reset: one post returns every pref to its
+     *  default and the member row to paper (auto's stored form); the
+     *  default-equal economy then clears both cookies. */
+    public function test_reset_restores_defaults_and_the_member_row(): void
+    {
+        $me = $this->client($this->memberRowId);
+        $me->postWithToken('/reader/settings', [
+            'theme' => 'night', 'size' => '23', 'typeface' => 'sans', 'spacing' => 'airy',
+            'paragraphs' => 'spaced', 'width' => 'wide', 'mode' => 'pages',
+            'return_to' => '/story/read/the-rabbit-hole/1',
+        ]);
+        $this->assertSame('night', $this->memberTheme());
+        $res = $me->postWithToken('/reader/settings', ['reset' => '1', 'return_to' => '/story/read/the-rabbit-hole/1']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame('paper', $this->memberTheme(), 'reset stores auto as paper on the row');
+        $leaves = $this->cookieLeaves($res);
+        $this->assertContains('theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $leaves, 'the theme cookie clears');
+        $this->assertContains('reader=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $leaves, 'the reader cookie clears');
+        $body = $me->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringNotContainsString('data-size=', $body, 'default prefs emit no data attributes at all');
+    }
 }
