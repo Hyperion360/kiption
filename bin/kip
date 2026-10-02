@@ -148,7 +148,7 @@ match ($argv[1] ?? 'help') {
         $db->query("INSERT INTO nav_links (label, url, position) VALUES
             ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2),
             ('Authors', '/browse/authors', 3), ('Series', '/series', 4),
-            ('Library', '/lists', 5)");
+            ('Reading lists', '/lists', 5)");
         \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
         if ($config['static_cache']['enabled'] ?? false) {
             \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);

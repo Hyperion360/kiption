@@ -58,8 +58,8 @@ input, select, textarea { caret-color: var(--accent); }
 /* Site header: one row, hairline bottom, nav links between the brand and
    the Menu control (mobile) or the search form (desktop). */
 .site-head {
-  display: flex; align-items: center; gap: 12px;
-  min-height: 56px; padding-inline: 20px;
+  display: flex; align-items: center; gap: 0;
+  min-height: 56px; padding-inline: 20px 8px;
   background: var(--bg);
   border-block-end: 1px solid var(--line);
 }
@@ -70,10 +70,14 @@ input, select, textarea { caret-color: var(--accent); }
 .site-nav { display: flex; align-items: center; gap: 2px; min-height: 44px; }
 .site-nav a, .nav-account {
   display: inline-flex; align-items: center; min-height: 44px;
-  padding-inline: 10px; white-space: nowrap; text-decoration: none;
-  font: 500 15px/1 var(--sans); color: var(--ink-2);
+  padding-inline: 12px; white-space: nowrap; text-decoration: none;
+  font: 500 15px/1 var(--sans); color: var(--ink);
 }
-.site-nav a:hover, .nav-account:hover { color: var(--ink); }
+.site-nav a:hover, .nav-account:hover, .nav-search-link:hover, .nav-menu-link:hover { color: var(--accent); }
+/* Authors/Series are D3-only; the account link lives in the Menu sheet
+   below 768px (M1 shows only Search and Menu). */
+.site-nav .nav-wide { display: none; }
+.nav-account { display: none; }
 .nav-search { display: none; }
 .nav-search input {
   width: 300px; min-height: 40px; padding: 4px 10px;
@@ -84,16 +88,15 @@ input, select, textarea { caret-color: var(--accent); }
   margin-inline-start: auto;
   display: inline-flex; align-items: center; min-height: 44px;
   padding-inline: 12px; text-decoration: none;
-  font: 600 15px/1 var(--sans); color: var(--ink);
+  font: 500 14px/1 var(--sans); color: var(--ink);
 }
 /* The plain /search link sits between the nav and the Menu control; it is
    the search affordance wherever the input form is hidden (below 1024px). */
 .nav-search-link {
   display: inline-flex; align-items: center; min-height: 44px;
-  padding-inline: 10px; white-space: nowrap; text-decoration: none;
-  font: 500 15px/1 var(--sans); color: var(--ink-2);
+  padding-inline: 12px; white-space: nowrap; text-decoration: none;
+  font: 500 14px/1 var(--sans); color: var(--ink);
 }
-.nav-search-link:hover { color: var(--ink); }
 
 /* The header theme quick toggle: markup on every themed page, but dead
    weight without scripting, so the base rule hides it and html.js reveals
@@ -957,8 +960,10 @@ body.focus .js .hint-keys { bottom: 56px; }
 /* Breakpoints per the comp: <=767 mobile, 768-1023 tablet, >=1024 desktop. */
 @media (min-width:768px) {
   :root { --read-size:21px; --read-lh:1.72; --read-width:600px; }
-  .site-head { min-height: 64px; padding-inline: 24px; }
+  .site-head { min-height: 64px; padding-inline: 40px 28px; }
   .brand { font-size: 22px; }
+  .nav-account { display: inline-flex; }
+  .nav-menu-link { font-size: 15px; }
   h1 { font-size: 40px; }
   h2 { font-size: 24px; }
   /* T2: the nav cluster right-aligns so it sits beside the Menu link, and
@@ -970,11 +975,14 @@ body.focus .js .hint-keys { bottom: 56px; }
 }
 @media (min-width:1024px) {
   :root { --read-size:20px; --read-lh:1.72; --read-width:640px; }
-  .site-head { min-height: 68px; padding-inline: 40px; gap: 24px; }
-  .brand { font-size: 24px; }
-  .site-nav { gap: 8px; margin-inline-start: 0; }
-  .site-nav a, .nav-account { padding-inline: 12px; }
-  .nav-search { display: block; margin-inline-start: auto; }
+  /* D3: the header row sits in the 1200px shell (40px gutters inside it). */
+  .site-head { min-height: 68px; padding-inline: max(40px, calc((100% - 1200px) / 2 + 40px)); gap: 6px; }
+  .brand { font-size: 24px; margin-inline-end: 18px; }
+  .site-nav { gap: 6px; margin-inline-start: 0; }
+  .site-nav .nav-wide { display: inline-flex; }
+  .site-nav .nav-inline-search { display: none; }
+  .nav-search { display: block; margin-inline-start: auto; margin-inline-end: 6px; }
+  .nav-search input { padding: 0 14px; font-size: 14px; }
   .nav-search-link { display: none; }
   .nav-menu-link { display: none; }
   h1 { font-size: 44px; }

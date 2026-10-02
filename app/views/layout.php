@@ -39,13 +39,18 @@
     <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
       <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
-      <?php /* hidden below 1024 (reader.css): the nav-search-link beside Menu is the sub-desktop search affordance; without this class the tablet header carries Search twice */ ?>
+      <?php /* D3 only: Authors and Series join the row from 1024px; T2 shows
+         Search inline instead (the form replaces it on desktop). */ ?>
+      <a class="nav-wide" href="/browse/authors"><?= \App\Lang::t('nav.authors') ?></a>
+      <a class="nav-wide" href="/series"><?= \App\Lang::t('nav.series') ?></a>
       <a class="nav-inline-search" href="/search"><?= \App\Lang::t('nav.search') ?></a>
-      <a class="nav-account" href="<?= ($loggedIn ?? false) ? '/account' : '/auth/login' ?>"><?= \App\Lang::t(($loggedIn ?? false) ? 'nav.account' : 'nav.login') ?></a>
     </nav>
     <form class="nav-search" role="search" action="/search" method="get">
       <input type="search" name="q" aria-label="<?= $this->e(\App\Lang::t('nav.search')) ?>" placeholder="<?= $this->e(\App\Lang::t('nav.search_placeholder')) ?>">
     </form>
+    <?php /* The comp's right-edge "Library" (T2/D3): the member's shelf
+       (continue reading, marked for later, follows) lives on /account. */ ?>
+    <a class="nav-account" href="<?= ($loggedIn ?? false) ? '/account' : '/auth/login' ?>"><?= \App\Lang::t(($loggedIn ?? false) ? 'nav.library' : 'nav.login') ?></a>
     <?php /* Below 1024px the search input is hidden and this plain link is
        the search affordance, sitting between the nav and the Menu control;
        the desktop stylesheet swaps the link back out for the form. */ ?>
