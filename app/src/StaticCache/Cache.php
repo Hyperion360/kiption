@@ -13,7 +13,7 @@ final class Cache
     public function fileFor(string $path): ?string
     {
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $path)) return null;
-        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series/view/[a-z0-9-]+|/lists/view/[a-z0-9-]+|/challenges|/challenges/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top)$#', $path)) return null;
+        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series|/series/view/[a-z0-9-]+|/lists/view/[a-z0-9-]+|/challenges|/challenges/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top)$#', $path)) return null;
         $prefix = $path === '/' ? '' : $path;   // '/' must not become '//'
         return $this->dir . $prefix . '/index.html';
     }
@@ -78,7 +78,9 @@ final class Cache
      *  leave a stale guest-cached list (the restricted lesson). */
     public function purgeStory(string $slug, array $categorySlugs, array $seriesSlugs = [], string $authorProfileSlug = '', array $listSlugs = [], array $challengeSlugs = []): void
     {
-        foreach (['/story/view/' . $slug, '/browse', '/browse/recent', '/'] as $p) {
+        foreach (['/story/view/' . $slug, '/browse', '/browse/recent', '/series', '/'] as $p) {
+            // /series rides the list (the /browse/recent rider's twin): the
+            // index's counts move whenever any story's visibility does.
             $f = $this->fileFor($p);
             if ($f !== null && is_file($f)) @unlink($f);
         }

@@ -17,6 +17,27 @@ final class SeriesRepository
         return $slug;
     }
 
+    /** The /series index page's ONE listing query (the budget contract):
+     *  every series row with its owner penname folded in and the visible
+     *  story count as a correlated scalar (confirmed items of validated,
+     *  not-deleted stories only, the same gates the series page itself
+     *  applies), title ASC for the pager's LIMIT/OFFSET window. Pending
+     *  items, drafts, and soft-deleted stories never inflate the count, so
+     *  the index never promises a story the series page hides. */
+    public function indexPage(int $perPage, int $offset): array
+    {
+        return $this->db->all(
+            "SELECT se.*, u.penname,
+                    (SELECT COUNT(*) FROM series_items si JOIN stories s ON s.id = si.story_id
+                       AND s.validated = 1 AND s.deleted_at IS NULL
+                     WHERE si.series_id = se.id AND si.confirmed = 1) AS story_count
+             FROM series se JOIN users u ON u.id = se.owner_id
+             ORDER BY se.title
+             LIMIT ? OFFSET ?",
+            [$perPage, $offset]
+        );
+    }
+
     /** Owner or admin; throws RuntimeException('not found') like ownStory. */
     public function update(string $slug, string $title, string $summary, string $membership, int $actorId, bool $isAdmin): void
     {

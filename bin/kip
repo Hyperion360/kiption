@@ -140,19 +140,21 @@ match ($argv[1] ?? 'help') {
             fwrite(STDERR, $e->getMessage() . "\n");
             exit(1);
         }
-        // The comp's desktop nav (D3): Browse | Recent | Library as the
-        // operator's starting set (nav_links is operator-managed after this;
-        // a --force seed resets it so the demo header never carries stale or
-        // duplicate links beside the shell's own Search affordances).
+        // The comp's desktop nav (D3): Browse | Recent | Authors | Series |
+        // Library as the operator's starting set (nav_links is operator-managed
+        // after this; a --force seed resets it so the demo header never carries
+        // stale or duplicate links beside the shell's own Search affordances).
         $db->query('DELETE FROM nav_links');
         $db->query("INSERT INTO nav_links (label, url, position) VALUES
-            ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2), ('Library', '/lists', 3)");
+            ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2),
+            ('Authors', '/browse/authors', 3), ('Series', '/series', 4),
+            ('Library', '/lists', 5)");
         \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
         if ($config['static_cache']['enabled'] ?? false) {
             \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
             echo "Static page cache and framework page cache purged.\n";
         }
-        echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category, starter nav).\n";
+        echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category, five-link starter nav).\n";
     })(),
     'pages:build' => (function () use ($config) {
         $dir = $config['static_cache']['dir'] ?? null;

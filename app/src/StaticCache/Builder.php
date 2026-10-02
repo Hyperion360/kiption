@@ -33,7 +33,7 @@ final class Builder
         unset($config['cache_db']);
         $config['log_db'] = ['dsn' => 'sqlite::memory:'];
         $app = new App($config);
-        $urls = ['/', '/browse', '/browse/recent'];
+        $urls = ['/', '/browse', '/browse/recent', '/series'];
         // The four flaggable blocks (finding 3): the /top seed, the lists
         // block, the news block, the directory block. Off flags enumerate
         // nothing, so no gated page is ever rendered or stored.
