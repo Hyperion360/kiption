@@ -52,6 +52,9 @@ final class Demo
     private const TAGS = [['content', 'Slow burn'], ['content', 'Grief'], ['setting', 'Small town'], ['genre', 'Letters'],
         ['setting', 'Lighthouse'], ['setting', 'Winter'], ['setting', 'Trains'], ['setting', 'Space station'],
         ['content', 'Cozy'], ['genre', 'Haunted house']];
+    /** [type, name, canonical name or null]: the wrangling queue's work, one
+     *  synonym already merged and one near duplicate awaiting an editor. */
+    private const WRANGLE_TAGS = [['genre', 'Found Family', 'Found family'], ['content', 'slowburn', null]];
     private const NAV = [['Guidelines', '/page/view/guidelines'], ['Questions', '/page/view/faq']];
 
     /** $dev (KIP_ENV=dev) lets the demo load beside accounts that are not
@@ -146,7 +149,7 @@ final class Demo
                 AND NOT EXISTS (SELECT 1 FROM categories ch WHERE ch.parent_id = categories.id)
                 AND NOT EXISTS (SELECT 1 FROM characters cr WHERE cr.category_id = categories.id)', [$slug, $desc]);
         }
-        foreach (array_merge(self::TAGS, [['genre', 'Found Family'], ['content', 'slowburn']]) as [$type, $name]) {
+        foreach (array_merge(self::TAGS, self::WRANGLE_TAGS) as [$type, $name]) {
             $this->db->query('DELETE FROM tags WHERE name = ? AND tag_type_id = (SELECT id FROM tag_types WHERE name = ?)
                 AND NOT EXISTS (SELECT 1 FROM story_tags st WHERE st.tag_id = tags.id)
                 AND NOT EXISTS (SELECT 1 FROM tags al WHERE al.canonical_id = tags.id)', [$name, $type]);
@@ -180,8 +183,10 @@ final class Demo
         foreach ($this->db->all('SELECT id, name FROM tags') as $t) $this->tags[$t['name']] = (int) $t['id'];
         // Wrangling has work to do: one synonym already merged, one near
         // duplicate still waiting for an editor.
-        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)', [$types['genre'], 'Found Family', $this->tags['Found family']]);
-        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$types['content'], 'slowburn']);
+        foreach (self::WRANGLE_TAGS as [$type, $name, $canonical]) {
+            $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)',
+                [$types[$type], $name, $canonical === null ? null : $this->tags[$canonical]]);
+        }
     }
 
     // -------------------------------------------------------------------- people
