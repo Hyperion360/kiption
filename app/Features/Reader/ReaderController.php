@@ -32,7 +32,7 @@ final class ReaderController
         // the cookie at the next login (AuthController::redirectWithPrefCookies). Guests stay cookie-only.
         // Auto stores NULL (029): the login sync then sets no theme cookie, so
         // the member's devices follow their own OS setting.
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db); // a revoked session writes no member row
         if ($me !== 0 && \App\Features::on('perusertheme')) {
             $this->db->query(
                 'INSERT INTO user_prefs (user_id, theme) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET theme = excluded.theme',

@@ -18,6 +18,7 @@ final class BrowseController
         private StoryRepository $stories,
         private UserRepository $users,
         private Session $session,
+        private \Kip\Database $db,
     ) {}
 
     public function index(): string
@@ -53,7 +54,9 @@ final class BrowseController
         // paginate() keeps huge values honest.
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        // the cards carry the member's reading progress: a revoked session
+        // must read as a guest (App\Viewer)
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // The M6 facets ride the ONE listing query as WHERE clauses (never a
         // second query); off-whitelist values are no filter. Filtered pages
         // carry a query string, so they are cache-ineligible by design, and

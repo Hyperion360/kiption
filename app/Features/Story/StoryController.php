@@ -681,17 +681,11 @@ final class StoryController
         return $this->db->one('SELECT 1 AS x FROM ratings WHERE id = ?', [$ratingId]) !== null;
     }
 
-    /** The viewing member, or 0. The cookie gate keeps the cookieless
-     *  (cacheable) path from starting a session; a logged-in session is then
-     *  checked against the password epoch, so a session revoked by a password
-     *  change sees the guest page, never the member's private notes, progress
-     *  or bookmarks. The epoch SELECT is the auth-validation query the
-     *  budget already exempts. */
+    /** The viewing member, or 0: App\Viewer validates the session's
+     *  password epoch, so a revoked session sees the guest page. */
     private function viewerId(): int
     {
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
-        if ($me !== 0 && !(new \Kip\Auth($this->db, $this->session))->sessionValid()) return 0;
-        return $me;
+        return \App\Viewer::id($this->request, $this->session, $this->db);
     }
 
     private function staticCache(): \App\StaticCache\Cache

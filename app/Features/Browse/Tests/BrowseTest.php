@@ -352,6 +352,11 @@ final class BrowseTest extends TestCase
         // that still validates, like the story page (never a 404 link)
         $db->query('UPDATE reading_history SET last_position = 5 WHERE user_id = 2 AND story_id = 1');
         $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2">Continue', $this->client(2)->get('/browse/recent')->body);
+        // a session revoked by a password change no longer reads the owner's
+        // progress (qa-full /pentest): the listing treats it as a guest
+        $c = $this->client(2);
+        $db->query("UPDATE users SET password_hash = 'rotated' WHERE id = 2");
+        $this->assertStringNotContainsString('continue-pill', $c->get('/browse/recent')->body);
         // Reading progress is not a mute feature: switching mute off must not
         // take the member's pill with it (qa-full /review, Codex).
         $db->query("INSERT OR REPLACE INTO feature_flags (key, enabled) VALUES ('mute', 0)");
