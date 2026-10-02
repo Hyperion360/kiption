@@ -46,11 +46,14 @@ final class ReaderController
         // Cache-bypass economy (codex finding): a cookie-bearing request never
         // hits the static cache, so cookies are only set when they carry real
         // information. theme=auto and all-default typography CLEAR their
-        // cookies — a visitor who saves defaults keeps full cache hits.
+        // cookies - a visitor who saves defaults keeps full cache hits.
+        // Cookie::pref (no HttpOnly): the enhancement layer rewrites both on
+        // every control move, and browsers refuse to overwrite an HttpOnly
+        // cookie from document.cookie.
         $r = Response::redirect($to);
-        $r = $r->withAddedHeader('Set-Cookie', \App\Cookie::long(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme));
+        $r = $r->withAddedHeader('Set-Cookie', \App\Cookie::pref(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme));
         $isDefault = $prefs->cookieValue() === (new Prefs())->cookieValue();
-        return $r->withAddedHeader('Set-Cookie', \App\Cookie::long(Prefs::COOKIE, $isDefault ? '' : $prefs->cookieValue()));
+        return $r->withAddedHeader('Set-Cookie', \App\Cookie::pref(Prefs::COOKIE, $isDefault ? '' : $prefs->cookieValue()));
     }
 
     /** Whitelist or default; the cookie is only ever built from these. */

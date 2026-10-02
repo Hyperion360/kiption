@@ -25,4 +25,26 @@ final class CookieTest extends TestCase
             if ($backup === null) { unset($_SERVER['HTTPS']); } else { $_SERVER['HTTPS'] = $backup; }
         }
     }
+
+    /** The client-writable variant the instant-apply reader needs: the long()
+     *  directive shape WITHOUT HttpOnly, because browsers refuse to let
+     *  document.cookie overwrite an HttpOnly cookie - and prefs.js rewrites
+     *  the theme and reader cookies on every control move. */
+    public function test_pref_shapes_drop_httponly_only(): void
+    {
+        $this->assertSame('reader=21-sans-airy-spaced-wide-pages; Max-Age=31536000; Path=/; SameSite=Lax',
+            Cookie::pref('reader', '21-sans-airy-spaced-wide-pages'),
+            'identical to long() except the HttpOnly leaf');
+        $this->assertSame('theme=; Max-Age=0; Path=/; SameSite=Lax', Cookie::pref('theme', ''),
+            'the empty value is the same clear idiom');
+        $backup = $_SERVER['HTTPS'] ?? null;
+        $_SERVER['HTTPS'] = 'on';
+        try {
+            $this->assertSame('theme=night; Max-Age=31536000; Path=/; SameSite=Lax; Secure',
+                Cookie::pref('theme', 'night'),
+                'the Secure derivation is identical to long()');
+        } finally {
+            if ($backup === null) { unset($_SERVER['HTTPS']); } else { $_SERVER['HTTPS'] = $backup; }
+        }
+    }
 }
