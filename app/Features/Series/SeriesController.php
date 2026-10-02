@@ -31,6 +31,7 @@ final class SeriesController
         // The cookie-gated $me idiom (plan review finding 13): never a bare
         // session read, or the cookieless cacheable path starts a session.
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $seriesRows = $this->series->indexPage($perPage, ($page - 1) * $perPage);
         return $this->view->render('series/index', [
             'title' => \App\Lang::t('series.index_heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('series.index_heading'))->withCanonical($this->request->path),
@@ -39,7 +40,8 @@ final class SeriesController
             'loggedIn' => $me !== 0,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'baseUrl' => '/series',
-            'series' => $this->series->indexPage($perPage, ($page - 1) * $perPage),
+            'series' => $seriesRows,
+            'hasOlder' => count($seriesRows) === $perPage,
             'page' => $page,
         ]);
     }

@@ -84,6 +84,8 @@ return [
 
     // Browse: index, recent (also the category and user-tab listing), authors.
     'browse.heading' => 'Browse',
+    'browse.lede' => 'Every story on the archive, by category.',
+    'browse.categories' => 'Categories',
     'browse.recent_heading' => 'Recently updated',
     'browse.category_title' => 'Category: {name}',
     'browse.stories_in' => 'Stories in {language}',
@@ -497,6 +499,8 @@ return [
     'series.add_yours' => 'Add your story',
     'series.meta_by' => 'A series by {name}.',
     'series.index_heading' => 'Series',
+    'series.lede' => 'Stories their authors grouped to be read in order.',
+    'series.eyebrow' => 'Series',
     'series.none_yet' => 'No series yet.',
 
     // Reading lists (Phase 11).

@@ -182,6 +182,7 @@ final class BrowseController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'members' => $members,
+            'hasOlder' => count($members) === $perPage,
             'letter' => $letter,
             'beta' => $betaOnly,
             'page' => $this->page(),

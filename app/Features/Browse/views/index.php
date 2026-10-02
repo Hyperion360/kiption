@@ -1,33 +1,32 @@
 <?php // app/views/browse/index.php ?>
-<?php $this->layout('layout'); ?>
-<h1><?= \App\Lang::t('browse.heading') ?></h1>
+<?php // Browse (undesigned in the comps): the page head, then categories as
+     // serif rows with their story counts (the chapter-list row vocabulary),
+     // and, when ?language= is set, that language's stories as M6 cards.
+     $this->layout('layout'); ?>
+<div class="page">
+  <header class="page-head">
+    <h1><?= \App\Lang::t('browse.heading') ?></h1>
+    <p class="lede"><?= \App\Lang::t('browse.lede') ?></p>
+  </header>
 <?php if ($language !== ''): ?>
-  <h2><?= \App\Lang::t('browse.stories_in', ['language' => $this->e($language)]) ?></h2>
-  <ul class="story-list">
-  <?php foreach ($langStories as $s): ?>
-    <li>
-      <a href="/story/view/<?= $this->e($s['slug']) ?>"><?= $this->e($s['title']) ?></a>
-      <?= \App\Lang::t('story.by') ?> <?= $this->e($s['penname']) ?>
-      <div class="meta">
-        <?= $this->e($s['rating_label']) ?>
-        <?php if ($s['completed']): ?><span class="badge"><?= \App\Lang::t('story.complete') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('story.wip') ?></span><?php endif; ?>
-        <?= number_format((int) $s['word_count']) ?> <?= \App\Lang::t('story.words') ?>
-        <?= \App\Lang::t('story.updated', ['date' => $this->e(substr((string) $s['updated_at'], 0, 10))]) ?>
-      </div>
-      <p><?= $this->e($s['summary']) ?></p>
-  <?php endforeach; ?>
+  <h2 class="section-label"><?= \App\Lang::t('browse.stories_in', ['language' => $this->e($language)]) ?></h2>
   <?php if ($langStories === []): ?>
-    <li class="meta"><?= \App\Lang::t('browse.no_stories_language') ?></li>
+  <p class="empty-state"><?= \App\Lang::t('browse.no_stories_language') ?></p>
+  <?php else: ?>
+  <ul class="story-list">
+<?= $this->render('browse/_story_cards', ['stories' => $langStories]) ?>
+  </ul>
   <?php endif; ?>
+<?php endif; ?>
+  <h2 class="section-label"><?= \App\Lang::t('browse.categories') ?></h2>
+<?php if ($categories === []): ?>
+  <p class="empty-state"><?= \App\Lang::t('browse.no_categories') ?></p>
+<?php else: ?>
+  <ul class="row-list">
+<?php foreach ($categories as $c): ?>
+    <li><a href="/browse/category/<?= $this->e($c['slug']) ?><?= $language !== '' ? '?language=' . $this->e($language) : '' ?>"><span class="row-title"><?= $this->e($c['name']) ?></span><span class="row-meta"><?= (int) $c['story_count'] ?> <?= \App\Lang::t((int) $c['story_count'] === 1 ? 'browse.story' : 'browse.stories') ?></span></a></li>
+<?php endforeach; ?>
   </ul>
 <?php endif; ?>
-<ul class="story-list">
-<?php foreach ($categories as $c): ?>
-  <li>
-    <a href="/browse/category/<?= $this->e($c['slug']) ?><?= $language !== '' ? '?language=' . $this->e($language) : '' ?>"><?= $this->e($c['name']) ?></a>
-    <span class="meta"><?= (int) $c['story_count'] ?> <?= \App\Lang::t((int) $c['story_count'] === 1 ? 'browse.story' : 'browse.stories') ?></span>
-<?php endforeach; ?>
-<?php if ($categories === []): ?>
-  <li class="meta"><?= \App\Lang::t('browse.no_categories') ?></li>
-<?php endif; ?>
-</ul>
+  <p class="section-more"><a href="/browse/authors"><?= \App\Lang::t('browse.authors') ?></a></p>
+</div>

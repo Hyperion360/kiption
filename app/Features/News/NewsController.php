@@ -34,6 +34,7 @@ final class NewsController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'items' => $items,
+            'hasOlder' => count($items) === $perPage,
             'page' => $page,
             'baseUrl' => '/news',
         ]);
