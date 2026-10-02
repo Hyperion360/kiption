@@ -45,6 +45,7 @@ final class StaticCacheTest extends TestCase
         $this->assertFalse($this->cache->isCacheable(new Request('POST', '/story/view/x', [], [], [])), 'POST never');
         $this->assertFalse($this->cache->isCacheable(new Request('HEAD', '/story/view/x', [], [], [])), 'HEAD falls through');
         $this->assertFalse($this->cache->isCacheable(new Request('GET', '/story/view/x', ['page' => '2'], [], [])), 'query never');
+        $this->assertFalse($this->cache->isCacheable(new Request('GET', '/browse/recent', ['fragment' => '1'], [], [])), 'fragment never (infinite scroll)');
         $this->assertFalse($this->cache->isCacheable(new Request('GET', '/story/view/x', [], [], ['theme' => 'light'])), 'cookies never');
         $this->assertFalse($this->cache->isCacheable(new Request('GET', '/auth/login', [], [], [])), 'non-whitelisted route');
     }

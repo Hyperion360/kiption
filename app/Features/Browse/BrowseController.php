@@ -48,6 +48,9 @@ final class BrowseController
 
     public function recent(): string
     {
+        // Page coercion stays the pager's own mechanics: junk, zero and
+        // negatives read as page 1 (page() below), the overflow cap in
+        // paginate() keeps huge values honest.
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
@@ -64,6 +67,14 @@ final class BrowseController
         $cat = $this->request->get['cat'] ?? '';
         $cat = is_string($cat) ? $cat : '';
         $stories = $this->stories->recentStories($perPage, $offset, \App\Features::on('mute') ? $me : 0, $filter, $cat);
+        // Infinite-scroll fragment mode (Task 6): ?fragment=1 renders ONLY
+        // the card loop, the same partial the page's list includes, so page
+        // and fragment share bytes. The query string keeps every fragment
+        // cache-ineligible, and a short page renders zero cards, the JS stop
+        // signal. Still the ONE listing query, member progress fold included.
+        if (($this->request->get['fragment'] ?? '') === '1') {
+            return $this->view->render('browse/_story_cards', ['stories' => $stories]);
+        }
         $items = [];
         foreach ($stories as $i => $s) {
             $items[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => '/story/view/' . $s['slug'], 'name' => $s['title']];
@@ -84,6 +95,9 @@ final class BrowseController
             'filter' => $filter,
             'cat' => $cat,
             'chips' => true,
+            // A page that came back full may have an older page behind it;
+            // a short one cannot. Feeds data-next-url on the card list.
+            'hasOlder' => count($stories) === $perPage,
         ]);
     }
 
@@ -116,6 +130,9 @@ final class BrowseController
             'stories' => $stories,
             'page' => $page,
             'baseUrl' => '/browse/category/' . $slug,
+            // The shared template's data-next-url contract: a short page has
+            // no older one behind it.
+            'hasOlder' => count($stories) === $perPage,
             // Feed autodiscovery: this category's Atom feed (the layout line's
             // idiom, rendered by browse/recent only when set). Gated here at
             // the controller (finding 9b): feeds off passes no feedHref, so
