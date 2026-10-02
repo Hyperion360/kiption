@@ -47,4 +47,23 @@ final class CookieTest extends TestCase
             if ($backup === null) { unset($_SERVER['HTTPS']); } else { $_SERVER['HTTPS'] = $backup; }
         }
     }
+
+    /** Defense in depth: every caller whitelists today, but the shape itself
+     *  refuses anything that could end the directive or start a header, so a
+     *  future caller passing user text cannot inject one (qa-full /pentest). */
+    public function test_shape_refuses_header_breaking_names_and_values(): void
+    {
+        foreach ([['theme', "night\r\nSet-Cookie: x=1"], ['theme', 'night; Domain=evil.example'], ['the me', 'night'], ['theme', 'a,b']] as [$name, $value]) {
+            try {
+                Cookie::long($name, $value);
+                $this->fail("accepted {$name}={$value}");
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+        // every value the app mints still passes
+        foreach (['night', '19-serif-regular-indented-medium-scroll', '1', 'en', ''] as $ok) {
+            $this->assertStringStartsWith('theme=', Cookie::pref('theme', $ok));
+        }
+    }
 }

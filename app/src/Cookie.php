@@ -29,8 +29,15 @@ final class Cookie
         return self::shape($name, $value, false);
     }
 
+    /** Every name and value the app mints is a short token (theme names, the
+     *  reader prefs string, '1', a language code). Callers whitelist, and
+     *  the shape refuses anything else too, so a future caller passing user
+     *  text cannot end the directive or inject a header. */
     private static function shape(string $name, string $value, bool $httpOnly): string
     {
+        if (preg_match('/^[A-Za-z0-9_]+$/', $name) !== 1 || preg_match('/^[A-Za-z0-9_.-]*$/', $value) !== 1) {
+            throw new \InvalidArgumentException('Cookie name or value outside the token set.');
+        }
         $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
             || ((bool) \getenv('KIP_TRUSTED_PROXY') && ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
         $directive = $value === ''
