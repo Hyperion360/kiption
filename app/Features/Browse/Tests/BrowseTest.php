@@ -346,6 +346,16 @@ final class BrowseTest extends TestCase
         $db->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (2, 1, 1)');
         $member = $this->client(2)->get('/browse/recent')->body;
         $this->assertStringContainsString('<a class="continue-pill" href="/story/read/the-rabbit-hole/1">Continue · I, 50%</a>', $member);
+        // Reading progress is not a mute feature: switching mute off must not
+        // take the member's pill with it (qa-full /review, Codex).
+        $db->query("INSERT OR REPLACE INTO feature_flags (key, enabled) VALUES ('mute', 0)");
+        \App\Features::init($db, []); // the public/index.php init, on this DB
+        $this->assertFalse(\App\Features::on('mute'));
+        try {
+            $this->assertStringContainsString('continue-pill', $this->client(2)->get('/browse/recent')->body);
+        } finally {
+            \App\Features::reset();
+        }
     }
 
     /** Task 6 (infinite scroll, server contract only): ?fragment=1 renders

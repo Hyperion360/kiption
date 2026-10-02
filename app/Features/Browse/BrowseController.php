@@ -66,7 +66,7 @@ final class BrowseController
         // string value is safe to bind: an unknown slug just matches nothing.
         $cat = $this->request->get['cat'] ?? '';
         $cat = is_string($cat) ? $cat : '';
-        $stories = $this->stories->recentStories($perPage, $offset, \App\Features::on('mute') ? $me : 0, $filter, $cat);
+        $stories = $this->stories->recentStories($perPage, $offset, $me, $filter, $cat, \App\Features::on('mute'));
         // Infinite-scroll fragment mode (Task 6): ?fragment=1 renders ONLY
         // the card loop, the same partial the page's list includes, so page
         // and fragment share bytes. The query string keeps every fragment

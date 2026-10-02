@@ -233,10 +233,13 @@ final class StoryRepository
      *  fold rides BOTH paths (guest and member): json_group_array over the
      *  (story_id, category_id) PK, so membership is already deduplicated and
      *  a DISTINCT would only buy a TEMP B-TREE sort on name.
+     *  $applyMute is separate from $viewer: the viewer also drives the
+     *  reading-progress fold, which must survive the mute flag being off.
      *  @param string $filter ''|complete|wip|under10k */
-    public function recentStories(int $perPage, int $offset, int $viewer = 0, string $filter = '', string $catSlug = ''): array
+    public function recentStories(int $perPage, int $offset, int $viewer = 0, string $filter = '', string $catSlug = '', bool $applyMute = true): array
     {
-        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
+        $muted = $viewer > 0 && $applyMute;
+        $mute = $muted ? MuteRepository::clause('s') : '';
         $facet = match ($filter) {
             'complete' => ' AND s.completed = 1',
             'wip' => ' AND s.completed = 0',
@@ -269,8 +272,8 @@ final class StoryRepository
             ' ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
             match (true) {
-                $viewer > 0 && $catSlug !== '' => [$catSlug, $viewer, $perPage, $offset],
-                $viewer > 0 => [$viewer, $perPage, $offset],
+                $muted && $catSlug !== '' => [$catSlug, $viewer, $perPage, $offset],
+                $muted => [$viewer, $perPage, $offset],
                 $catSlug !== '' => [$catSlug, $perPage, $offset],
                 default => [$perPage, $offset],
             }
