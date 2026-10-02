@@ -50,12 +50,18 @@
        the search affordance, sitting between the nav and the Menu control;
        the desktop stylesheet swaps the link back out for the form. */ ?>
     <a class="nav-search-link" href="/search"><?= \App\Lang::t('nav.search') ?></a>
+    <?php /* The theme quick toggle: a button (never a form or a link), the
+       toggle module's only marker. Hidden by the stylesheet until the
+       enhancement layer adds html.js; noscript visitors keep the Text
+       sheet. The glyph is drawn in CSS on .theme-toggle::before. */ ?>
+    <button type="button" class="theme-toggle" data-js-module="toggle" aria-label="<?= $this->e(\App\Lang::t('nav.theme_toggle')) ?>"></button>
     <a class="nav-menu-link" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
   <main class="site-main"><?= $content ?></main>
-  <?php /* No footer: the comp ships none on any frame. Theme and text
-     settings live in the reader's Text sheet (C8); the menu sheet below
-     carries every navigation link. The span is the sheets' shared close
+  <?php /* No footer: the comp ships none on any frame. Text settings live
+     in the reader's Text sheet (C8); the header's theme quick toggle is
+     the scripting-only shortcut (the markup above stays hidden without
+     it). The span is the sheets' shared close
      target: it sits in a fixed 1px box, so landing on it never scrolls;
      Done links point here instead of "#" (which jumps to the document
      top and loses a mid-chapter reading position). */ ?>

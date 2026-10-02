@@ -95,12 +95,27 @@ input, select, textarea { caret-color: var(--accent); }
 }
 .nav-search-link:hover { color: var(--ink); }
 
+/* The header theme quick toggle: markup on every themed page, but dead
+   weight without scripting, so the base rule hides it and html.js reveals
+   a 44px square icon button. The glyph is a half-filled circle drawn here
+   (no icon font, no image): ink on the header's own background, so the
+   same two colors read in paper, sepia, and night. */
+.theme-toggle { display: none; }
+.js .theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: none; padding: 0; border: 0; background: transparent; color: var(--ink); }
+.js .theme-toggle:hover { background: var(--hover); color: var(--ink); }
+.theme-toggle::before {
+  content: ""; width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid currentColor;
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+}
+
 /* Main column: mobile gutters by default, the 1200px shell from 1024px. */
 .site-main { padding: 32px 24px 64px; }
 
-/* Retired with the C6 shell: no page emits .site-foot or .theme-toggle
-   anymore. The footer rule stays one release so a stale cached page or an
-   add-on view keeps a sane footer; the toggle link class is gone outright. */
+/* Retired with the C6 shell: no page emits .site-foot anymore. The rule
+   stays one release so a stale cached page or an add-on view keeps a sane
+   footer. (The .theme-toggle class is back as the header quick toggle
+   button above.) */
 .site-foot {
   border-block-start: 1px solid var(--line); color: var(--muted);
   text-align: center; padding: 16px; font: 13px var(--sans);

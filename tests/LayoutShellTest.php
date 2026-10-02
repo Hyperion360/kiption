@@ -81,8 +81,53 @@ final class LayoutShellTest extends TestCase
         $body = $this->client()->get('/')->body;
         $this->assertStringNotContainsString('<footer', $body, 'the comp ships no footer on any frame');
         $this->assertStringNotContainsString('site-foot', $body);
-        $this->assertStringNotContainsString('theme-toggle', $body, 'theme switching lives in the reader Text sheet (C8)');
         $this->assertStringNotContainsString('href="/theme/', $body, 'the legacy theme routes lost their only links');
+    }
+
+    /** The header theme quick toggle (plan Task 7): a real button between the
+     *  search affordance and the Menu control, labeled from the shared
+     *  nav.theme_toggle key. Scripting off it stays hidden (the Text sheet
+     *  still switches themes); with scripting it cycles the four values on
+     *  the spot, device-locally. */
+    public function test_header_carries_the_theme_quick_toggle(): void
+    {
+        $body = $this->client()->get('/')->body;
+        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme">', $body,
+            'the exact button shape the toggle module keys off, with the nav.theme_toggle label');
+        // DOM order: the search affordance, then the toggle, then the Menu control.
+        $this->assertMatchesRegularExpression('/class="nav-search-link"[^>]*>.*?class="theme-toggle".*?class="nav-menu-link"/s', $body,
+            'the toggle sits between the search affordance and the Menu link');
+        // No member state and no URL: the button is identical markup for a
+        // guest and a member, so cached guest bytes stay stable.
+        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme">', $this->client($this->memberId)->get('/')->body);
+    }
+
+    public function test_theme_toggle_is_hidden_without_scripting_and_revealed_under_html_js(): void
+    {
+        $flat = str_replace(' ', '', (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css'));
+        $this->assertStringContainsString('.theme-toggle{display:none', $flat,
+            'the base rule hides the button while scripting is off');
+        $this->assertStringContainsString('.js.theme-toggle{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px', $flat,
+            'html.js reveals a 44px square tap target once the enhancement layer runs');
+    }
+
+    public function test_the_toggle_module_file_exists_for_the_loader(): void
+    {
+        $this->assertFileExists(dirname(__DIR__) . '/public/assets/toggle.js');
+        $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("'toggle'", $loader, 'the loader knows the toggle module');
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/toggle.js');
+        $this->assertStringNotContainsString('document.cookie', $js,
+            'the server theme cookie is HttpOnly and a legacy dark/light cookie reads unknown: the data-theme attribute is the only truth');
+        $this->assertStringContainsString("getAttribute('data-theme')", $js, 'the current state is read from the root attribute');
+        $this->assertStringContainsString("['paper', 'sepia', 'night', 'auto']", $js, 'the cycle covers the full Theme::VALUES set in order');
+        $this->assertStringContainsString('Kip.setTheme', $js, 'application goes through the prefs module when it is present');
+    }
+
+    public function test_the_toggle_label_key_exists(): void
+    {
+        \App\Lang::setCurrent('en');
+        $this->assertSame('Theme', \App\Lang::t('nav.theme_toggle'));
     }
 
     public function test_menu_sheet_is_a_dialog_with_the_full_nav(): void
