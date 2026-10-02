@@ -68,12 +68,6 @@ final class Seeder
                 [$pos, $title, $body, $words]);
         }
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story1 . ', ' . $categoryId . ')');
-        // The demo story carries the chip row the comps draw (M1/D3): four
-        // tags across two types. Warnings stay a rating concern; the ratings
-        // row's empty warning_text renders the "No major warnings" line.
-        foreach ([$fantasyTagId, $foundFamilyTagId, $comingOfAgeTagId, $maritimeTagId] as $tagId) {
-            $db->query('INSERT INTO story_tags (story_id, tag_id) VALUES (' . $story1 . ', ' . $tagId . ')');
-        }
         // Story 2: explicit complete, 1 chapter (exercises the age gate).
         $db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, 1, 100, ?, ?)',
             ['After Hours', 'after-hours', 'What the warning is for.', $authorId, $explicitId, '2026-09-01T09:00:00Z', '2026-09-12T09:00:00Z']);
@@ -81,6 +75,15 @@ final class Seeder
         $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (' . $story2 . ', ?, ?, ?, 1, ?)',
             [1, 'One', 'Body.', 100]);
         $db->query('INSERT INTO story_categories (story_id, category_id) VALUES (' . $story2 . ', ' . $categoryId . ')');
+        // Story 2 also carries the chip row the comps draw (M1/D3): four
+        // tags across two types. They deliberately do NOT ride the-rabbit-
+        // hole: the wrangling scenarios merge tags on it and pin exact
+        // story_tags counts against its seeded state. The "No major
+        // warnings" line is independent of tags (it renders from the
+        // rating's warning_text).
+        foreach ([$fantasyTagId, $foundFamilyTagId, $comingOfAgeTagId, $maritimeTagId] as $tagId) {
+            $db->query('INSERT INTO story_tags (story_id, tag_id) VALUES (' . $story2 . ', ' . $tagId . ')');
+        }
         $db->query("INSERT INTO series (title, slug, summary, owner_id, membership) VALUES ('Down the Rabbit Hole', 'down-the-rabbit-hole', 'The complete descent, chapter by chapter.', (SELECT id FROM users WHERE penname = 'Demo Author'), 'open')");
         $db->query("INSERT INTO series_items (series_id, story_id, position, confirmed) VALUES ((SELECT id FROM series WHERE slug = 'down-the-rabbit-hole'), (SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), 1, 1)");
         // The Community Challenge rides every seed (QueryBudget pins its index

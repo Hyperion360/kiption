@@ -467,7 +467,7 @@ final class FeatureGatesTest extends TestCase
         $this->assertSame(404, $admin->get('/wrangling')->status, 'the index');
         $this->assertSame(404, $admin->postWithToken('/wrangling/merge', ['synonym_id' => 2, 'canonical_id' => 1])->status, 'the merge');
         $this->assertSame(404, $admin->postWithToken('/wrangling/unmerge/2')->status, 'the unmerge');
-        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM story_tags')['c'], 'no write fired while off');
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM story_tags WHERE story_id = (SELECT id FROM stories WHERE slug = \'the-rabbit-hole\')')['c'], 'no write fired while off');
         $this->assertNull($this->db->one('SELECT canonical_id FROM tags WHERE id = 2')['canonical_id'], 'no retirement fired while off');
         // Back on: the admin index returns.
         $this->flagOn('wrangling');
