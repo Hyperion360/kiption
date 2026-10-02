@@ -249,9 +249,11 @@ final class SeriesController
         return $this->series->viewerIsAdmin($me);
     }
 
+    /** The configured static cache (KIP_STATIC_CACHE_DIR), as StoryController
+     *  resolves it, so series purges hit the directory pages are served from. */
     private function staticCache(): \App\StaticCache\Cache
     {
-        return new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
+        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
     }
 
     private function head(): \App\Seo\Head

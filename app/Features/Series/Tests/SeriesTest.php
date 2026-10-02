@@ -37,7 +37,26 @@ final class SeriesTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-series-mail-') . '.log', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-series-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+            // a throwaway static cache: purges never touch the real public/cache
+            'static_cache' => ['enabled' => true, 'dir' => $this->cacheDir()],
         ]);
+    }
+
+    private function cacheDir(): string
+    {
+        return sys_get_temp_dir() . '/kiption-series-cache-' . md5($this->path);
+    }
+
+    /** Creating a series purges the cached /series index in the CONFIGURED
+     *  cache directory (KIP_STATIC_CACHE_DIR), not a hardcoded public/cache. */
+    public function test_create_purges_the_configured_series_index(): void
+    {
+        $cache = new \App\StaticCache\Cache($this->cacheDir());
+        $req = new \Kip\Http\Request('GET', '/series', [], [], []);
+        $cache->maybeStore($req, new \Kip\Http\Response('stale index', 200));
+        $this->assertNotNull($cache->serve($req));
+        $this->client($this->authorId())->postWithToken('/series/create', ['title' => 'Fresh Works', 'summary' => '', 'membership' => 'open']);
+        $this->assertNull($cache->serve($req), 'the configured index file is gone');
     }
 
     /** The factory keeps the App instance as $this->app: TestClient drives
