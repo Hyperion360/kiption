@@ -82,7 +82,7 @@
       <?php if ($loggedIn ?? false): ?>
         <?php if (\App\Features::on('pms')): ?><a href="/messages"><?= \App\Lang::t('nav.messages') ?></a><?php endif; ?>
         <a href="/notifications"><?= \App\Lang::t('nav.notifications') ?></a>
-        <a href="/account"><?= \App\Lang::t('nav.account') ?></a>
+        <a href="/account"><?= \App\Lang::t('nav.library') ?></a>
       <?php else: ?>
         <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>
       <?php endif; ?>

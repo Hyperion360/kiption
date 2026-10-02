@@ -28,6 +28,42 @@ final class HomeTest extends TestCase
         return $app;
     }
 
+    /** The S1 layout: Latest carries at most six M6 cards from the one
+     *  UNION ALL query and links on to the full recent listing; an empty
+     *  archive says so instead of rendering an empty list. */
+    public function test_home_latest_shelf_caps_at_six_and_links_recent(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        $empty = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
+        $this->assertStringContainsString('id="home-latest"', $empty);
+        $this->assertStringContainsString('<p class="empty-state">', $empty, 'no stories, no empty list');
+        \App\Seeder::run($db);
+        for ($i = 1; $i <= 7; $i++) {
+            $db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, word_count, updated_at)
+                        SELECT ?, ?, 's.', author_id, rating_id, 1, 100, ? FROM stories WHERE slug = 'the-rabbit-hole'",
+                ["Extra {$i}", "extra-{$i}", sprintf('2026-09-%02dT10:00:00Z', 20 + $i)]);
+        }
+        $body = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
+        $this->assertSame(6, substr_count($body, '<li class="story-card">'), 'Latest stops at six');
+        $this->assertStringContainsString('Extra 7', $body, 'newest first');
+        $this->assertStringContainsString('<a href="/browse/recent">All recently updated stories</a>', $body);
+        $this->assertStringNotContainsString('being set up', $body, 'the stale setup copy is gone');
+    }
+
+    private function appOver(Database $db): App
+    {
+        $app = new App([
+            'app_dir' => dirname(__DIR__, 4) . '/app',
+            'env' => 'prod',
+            'views' => dirname(__DIR__, 4) . '/app/views',
+            'db' => ['dsn' => 'sqlite::memory:'],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+        ]);
+        $app->container->instance(Database::class, $db);
+        return $app;
+    }
+
     public function test_home_page_renders_the_site_name(): void
     {
         // canonical URL since kip c2f9730: only / is home

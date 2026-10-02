@@ -83,6 +83,9 @@ final class NewsTest extends TestCase
         $this->assertSame(200, $idx->status);
         $this->assertStringContainsString('Welcome', $idx->body);
         $this->assertStringContainsString('href="/news/view/1"', $idx->body, 'listing links the item');
+        // one post is a short page: no Older link to an empty page
+        $this->assertStringNotContainsString('rel="next"', $idx->body);
+        $this->assertStringNotContainsString('/news?page=2', $idx->body);
         $view = $this->client()->get('/news/view/1');
         $this->assertSame(200, $view->status);
         $this->assertStringContainsString('First post.', $view->body);

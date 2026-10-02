@@ -213,6 +213,10 @@ final class SearchTest extends TestCase
         $bare = $this->client()->get('/search');
         $this->assertSame(200, $bare->status);
         $this->assertStringContainsString('Search', $bare->body);
+        // nothing asked yet: the hint, never an empty-result verdict
+        $this->assertStringContainsString('Quotes match an exact phrase.', $bare->body);
+        $this->assertStringNotContainsString('No stories matched', $bare->body);
+        $this->assertStringNotContainsString('rel="next"', $bare->body);
         $junk = $this->client()->get('/search', ['q' => '   ', 'category' => 'nope', 'rating' => 'abc', 'completed' => 'maybe', 'language' => '!!!', 'sort' => 'sideways', 'page' => '0']);
         $this->assertSame(200, $junk->status); // coerced, not a 500
         $this->assertStringContainsString('no stories matched', strtolower($junk->body)); // finding 16: the real empty-state copy
