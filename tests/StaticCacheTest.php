@@ -40,6 +40,20 @@ final class StaticCacheTest extends TestCase
         $this->assertNull($this->cache->fileFor('/story/read/x/99999999999999999999'));
     }
 
+    /** The reader fragment (comp M3): a query-free URL whose cache status
+     *  rests entirely on the path-prefix whitelist, so the fragment prefix
+     *  is simply never listed - members' fragments carry a session token in
+     *  the kudos form, and a personalized response must never land in a
+     *  cache file. Never stored, never served, not even a 200 guest render. */
+    public function test_story_fragment_is_never_cached_nor_served(): void
+    {
+        $req = new Request('GET', '/story/fragment/the-rabbit-hole/2', [], [], []);
+        $this->assertNull($this->cache->fileFor($req->path), 'the fragment prefix is not whitelisted');
+        $this->assertFalse($this->cache->isCacheable($req));
+        $this->cache->maybeStore($req, new Response('<div class="chapter-unit">x</div>', 200));
+        $this->assertNull($this->cache->serve($req), 'nothing was stored to serve');
+    }
+
     public function test_is_cacheable_matrix(): void
     {
         $yes = new Request('GET', '/story/view/x', [], [], []);

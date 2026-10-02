@@ -70,6 +70,10 @@ final class QueryBudgetTest extends TestCase
                 ['/browse/category/general'],
                 ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3'],
                 ['/story/read/after-hours/1'], // adult story, cookieless: the age-gate render is a page shape too
+                // The reader fragment (comp M3): one unit rendered from the
+                // SAME findStoryWithChapter query as the read page; the last
+                // chapter rides the row too (the no-next shape).
+                ['/story/fragment/the-rabbit-hole/1'], ['/story/fragment/the-rabbit-hole/3'],
                 // The whole-work view rides the same one-query fold (finding 6:
                 // the seed story backs the row; no in-file probe needed).
                 ['/story/whole/the-rabbit-hole'],
@@ -311,5 +315,33 @@ final class QueryBudgetTest extends TestCase
         $this->assertStringNotContainsString('<html', $res->body, 'the fragment really is the card partial');
         $this->assertStringContainsString('continue-pill', $res->body, 'the progress fold really engaged');
         $this->assertLessThanOrEqual(1, $queries, "member /browse/recent fragment ran {$queries} content queries, budget is 1");
+    }
+
+    /** The reader fragment's heaviest shape (comp M3): a MEMBER render of
+     *  /story/fragment carries the reading-history and bookmarks folds and
+     *  stamps the kudos token, all from the ONE findStoryWithChapter query.
+     *  NO reading_history exclusion runs here: unlike the read page, the
+     *  fragment records NO progress (an append is not a chapter open), and
+     *  the empty table proves the member path really engaged without the
+     *  write the page shape would have made. */
+    public function test_member_story_fragment_stays_inside_the_one_query_budget_and_writes_no_progress(): void
+    {
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            $queries++;
+        });
+        $res = $client->get('/story/fragment/the-rabbit-hole/2');
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        $this->assertStringNotContainsString('<html', $res->body, 'the fragment really is the unit partial');
+        $this->assertStringContainsString('name="_token"', $res->body, 'the member kudos form proves the member path engaged');
+        $this->assertLessThanOrEqual(1, $queries, "member /story/fragment ran {$queries} content queries, budget is 1");
+        $this->assertSame(0, (int) (new Database('sqlite:' . $this->path))->one('SELECT COUNT(*) c FROM reading_history')['c'],
+            'the fragment render recorded no reading progress');
     }
 }

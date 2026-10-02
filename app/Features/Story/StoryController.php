@@ -123,60 +123,20 @@ final class StoryController
         }
         $position = max(1, (int) $n);
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
-        $story = $this->repo->findStoryWithChapter($slug, $position, $me);
-        if ($story === null) return new Response('Page not found', 404);
-        // The titled TOC blob (C4 step 2b): same decode discipline as view(),
-        // so the contents sheet on chapter pages renders titles the landing
-        // page already shows, AND the prev/next position list is simply its
-        // keys (review: positions_blob re-scanned the same chapter set).
-        // Both ride the SAME single query.
-        $chapters = [];
-        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
-            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
-        }
-        ksort($chapters);
-        unset($story['chapters_blob']);
-        $positions = array_keys($chapters);
-        if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
-            return new Response('Page not found', 404);
-        }
+        // The shared chapter lookup + gates; the fragment endpoint rides the
+        // same path (chapterContext), with the adult gate answering a page
+        // shape here and a bare 404 there.
+        $ctx = $this->chapterContext($slug, $position, $me, true);
+        if (!is_array($ctx)) return $ctx;
+        $story = $ctx['story'];
+        $chapters = $ctx['chapters'];
+        $prev = $ctx['prev'];
+        $next = $ctx['next'];
+        $total = count($chapters);
         $progress = $this->progressOf($story, $chapters);
         $bookmarks = $this->bookmarksOf($story);
         $chapterTitle = $story['ch_title'] !== '' && $story['ch_title'] !== null ? $story['ch_title'] : \App\Lang::t('story.chapter_n', ['n' => $position]);
-        if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
-            return $this->view->render('story/gate', [
-                'title' => \App\Lang::t('story.gate_heading'),
-                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
-                'theme' => \App\Theme::current($this->request),
-                'request' => $this->request,
-                'loggedIn' => $me !== 0,
-                'navFile' => (string) $this->app->config('nav_file', ''),
-                'path' => $this->request->path,
-                'story' => $story,
-                'returnTo' => '/story/read/' . $slug . '/' . $position,
-            ]);
-        }
-        $total = count($positions);
-        $prev = null; $next = null;
-        foreach ($positions as $pn) {
-            if ($pn < $position) $prev = $pn;
-            if ($next === null && $pn > $position) $next = $pn;
-        }
-        // C8: the chapter's span of the whole story in percent, folded from
-        // the SAME blob in PHP (no query): the reader header's progressbar
-        // paints --p-start..--p-end and its readout. Derived from story data
-        // only, so the cookieless render the static cache stores is
-        // reader-neutral bytes (the member's own marker lives on the story
-        // page, whose reading_history fold C4 already owns).
-        $wordsBefore = 0;
-        $wordsThrough = 0;
-        foreach ($chapters as $c) {
-            if ((int) $c['position'] < $position) { $wordsBefore += (int) $c['word_count']; }
-            if ((int) $c['position'] <= $position) { $wordsThrough += (int) $c['word_count']; }
-        }
-        $totalWords = (int) $story['word_count'];
-        $pctStart = $totalWords > 0 ? min(100, (int) round(100 * $wordsBefore / $totalWords)) : 0;
-        $pctEnd = $totalWords > 0 ? min(100, (int) round(100 * $wordsThrough / $totalWords)) : 0;
+        [$pctStart, $pctEnd] = $this->chapterSpan($chapters, $position, (int) $story['word_count']);
         $readTitle = \App\Lang::t('story.chapter_page_title', ['n' => $position, 'chapter' => $chapterTitle, 'story' => $story['title']]);
         $head = $this->head()
             ->withTitle($readTitle)
@@ -235,6 +195,139 @@ final class StoryController
         return $head->noindex
             ? (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex')
             : $rendered;
+    }
+
+    /** The reader fragment (comp M3, infinite scroll): GET
+     *  /story/fragment/{slug}/{n} renders ONE .chapter-unit - the h-entry
+     *  article plus the chapter-end block - for the enhancement layer to
+     *  append to the read page. The flat router maps the URL's second
+     *  segment to the raw method name, so this action is fragment().
+     *  Gate parity with read() rides chapterContext: validated +
+     *  not-deleted + the SQL restricted gate + the chapter-exists check;
+     *  the adult gate without the consent cookie answers 404 (the fragment
+     *  is never a page: never the gate's 200 shape, never a line of prose).
+     *  The chapter number is strict here: read() clamps because the bare
+     *  chapter-1 URL has a page to land on; the fragment does not, so junk,
+     *  zero, negative, and past-the-end numbers all 404. Records NO reading
+     *  progress (an append is not a chapter open; the page open already
+     *  recorded it) and is NOT whitelisted in the static cache: members
+     *  carry a session token in the kudos form, and the whitelist is
+     *  path-prefix based, so /story/fragment is simply never listed.
+     *  X-Robots-Tag: noindex rides EVERY response - the endpoint duplicates
+     *  chapter content, so no URL of it may enter an index. */
+    public function fragment(string $slug, string $n): Response|string
+    {
+        if (preg_match('/^[1-9][0-9]{0,8}$/', $n) !== 1) {
+            return $this->fragmentWrap(new Response('Page not found', 404));
+        }
+        $position = (int) $n;
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $ctx = $this->chapterContext($slug, $position, $me, false);
+        if (!is_array($ctx)) return $this->fragmentWrap($ctx);
+        $story = $ctx['story'];
+        $chapters = $ctx['chapters'];
+        $titles = [];
+        foreach ($chapters as $c) {
+            $titles[(int) $c['position']] = (string) $c['title'];
+        }
+        [$pctStart, $pctEnd] = $this->chapterSpan($chapters, $position, (int) $story['word_count']);
+        $rendered = $this->view->render('story/fragment', [
+            'story' => $story,
+            'chapter' => [
+                'title' => $story['ch_title'], 'notes_before' => $story['ch_notes_before'],
+                'content' => $story['ch_content'], 'notes_after' => $story['ch_notes_after'],
+                'word_count' => $story['ch_word_count'],
+            ],
+            'position' => $position,
+            'total' => count($chapters),
+            'next' => $ctx['next'],
+            'titles' => $titles,
+            // the boundary kudos form carries the member token (view.php's
+            // conditional-token shape); guests render tokenless forms.
+            'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
+            'pct_start' => $pctStart,
+            'pct_end' => $pctEnd,
+        ]);
+        return $this->fragmentWrap($rendered);
+    }
+
+    /** Every fragment response rides X-Robots-Tag: noindex - a URL that
+     *  duplicates chapter content must never enter an index. */
+    private function fragmentWrap(Response|string $r): Response
+    {
+        $res = $r instanceof Response ? $r : new Response($r, 200);
+        return $res->withHeader('X-Robots-Tag', 'noindex');
+    }
+
+    /** The shared chapter lookup + reading gates for the two reading renders
+     *  (story/read and story/fragment): findStoryWithChapter's ONE query,
+     *  the titled TOC blob decode (C4 step 2b: the contents sheet renders
+     *  titles the landing page already shows, and the prev/next list is
+     *  simply its keys), the validated-chapter existence check, and the
+     *  adult gate. $gatePage decides the adult story without the consent
+     *  cookie: the read page renders the gate PAGE (a 200 shape, the byte
+     *  flow it always had); the fragment is never a page, so it answers
+     *  404. Restricted stories and unvalidated or deleted rows 404 inside
+     *  findStoryWithChapter's WHERE for both. recordProgress stays with
+     *  read() alone: this helper is render-only.
+     *  @return array{story: array<string,mixed>, chapters: array<int, array{position: int, title: string, word_count: int}>, prev: ?int, next: ?int}|Response|string the render context, the 404, or (page gates only) the rendered gate page */
+    private function chapterContext(string $slug, int $position, int $me, bool $gatePage): array|Response|string
+    {
+        $story = $this->repo->findStoryWithChapter($slug, $position, $me);
+        if ($story === null) return new Response('Page not found', 404);
+        $chapters = [];
+        foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
+        }
+        ksort($chapters);
+        unset($story['chapters_blob']);
+        $positions = array_keys($chapters);
+        if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
+            return new Response('Page not found', 404);
+        }
+        if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
+            if (!$gatePage) return new Response('Page not found', 404);
+            return $this->view->render('story/gate', [
+                'title' => \App\Lang::t('story.gate_heading'),
+                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
+                'theme' => \App\Theme::current($this->request),
+                'request' => $this->request,
+                'loggedIn' => $me !== 0,
+                'navFile' => (string) $this->app->config('nav_file', ''),
+                'path' => $this->request->path,
+                'story' => $story,
+                'returnTo' => '/story/read/' . $slug . '/' . $position,
+            ]);
+        }
+        $prev = null; $next = null;
+        foreach ($positions as $pn) {
+            if ($pn < $position) $prev = $pn;
+            if ($next === null && $pn > $position) $next = $pn;
+        }
+        return ['story' => $story, 'chapters' => $chapters, 'prev' => $prev, 'next' => $next];
+    }
+
+    /** C8: the chapter's span of the whole story in percent, folded from the
+     *  SAME decoded blob in PHP (no query): the reader header's progressbar
+     *  paints --p-start..--p-end and its readout, and the fragment's article
+     *  stamps the same span for the position module. Derived from story data
+     *  only, so the cookieless render the static cache stores is
+     *  reader-neutral bytes (the member's own marker lives on the story
+     *  page, whose reading_history fold C4 already owns).
+     *  @param array<int, array{position: int, word_count: int}> $chapters
+     *  @return array{0: int, 1: int} [start percent, end percent] */
+    private function chapterSpan(array $chapters, int $position, int $totalWords): array
+    {
+        $wordsBefore = 0;
+        $wordsThrough = 0;
+        foreach ($chapters as $c) {
+            if ((int) $c['position'] < $position) { $wordsBefore += (int) $c['word_count']; }
+            if ((int) $c['position'] <= $position) { $wordsThrough += (int) $c['word_count']; }
+        }
+        return [
+            $totalWords > 0 ? min(100, (int) round(100 * $wordsBefore / $totalWords)) : 0,
+            $totalWords > 0 ? min(100, (int) round(100 * $wordsThrough / $totalWords)) : 0,
+        ];
     }
 
     /** The whole-work reading view, which doubles as the print view: every

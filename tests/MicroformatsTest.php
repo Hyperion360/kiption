@@ -69,7 +69,11 @@ final class MicroformatsTest extends TestCase
     {
         $res = $this->client()->get('/story/read/the-rabbit-hole/1');
         $this->assertSame(200, $res->status);
-        $this->assertStringContainsString('<article class="h-entry">', $res->body);
+        // the shared chapter-unit partial stamps the article with its own
+        // story-span (data-p-start/data-p-end, the position module's
+        // per-article band) and the next fragment URL (data-next-url, the
+        // infinite module's fetch chain); the mf2 classes ride unchanged
+        $this->assertStringContainsString('<article class="h-entry" data-p-start="0" data-p-end="17" data-next-url="/story/fragment/the-rabbit-hole/2">', $res->body);
         $this->assertStringContainsString('<h1 class="p-name">', $res->body);
         $this->assertStringContainsString('class="prose e-content"', $res->body);
         // Finding 17: u-url lands on the existing header anchor to the story

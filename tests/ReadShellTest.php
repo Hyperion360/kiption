@@ -206,4 +206,27 @@ final class ReadShellTest extends TestCase
         $this->assertSame(0, preg_match_all('/\son[a-z]+\s*=/i', $body),
             'no inline event handler attributes ship');
     }
+
+    /** The infinite module's shell wiring (comp M3): the marker rides
+     *  .reader-main (the unit container; .reader itself carries the keys
+     *  module), .reader carries the initial fetch URL, and the first chapter
+     *  is one .chapter-unit exactly like every appended one. The noscript
+     *  paths stay: the next-chapter block and the chapter-nav links. */
+    public function test_reader_shell_wires_the_infinite_module(): void
+    {
+        $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('<div class="reader-main" data-js-module="infinite">', $body);
+        $this->assertStringContainsString(
+            '<div class="chapter-unit" data-read-url="/story/read/the-rabbit-hole/2" data-next-url="/story/fragment/the-rabbit-hole/3">',
+            $body);
+        $this->assertStringContainsString('data-next-url="/story/fragment/the-rabbit-hole/3"', $body,
+            '.reader carries the module\'s initial fetch target');
+        $this->assertStringContainsString('<div class="next-chapter">', $body, 'the noscript next-chapter block stays');
+        $this->assertStringContainsString('<nav class="chapter-nav"', $body, 'the noscript prev/next links stay');
+        // the last chapter stops the module: the empty attribute is the signal
+        $last = $this->client()->get('/story/read/the-rabbit-hole/3')->body;
+        $this->assertStringContainsString('data-next-url=""', $last);
+        $this->assertStringNotContainsString('data-next-url="/story/fragment', $last);
+        $this->assertStringContainsString('<div class="chapter-unit" data-read-url="/story/read/the-rabbit-hole/3">', $last);
+    }
 }

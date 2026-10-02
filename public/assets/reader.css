@@ -545,6 +545,15 @@ html[data-mode="pages"] .reader-main .prose {
 }
 .next-chapter a:hover .next-title { color: var(--accent-hover); }
 
+/* Reader fragment units (infinite module): every chapter on the page is
+   one .chapter-unit block. The divider between units reuses the existing
+   hairline - the previous unit's chapter-end rule closes it - so appended
+   units only bring the read page's breathing room. The sentinel is the
+   module's observe target and must keep a box (a display:none element
+   never intersects): one silent pixel, nothing painted. */
+.chapter-unit + .chapter-unit { margin-block-start: 3rem; }
+.reader-sentinel { display: block; height: 1px; }
+
 /* Whole-work boundaries (C9, frame M3): each chapter closes with the same
    .chapter-end separator the reader uses, and every chapter after the first
    opens with the comp's next-chapter block: kicker, serif heading, 40x1

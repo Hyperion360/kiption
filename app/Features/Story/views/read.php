@@ -3,8 +3,10 @@
      // story-span progressbar, bottom control bar, :target sheets for
      // contents/bookmarks and text settings, and the end-of-chapter block.
      // The h-entry microformats block and the read beacon keep their exact
-     // bytes (MicroformatsTest pins them). Links, forms, native inputs
-     // (radios, the size range), and :target only: zero JavaScript.
+     // bytes (MicroformatsTest pins them). Every feature works with
+     // scripting disabled: links, forms, native inputs (radios, the size
+     // range), and :target; the data-js-module markers only ever summon the
+     // deferred enhancement layer (keys, position, prefs, infinite).
      $this->layout('layout');
      $p = \App\Features\Reader\Prefs::current($request ?? null);
      $member = (int) ($me ?? 0) !== 0;
@@ -18,21 +20,20 @@
      $barStyle = '--p-start:' . (int) $pct_start . '%;--p-end:' . (int) $pct_end . '%';
      $roman = \App\Features\Reader\Roman::numeral((int) $position);
      $rawTitle = (string) ($chapter['title'] ?? '');
-     $chapterTitle = $rawTitle !== '' ? $rawTitle : \App\Lang::t('story.chapter_n', ['n' => (int) $position]);
-     $endLabel = $rawTitle !== ''
-         ? \App\Lang::t('reader.end_of_chapter_titled', ['n' => $roman, 'title' => $rawTitle])
-         : \App\Lang::t('reader.end_of_chapter', ['n' => $roman]);
      // The keys module's wiring (AppJsContractTest): every URL the keyboard
      // shortcuts navigate to is resolved here, never invented client-side.
      // The attributes render always - focus mode or not - and carry story
-     // data only, so the cached guest bytes stay stable.
+     // data only, so the cached guest bytes stay stable. data-next-url is
+     // the infinite module's initial fetch target (the next chapter's
+     // FRAGMENT endpoint; data-next stays the keys module's read URL).
      $baseUrl = '/story/read/' . $story['slug'] . '/' . (int) $position; ?>
 <div class="reader<?= $focus ? ' reader-focus' : '' ?>" data-js-module="keys"
      data-prev="<?= $this->e($prev !== null ? $baseUrl . '/' . (int) $prev : '') ?>"
      data-next="<?= $this->e($next !== null ? $baseUrl . '/' . (int) $next : '') ?>"
      data-focus-url="<?= $this->e($baseUrl . '?focus=1') ?>"
      data-exit-focus="<?= $this->e($baseUrl) ?>"
-     data-text-url="<?= $this->e($baseUrl . '#text') ?>">
+     data-text-url="<?= $this->e($baseUrl . '#text') ?>"
+     data-next-url="<?= $this->e($next !== null ? '/story/fragment/' . $story['slug'] . '/' . (int) $next : '') ?>">
   <?php /* D2 focus: the comp's breadcrumb bar (brand · story · chapter, chapter-of right).
          Regular D1 desktop: the top bar gains brand + byline + the three dark
          controls (CSS shows them only at 1024+). */ ?>
@@ -71,50 +72,21 @@
          data-js="reader-progress" data-js-module="position"
          data-p-start="<?= (int) $pct_start ?>" data-p-end="<?= (int) $pct_end ?>"></div>
   </header>
-  <div class="reader-main">
-    <article class="h-entry">
-      <?php /* the byline/dates breadcrumb: the comp drops it visually; the row stays for the mf2 time elements MicroformatsTest pins */ ?>
-      <header class="chapter-meta visually-hidden">
-        <a class="u-url" href="/story/view/<?= $this->e($story['slug']) ?>"><?= $this->e($story['title']) ?></a>
-        <?= \App\Lang::t('story.by') ?> <span class="p-author h-card"><?= $this->e($story['penname']) ?></span>
-        | <?= \App\Lang::t('story.chapter_of', ['n' => $position, 'm' => $total]) ?>
-        | <?= \App\Lang::t('story.published') ?> <time class="dt-published" datetime="<?= $this->e($story['created_at']) ?>"><?= $this->e(substr((string) $story['created_at'], 0, 10)) ?></time>
-        | <?= \App\Lang::t('story.updated_label') ?> <time class="dt-updated" datetime="<?= $this->e($story['updated_at']) ?>"><?= $this->e(substr((string) $story['updated_at'], 0, 10)) ?></time>
-      </header>
-      <div class="prose e-content">
-        <div class="ch-kicker"><?= $this->e(\App\Lang::t('story.chapter_n', ['n' => $roman])) ?></div>
-        <h1 class="p-name"><?= $this->e($chapterTitle) ?></h1>
-        <?php if (($chapter['notes_before'] ?? '') !== ''): ?>
-          <div class="chapter-meta"><?= \App\Markdown::render($chapter['notes_before']) ?></div>
-        <?php endif; ?>
-        <?= \App\Markdown::render($chapter['content']) /* markdown at rest; raw HTML cannot be stored */ ?>
-        <?php if (($chapter['notes_after'] ?? '') !== ''): ?>
-          <div class="chapter-meta"><?= \App\Markdown::render($chapter['notes_after']) ?></div>
-        <?php endif; ?>
-      </div>
-      <?php /* the read beacon: a zero-JS read counter into page_stats; the src carries the story id and the chapter's id (never the position) */ ?>
-      <img src="/beacon/read/<?= (int) $story['id'] ?>/<?= (int) $story['ch_id'] ?>" alt="" width="1" height="1" loading="lazy">
-    </article>
-    <footer class="chapter-end" role="separator" aria-label="<?= $this->e($endLabel) ?>">
-      <span class="dots" aria-hidden="true"></span>
-      <p><?= $this->e($endLabel) ?></p>
-      <div class="chapter-end-actions">
-        <form method="post" action="/kudos/add/<?= $this->e($story['slug']) ?>" class="inline">
-          <?php if (!empty($csrf)): ?><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><?php endif; ?>
-          <button type="submit"><?= \App\Lang::t('story.leave_kudos') ?></button>
-        </form>
-        <a href="/story/view/<?= $this->e($story['slug']) ?>#reviews"><?= $this->e(\App\Lang::t('reader.review_link')) ?> · <?= (int) ($story['review_count'] ?? 0) ?></a>
-      </div>
-      <?php if ($next !== null):
-          $nextTitle = ($titles[(int) $next] ?? '') !== '' ? $titles[(int) $next] : \App\Lang::t('story.chapter_n', ['n' => (int) $next]); ?>
-      <div class="next-chapter">
-        <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $next ?>">
-          <span class="ch-kicker"><?= $this->e(\App\Lang::t('reader.continues', ['roman' => \App\Features\Reader\Roman::numeral((int) $next)])) ?></span>
-          <span class="next-title"><?= $this->e($nextTitle) ?></span>
-        </a>
-      </div>
-      <?php endif; ?>
-    </footer>
+  <div class="reader-main" data-js-module="infinite">
+    <?php /* the chapter unit (article + chapter-end) is the shared partial:
+       the infinite module appends further units before its sentinel; the
+       next-chapter link inside and the nav below stay the noscript paths */ ?>
+    <?= $this->render('story/_chapter', [
+        'story' => $story,
+        'chapter' => $chapter,
+        'position' => $position,
+        'total' => $total,
+        'next' => $next,
+        'titles' => $titles,
+        'csrf' => $csrf,
+        'pct_start' => $pct_start,
+        'pct_end' => $pct_end,
+    ]) ?>
     <nav class="chapter-nav" aria-label="<?= $this->e(\App\Lang::t('story.chapter_nav_aria')) ?>">
       <?php if ($prev !== null): ?>
         <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= $prev ?>"><?= \App\Lang::t('common.previous') ?></a>
