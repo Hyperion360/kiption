@@ -197,26 +197,34 @@
               <p class="chapter-meta"><?= $this->e($rep['penname'] ?? $rep['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $rep['is_author_reply'] ? ' · ' . \App\Lang::t('story.author_reply') : '' ?></p>
               <div class="prose"><?= \App\Markdown::render($rep['body'] ?? '') ?></div>
               <?php if (!empty($csrf)): ?>
+                <div class="review-tools"><details class="report-disclosure"><summary><?= \App\Lang::t('story.report_short') ?></summary>
                 <form method="post" action="/report/review/<?= (int) $rep['id'] ?>" class="inline">
                   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
                   <input name="reason" required maxlength="500" placeholder="<?= $this->e(\App\Lang::t('story.report_reply_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('story.report_reply_placeholder')) ?>">
                   <button type="submit"><?= \App\Lang::t('story.report_short') ?></button>
-                </form>
+                </form></details></div>
               <?php endif; ?>
             </blockquote>
           <?php endforeach; ?>
         <?php endif; ?>
+        <?php /* Reply and Report fold into disclosures (native details, no
+           script): two text inputs under every review read as a form page,
+           not a reviews section. Same pattern as the story-level Report. */ ?>
         <?php if (!empty($csrf)): ?>
+          <div class="review-tools">
+          <details class="report-disclosure"><summary><?= \App\Lang::t('story.reply') ?></summary>
           <form method="post" action="/review/reply/<?= (int) $r['id'] ?>" class="inline">
             <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
             <input name="body" required maxlength="5000" placeholder="<?= $this->e(\App\Lang::t('story.reply_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('story.reply_placeholder')) ?>">
             <button type="submit"><?= \App\Lang::t('story.reply') ?></button>
-          </form>
+          </form></details>
+          <details class="report-disclosure"><summary><?= \App\Lang::t('story.report_short') ?></summary>
           <form method="post" action="/report/review/<?= (int) $r['id'] ?>" class="inline">
             <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
             <input name="reason" required maxlength="500" placeholder="<?= $this->e(\App\Lang::t('story.report_review_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('story.report_review_placeholder')) ?>">
             <button type="submit"><?= \App\Lang::t('story.report_short') ?></button>
-          </form>
+          </form></details>
+          </div>
         <?php endif; ?>
       </article>
     <?php endforeach; ?>

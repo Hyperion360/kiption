@@ -598,6 +598,11 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .story-reviews > h2 { margin: 0; font-size: 24px; }
 .story-reviews .review { max-width: none; padding-block: 16px; }
 .story-reviews .review form.inline { margin-block-start: 8px; flex-wrap: wrap; }
+/* Reply and Report under a review: a quiet row of disclosures; an open one
+   takes the full row so its field has room. */
+.review-tools { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-block-start: 8px; font: 13px/1.6 var(--sans); color: var(--ink-2); }
+.review-tools details[open] { flex-basis: 100%; }
+.review-tools summary { display: inline-flex; align-items: center; min-height: 32px; }
 .story-reviews .review form.inline input { flex: 1; min-width: 180px; min-height: 36px; font-size: 14px; }
 .story-reviews .review form.inline button { min-height: 36px; font-size: 13px; }
 @media (min-width:768px) {
@@ -1386,7 +1391,7 @@ body.focus .site-head { display: none; }
 /* Touch widths: every secondary link and inline control keeps a 44px tap
    target (the visible text stays its size; the box grows around it). */
 @media (max-width:1023px) {
-  .action-aux a, .action-aux summary, .section-links a, .page-actions a, .page-actions .link-btn,
+  .action-aux a, .action-aux summary, .review-tools summary, .section-links a, .page-actions a, .page-actions .link-btn,
   .story-info .byline .follow-btn, .section-more a, .auth-links a, .bm-chapter {
     display: inline-flex; align-items: center; min-height: 44px;
   }

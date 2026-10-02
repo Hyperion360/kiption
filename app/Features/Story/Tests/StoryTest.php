@@ -153,6 +153,22 @@ final class StoryTest extends TestCase
         $this->assertStringNotContainsString('| 2026-09-01', $body, 'no pipe-separated raw stamp');
     }
 
+    /** Design review (run 3): a member sees Reply and Report as disclosures
+     *  under each review (native details, scripting-free), not two open text
+     *  inputs per review. Guests get neither (no token, no forms). */
+    public function test_review_reply_and_report_fold_into_disclosures(): void
+    {
+        $db = new Database($this->dsn);
+        $db->query("INSERT INTO reviews (story_id, guest_name, body, rating, created_at) VALUES (1, 'Guest Reader', 'Loved it.', 7, '2026-09-01T00:00:00Z')");
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('<div class="review-tools">', $body);
+        $this->assertStringContainsString('<details class="report-disclosure"><summary>Reply</summary>', $body);
+        $this->assertStringContainsString('<details class="report-disclosure"><summary>Report</summary>', $body);
+        $this->assertMatchesRegularExpression('#<details class="report-disclosure"><summary>Reply</summary>\s*<form method="post" action="/review/reply/\d+"#', $body);
+        $guest = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringNotContainsString('class="review-tools"', $guest);
+    }
+
     public function test_unknown_story_404(): void
     {
         $res = $this->app->handle(new Request('GET', '/story/view/nope', [], [], []));
