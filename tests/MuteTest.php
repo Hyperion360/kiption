@@ -72,7 +72,7 @@ final class MuteTest extends TestCase
         $db = $this->db();
         $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM muted WHERE user_id = ? AND author_id = ?', [$this->memberId(), $this->authorId()])['c']);
         // the account block lists the muted author with an unmute button
-        $body = $me->get('/account')->body;
+        $body = $me->get('/account/settings')->body;
         $this->assertStringContainsString('Demo Author', $body);
         $this->assertStringContainsString('Unmute', $body);
         // idempotent; toggle off removes
@@ -108,7 +108,7 @@ final class MuteTest extends TestCase
         $this->assertStringNotContainsString('/mute/add/', $me->get('/user/view/betafriend')->body);
         // the account block headers the section only when a mute exists or not: the
         // empty state renders for a fresh member
-        $this->assertStringContainsString(\App\Lang::t('account.muted'), $me->get('/account')->body);
+        $this->assertStringContainsString(\App\Lang::t('account.muted'), $me->get('/account/settings')->body);
     }
 
     /** The anti-join fragment has ONE home; every viewer-gated listing in

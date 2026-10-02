@@ -75,7 +75,7 @@
      $footSeen = ['/' => 1, '/browse' => 1, '/browse/recent' => 1, '/browse/authors' => 1, '/series' => 1, '/search' => 1,
                   '/account' => 1, '/auth/login' => 1, '/news' => 1, '/top' => 1, '/lists' => 1, '/challenges' => 1, '/feed' => 1]; ?>
   <footer class="site-foot">
-    <p class="foot-brand"><a href="/"><?= \App\Lang::t('nav.brand') ?></a> <span><?= \App\Lang::t('foot.built_with') ?> <a href="https://github.com/Hyperion360/kip" rel="noopener">Kip</a></span></p>
+    <p class="foot-brand"><a href="/"><?= \App\Lang::t('nav.brand') ?></a> <span><?= \App\Lang::t('foot.built_with') ?> <a href="https://github.com/Hyperion360/kip" rel="noopener"><?= \App\Lang::t('foot.kip') ?></a></span></p>
     <nav class="foot-nav" aria-label="<?= $this->e(\App\Lang::t('foot.more_label')) ?>">
       <?php if (\App\Features::on('news')): ?><a href="/news"><?= \App\Lang::t('news.heading') ?></a><?php endif; ?>
       <?php if (\App\Features::on('toplists')): ?><a href="/top"><?= \App\Lang::t('top.heading') ?></a><?php endif; ?>

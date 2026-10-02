@@ -37,6 +37,7 @@ return [
     'nav.you' => 'You',
     'nav.read' => 'Read',
     'foot.built_with' => 'built with',
+    'foot.kip' => 'Kip',
     'foot.more_label' => 'More',
     'foot.lists' => 'Reading lists',
     'nav.authors' => 'Authors',
