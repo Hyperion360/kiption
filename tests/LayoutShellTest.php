@@ -76,11 +76,23 @@ final class LayoutShellTest extends TestCase
         $this->assertStringNotContainsString('href="/account"', $body);
     }
 
-    public function test_no_footer_element_renders_anywhere(): void
+    /** The site footer (owner decision 2026-10-02 reverses the comp's
+     *  no-footer call for site pages): secondary destinations and the
+     *  credit, identical for every visitor, hidden under the reader by CSS. */
+    public function test_site_footer_carries_secondary_destinations(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertStringNotContainsString('<footer', $body, 'the comp ships no footer on any frame');
-        $this->assertStringNotContainsString('site-foot', $body);
+        $this->assertStringContainsString('<footer class="site-foot">', $body);
+        preg_match('#<footer class="site-foot">.*?</footer>#s', $body, $m);
+        $foot = $m[0] ?? '';
+        foreach (['href="/news"', 'href="/top"', 'href="/lists"', 'href="/challenges"', 'href="/feed"'] as $href) {
+            $this->assertStringContainsString($href, $foot);
+        }
+        $this->assertStringNotContainsString('href="/browse"', $foot, 'header destinations are not repeated');
+        $this->assertSame($foot, (preg_match('#<footer class="site-foot">.*?</footer>#s', $this->client($this->memberId)->get('/')->body, $mm) ? $mm[0] : ''),
+            'one footer for guests and members: cached bytes stay stable');
+        $css = str_replace(' ', '', (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css'));
+        $this->assertStringContainsString('body:has(.reader).site-foot{display:none', $css, 'the reader keeps its own chrome');
         $this->assertStringNotContainsString('href="/theme/', $body, 'the legacy theme routes lost their only links');
     }
 
@@ -209,10 +221,10 @@ final class LayoutShellTest extends TestCase
             'sheets stay hidden until :target opens them');
     }
 
-    public function test_print_css_no_longer_references_the_retired_footer(): void
+    public function test_print_css_hides_the_site_chrome(): void
     {
         $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/print.css');
-        $this->assertStringNotContainsString('.site-foot', $css, 'the element no longer exists');
+        $this->assertStringContainsString('.site-foot', $css, 'the footer hides in print');
         $this->assertStringContainsString('.site-head', $css, 'the site nav still hides in print');
         $this->assertStringContainsString('.print-hint', $css, 'the print hint still hides in print');
     }

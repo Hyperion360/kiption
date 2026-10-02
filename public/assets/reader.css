@@ -47,7 +47,10 @@ body {
   background: var(--bg);
   color: var(--ink);
   font: 16px/1.6 var(--sans);
+  /* header, main, footer: the footer rests at the viewport bottom on short pages */
+  min-height: 100vh; display: flex; flex-direction: column;
 }
+.site-main { flex: 1 0 auto; width: 100%; }
 a { color: var(--accent); }
 a:hover { color: var(--accent-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -115,14 +118,24 @@ input, select, textarea { caret-color: var(--accent); }
 /* Main column: mobile gutters by default, the 1200px shell from 1024px. */
 .site-main { padding: 32px 24px 64px; }
 
-/* Retired with the C6 shell: no page emits .site-foot anymore. The rule
-   stays one release so a stale cached page or an add-on view keeps a sane
-   footer. (The .theme-toggle class is back as the header quick toggle
-   button above.) */
+/* The site footer: secondary destinations and the site credit. */
 .site-foot {
-  border-block-start: 1px solid var(--line); color: var(--muted);
-  text-align: center; padding: 16px; font: 13px var(--sans);
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 32px;
+  margin-block-start: 0; padding: 28px 20px 36px;
+  border-block-start: 1px solid var(--line);
+  font: 13px/1.6 var(--sans); color: var(--muted);
 }
+.foot-brand { margin: 0; }
+.foot-brand > a { font: 15px var(--serif); font-variant: small-caps; letter-spacing: .08em; color: var(--ink); text-decoration: none; margin-inline-end: 6px; }
+.site-foot a { color: var(--ink-2); }
+.site-foot a:hover { color: var(--accent); }
+.foot-nav { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.foot-nav a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
+@media (min-width:1024px) { .foot-nav a { min-height: 32px; } }
+/* Reading surfaces keep their own chrome: no footer under the reader. */
+body:has(.reader) .site-foot { display: none; }
+@media (min-width:768px) { .site-foot { padding-inline: 40px; } }
+@media (min-width:1024px) { .site-foot { padding-inline: max(40px, calc((100% - 1200px) / 2 + 40px)); } }
 
 /* Sheets: the zero-JS dialog pattern. Hidden until :target, then a fixed
    panel anchored to the bottom edge. The scrim dims the page behind an open
@@ -263,7 +276,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .site-main fieldset:not(.text-settings fieldset) { border: 1px solid var(--line); padding: 16px 18px 4px; margin: 0 0 18px; }
 .site-main fieldset legend { padding-inline: 6px; font: 600 12px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 /* A checkbox or radio label reads as one row: control, then its text. */
-.site-main form label:has(> input:is([type="checkbox"], [type="radio"])) {
+.site-main form:not(.text-settings) label:has(> input:is([type="checkbox"], [type="radio"])) {
   display: flex; flex-direction: row; align-items: center; gap: 10px;
   margin-block-end: 12px; font: 400 15px/1.4 var(--sans); color: var(--ink);
 }

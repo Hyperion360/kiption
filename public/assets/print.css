@@ -5,9 +5,8 @@
  * the affordance is the browser print command, no JavaScript anywhere.
  */
 @media print {
-  /* Site chrome and engagement controls never reach paper. The footer was
-   * retired with the C6 shell, so no footer rule remains to hide. */
-  .site-head, .engagement-bar, .chapter-nav, .print-hint { display: none; }
+  /* Site chrome and engagement controls never reach paper. */
+  .site-head, .site-foot, .engagement-bar, .chapter-nav, .print-hint { display: none; }
   /* Reader chrome from the redesign never prints either: the sticky reader
    * header, the bottom control bar, the focus dock, and every sheet. The
    * sheet rules carry !important because .sheet:target's display:flex (and

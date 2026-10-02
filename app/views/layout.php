@@ -66,13 +66,31 @@
     <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
   <main class="site-main"><?= $content ?></main>
-  <?php /* No footer: the comp ships none on any frame. Text settings live
-     in the reader's Text sheet (C8); the header's theme quick toggle is
-     the scripting-only shortcut (the markup above stays hidden without
-     it). The span is the sheets' shared close
-     target: it sits in a fixed 1px box, so landing on it never scrolls;
-     Done links point here instead of "#" (which jumps to the document
-     top and loses a mid-chapter reading position). */ ?>
+  <?php /* The site footer (owner decision, 2026-10-02): the conventional
+     home for secondary destinations the header has no room for (news, top
+     lists, reading lists, challenges, the feed, operator pages), and the
+     only desktop path to operator pages for guests. Identical bytes for
+     every visitor, so cached pages stay stable. Reading surfaces hide it
+     (reader.css): the reader's own chrome carries navigation there. */
+     $footSeen = ['/' => 1, '/browse' => 1, '/browse/recent' => 1, '/browse/authors' => 1, '/series' => 1, '/search' => 1,
+                  '/account' => 1, '/auth/login' => 1, '/news' => 1, '/top' => 1, '/lists' => 1, '/challenges' => 1, '/feed' => 1]; ?>
+  <footer class="site-foot">
+    <p class="foot-brand"><a href="/"><?= \App\Lang::t('nav.brand') ?></a> <span><?= \App\Lang::t('foot.built_with') ?> <a href="https://github.com/Hyperion360/kip" rel="noopener">Kip</a></span></p>
+    <nav class="foot-nav" aria-label="<?= $this->e(\App\Lang::t('foot.more_label')) ?>">
+      <?php if (\App\Features::on('news')): ?><a href="/news"><?= \App\Lang::t('news.heading') ?></a><?php endif; ?>
+      <?php if (\App\Features::on('toplists')): ?><a href="/top"><?= \App\Lang::t('top.heading') ?></a><?php endif; ?>
+      <?php if (\App\Features::on('lists')): ?><a href="/lists"><?= \App\Lang::t('foot.lists') ?></a><?php endif; ?>
+      <?php if (\App\Features::on('challenges')): ?><a href="/challenges"><?= \App\Lang::t('challenges.index') ?></a><?php endif; ?>
+<?php foreach (\App\NavLinks::all($navFile ?? '') as $l): if (isset($footSeen[$l['url']])) continue; ?>
+      <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
+<?php endforeach; ?>
+      <?php if (\App\Features::on('feeds')): ?><a href="/feed"><?= \App\Lang::t('common.feed_title') ?></a><?php endif; ?>
+    </nav>
+  </footer>
+  <?php /* The span is the sheets' shared close target: it sits in a fixed
+     1px box, so landing on it never scrolls; Done links point here instead
+     of "#" (which jumps to the document top and loses a mid-chapter
+     reading position). */ ?>
   <span id="sheet-close" class="skip-close" tabindex="-1"></span>
   <div class="scrim" aria-hidden="true"></div>
   <div id="menu" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t('nav.menu')) ?>">
