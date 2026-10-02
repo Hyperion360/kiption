@@ -123,10 +123,10 @@ CREATE TABLE _migrations (name TEXT PRIMARY KEY, batch INTEGER NOT NULL, run_at 
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
-CREATE TABLE bookmarks (
-            user_id INTEGER NOT NULL,
-            story_id INTEGER NOT NULL,
-            chapter_id INTEGER NOT NULL,
+CREATE TABLE "bookmarks" (
+            user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+            story_id INTEGER NOT NULL REFERENCES stories (id) ON DELETE CASCADE,
+            chapter_id INTEGER NOT NULL REFERENCES chapters (id) ON DELETE CASCADE,
             note TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
             PRIMARY KEY (user_id, story_id, chapter_id)
@@ -139,9 +139,9 @@ CREATE TABLE bookmarks (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| user_id | INTEGER |  | false |  |  |  |
-| story_id | INTEGER |  | false |  |  |  |
-| chapter_id | INTEGER |  | false |  |  |  |
+| user_id | INTEGER |  | false |  | [users](users.md) |  |
+| story_id | INTEGER |  | false |  | [stories](stories.md) |  |
+| chapter_id | INTEGER |  | false |  | [chapters](chapters.md) |  |
 | note | TEXT | '' | false |  |  |  |
 | created_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
 
@@ -152,12 +152,16 @@ CREATE TABLE bookmarks (
 | user_id | PRIMARY KEY | PRIMARY KEY (user_id) |
 | story_id | PRIMARY KEY | PRIMARY KEY (story_id) |
 | chapter_id | PRIMARY KEY | PRIMARY KEY (chapter_id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (chapter_id) REFERENCES chapters (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (story_id) REFERENCES stories (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 2) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
 | sqlite_autoindex_bookmarks_1 | PRIMARY KEY | PRIMARY KEY (user_id, story_id, chapter_id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_bookmarks_chapter | CREATE INDEX idx_bookmarks_chapter ON bookmarks (chapter_id) |
 | idx_bookmarks_user_story | CREATE INDEX idx_bookmarks_user_story ON bookmarks (user_id, story_id, created_at, chapter_id) |
 | sqlite_autoindex_bookmarks_1 | PRIMARY KEY (user_id, story_id, chapter_id) |
 
@@ -2901,7 +2905,9 @@ None requiring action.
   an upsert; idx_bookmarks_user_story (user_id, story_id, created_at,
   chapter_id) serves the reader envelope's fold with no TEMP B-TREE;
   idx_bookmarks_chapter (chapter_id) serves the chapter hard-delete
-  paths' cleanup as a seek. Notes are capped at 500 characters by the
+  paths' cleanup and the chapter cascade as a seek. Since 030 all three
+  ids carry FOREIGN KEY ... ON DELETE CASCADE, so deleting a user, story
+  or chapter removes its bookmarks (030 dropped pre-existing orphans). Notes are capped at 500 characters by the
   controller (mb_substr, scrubbed to valid UTF-8), not the schema.
 - reading_progress does NOT exist and must not be added: member reading
   progress lives in reading_history.last_position (furthest-read,

@@ -172,12 +172,16 @@ final class BookmarkTest extends TestCase
     }
 
     /** The defensive render path for a bookmark whose chapters row is gone
-     *  (only reachable by manual corruption now that the deletes cascade):
+     *  (only reachable by manual corruption: 030's foreign keys cascade):
      *  the note survives, the page stays 200, and no chapter link is emitted. */
     public function test_bookmark_whose_chapter_row_is_gone_renders_note_without_link(): void
     {
         $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', ['note' => 'orphan note']);
+        // since 030 the foreign key forbids this state, so the corruption is
+        // simulated with enforcement off for the one write
+        $this->db->query('PRAGMA foreign_keys = OFF');
         $this->db->query('UPDATE bookmarks SET chapter_id = chapter_id + 1000000');
+        $this->db->query('PRAGMA foreign_keys = ON');
         $res = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/1');
         $this->assertSame(200, $res->status, $res->body);
         $this->assertStringContainsString('orphan note', $res->body, 'the note survives its chapter row');
@@ -246,5 +250,21 @@ final class BookmarkTest extends TestCase
         $a->postWithToken('/reader/bookmarkremove/the-rabbit-hole/1');
         $this->assertSame(1, $this->rowCount(), "A's remove never touches B's row");
         $this->assertStringContainsString('beta note', $b->get('/story/read/the-rabbit-hole/2')->body);
+    }
+
+    /** Bookmarks follow their owner, story and chapter (migration 030):
+     *  deleting any of them removes the rows, so notes never outlive an
+     *  account and an id can never inherit someone else's bookmarks. */
+    public function test_bookmarks_cascade_with_their_user_story_and_chapter(): void
+    {
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'mine']);
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', []);
+        $this->assertSame(2, $this->rowCount());
+        $this->db->query("DELETE FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole') AND position = 2");
+        $this->assertSame(1, $this->rowCount(), 'the chapter row took its bookmark with it');
+        $this->db->query('DELETE FROM users WHERE id = ?', [$this->memberId]);
+        $this->assertSame(0, $this->rowCount(), 'the account took its bookmarks with it');
+        $fk = $this->db->all('PRAGMA foreign_key_list(bookmarks)');
+        $this->assertEqualsCanonicalizing(['users', 'stories', 'chapters'], array_column($fk, 'table'));
     }
 }
