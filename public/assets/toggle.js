@@ -1,41 +1,39 @@
 /* Kiption enhancement layer, toggle module. The header's theme quick
- * toggle: one click cycles paper -> sepia -> night -> auto -> paper, and
- * from auto (or an absent attribute, which IS auto: the server omits
- * data-theme for it) the first click lands on night. The current state is
- * read from the root data-theme attribute ONLY: the server's theme cookie
- * is HttpOnly, invisible to every script, and a legacy dark/light cookie
- * reads as unknown too - the attribute is the truth the server rendered.
- * Application goes through Kip.setTheme when the prefs module
- * is present (it also syncs the Text sheet's checked swatch), else the
- * same contract is set by hand: attribute plus cookie, delete-on-empty
- * (absence is auto, exactly like the server renders it). This is a
- * device-local convenience: no member row is written - the Text sheet's
- * Save stays the durable write. The loader appends this file only when
- * the page carries [data-js-module="toggle"], and window.Kip exists
- * before any module runs. */
+ * toggle is a plain light/dark flip, the convention readers expect from a
+ * header icon: on a dark page (Night, or Auto under a dark OS setting) it
+ * goes to Paper, on any light page (Paper, Sepia, or Auto under a light OS
+ * setting) it goes to Night. Its label always names the next state, so
+ * the result of a click is never a guess. Sepia and Auto stay one tap away
+ * in the reader's Text sheet and in Settings. The current state is read
+ * from the root data-theme attribute ONLY: the server's theme cookie is
+ * HttpOnly, invisible to every script; absence is Auto. Application goes
+ * through Kip.setTheme when the prefs module is present (it also syncs the
+ * Text sheet's checked swatch), else the same contract is set by hand:
+ * attribute plus cookie. This is a device-local convenience: no member row
+ * is written - Save and Settings stay the durable writes. */
 'use strict';
 (function (Kip) {
   if (!Kip) { return; }
   Kip.init(function () {
     var btn = Kip.$('[data-js-module="toggle"]');
     if (!btn) { return; }
-    /* The full value set, in cycle order, matching App\Theme::VALUES. */
-    var CYCLE = ['paper', 'sepia', 'night', 'auto'];
+    var root = document.documentElement;
+    function isDark() {
+      var t = root.getAttribute('data-theme');
+      if (t === 'night') { return true; }
+      if (t) { return false; }
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    function label() {
+      var text = btn.getAttribute(isDark() ? 'data-label-light' : 'data-label-dark');
+      if (text) { btn.setAttribute('aria-label', text); btn.setAttribute('title', text); }
+    }
+    label();
     btn.addEventListener('click', function () {
-      var root = document.documentElement;
-      var i = CYCLE.indexOf(root.getAttribute('data-theme'));
-      /* An absent attribute (auto) or anything unknown starts at night. */
-      var next = i > -1 ? CYCLE[(i + 1) % CYCLE.length] : 'night';
-      if (typeof Kip.setTheme === 'function') { Kip.setTheme(next); return; }
-      /* Without the prefs module (no Text sheet on this page): the same
-         contract, set by hand. */
-      if (next === 'auto') {
-        root.removeAttribute('data-theme');
-        Kip.cookie.set('theme', '');
-      } else {
-        root.setAttribute('data-theme', next);
-        Kip.cookie.set('theme', next);
-      }
+      var next = isDark() ? 'paper' : 'night';
+      if (typeof Kip.setTheme === 'function') { Kip.setTheme(next); }
+      else { root.setAttribute('data-theme', next); Kip.cookie.set('theme', next); }
+      label();
     });
   });
 })(window.Kip);

@@ -59,8 +59,11 @@
        toggle module's only marker. Hidden by the stylesheet until the
        enhancement layer adds html.js; noscript visitors keep the Text
        sheet. The glyph is drawn in CSS on .theme-toggle::before. */ ?>
-    <button type="button" class="theme-toggle" data-js-module="toggle" aria-label="<?= $this->e(\App\Lang::t('nav.theme_toggle')) ?>"></button>
-    <a class="nav-menu-link" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
+    <button type="button" class="theme-toggle" data-js-module="toggle" aria-label="<?= $this->e(\App\Lang::t('nav.theme_toggle')) ?>" data-label-dark="<?= $this->e(\App\Lang::t('nav.theme_to_dark')) ?>" data-label-light="<?= $this->e(\App\Lang::t('nav.theme_to_light')) ?>"></button>
+    <?php /* Members keep Menu at every width: Messages, Notifications and the
+       operator links live only in the sheet, which opens as a right-hand
+       panel on desktop. Guests see every destination in the desktop row. */ ?>
+    <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
   <main class="site-main"><?= $content ?></main>
   <?php /* No footer: the comp ships none on any frame. Text settings live
@@ -75,26 +78,44 @@
   <div id="menu" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t('nav.menu')) ?>">
     <a class="sheet-handle" href="#sheet-close" aria-hidden="true" tabindex="-1"></a>
     <a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>
+    <?php /* Grouped for scanning: the member's own places first, then the
+       archive, then operator tools. Operator-managed links join the Read
+       group unless they repeat a built-in destination. */
+       $menuRead = ['/browse' => \App\Lang::t('nav.browse'), '/browse/recent' => \App\Lang::t('nav.recent'),
+                    '/browse/authors' => \App\Lang::t('nav.authors'), '/series' => \App\Lang::t('nav.series'),
+                    '/search' => \App\Lang::t('nav.search')];
+       $menuSeen = $menuRead + ['/account' => '', '/messages' => '', '/notifications' => '', '/auth/login' => '']; ?>
     <nav aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
-      <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
-      <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
-      <a href="/search"><?= \App\Lang::t('nav.search') ?></a>
       <?php if ($loggedIn ?? false): ?>
-        <?php if (\App\Features::on('pms')): ?><a href="/messages"><?= \App\Lang::t('nav.messages') ?></a><?php endif; ?>
-        <a href="/notifications"><?= \App\Lang::t('nav.notifications') ?></a>
-        <a href="/account"><?= \App\Lang::t('nav.library') ?></a>
-      <?php else: ?>
-        <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>
+      <span class="sheet-group"><?= \App\Lang::t('nav.you') ?></span>
+      <a href="/account"><?= \App\Lang::t('nav.library') ?></a>
+      <?php if (\App\Features::on('pms')): ?><a href="/messages"><?= \App\Lang::t('nav.messages') ?></a><?php endif; ?>
+      <a href="/notifications"><?= \App\Lang::t('nav.notifications') ?></a>
+      <a href="/account/settings"><?= \App\Lang::t('account.settings') ?></a>
       <?php endif; ?>
-<?php foreach (\App\NavLinks::all($navFile ?? '') as $l): ?>
+      <span class="sheet-group"><?= \App\Lang::t('nav.read') ?></span>
+      <?php foreach ($menuRead as $menuUrl => $menuLabel): ?>
+      <a href="<?= $menuUrl ?>"><?= $menuLabel ?></a>
+      <?php endforeach; ?>
+<?php foreach (\App\NavLinks::all($navFile ?? '') as $l): if (isset($menuSeen[$l['url']])) continue; ?>
       <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
 <?php endforeach; ?>
+      <?php if (!($loggedIn ?? false)): ?>
+      <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>
+      <?php endif; ?>
       <?php if ($isAdmin ?? false): ?>
+      <span class="sheet-group"><?= \App\Lang::t('nav.operator') ?></span>
       <a href="/admin"><?= \App\Lang::t('nav.admin') ?></a>
       <a href="/queue"><?= \App\Lang::t('nav.queue') ?></a>
       <?php if (\App\Features::on('news')): ?><a href="/news/new"><?= \App\Lang::t('nav.post_news') ?></a><?php endif; ?>
       <?php endif; ?>
     </nav>
+    <?php if (($loggedIn ?? false) && !empty($csrf)): ?>
+    <form method="post" action="/auth/logout" class="sheet-logout">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <button type="submit" class="link-btn"><?= \App\Lang::t('nav.logout') ?></button>
+    </form>
+    <?php endif; ?>
   </div>
 </body>
 </html>

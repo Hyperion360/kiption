@@ -87,19 +87,42 @@ final class LayoutShellTest extends TestCase
     /** The header theme quick toggle (plan Task 7): a real button between the
      *  search affordance and the Menu control, labeled from the shared
      *  nav.theme_toggle key. Scripting off it stays hidden (the Text sheet
-     *  still switches themes); with scripting it cycles the four values on
-     *  the spot, device-locally. */
+     *  still switches themes); with scripting it flips light/dark on the
+     *  spot, device-locally, its label naming the next state. */
     public function test_header_carries_the_theme_quick_toggle(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme">', $body,
+        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme" data-label-dark="Switch to the Night theme" data-label-light="Switch to the Paper theme">', $body,
             'the exact button shape the toggle module keys off, with the nav.theme_toggle label');
         // DOM order: the search affordance, then the toggle, then the Menu control.
         $this->assertMatchesRegularExpression('/class="nav-search-link"[^>]*>.*?class="theme-toggle".*?class="nav-menu-link"/s', $body,
             'the toggle sits between the search affordance and the Menu link');
         // No member state and no URL: the button is identical markup for a
         // guest and a member, so cached guest bytes stay stable.
-        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme">', $this->client($this->memberId)->get('/')->body);
+        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme" data-label-dark="Switch to the Night theme" data-label-light="Switch to the Paper theme">', $this->client($this->memberId)->get('/')->body);
+    }
+
+    /** The Menu sheet is grouped (You / Read / Operator), never lists a
+     *  destination twice (operator nav links that repeat a built-in are
+     *  skipped), and for members it carries Settings, a Log out form, and
+     *  the is-member flag that keeps Menu visible on desktop. */
+    public function test_menu_sheet_is_grouped_deduped_and_member_aware(): void
+    {
+        $guest = $this->client()->get('/')->body;
+        preg_match('#<div id="menu".*?</div>#s', $guest, $m);
+        $sheet = $m[0] ?? '';
+        $this->assertSame(1, substr_count($sheet, 'href="/browse"'), 'each destination once');
+        $this->assertSame(1, substr_count($sheet, 'href="/browse/recent"'));
+        $this->assertStringContainsString('href="/auth/login"', $sheet);
+        $this->assertStringNotContainsString('sheet-logout', $sheet);
+        $this->assertStringContainsString('<a class="nav-menu-link" href="#menu">', $guest, 'guests: Menu stays a sub-desktop control');
+        $member = $this->client($this->memberId)->get('/')->body;
+        preg_match('#<div id="menu".*?</div>#s', $member, $m);
+        $msheet = $m[0] ?? '';
+        $this->assertStringContainsString('<a class="nav-menu-link is-member" href="#menu">', $member);
+        $this->assertStringContainsString('href="/account/settings"', $msheet);
+        $this->assertStringContainsString('<form method="post" action="/auth/logout" class="sheet-logout">', $msheet);
+        $this->assertLessThan(strpos($msheet, 'href="/browse"'), strpos($msheet, 'href="/account"'), 'the member group leads');
     }
 
     public function test_theme_toggle_is_hidden_without_scripting_and_revealed_under_html_js(): void
@@ -120,7 +143,12 @@ final class LayoutShellTest extends TestCase
         $this->assertStringNotContainsString('document.cookie', $js,
             'the server theme cookie is HttpOnly and a legacy dark/light cookie reads unknown: the data-theme attribute is the only truth');
         $this->assertStringContainsString("getAttribute('data-theme')", $js, 'the current state is read from the root attribute');
-        $this->assertStringContainsString("['paper', 'sepia', 'night', 'auto']", $js, 'the cycle covers the full Theme::VALUES set in order');
+        // a predictable two-way flip: Night from any light page, Paper from a
+        // dark one (Auto resolves through the OS setting); the label is swapped
+        // to name the next state
+        $this->assertStringContainsString("isDark() ? 'paper' : 'night'", $js, 'the light/dark flip');
+        $this->assertStringContainsString("prefers-color-scheme: dark", $js, 'Auto resolves through the OS setting');
+        $this->assertStringContainsString("setAttribute('aria-label'", $js, 'the label names the next state');
         $this->assertStringContainsString('Kip.setTheme', $js, 'application goes through the prefs module when it is present');
     }
 
