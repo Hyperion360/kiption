@@ -224,6 +224,8 @@
         <?php endforeach; ?></div></fieldset>
       <button type="submit" class="settings-save"><?= \App\Lang::t('common.save') ?></button>
     </form>
+    <?php /* the scripting-off way into focus mode (F is only the shortcut); focus mode has its own exits */ ?>
+    <?php if (!$focus): ?><p class="focus-entry-row"><a class="focus-entry" href="<?= $this->e($baseUrl . '?focus=1') ?>"><?= \App\Lang::t('reader.focus_mode') ?></a></p><?php endif; ?>
   </div>
   <?php if ($focus): ?>
   <div class="focus-hint" aria-hidden="false"><span><?= \App\Lang::t('reader.focus_mode') ?></span> · <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>"><?= \App\Lang::t('reader.exit_focus') ?></a></div>

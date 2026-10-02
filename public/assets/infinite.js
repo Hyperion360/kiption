@@ -108,6 +108,8 @@
       if (back && readUrl) { back.value = readUrl; }
       var exit = state.getAttribute('data-exit-focus');
       if (exit) { Kip.$$('.focus-hint a, .reader-dock a[href^="/story/read/"]').forEach(function (a) { a.setAttribute('href', exit); }); }
+      var enter = Kip.$('a.focus-entry'), focusUrl = state.getAttribute('data-focus-url');
+      if (enter && focusUrl) { enter.setAttribute('href', focusUrl); }
       var parts = state.content;
       var slot = function (name) { var s = parts.querySelector('[data-slot="' + name + '"]'); return s ? s.firstElementChild : null; };
       swap('.reader-bar .bar-count', parts.querySelector('.bar-count'));

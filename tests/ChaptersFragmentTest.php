@@ -245,6 +245,7 @@ final class ChaptersFragmentTest extends TestCase
         $this->assertStringContainsString('input[name="return_to"]', $js, 'Text settings return to the chapter on screen');
         $this->assertStringContainsString("classList.add('is-stacked')", $js, 'the static prev/next block yields once chapters stack');
         $this->assertStringContainsString('.focus-hint a, .reader-dock a[href^="/story/read/"]', $js, 'visible focus exits follow the chapter');
+        $this->assertStringContainsString("Kip.$('a.focus-entry')", $js, 'and so does the plain link into focus mode');
         $this->assertStringContainsString('if (res.ok && n > acked) { acked = n; }', $js, 'progress counts only what the server took');
         $this->assertStringContainsString("searchParams.set('fragment', '1')", $js, 'the listing branch fetches the card loop');
         $this->assertStringContainsString('disconnect', $js, 'the observer stops at the last chapter');

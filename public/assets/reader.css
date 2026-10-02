@@ -217,6 +217,9 @@ html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
 .prose blockquote { margin: 0 0 1em; padding-inline-start: 1em; border-inline-start: 2px solid var(--line-strong); }
 .prose img { max-width: 100%; height: auto; }
 .chapter-meta { margin-block: .25rem; }
+/* The Text panel's plain link into focus mode (the F key's no-script twin). */
+.focus-entry-row { margin: 1rem 0 0; }
+.focus-entry { display: inline-flex; align-items: center; min-height: 44px; font: 14px/1.4 var(--sans); color: var(--accent); }
 /* Once the infinite module stacks chapters, the opening chapter's static
    prev/next block would point at the wrong chapters: each unit's own
    next-chapter link and the contents list take over. */
