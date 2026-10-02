@@ -1230,6 +1230,9 @@ body.focus .site-head { display: none; }
     border-inline-start: 1px solid var(--line);
   }
   .reader .sheet-handle, .reader .sheet-done { display: none; }
+  /* Targeting a pane that is already on screen must not raise the scrim:
+     the pane has no Done link here, so nothing could dismiss it. */
+  body:has(.reader:not(.reader-focus) :is(#contents, #text):target) .scrim { display: none; }
   .panel-head {
     display: flex; align-items: baseline; justify-content: space-between;
     margin-block-end: 1rem;

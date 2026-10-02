@@ -231,6 +231,19 @@ final class LayoutShellTest extends TestCase
 
     /** C7: the story-page components exist as real rules, at all three
      *  breakpoints, so the M1/T2/D3 frames are styled by the sheet. */
+    /** On the desktop reader Contents and Text are always-visible panes, so
+     *  targeting them must not raise the scrim: their Done links are hidden
+     *  there, and a scrim with no dismissal would trap pointer users with
+     *  scripting off. Focus mode keeps the overlay (it has Done links). */
+    public function test_desktop_panes_never_raise_the_scrim(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
+        $desktop = substr($css, (int) strpos($css, "@media (min-width:1024px) {\n  /* D1: the desktop reader"));
+        $desktop = substr($desktop, 0, (int) strpos($desktop, "\n}\n"));
+        $this->assertStringContainsString(
+            'body:has(.reader:not(.reader-focus) :is(#contents, #text):target) .scrim { display: none; }', $desktop);
+    }
+
     public function test_reader_css_carries_the_story_page_components(): void
     {
         $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
