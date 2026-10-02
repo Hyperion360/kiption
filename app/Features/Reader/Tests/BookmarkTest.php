@@ -327,4 +327,19 @@ final class BookmarkTest extends TestCase
         $this->assertSame(404, $this->client($this->memberId)->postWithToken('/reader/progress/the-rabbit-hole/2', [])->status);
         $this->assertNull($this->lastPosition(), 'nothing was recorded');
     }
+
+    /** A password change revokes older sessions (Kip's epoch gate). Public
+     *  chapter pages read the session too, so a revoked session must never
+     *  load the member's private notes there (qa-full /review, Codex P1). */
+    public function test_revoked_session_never_sees_private_notes(): void
+    {
+        $c = $this->client($this->memberId);
+        $c->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'secret margin note']);
+        $this->assertStringContainsString('secret margin note', $c->get('/story/read/the-rabbit-hole/1')->body);
+        $this->db->query("UPDATE users SET password_hash = ? WHERE id = ?", [password_hash('rotated', PASSWORD_DEFAULT), $this->memberId]);
+        foreach (['/story/read/the-rabbit-hole/1', '/story/fragment/the-rabbit-hole/1', '/story/view/the-rabbit-hole'] as $path) {
+            $res = $c->get($path);
+            $this->assertStringNotContainsString('secret margin note', $res->body, $path);
+        }
+    }
 }

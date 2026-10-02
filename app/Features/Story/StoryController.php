@@ -18,7 +18,7 @@ final class StoryController
 
     public function view(string $slug): Response|string
     {
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = $this->viewerId();
         $story = $this->repo->findStoryBySlug($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
         $chapters = [];
@@ -122,7 +122,7 @@ final class StoryController
             $n = '1';
         }
         $position = max(1, (int) $n);
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = $this->viewerId();
         // The shared chapter lookup + gates; the fragment endpoint rides the
         // same path (chapterContext), with the adult gate answering a page
         // shape here and a bare 404 there.
@@ -224,7 +224,7 @@ final class StoryController
             return $this->fragmentWrap(new Response('Page not found', 404));
         }
         $position = (int) $n;
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = $this->viewerId();
         $ctx = $this->chapterContext($slug, $position, $me, false);
         if (!is_array($ctx)) return $this->fragmentWrap($ctx);
         $story = $ctx['story'];
@@ -357,7 +357,7 @@ final class StoryController
     public function whole(string $slug): Response|string
     {
         if (($r = \App\Features::guard('exports')) !== null) return $r;
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = $this->viewerId();
         $story = $this->repo->wholeWork($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
         $chapters = [];
@@ -420,7 +420,7 @@ final class StoryController
     public function download(string $slug, string $format): Response|string
     {
         if (($r = \App\Features::guard('exports')) !== null) return $r;
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = $this->viewerId();
         $story = $this->repo->wholeWork($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
         $chapters = [];
@@ -677,6 +677,19 @@ final class StoryController
     private function validRating(int $ratingId): bool
     {
         return $this->db->one('SELECT 1 AS x FROM ratings WHERE id = ?', [$ratingId]) !== null;
+    }
+
+    /** The viewing member, or 0. The cookie gate keeps the cookieless
+     *  (cacheable) path from starting a session; a logged-in session is then
+     *  checked against the password epoch, so a session revoked by a password
+     *  change sees the guest page, never the member's private notes, progress
+     *  or bookmarks. The epoch SELECT is the auth-validation query the
+     *  budget already exempts. */
+    private function viewerId(): int
+    {
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        if ($me !== 0 && !(new \Kip\Auth($this->db, $this->session))->sessionValid()) return 0;
+        return $me;
     }
 
     private function staticCache(): \App\StaticCache\Cache
