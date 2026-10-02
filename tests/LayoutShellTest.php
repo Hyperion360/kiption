@@ -187,4 +187,13 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('body.focus.site-head{display:none', $flat,
             'focus mode hides the site header via body.focus');
     }
+
+    public function test_layout_defers_the_enhancement_layer(): void
+    {
+        $body = $this->client()->get('/')->body;
+        $this->assertStringContainsString('<script src="/assets/app.js" defer></script>', $body,
+            'one deferred vanilla script tag');
+        $this->assertSame(2, substr_count($body, '<script'),
+            'exactly two script tags: the deferred layer and the data-only JSON-LD');
+    }
 }

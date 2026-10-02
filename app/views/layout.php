@@ -31,6 +31,7 @@
   <link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? \App\Lang::t('common.feed_title')) ?>" href="/feed">
   <?php endif; ?>
   <link rel="stylesheet" href="/assets/reader.css">
+  <script src="/assets/app.js" defer></script>
 </head>
 <body<?= ($focus ?? false) ? ' class="focus"' : '' ?>>
   <header class="site-head">

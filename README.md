@@ -185,8 +185,16 @@ whole work, recently updated) and the site shell are redesigned around a
 phones, a floating control pill on tablets, and a 1200px shell on
 desktop. Every control is a link, a form, or native CSS (`:target`
 sheets, `:checked` tabs, a scroll-driven progress bar where the browser
-supports it); there is no JavaScript to load, and `prefers-reduced-motion`
-disables the one animation. Printing any page drops the site and reader
+supports it); `prefers-reduced-motion` disables the one animation.
+Scripting is progressive enhancement, never a requirement: pages are
+fully usable without it, and one hand-written vanilla layer
+(`public/assets/app.js`, loaded with `defer`, no build step or
+dependency) adds keyboard shortcuts (J/K chapters, F focus, T text,
+Esc), live reading position, infinite scroll for chapters and
+listings, instant preference application, and the header theme quick
+toggle. Every feature module loads only when its markup marker is
+present, and every behavior has a no-script path (forms, `:target`
+sheets, the pager, the Text sheet's Save). Printing any page drops the site and reader
 chrome, including a sheet left open at print time.
 
 Reader typography. The chapter reader's Text sheet saves six reading
