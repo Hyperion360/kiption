@@ -223,6 +223,105 @@ final class BrowseTest extends TestCase
         $this->assertStringContainsString('class="summary clamp-2"', $body);
     }
 
+    /** Task 6 (infinite scroll, server contract only): ?fragment=1 renders
+     *  ONLY the card loop, never a document. The seeded fixture plus a
+     *  second story and a two-per-page app put a card on page 2. */
+    private function fragmentApp(): App
+    {
+        return new App(array_merge($this->config(), ['items_per_page' => 2]));
+    }
+
+    private function seedSecondStory(string $title, string $slug, string $updatedAt): void
+    {
+        (new Database($this->dsn))->query(
+            'INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, updated_at) VALUES (?, ?, ?, 1, 1, 1, ?)',
+            [$title, $slug, 'A second story.', $updatedAt]
+        );
+    }
+
+    public function test_recent_fragment_renders_only_the_card_loop(): void
+    {
+        $this->seedSecondStory('Middle Tale', 'middle-tale', '2026-09-02T10:00:00Z');
+        $this->seedSecondStory('Older Tale', 'older-tale', '2026-08-30T10:00:00Z');
+        $res = $this->fragmentApp()->handle(new Request('GET', '/browse/recent', ['page' => '2', 'fragment' => '1'], [], []));
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('<li class="story-card">', $res->body);
+        $this->assertStringContainsString('/story/view/older-tale', $res->body);
+        $this->assertStringNotContainsString('<html', $res->body, 'a fragment is never a document');
+        $this->assertStringNotContainsString('<h1', $res->body, 'a fragment never carries the page heading');
+        $this->assertStringNotContainsString('filter-chips', $res->body, 'a fragment never carries the chip row');
+        $this->assertStringNotContainsString('site-head', $res->body, 'a fragment never carries the site header');
+        // guests are byte-stable across calls: the fragment is cache-neutral
+        $again = $this->fragmentApp()->handle(new Request('GET', '/browse/recent', ['page' => '2', 'fragment' => '1'], [], []));
+        $this->assertSame($res->body, $again->body, 'guest fragment bodies must be byte-identical');
+    }
+
+    public function test_fragment_junk_page_params_coerce_to_page_one(): void
+    {
+        $one = $this->app->handle(new Request('GET', '/browse/recent', ['page' => '1', 'fragment' => '1'], [], []))->body;
+        foreach (['0', 'abc', '-5'] as $junk) {
+            $res = $this->app->handle(new Request('GET', '/browse/recent', ['page' => $junk, 'fragment' => '1'], [], []));
+            $this->assertSame(200, $res->status);
+            $this->assertSame($one, $res->body, "fragment page={$junk} must coerce to page 1");
+        }
+    }
+
+    public function test_fragment_past_the_end_is_an_empty_card_list(): void
+    {
+        $res = $this->app->handle(new Request('GET', '/browse/recent', ['page' => '99', 'fragment' => '1'], [], []));
+        $this->assertSame(200, $res->status, 'past-the-end fragments stay 200, the JS stop signal');
+        $this->assertSame('', trim($res->body), 'an exhausted feed renders an empty card list');
+        $this->assertStringNotContainsString('<li', $res->body);
+    }
+
+    public function test_fragment_page_two_carries_only_older_cards(): void
+    {
+        $this->seedSecondStory('Newer Tale', 'newer-tale', '2026-09-04T10:00:00Z');
+        $this->seedSecondStory('Older Tale', 'older-tale', '2026-08-30T10:00:00Z');
+        $app = $this->fragmentApp(); // per page 2: page 1 = 09-04 + 09-01, page 2 = 08-30
+        $p1 = $app->handle(new Request('GET', '/browse/recent', ['fragment' => '1'], [], []))->body;
+        $p2 = $app->handle(new Request('GET', '/browse/recent', ['page' => '2', 'fragment' => '1'], [], []))->body;
+        $this->assertStringContainsString('2026-09-04', $p1);
+        $this->assertStringNotContainsString('2026-08-30', $p1);
+        $this->assertStringContainsString('2026-08-30', $p2, 'page 2 must be the OLDER stories');
+        $this->assertStringNotContainsString('2026-09-04', $p2, 'newer cards never leak onto fragment page 2');
+    }
+
+    public function test_fragment_cards_share_the_page_card_bytes_exactly(): void
+    {
+        $this->seedFilterFixture();
+        $page = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'complete'], [], []))->body;
+        $frag = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'complete', 'fragment' => '1'], [], []))->body;
+        preg_match_all('/<li class="story-card">.*?<\/li>/s', $page, $pageCards);
+        preg_match_all('/<li class="story-card">.*?<\/li>/s', $frag, $fragCards);
+        $this->assertNotSame([], $pageCards[0], 'the filter really engaged on the page');
+        $this->assertSame($pageCards[0], $fragCards[0],
+            'fragment cards must be byte-identical to the page cards (links, filter and all)');
+    }
+
+    public function test_recent_list_carries_the_infinite_markup_contract(): void
+    {
+        // two completed plus the WIP rabbit: per page 2, both the unfiltered
+        // and the complete-filtered page 1 come back FULL (has an older page)
+        (new Database($this->dsn))->query(
+            'INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, updated_at) VALUES (?, ?, ?, 1, 1, 1, 1, 12000, ?)',
+            ['Done Early', 'done-early', 'Wrapped sooner.', '2026-09-06T10:00:00Z']
+        );
+        $this->seedFilterFixture();
+        $app = $this->fragmentApp();
+        // a full page advertises the OLDER direction (newest-first feed)
+        $body = $app->handle(new Request('GET', '/browse/recent', [], [], []))->body;
+        $this->assertStringContainsString(
+            '<ul class="story-list" data-js-module="infinite" data-next-url="/browse/recent?page=2" data-canonical="/browse/recent">',
+            $body);
+        // a short page has no older page: the empty next-url is the contract
+        $end = $app->handle(new Request('GET', '/browse/recent', ['filter' => 'wip'], [], []))->body;
+        $this->assertStringContainsString('data-next-url=""', $end);
+        // the active filter rides data-next-url exactly like the visible Older link
+        $filtered = $app->handle(new Request('GET', '/browse/recent', ['filter' => 'complete'], [], []))->body;
+        $this->assertStringContainsString('data-next-url="/browse/recent?filter=complete&amp;page=2"', $filtered);
+    }
+
     public function test_continue_pill_renders_for_the_member_with_progress_and_never_for_guests(): void
     {
         $db = new Database($this->dsn);
