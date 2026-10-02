@@ -28,11 +28,12 @@
          controls (CSS shows them only at 1024+). */ ?>
   <header class="reader-head<?= $focus ? ' reader-breadcrumb' : '' ?>">
     <?php if ($focus): ?>
-    <a class="rt-brand" href="/"><?= \App\Lang::t('nav.brand') ?></a><span class="rt-sep" aria-hidden="true">·</span>
+    <span class="rt-left"><a class="rt-brand" href="/"><?= \App\Lang::t('nav.brand') ?></a><span class="rt-sep" aria-hidden="true">·</span>
     <span class="rt-story"><?= $this->e($story['title']) ?></span><span class="rt-sep" aria-hidden="true">·</span>
-    <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span>
+    <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span></span>
     <span class="reader-pct"><?= \App\Lang::t('story.chapter_of_pct', ['n' => (int) $position, 'm' => (int) $total, 'pct' => (int) $pct_end]) ?></span>
     <?php else: ?>
+    <a class="rt-brand" href="/"><?= \App\Lang::t('nav.brand') ?></a>
     <a class="reader-back" href="/story/view/<?= $this->e($story['slug']) ?>" aria-label="<?= $this->e(\App\Lang::t('reader.back_to_story')) ?>">←</a>
     <div class="reader-titles"><span class="rt-story"><?= $this->e($story['title']) ?></span>
       <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span></div>

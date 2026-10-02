@@ -516,13 +516,14 @@ html[data-mode="pages"] .reader-main .prose {
 /* The comp's next-chapter block (M3): the kicker + serif title + rule link
    that replaces the old filled button; centered by .chapter-end. */
 .next-chapter { margin-block-start: 24px; }
-.next-chapter a { display: block; text-decoration: none; color: var(--ink); }
+.next-chapter a { display: block; text-decoration: none; color: var(--ink); text-align: center; }
 .next-chapter .ch-kicker {
+  display: block;
   margin: 0 0 .5rem;
   font: 600 12px/1.5 var(--sans);
   letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
 }
-.next-chapter .next-title { font-family: var(--serif); font-size: 24px; line-height: 1.2; }
+.next-chapter .next-title { display: block; font-family: var(--serif); font-size: 24px; line-height: 1.2; }
 .next-chapter .next-title::after {
   content: ""; display: block; width: 40px; height: 1px;
   margin: 16px auto 0; background: var(--line-strong);
@@ -627,12 +628,13 @@ body.focus .site-head { display: none; }
    focus breadcrumb (D2) shows brand + separators at every width and never
    shows the byline or controls. */
 .rt-brand, .rt-by, .rt-ctls { display: none; }
-.reader-breadcrumb { grid-template-columns: auto auto auto auto 1fr auto; }
-.reader-breadcrumb .rt-brand { display: inline-flex; }
-.rt-sep { color: var(--muted); }
+.reader-breadcrumb { display: flex; align-items: center; column-gap: 12px; }
+.rt-left { display: inline-flex; align-items: baseline; gap: 12px; min-width: 0; }
+.reader-breadcrumb .rt-sep { color: var(--muted); }
 .reader-breadcrumb .rt-story { font-size: 15px; }
 .reader-breadcrumb .rt-chapter { font-size: 13px; }
-.reader-breadcrumb .reader-pct { display: inline; align-self: center; font-weight: 400; font-size: 13px; }
+.reader-breadcrumb .reader-pct { display: inline; margin-inline-start: auto; font-weight: 400; font-size: 13px; white-space: nowrap; }
+.reader-breadcrumb .reader-progress { position: absolute; inset-inline: 0; bottom: 0; }
 .focus-hint {
   position: fixed; inset-inline-start: 24px; bottom: 24px; z-index: 30;
   font: 13px var(--sans); color: var(--muted);
@@ -740,6 +742,7 @@ body.focus .site-head { display: none; }
 /* Theme swatches (M4): a chip previewing each palette, ringed when chosen. */
 .segmented.swatches { flex-wrap: wrap; }
 .swatch { flex-direction: column; gap: 8px; padding: 8px; border-inline-start: 0; }
+.swatch span:last-of-type { text-transform: capitalize; }
 .swatch .swatch-aa {
   min-height: 0; height: 46px; width: 100%;
   font-family: var(--serif); font-size: 20px;
@@ -768,6 +771,12 @@ body.focus .site-head { display: none; }
      controls live in the top bar). No site header on reading surfaces at any
      width - the reader head IS the chrome (comp M2/T1/D1 all ship none). */
   body:has(.reader) .site-head { display: none; }
+  /* Full bleed: the workstation spans the viewport (comp D1 is edge to
+     edge); the 1200px shell stays for every other surface. */
+  body:has(.reader) .site-main { max-width: none; margin-inline: 0; padding: 0; }
+  .reader-head .rt-brand { display: inline-flex; }
+  .reader-head .rt-by { display: inline; }
+  .reader-head .rt-ctls { display: inline-flex; }
   .reader {
     display: grid;
     grid-template-columns: 300px minmax(0, 1fr) 320px;
@@ -780,7 +789,9 @@ body.focus .site-head { display: none; }
   }
   .reader-head {
     grid-area: head;
-    grid-template-columns: auto auto 1fr auto auto;
+    /* brand | titles | byline(1fr) | controls; the back arrow and percent
+       are display:none here, so five tracks place the four visible items */
+    grid-template-columns: auto auto 1fr auto;
     grid-template-rows: auto 2px;
     min-height: 60px; padding-inline: 24px; column-gap: 16px;
   }
@@ -835,6 +846,24 @@ body.focus .site-head { display: none; }
   .chapter-list li.is-current { box-shadow: inset 3px 0 0 var(--accent); }
   .reader-main { grid-area: main; padding-block: 3rem; }
   .reader-bar { display: none; }
+  /* D2 focus (desktop): the distraction-free variant. One centered column;
+     the panes yield (the dock's Contents/Text still open the sheets as the
+     fixed overlays the mobile width uses); the breadcrumb keeps its six
+     tracks against the four-track regular head. */
+  .reader.reader-focus { display: block; min-height: 100vh; }
+  .reader.reader-focus .sheet { display: none; }
+  .reader.reader-focus .sheet:target {
+    display: flex; flex-direction: column;
+    position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+    max-height: 85vh; overflow-y: auto;
+    background: var(--surface);
+    border-block-start: 1px solid var(--line-strong);
+    padding: 8px 24px 24px;
+    box-shadow: 0 -12px 40px -12px var(--scrim);
+  }
+  .reader.reader-focus .sheet:target .panel-head { display: none; }
+  .reader.reader-focus .sheet:target .sheet-handle, .reader.reader-focus .sheet:target .sheet-done { display: inline-flex; }
+  .reader-focus .reader-main { max-width: none; padding-block: 3rem; }
 }
 @media (max-width:1023px) {
   /* Below the desktop pane: annotations hide, word counts return, the
