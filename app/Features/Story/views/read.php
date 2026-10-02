@@ -31,14 +31,14 @@
     <span class="rt-left"><a class="rt-brand" href="/"><?= \App\Lang::t('nav.brand') ?></a><span class="rt-sep" aria-hidden="true">·</span>
     <span class="rt-story"><?= $this->e($story['title']) ?></span><span class="rt-sep" aria-hidden="true">·</span>
     <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span></span>
-    <span class="reader-pct"><?= \App\Lang::t('story.chapter_of_pct', ['n' => (int) $position, 'm' => (int) $total, 'pct' => (int) $pct_end]) ?></span>
+    <span class="reader-pct" data-js="reader-pct"><?= \App\Lang::t('story.chapter_of_pct', ['n' => (int) $position, 'm' => (int) $total, 'pct' => (int) $pct_end]) ?></span>
     <?php else: ?>
     <a class="rt-brand" href="/"><?= \App\Lang::t('nav.brand') ?></a>
     <a class="reader-back" href="/story/view/<?= $this->e($story['slug']) ?>" aria-label="<?= $this->e(\App\Lang::t('reader.back_to_story')) ?>">←</a>
     <div class="reader-titles"><span class="rt-story"><?= $this->e($story['title']) ?></span>
       <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span></div>
     <span class="rt-by"><?= \App\Lang::t('story.by') ?> <?= $this->e($story['penname']) ?></span>
-    <span class="reader-pct"><?= (int) $pct_end ?>%</span>
+    <span class="reader-pct" data-js="reader-pct"><?= (int) $pct_end ?>%</span>
     <nav class="rt-ctls" aria-label="<?= $this->e(\App\Lang::t('reader.bar_aria')) ?>">
       <a class="rt-ctl" href="#contents"><?= \App\Lang::t('reader.contents') ?></a>
       <a class="rt-ctl" href="#text"><?= \App\Lang::t('reader.text') ?></a>
@@ -51,9 +51,15 @@
       <?php else: ?><a class="rt-ctl" href="/auth/login"><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
     </nav>
     <?php endif; ?>
+    <?php /* the position module's wiring (AppJsContractTest): the chapter's own
+       span of the story rides the data attributes, so the module only ever
+       maps scroll into this server-stamped band; story data only, so the
+       cached guest bytes stay stable. */ ?>
     <div class="reader-progress" role="progressbar" aria-label="<?= $this->e(\App\Lang::t('reader.progress_aria')) ?>"
          aria-valuenow="<?= (int) $pct_end ?>" aria-valuemin="0" aria-valuemax="100"
-         style="<?= $this->e($barStyle) ?>"></div>
+         style="<?= $this->e($barStyle) ?>"
+         data-js="reader-progress" data-js-module="position"
+         data-p-start="<?= (int) $pct_start ?>" data-p-end="<?= (int) $pct_end ?>"></div>
   </header>
   <div class="reader-main">
     <article class="h-entry">

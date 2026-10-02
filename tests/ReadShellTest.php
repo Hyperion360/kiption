@@ -58,7 +58,8 @@ final class ReadShellTest extends TestCase
         $this->assertStringContainsString('<span class="rt-story">The Rabbit Hole</span>', $body);
         // line 2: "ROMAN · title" when the chapter carries a title
         $this->assertStringContainsString('<span class="rt-chapter">II · Through</span>', $body);
-        $this->assertStringContainsString('<span class="reader-pct">50%</span>', $body);
+        // the wiring attribute is the position module's marker (AppJsContractTest)
+        $this->assertStringContainsString('<span class="reader-pct" data-js="reader-pct">50%</span>', $body);
         // the story-span progressbar: static --p-end fallback + scroll-driven
         // --p-start..--p-end enhancement, valuenow at the chapter's end
         $this->assertStringContainsString('role="progressbar"', $body);
@@ -194,9 +195,13 @@ final class ReadShellTest extends TestCase
     public function test_no_javascript_anywhere_on_the_read_page(): void
     {
         $body = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
-        // the only <script> allowed is the inert JSON-LD payload
-        $this->assertSame(0, preg_match_all('#<script(?![^>]*application/ld\+json)#', $body),
-            'no executable script tags ship');
+        // The progressive-enhancement policy (Task 1): exactly one script tag
+        // beyond the inert JSON-LD payload, the deferred loader; nothing
+        // inline, no event-handler attributes anywhere.
+        $this->assertSame(1, preg_match_all('#<script src="/assets/app\.js" defer></script>#', $body),
+            'only the deferred loader ships');
+        $this->assertSame(2, substr_count($body, '<script'),
+            'the loader plus the data-only JSON-LD, nothing else');
         $this->assertSame(0, preg_match_all('/\son[a-z]+\s*=/i', $body),
             'no inline event handler attributes ship');
     }
