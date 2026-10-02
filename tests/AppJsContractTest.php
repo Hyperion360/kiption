@@ -178,4 +178,22 @@ final class AppJsContractTest extends TestCase
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         $this->assertStringContainsString("'position'", $loader, 'the loader knows the position module');
     }
+
+    /** The .reader-progress opening tag: the element carrying the module marker. */
+    /** The .reader-progress opening tag: the element carrying the module marker. */
+    private function progressTag(string $body): string
+    {
+        $this->assertSame(1, preg_match('/<div class="reader-progress"[^>]*>/s', $body, $m),
+            'the .reader-progress element renders');
+        return $m[0];
+    }
+
+    /** Every .reader-pct opening tag: one readout per reader page. */
+    /** Every .reader-pct opening tag: one readout per reader page. */
+    private function pctTags(string $body): array
+    {
+        $this->assertSame(1, preg_match_all('/<span class="reader-pct"[^>]*>/', $body, $m),
+            'exactly one percent readout renders');
+        return $m[0];
+    }
 }
