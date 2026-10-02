@@ -107,6 +107,11 @@ final class BrowseController
         $page = $this->page();
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
         $stories = $this->stories->storiesInCategory($slug, $perPage, $offset, \App\Features::on('mute') ? $me : 0);
+        // The recent listing's fragment mode: the infinite module mounts on
+        // this list too and fetches ?fragment=1 for the bare card loop.
+        if (($this->request->get['fragment'] ?? '') === '1') {
+            return $this->view->render('browse/_story_cards', ['stories' => $stories]);
+        }
         $categoryTitle = \App\Lang::t('browse.category_title', ['name' => $slug]);
         $head = $this->head()->withTitle($categoryTitle)
             ->withCanonical($this->request->path)

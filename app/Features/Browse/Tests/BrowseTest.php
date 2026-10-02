@@ -391,6 +391,21 @@ final class BrowseTest extends TestCase
         $this->assertSame($res->body, $again->body, 'guest fragment bodies must be byte-identical');
     }
 
+    /** Category listings mount the same infinite module, so they answer
+     *  ?fragment=1 with the bare card loop too. */
+    public function test_category_fragment_renders_only_the_card_loop(): void
+    {
+        $this->seedSecondStory('Middle Tale', 'middle-tale', '2026-09-02T10:00:00Z');
+        $this->seedSecondStory('Older Tale', 'older-tale', '2026-08-30T10:00:00Z');
+        (new Database($this->dsn))->query("INSERT OR IGNORE INTO story_categories (story_id, category_id)
+            SELECT s.id, (SELECT id FROM categories WHERE slug = 'general') FROM stories s");
+        $res = $this->fragmentApp()->handle(new Request('GET', '/browse/category/general', ['page' => '2', 'fragment' => '1'], [], []));
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('<li class="story-card">', $res->body);
+        $this->assertStringNotContainsString('<html', $res->body, 'a fragment is never a document');
+        $this->assertStringNotContainsString('site-head', $res->body);
+    }
+
     public function test_fragment_junk_page_params_coerce_to_page_one(): void
     {
         $one = $this->app->handle(new Request('GET', '/browse/recent', ['page' => '1', 'fragment' => '1'], [], []))->body;

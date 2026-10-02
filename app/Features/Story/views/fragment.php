@@ -14,4 +14,7 @@
          'csrf' => $csrf,
          'pct_start' => $pct_start,
          'pct_end' => $pct_end,
+         'prev' => $prev,
+         'member' => $member,
+         'bookmarked' => $bookmarked,
      ]);

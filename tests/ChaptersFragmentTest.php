@@ -186,6 +186,36 @@ final class ChaptersFragmentTest extends TestCase
      *  server-rendered data attributes), runs one observer per page, keeps
      *  one fetch in flight, parses with <template>, and disconnects at the
      *  end of the story. */
+    /** The unit-state template: the reader chrome the infinite module swaps
+     *  in when this chapter becomes the one on screen. Guests get the keys
+     *  targets and the chapter count only; members also get both bookmark
+     *  controls (saved state included) and the progress URL. */
+    public function test_unit_state_template_carries_the_chapter_chrome(): void
+    {
+        $guest = $this->client()->get('/story/fragment/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('<template class="unit-state" data-prev="/story/read/the-rabbit-hole/1" data-next="/story/read/the-rabbit-hole/3">', $guest);
+        $this->assertStringContainsString('<span class="bar-count">2 / 3</span>', $guest);
+        $this->assertStringNotContainsString('/reader/bookmark', $guest, 'guests get no bookmark forms');
+        $this->assertStringNotContainsString('data-progress-url', $guest);
+
+        $member = $this->client($this->memberId());
+        $member->postWithToken('/reader/bookmarkadd/the-rabbit-hole/2', []);
+        $body = $member->get('/story/fragment/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('data-progress-url="/reader/progress/the-rabbit-hole/2"', $body);
+        $this->assertSame(2, substr_count($body, 'action="/reader/bookmarkremove/the-rabbit-hole/2"'), 'both controls, saved');
+        $other = $member->get('/story/fragment/the-rabbit-hole/3')->body;
+        $this->assertSame(2, substr_count($other, 'action="/reader/bookmarkadd/the-rabbit-hole/3"'), 'an unsaved chapter offers Bookmark');
+        $this->assertStringContainsString('data-next=""', $other, 'the last chapter has no next target');
+    }
+
+    /** A member fragment carries their session token, so no shared cache may
+     *  store it. */
+    public function test_fragment_is_never_shared_cacheable(): void
+    {
+        $res = $this->client()->get('/story/fragment/the-rabbit-hole/2');
+        $this->assertSame('private, no-store', $res->headers['Cache-Control'] ?? null);
+    }
+
     public function test_the_infinite_module_contract(): void
     {
         $this->assertFileExists(dirname(__DIR__) . '/public/assets/infinite.js');
@@ -198,7 +228,13 @@ final class ChaptersFragmentTest extends TestCase
         $this->assertStringContainsString('data-read-url', $js, 'history rides the unit read URL');
         $this->assertStringContainsString('history.replaceState', $js);
         $this->assertStringContainsString('busy', $js, 'one fetch in flight at a time');
-        $this->assertStringContainsString('.catch(function () { busy = false; })', $js, 'a failed fetch never wedges the module');
+        $this->assertStringContainsString('.catch(function () { busy = false; retry(); })', $js, 'a failed fetch never wedges the module');
+        $this->assertStringContainsString('MAX_RETRIES', $js, 'and retries are bounded');
+        // the chrome follows the chapter on screen, never the prefetch
+        $this->assertStringContainsString("template.unit-state", $js);
+        $this->assertStringContainsString("rootMargin: '0px 0px -50% 0px'", $js, 'active = top crossed the middle');
+        $this->assertStringContainsString("data-progress-url", $js);
+        $this->assertStringContainsString("searchParams.set('fragment', '1')", $js, 'the listing branch fetches the card loop');
         $this->assertStringContainsString('disconnect', $js, 'the observer stops at the last chapter');
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         $this->assertStringContainsString("'infinite'", $loader, 'the loader knows the module');

@@ -111,6 +111,22 @@ final class ReaderController
         return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
     }
 
+    /** The infinite module's progress write: an appended chapter has become
+     *  the one on screen (the fragment GET never records, since it is often
+     *  a prefetch). The bookmark gates apply, recordProgress never moves
+     *  the marker backwards, and the answer is an empty 204. */
+    #[AuthAttr] #[Post]
+    public function progress(string $slug, string $position): Response
+    {
+        $me = (int) ($this->session->get('user_id') ?? 0);
+        $row = $this->bookmarkTarget($slug, $position, $me);
+        if ($row === null || $me === 0) { return new Response('Page not found', 404); }
+        $this->db->begin();
+        (new \App\Repositories\EngagementRepository($this->db))->recordProgress($me, $row['sid'], (int) $position);
+        $this->db->commit();
+        return new Response('', 204);
+    }
+
     #[AuthAttr] #[Post]
     public function bookmarkRemove(string $slug, string $position): Response
     {

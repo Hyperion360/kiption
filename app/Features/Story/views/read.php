@@ -56,12 +56,7 @@
       <a class="rt-ctl is-open" href="#contents"><span class="ctl-bars" aria-hidden="true"><span></span><span></span><span></span></span><?= \App\Lang::t('reader.contents') ?></a>
       <a class="rt-ctl is-open" href="#text"><span class="ctl-aa" aria-hidden="true">A<span>a</span></span><?= \App\Lang::t('reader.text') ?></a>
       <?php if ($member): ?>
-        <?php if ($bookmarked): ?>
-        <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl is-saved"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark_saved') ?></button></form>
-        <?php else: ?>
-        <form method="post" action="/reader/bookmarkadd/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark') ?></button></form>
-        <?php endif; ?>
-      <?php else: ?><a class="rt-ctl" href="/auth/login"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
+<?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'story' => $story, 'position' => $position, 'bookmarked' => $bookmarked, 'csrf' => $csrf]) ?>      <?php else: ?><a class="rt-ctl" href="/auth/login"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
     </nav>
     <?php endif; ?>
     <?php /* the position module's wiring (AppJsContractTest): the chapter's own
@@ -88,6 +83,9 @@
         'csrf' => $csrf,
         'pct_start' => $pct_start,
         'pct_end' => $pct_end,
+        'prev' => $prev,
+        'member' => $member,
+        'bookmarked' => $bookmarked,
     ]) ?>
     <nav class="chapter-nav" aria-label="<?= $this->e(\App\Lang::t('story.chapter_nav_aria')) ?>">
       <?php if ($prev !== null): ?>
@@ -113,24 +111,7 @@
       <span class="bar-caption"><?= \App\Lang::t('reader.text') ?></span>
     </a>
     <?php if ($member): ?>
-      <?php if ($bookmarked): ?>
-      <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline bar-bookmark">
-        <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-        <button type="submit" class="is-saved" aria-label="<?= $this->e(\App\Lang::t('reader.bookmark_saved')) ?>">
-          <span class="bar-top"><svg class="bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3.5L7 20Z"/></svg></span>
-          <span class="bar-caption"><?= \App\Lang::t('reader.bookmark_saved') ?></span>
-        </button>
-      </form>
-      <?php else: ?>
-      <form method="post" action="/reader/bookmarkadd/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline bar-bookmark">
-        <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-        <button type="submit" aria-label="<?= $this->e(\App\Lang::t('reader.bookmark')) ?>">
-          <span class="bar-top"><svg class="bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3.5L7 20Z"/></svg></span>
-          <span class="bar-caption"><?= \App\Lang::t('reader.bookmark') ?></span>
-        </button>
-      </form>
-      <?php endif; ?>
-    <?php else: ?>
+<?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'story' => $story, 'position' => $position, 'bookmarked' => $bookmarked, 'csrf' => $csrf]) ?>    <?php else: ?>
     <a href="/auth/login" aria-label="<?= $this->e(\App\Lang::t('reader.bookmark')) ?>">
       <span class="bar-top"><svg class="bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3.5L7 20Z"/></svg></span>
       <span class="bar-caption"><?= \App\Lang::t('reader.bookmark') ?></span>

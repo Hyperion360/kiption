@@ -209,10 +209,13 @@ final class StoryController
      *  The chapter number is strict here: read() clamps because the bare
      *  chapter-1 URL has a page to land on; the fragment does not, so junk,
      *  zero, negative, and past-the-end numbers all 404. Records NO reading
-     *  progress (an append is not a chapter open; the page open already
-     *  recorded it) and is NOT whitelisted in the static cache: members
-     *  carry a session token in the kudos form, and the whitelist is
-     *  path-prefix based, so /story/fragment is simply never listed.
+     *  progress (an append, often prefetched, is not a read; the infinite
+     *  module POSTs /reader/progress once the chapter is the one on screen)
+     *  and is NOT whitelisted in the static cache: members carry a session
+     *  token in the kudos form and the unit-state bookmark controls, and
+     *  the whitelist is path-prefix based, so /story/fragment is simply
+     *  never listed; Cache-Control: private, no-store keeps shared caches
+     *  out too.
      *  X-Robots-Tag: noindex rides EVERY response - the endpoint duplicates
      *  chapter content, so no URL of it may enter an index. */
     public function fragment(string $slug, string $n): Response|string
@@ -231,6 +234,12 @@ final class StoryController
             $titles[(int) $c['position']] = (string) $c['title'];
         }
         [$pctStart, $pctEnd] = $this->chapterSpan($chapters, $position, (int) $story['word_count']);
+        // The unit-state template's bookmark controls: the member's bookmark
+        // fold already rides findStoryWithChapter's one query.
+        $bookmarked = false;
+        foreach ($this->bookmarksOf($story) as $b) {
+            if ($b['position'] === $position) { $bookmarked = true; break; }
+        }
         $rendered = $this->view->render('story/fragment', [
             'story' => $story,
             'chapter' => [
@@ -241,6 +250,9 @@ final class StoryController
             'position' => $position,
             'total' => count($chapters),
             'next' => $ctx['next'],
+            'prev' => $ctx['prev'],
+            'member' => $me !== 0,
+            'bookmarked' => $bookmarked,
             'titles' => $titles,
             // the boundary kudos form carries the member token (view.php's
             // conditional-token shape); guests render tokenless forms.
@@ -256,7 +268,9 @@ final class StoryController
     private function fragmentWrap(Response|string $r): Response
     {
         $res = $r instanceof Response ? $r : new Response($r, 200);
-        return $res->withHeader('X-Robots-Tag', 'noindex');
+        // A member's fragment carries their session token (kudos, bookmark
+        // controls): no shared cache may keep or replay it.
+        return $res->withHeader('X-Robots-Tag', 'noindex')->withHeader('Cache-Control', 'private, no-store');
     }
 
     /** The shared chapter lookup + reading gates for the two reading renders

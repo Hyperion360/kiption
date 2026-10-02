@@ -296,4 +296,35 @@ final class BookmarkTest extends TestCase
         $this->assertSame('', (string) $this->db->one('SELECT note FROM bookmarks')['note'], 'an explicit empty note clears it');
         $this->assertSame(1, $this->rowCount());
     }
+
+    private function lastPosition(): ?int
+    {
+        $r = $this->db->one("SELECT last_position FROM reading_history WHERE user_id = ? AND story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole')", [$this->memberId]);
+        return $r === null ? null : (int) $r['last_position'];
+    }
+
+    /** POST /reader/progress: the infinite module's write when an appended
+     *  chapter becomes the one on screen. Same gates as a bookmark, CSRF via
+     *  the kernel, never backwards, an empty 204. */
+    public function test_progress_records_the_chapter_on_screen(): void
+    {
+        $c = $this->client($this->memberId);
+        $res = $c->postWithToken('/reader/progress/the-rabbit-hole/2', []);
+        $this->assertSame(204, $res->status, $res->body);
+        $this->assertSame('', $res->body);
+        $this->assertSame(2, $this->lastPosition());
+        $c->postWithToken('/reader/progress/the-rabbit-hole/1', []);
+        $this->assertSame(2, $this->lastPosition(), 'never backwards');
+        $this->assertSame(404, $c->postWithToken('/reader/progress/the-rabbit-hole/99', [])->status, 'no such chapter');
+        $this->assertSame(2, $this->lastPosition());
+    }
+
+    public function test_progress_refuses_guests_tokenless_posts_and_unacked_adult_stories(): void
+    {
+        $this->assertNotSame(204, $this->client()->post('/reader/progress/the-rabbit-hole/2', [])->status, 'guests are refused');
+        $this->assertSame(403, $this->client($this->memberId)->post('/reader/progress/the-rabbit-hole/2', [])->status, 'no token, no write');
+        $this->db->query("UPDATE stories SET rating_id = (SELECT id FROM ratings WHERE label = 'Explicit') WHERE slug = 'the-rabbit-hole'");
+        $this->assertSame(404, $this->client($this->memberId)->postWithToken('/reader/progress/the-rabbit-hole/2', [])->status);
+        $this->assertNull($this->lastPosition(), 'nothing was recorded');
+    }
 }

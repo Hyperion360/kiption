@@ -8,7 +8,12 @@
        fragment URL (data-next-url, the infinite module's fetch chain); the
        unit adds data-read-url for history. Story data only, so the cached
        guest bytes stay stable. The next-chapter link inside chapter-end
-       stays the noscript path - a read URL, never a fragment URL. */
+       stays the noscript path - a read URL, never a fragment URL.
+       The unit-state template closes the unit: inert markup the infinite
+       module swaps into the reader chrome when this chapter becomes the one
+       being read (prev/next read URLs for the keys module, the bar's
+       chapter count, and for members the two bookmark controls plus the
+       progress URL). Everything in it is server-built. */
      $unitRoman = \App\Features\Reader\Roman::numeral((int) $position);
      $unitRawTitle = (string) ($chapter['title'] ?? '');
      $unitTitle = $unitRawTitle !== '' ? $unitRawTitle : \App\Lang::t('story.chapter_n', ['n' => (int) $position]);
@@ -60,4 +65,11 @@
     </div>
     <?php endif; ?>
   </footer>
+  <template class="unit-state" data-prev="<?= isset($prev) && $prev !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $prev : '' ?>" data-next="<?= $next !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $next : '' ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
+    <span class="bar-count"><?= (int) $position ?> / <?= (int) $total ?></span>
+    <?php if (!empty($member)): ?>
+<?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?>
+<?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?>
+    <?php endif; ?>
+  </template>
 </div>
