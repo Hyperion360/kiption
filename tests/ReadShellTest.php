@@ -135,7 +135,7 @@ final class ReadShellTest extends TestCase
     {
         $body = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
         $this->assertStringContainsString('<div id="text" class="sheet" role="dialog"', $body);
-        $this->assertStringContainsString('<form method="post" action="/reader/settings" class="text-settings">', $body);
+        $this->assertStringContainsString('<form method="post" action="/reader/settings" class="text-settings" data-js="settings-form" data-js-module="prefs">', $body);
         $this->assertStringContainsString('<input type="hidden" name="return_to" value="/story/read/the-rabbit-hole/2">', $body);
         $this->assertStringContainsString('name="_token"', $body, 'members carry the CSRF token');
         // seven fieldsets: size, typeface, spacing, paragraphs, theme, width, mode

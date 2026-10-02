@@ -77,9 +77,9 @@ final class ReaderSettingsTest extends TestCase
         $this->assertSame(302, $res->status, $res->body);
         $this->assertSame('/browse', $res->headers['Location']);
         $this->assertSame([
-            'theme=sepia; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
-            'reader=21-serif-regular-indented-medium-scroll; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
-        ], $this->cookieLeaves($res), 'one leaf per cookie, theme first');
+            'theme=sepia; Max-Age=31536000; Path=/; SameSite=Lax',
+            'reader=21-serif-regular-indented-medium-scroll; Max-Age=31536000; Path=/; SameSite=Lax',
+        ], $this->cookieLeaves($res), 'one leaf per cookie, theme first, no HttpOnly (Cookie::pref: the enhancement layer rewrites both from document.cookie)');
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM user_prefs')['c'],
             'guests stay cookie-only: no row is written');
     }
@@ -90,8 +90,8 @@ final class ReaderSettingsTest extends TestCase
         $this->assertSame(302, $res->status);
         $this->assertSame('/', $res->headers['Location'], 'no return_to falls back to the root');
         $this->assertSame([
-            'theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
-            'reader=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
+            'theme=; Max-Age=0; Path=/; SameSite=Lax',
+            'reader=; Max-Age=0; Path=/; SameSite=Lax',
         ], $this->cookieLeaves($res), 'auto + all-default typography clear both cookies (cache-bypass economy)');
     }
 
@@ -112,8 +112,8 @@ final class ReaderSettingsTest extends TestCase
              'paragraphs' => 'indented', 'width' => 'medium', 'mode' => 'scroll']);
         $this->assertSame(302, $res->status);
         $this->assertSame([
-            'theme=night; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
-            'reader=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax',
+            'theme=night; Max-Age=31536000; Path=/; SameSite=Lax',
+            'reader=; Max-Age=0; Path=/; SameSite=Lax',
         ], $this->cookieLeaves($res), 'saving the defaults clears the reader cookie, it does not mint one');
     }
 
@@ -128,7 +128,7 @@ final class ReaderSettingsTest extends TestCase
         $res = $me->postWithToken('/reader/settings', ['theme' => 'auto']);
         $this->assertSame(302, $res->status);
         $this->assertSame('paper', $this->memberTheme());
-        $this->assertContains('theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($res));
+        $this->assertContains('theme=; Max-Age=0; Path=/; SameSite=Lax', $this->cookieLeaves($res));
     }
 
     public function test_unsafe_return_to_falls_back_to_the_root(): void
@@ -247,8 +247,8 @@ final class ReaderSettingsTest extends TestCase
         $this->assertSame(302, $res->status, $res->body);
         $this->assertSame('paper', $this->memberTheme(), 'reset stores auto as paper on the row');
         $leaves = $this->cookieLeaves($res);
-        $this->assertContains('theme=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $leaves, 'the theme cookie clears');
-        $this->assertContains('reader=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax', $leaves, 'the reader cookie clears');
+        $this->assertContains('theme=; Max-Age=0; Path=/; SameSite=Lax', $leaves, 'the theme cookie clears');
+        $this->assertContains('reader=; Max-Age=0; Path=/; SameSite=Lax', $leaves, 'the reader cookie clears');
         $body = $me->get('/story/read/the-rabbit-hole/1')->body;
         $this->assertStringNotContainsString('data-size=', $body, 'default prefs emit no data attributes at all');
     }

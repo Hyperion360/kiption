@@ -220,7 +220,7 @@
   </div>
   <div id="text" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t('reader.text_aria')) ?>">
     <a class="sheet-handle" href="#sheet-close" aria-hidden="true" tabindex="-1"></a><a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>
-    <form method="post" action="/reader/settings" class="text-settings">
+    <form method="post" action="/reader/settings" class="text-settings" data-js="settings-form" data-js-module="prefs">
       <div class="panel-head"><h2 class="sheet-title"><?= \App\Lang::t('reader.text') ?></h2><button type="submit" name="reset" value="1" class="reset-link"><?= \App\Lang::t('common.reset') ?></button></div>
       <input type="hidden" name="_token" value="<?= $this->e($csrf ?? '') ?>">
       <input type="hidden" name="return_to" value="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>">
@@ -229,32 +229,32 @@
       <fieldset><legend><?= \App\Lang::t('reader.size') ?> <span class="size-readout"><?= \App\Lang::t('reader.px', ['n' => (int) $p->size]) ?></span></legend>
         <div class="size-row">
           <span class="size-end"><span class="size-a" aria-hidden="true">A</span> <?= \App\Lang::t('reader.size_small') ?></span>
-          <input type="range" name="size" min="16" max="24" step="1" value="<?= (int) $p->size ?>" aria-label="<?= $this->e(\App\Lang::t('reader.size')) ?>">
+          <input type="range" name="size" min="16" max="24" step="1" value="<?= (int) $p->size ?>" aria-label="<?= $this->e(\App\Lang::t('reader.size')) ?>" data-js-pref-target="size">
           <span class="size-end"><span class="size-a size-a-lg" aria-hidden="true">A</span> <?= \App\Lang::t('reader.size_large') ?></span>
         </div></fieldset>
       <fieldset><legend><?= \App\Lang::t('reader.typeface') ?></legend>
         <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::TYPEFACES as $f): ?>
-          <label><input type="radio" name="typeface" value="<?= $f ?>"<?= $f === $p->typeface ? ' checked' : '' ?>><span><?= \App\Lang::t('reader.typeface_' . $f) ?></span></label>
+          <label><input type="radio" name="typeface" value="<?= $f ?>"<?= $f === $p->typeface ? ' checked' : '' ?> data-js-pref="typeface"><span><?= \App\Lang::t('reader.typeface_' . $f) ?></span></label>
         <?php endforeach; ?></div></fieldset>
       <fieldset><legend><?= \App\Lang::t('reader.spacing') ?></legend>
         <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::SPACINGS as $s): ?>
-          <label><input type="radio" name="spacing" value="<?= $s ?>"<?= $s === $p->spacing ? ' checked' : '' ?>><span><?= \App\Lang::t('reader.spacing_' . $s) ?></span></label>
+          <label><input type="radio" name="spacing" value="<?= $s ?>"<?= $s === $p->spacing ? ' checked' : '' ?> data-js-pref="spacing"><span><?= \App\Lang::t('reader.spacing_' . $s) ?></span></label>
         <?php endforeach; ?></div></fieldset>
       <fieldset><legend><?= \App\Lang::t('reader.paragraphs') ?></legend>
         <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::PARAGRAPHS as $s): ?>
-          <label><input type="radio" name="paragraphs" value="<?= $s ?>"<?= $s === $p->paragraphs ? ' checked' : '' ?>><span><?= \App\Lang::t('reader.paragraphs_' . $s) ?></span></label>
+          <label><input type="radio" name="paragraphs" value="<?= $s ?>"<?= $s === $p->paragraphs ? ' checked' : '' ?> data-js-pref="paragraphs"><span><?= \App\Lang::t('reader.paragraphs_' . $s) ?></span></label>
         <?php endforeach; ?></div></fieldset>
       <fieldset><legend><?= \App\Lang::t('reader.theme') ?></legend>
         <div class="segmented swatches"><?php foreach (\App\Theme::VALUES as $v): ?>
-          <label class="swatch swatch-<?= $v ?>"><input type="radio" name="theme" value="<?= $v ?>"<?= $v === $t ? ' checked' : '' ?>><span class="swatch-aa">Aa</span><span><?= \App\Lang::t('theme.' . $v) ?></span></label>
+          <label class="swatch swatch-<?= $v ?>"><input type="radio" name="theme" value="<?= $v ?>"<?= $v === $t ? ' checked' : '' ?> data-js-pref="theme"><span class="swatch-aa">Aa</span><span><?= \App\Lang::t('theme.' . $v) ?></span></label>
         <?php endforeach; ?></div></fieldset>
       <fieldset><legend><?= \App\Lang::t('reader.width') ?></legend>
         <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::WIDTHS as $s): ?>
-          <label><input type="radio" name="width" value="<?= $s ?>"<?= $s === $p->width ? ' checked' : '' ?>><span><?= \App\Lang::t('reader.width_' . $s) ?></span></label>
+          <label><input type="radio" name="width" value="<?= $s ?>"<?= $s === $p->width ? ' checked' : '' ?> data-js-pref="width"><span><?= \App\Lang::t('reader.width_' . $s) ?></span></label>
         <?php endforeach; ?></div></fieldset>
       <fieldset><legend><?= \App\Lang::t('reader.mode') ?></legend>
         <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::MODES as $s): ?>
-          <label><input type="radio" name="mode" value="<?= $s ?>"<?= $s === $p->mode ? ' checked' : '' ?>><span><?= \App\Lang::t('reader.mode_' . $s) ?></span></label>
+          <label><input type="radio" name="mode" value="<?= $s ?>"<?= $s === $p->mode ? ' checked' : '' ?> data-js-pref="mode"><span><?= \App\Lang::t('reader.mode_' . $s) ?></span></label>
         <?php endforeach; ?></div></fieldset>
       <button type="submit"><?= \App\Lang::t('common.save') ?></button>
     </form>
