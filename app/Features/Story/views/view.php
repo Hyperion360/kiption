@@ -213,14 +213,14 @@
     <form method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
       <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
-      <label><?= \App\Lang::t('story.rating_optional') ?> <input name="rating" inputmode="numeric" maxlength="2"></label>
+      <label><?= \App\Lang::t('story.rating_optional') ?> <select name="rating"><option value="">&#8211;</option><?php for ($i = 0; $i <= 10; $i++): ?><option value="<?= $i ?>"><?= $i ?></option><?php endfor; ?></select></label>
       <button type="submit"><?= \App\Lang::t('story.post_review') ?></button>
     </form>
   <?php else: ?>
     <form method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
       <label><?= \App\Lang::t('story.name') ?> <input name="guest_name" required maxlength="40"></label>
       <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
-      <label><?= \App\Lang::t('story.rating_optional') ?> <input name="rating" inputmode="numeric" maxlength="2"></label>
+      <label><?= \App\Lang::t('story.rating_optional') ?> <select name="rating"><option value="">&#8211;</option><?php for ($i = 0; $i <= 10; $i++): ?><option value="<?= $i ?>"><?= $i ?></option><?php endfor; ?></select></label>
       <button type="submit"><?= \App\Lang::t('story.post_review_guest') ?></button>
     </form>
   <?php endif; ?>

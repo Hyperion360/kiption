@@ -621,8 +621,23 @@ body.focus .site-head { display: none; }
    bar carry navigation. :has() rides the same progressive allowance as the
    scrim: engines without it keep the site header, which stays usable. */
 @media (max-width:1023px) {
-  body:has(.reader) .site-head, body:has(.whole-work) .site-head { display: none; }
+  body:has(.whole-work) .site-head { display: none; }
 }
+/* The regular reader head keeps brand/byline/controls desktop-only; the
+   focus breadcrumb (D2) shows brand + separators at every width and never
+   shows the byline or controls. */
+.rt-brand, .rt-by, .rt-ctls { display: none; }
+.reader-breadcrumb { grid-template-columns: auto auto auto auto 1fr auto; }
+.reader-breadcrumb .rt-brand { display: inline-flex; }
+.rt-sep { color: var(--muted); }
+.reader-breadcrumb .rt-story { font-size: 15px; }
+.reader-breadcrumb .rt-chapter { font-size: 13px; }
+.reader-breadcrumb .reader-pct { display: inline; align-self: center; font-weight: 400; font-size: 13px; }
+.focus-hint {
+  position: fixed; inset-inline-start: 24px; bottom: 24px; z-index: 30;
+  font: 13px var(--sans); color: var(--muted);
+}
+.focus-hint a { color: var(--ink); }
 .reader-dock {
   position: fixed; inset-inline-end: 28px; bottom: 28px; z-index: 30;
   display: flex; flex-direction: column;
@@ -747,14 +762,84 @@ body.focus .site-head { display: none; }
   .reader { padding-block-end: 48px; }
 }
 @media (min-width:1024px) {
-  .reader-head { min-height: 60px; }
-  .reader-bar {
-    position: static; left: auto; bottom: auto; transform: none;
-    max-width: var(--read-width); margin: 2.5rem auto 0;
-    justify-content: space-between; box-shadow: none;
-    border-radius: 0; /* in-flow desktop bar: square again */
+  /* D1: the desktop reader is a three-pane workstation. The reader header
+     becomes the top bar (brand | titles | byline | the three dark controls);
+     the two sheets become permanent side panels; the bottom bar retires (the
+     controls live in the top bar). No site header on reading surfaces at any
+     width - the reader head IS the chrome (comp M2/T1/D1 all ship none). */
+  body:has(.reader) .site-head { display: none; }
+  .reader {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr) 320px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "head head head"
+      "contents main text";
+    min-height: 100vh;
+    padding-block-end: 0;
   }
-  .reader { padding-block-end: 0; }
+  .reader-head {
+    grid-area: head;
+    grid-template-columns: auto auto 1fr auto auto;
+    grid-template-rows: auto 2px;
+    min-height: 60px; padding-inline: 24px; column-gap: 16px;
+  }
+  .reader-back, .reader-pct { display: none; }
+  .rt-brand {
+    display: inline-flex; align-items: center;
+    font: 400 19px var(--serif); font-variant: small-caps; letter-spacing: .1em;
+    color: var(--ink); text-decoration: none;
+  }
+  .rt-by { display: inline; font: 13px/1.4 var(--sans); color: var(--muted); white-space: nowrap; }
+  .rt-ctls { display: inline-flex; gap: 2px; justify-self: end; }
+  .rt-ctl {
+    display: inline-flex; align-items: center; min-height: 44px; padding-inline: 14px;
+    background: var(--ink); color: var(--bg);
+    font: 600 14px/1 var(--sans); text-decoration: none; border: 0; cursor: pointer;
+  }
+  .rt-ctl:hover { background: var(--ink); color: var(--bg); opacity: .88; }
+  .rt-ctl.is-saved { background: var(--accent); color: var(--on-accent); }
+  .reader-progress { grid-column: 1 / -1; }
+  /* The side panels: the sheets, always on, static, each its own scroll. */
+  .reader .sheet {
+    display: block; position: static; max-height: none; overflow: visible;
+    background: transparent; border: 0; box-shadow: none; padding: 24px 20px;
+  }
+  #contents {
+    grid-area: contents;
+    position: sticky; top: 0; align-self: start;
+    max-height: 100vh; overflow-y: auto;
+    border-inline-end: 1px solid var(--line);
+  }
+  #text {
+    grid-area: text;
+    position: sticky; top: 0; align-self: start;
+    max-height: 100vh; overflow-y: auto;
+    border-inline-start: 1px solid var(--line);
+  }
+  .reader .sheet-handle, .reader .sheet-done { display: none; }
+  .panel-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-block-end: 1rem;
+  }
+  .reset-link {
+    background: none; border: 0; padding: 0; min-height: 0; cursor: pointer;
+    font: 13px var(--sans); color: var(--accent); text-decoration: underline;
+  }
+  .sheet-title { font-size: 18px; margin-block: 0 .25rem; }
+  /* Contents annotations (member): minutes-left on the current chapter,
+     bookmark counts elsewhere; word counts give way to them. */
+  .ch-note { display: inline; font: 12px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .chapter-list .ch-meta { display: none; }
+  .chapter-list a { grid-template-columns: 34px 1fr; }
+  .chapter-list li.is-current { box-shadow: inset 3px 0 0 var(--accent); }
+  .reader-main { grid-area: main; padding-block: 3rem; }
+  .reader-bar { display: none; }
+}
+@media (max-width:1023px) {
+  /* Below the desktop pane: annotations hide, word counts return, the
+     desktop-only chrome never renders, and the sheets keep :target. */
+  .ch-note, .rt-brand, .rt-by, .rt-ctls, .panel-head { display: none; }
 }
 
 /* Breakpoints per the comp: <=767 mobile, 768-1023 tablet, >=1024 desktop. */

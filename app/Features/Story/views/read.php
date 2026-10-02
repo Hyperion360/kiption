@@ -23,11 +23,33 @@
          ? \App\Lang::t('reader.end_of_chapter_titled', ['n' => $roman, 'title' => $rawTitle])
          : \App\Lang::t('reader.end_of_chapter', ['n' => $roman]); ?>
 <div class="reader<?= $focus ? ' reader-focus' : '' ?>">
-  <header class="reader-head">
+  <?php /* D2 focus: the comp's breadcrumb bar (brand · story · chapter, chapter-of right).
+         Regular D1 desktop: the top bar gains brand + byline + the three dark
+         controls (CSS shows them only at 1024+). */ ?>
+  <header class="reader-head<?= $focus ? ' reader-breadcrumb' : '' ?>">
+    <?php if ($focus): ?>
+    <a class="rt-brand" href="/"><?= \App\Lang::t('nav.brand') ?></a><span class="rt-sep" aria-hidden="true">·</span>
+    <span class="rt-story"><?= $this->e($story['title']) ?></span><span class="rt-sep" aria-hidden="true">·</span>
+    <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span>
+    <span class="reader-pct"><?= \App\Lang::t('story.chapter_of_pct', ['n' => (int) $position, 'm' => (int) $total, 'pct' => (int) $pct_end]) ?></span>
+    <?php else: ?>
     <a class="reader-back" href="/story/view/<?= $this->e($story['slug']) ?>" aria-label="<?= $this->e(\App\Lang::t('reader.back_to_story')) ?>">←</a>
     <div class="reader-titles"><span class="rt-story"><?= $this->e($story['title']) ?></span>
       <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span></div>
+    <span class="rt-by"><?= \App\Lang::t('story.by') ?> <?= $this->e($story['penname']) ?></span>
     <span class="reader-pct"><?= (int) $pct_end ?>%</span>
+    <nav class="rt-ctls" aria-label="<?= $this->e(\App\Lang::t('reader.bar_aria')) ?>">
+      <a class="rt-ctl" href="#contents"><?= \App\Lang::t('reader.contents') ?></a>
+      <a class="rt-ctl" href="#text"><?= \App\Lang::t('reader.text') ?></a>
+      <?php if ($member): ?>
+        <?php if ($bookmarked): ?>
+        <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl is-saved"><?= \App\Lang::t('reader.bookmark_saved') ?></button></form>
+        <?php else: ?>
+        <form method="post" action="/reader/bookmarkadd/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl"><?= \App\Lang::t('reader.bookmark') ?></button></form>
+        <?php endif; ?>
+      <?php else: ?><a class="rt-ctl" href="/auth/login"><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
+    </nav>
+    <?php endif; ?>
     <div class="reader-progress" role="progressbar" aria-label="<?= $this->e(\App\Lang::t('reader.progress_aria')) ?>"
          aria-valuenow="<?= (int) $pct_end ?>" aria-valuemin="0" aria-valuemax="100"
          style="<?= $this->e($barStyle) ?>"></div>
@@ -137,12 +159,18 @@
     <?php endif; ?>
     <div class="pane pane-contents">
       <h2 class="sheet-title"><?= \App\Lang::t('reader.contents') ?></h2>
+      <?php /* member annotations (D1): the current chapter carries its minutes-left,
+             chapters with bookmarks carry their count; word counts stay for mobile */ ?>
       <ol class="chapter-list">
-        <?php foreach ($chapters as $c): $cur = (int) $c['position'] === (int) $position; ?>
+        <?php
+        $bmCount = [];
+        foreach ($bookmarks as $b) { if ($b['position'] !== null) { $p2 = (int) $b['position']; $bmCount[$p2] = ($bmCount[$p2] ?? 0) + 1; } }
+        foreach ($chapters as $c): $cur = (int) $c['position'] === (int) $position; ?>
         <li<?= $cur ? ' class="is-current"' : '' ?>>
           <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $c['position'] ?>"<?= $cur ? ' aria-current="page"' : '' ?>>
             <span class="ch-num"><?= \App\Features\Reader\Roman::numeral((int) $c['position']) ?></span>
             <span class="ch-title"><?= $this->e($c['title']) ?></span>
+            <span class="ch-note"><?php if ($cur && ($progress['minutes_left'] ?? null) !== null): ?><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?><?php elseif (($bmCount[(int) $c['position']] ?? 0) > 0): $n2 = $bmCount[(int) $c['position']]; ?><?= $n2 ?> <?= \App\Lang::t($n2 === 1 ? 'reader.bookmark_one' : 'reader.bookmark_many') ?><?php endif; ?></span>
             <span class="ch-meta"><?= number_format((int) $c['word_count']) ?></span>
           </a></li>
         <?php endforeach; ?>
@@ -176,6 +204,7 @@
   <div id="text" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t('reader.text_aria')) ?>">
     <a class="sheet-handle" href="#sheet-close" aria-hidden="true" tabindex="-1"></a><a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>
     <form method="post" action="/reader/settings" class="text-settings">
+      <div class="panel-head"><h2 class="sheet-title"><?= \App\Lang::t('reader.text') ?></h2><button type="submit" name="reset" value="1" class="reset-link"><?= \App\Lang::t('common.reset') ?></button></div>
       <input type="hidden" name="_token" value="<?= $this->e($csrf ?? '') ?>">
       <input type="hidden" name="return_to" value="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>">
       <?php /* theme radio default: cookie (the effective render), else the member's STORED row, else auto. Without the row fallback, a member whose cookie expired would see auto checked, and a typography-only save would rewrite the stored theme to auto's row value (paper). */ ?>
@@ -214,6 +243,7 @@
     </form>
   </div>
   <?php if ($focus): ?>
+  <div class="focus-hint" aria-hidden="false"><span><?= \App\Lang::t('reader.focus_mode') ?></span> · <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>"><?= \App\Lang::t('reader.exit_focus') ?></a></div>
   <nav class="reader-dock" aria-label="<?= $this->e(\App\Lang::t('reader.focus_aria')) ?>">
     <a href="#contents" aria-label="<?= $this->e(\App\Lang::t('reader.contents')) ?>">≡</a>
     <a href="#text" aria-label="<?= $this->e(\App\Lang::t('reader.text')) ?>">Aa</a>

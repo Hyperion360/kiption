@@ -147,6 +147,7 @@ return [
     'story.chapter_n' => 'Chapter {n}',
     'story.chapter_page_title' => 'Chapter {n}: {chapter} - {story}',
     'story.chapter_of' => 'Chapter {n} of {m}',
+    'story.chapter_of_pct' => 'Chapter {n} of {m} · {pct}%',
     'story.published' => 'Published',
     'story.updated_label' => 'Updated',
     'story.chapter_nav_aria' => 'Chapter navigation',
@@ -185,6 +186,9 @@ return [
     'reader.about_left' => 'about {min} min left',
     'reader.time_left' => 'Reading time',
     'reader.min_left' => '{n} min left',
+    'reader.bookmark_one' => 'bookmark',
+    'reader.bookmark_many' => 'bookmarks',
+    'reader.focus_mode' => 'Focus mode',
     'story.kudos_label' => 'Kudos',
 
     // The redesigned chapter reader (C8, frames M2/T1/D1 + focus D2):
@@ -209,6 +213,7 @@ return [
     'reader.bookmark_saved' => 'Saved',
     'reader.focus_aria' => 'Focus mode',
     'reader.exit_focus' => 'Exit focus',
+    'common.reset' => 'Reset',
     'reader.size' => 'Text size',
     'reader.size_small' => 'Small',
     'reader.size_large' => 'Large',

@@ -18,9 +18,12 @@ final class ReaderController
     #[Post]
     public function settings(): Response
     {
-        $theme = $this->request->postStr('theme');
+        // Reset (the D1 desktop panel's link): everything back to defaults in
+        // one post; the default-equal path below then clears both cookies.
+        $reset = $this->request->postStr('reset') === '1';
+        $theme = $reset ? 'auto' : $this->request->postStr('theme');
         $theme = in_array($theme, \App\Theme::VALUES, true) ? $theme : 'auto';
-        $prefs = new Prefs(
+        $prefs = $reset ? new Prefs() : new Prefs(
             self::pick((int) $this->request->postStr('size'), Prefs::SIZES, 19),
             self::pick($this->request->postStr('typeface'), Prefs::TYPEFACES, 'serif'),
             self::pick($this->request->postStr('spacing'), Prefs::SPACINGS, 'regular'),
