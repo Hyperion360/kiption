@@ -404,6 +404,13 @@ final class BrowseTest extends TestCase
         $this->assertStringContainsString('<li class="story-card">', $res->body);
         $this->assertStringNotContainsString('<html', $res->body, 'a fragment is never a document');
         $this->assertStringNotContainsString('site-head', $res->body);
+        // member cards carry Continue pills: no shared cache keeps a
+        // fragment, and no index takes the partial list (both listings)
+        foreach (['/browse/category/general', '/browse/recent'] as $path) {
+            $r = $this->fragmentApp()->handle(new Request('GET', $path, ['page' => '2', 'fragment' => '1'], [], []));
+            $this->assertSame('private, no-store', $r->headers['Cache-Control'] ?? null, $path);
+            $this->assertSame('noindex', $r->headers['X-Robots-Tag'] ?? null, $path);
+        }
     }
 
     public function test_fragment_junk_page_params_coerce_to_page_one(): void
