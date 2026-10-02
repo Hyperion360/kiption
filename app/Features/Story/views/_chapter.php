@@ -67,7 +67,7 @@
     </div>
     <?php endif; ?>
   </footer>
-  <template class="unit-state" data-prev="<?= isset($prev) && $prev !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $prev : '' ?>" data-next="<?= $next !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $next : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
+  <template class="unit-state" data-position="<?= (int) $position ?>" data-prev="<?= isset($prev) && $prev !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $prev : '' ?>" data-next="<?= $next !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $next : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
     <span class="bar-count"><?= (int) $position ?> / <?= (int) $total ?></span>
     <div data-slot="rt"><?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?></div>
     <div data-slot="bar"><?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?></div>

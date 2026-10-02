@@ -194,7 +194,7 @@ final class ChaptersFragmentTest extends TestCase
     public function test_unit_state_template_carries_the_chapter_chrome(): void
     {
         $guest = $this->client()->get('/story/fragment/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('<template class="unit-state" data-prev="/story/read/the-rabbit-hole/1" data-next="/story/read/the-rabbit-hole/3"'
+        $this->assertStringContainsString('<template class="unit-state" data-position="2" data-prev="/story/read/the-rabbit-hole/1" data-next="/story/read/the-rabbit-hole/3"'
             . ' data-focus-url="/story/read/the-rabbit-hole/2?focus=1" data-exit-focus="/story/read/the-rabbit-hole/2" data-text-url="/story/read/the-rabbit-hole/2#text">', $guest);
         // guests get the login link in both slots: a member whose session
         // expired mid-scroll has the forms swapped out, never left stale
@@ -243,6 +243,9 @@ final class ChaptersFragmentTest extends TestCase
         $this->assertStringContainsString("'data-focus-url', 'data-exit-focus', 'data-text-url'", $js, 'every keys target follows the chapter');
         $this->assertStringContainsString("readUrl + window.location.search", $js, 'focus mode survives the history swap');
         $this->assertStringContainsString('input[name="return_to"]', $js, 'Text settings return to the chapter on screen');
+        $this->assertStringContainsString("classList.add('is-stacked')", $js, 'the static prev/next block yields once chapters stack');
+        $this->assertStringContainsString('.focus-hint a, .reader-dock a[href^="/story/read/"]', $js, 'visible focus exits follow the chapter');
+        $this->assertStringContainsString('if (res.ok && n > acked) { acked = n; }', $js, 'progress counts only what the server took');
         $this->assertStringContainsString("searchParams.set('fragment', '1')", $js, 'the listing branch fetches the card loop');
         $this->assertStringContainsString('disconnect', $js, 'the observer stops at the last chapter');
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');

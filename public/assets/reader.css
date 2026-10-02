@@ -217,6 +217,10 @@ html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
 .prose blockquote { margin: 0 0 1em; padding-inline-start: 1em; border-inline-start: 2px solid var(--line-strong); }
 .prose img { max-width: 100%; height: auto; }
 .chapter-meta { margin-block: .25rem; }
+/* Once the infinite module stacks chapters, the opening chapter's static
+   prev/next block would point at the wrong chapters: each unit's own
+   next-chapter link and the contents list take over. */
+.reader.is-stacked .chapter-nav { display: none; }
 .chapter-nav {
   display: flex; justify-content: space-between; gap: 1rem;
   max-width: var(--read-width); margin-inline: auto; margin-block: 2.5rem;

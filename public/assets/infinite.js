@@ -10,8 +10,11 @@
  * (data-read-url, keeping ?focus=1), the keys module's prev/next/focus/
  * exit/Text targets, the Text form's return_to, the bar's chapter count,
  * both bookmark controls (member forms, or login links once a session has
- * expired), and the contents list's current row. For members it then POSTs the unit's data-progress-url once
- * per newly reached chapter (the server never moves progress backwards).
+ * expired), the contents list's current row, and the visible focus-mode
+ * exit links; once chapters stack it retires the opening chapter's static
+ * prev/next block. For members it then POSTs the unit's data-progress-url
+ * for each newly reached chapter, counting a chapter only once the server
+ * accepts it (the server never moves progress backwards).
  *
  * Listing (Recent, categories): the list carries data-next-url, the older
  * page's URL. The module fetches it with fragment=1, appends the returned
@@ -77,8 +80,14 @@
     var opening = units[units.length - 1];
     if (!opening) { return; }
     var token = Kip.$('.reader input[name="_token"]');
-    /* The page open already recorded the opening chapter. */
-    var reached = parseInt((opening.getAttribute('data-read-url') || '').split('/').pop(), 10) || 0;
+    var positionOf = function (unit) {
+      var st = unit.querySelector('template.unit-state');
+      return st ? parseInt(st.getAttribute('data-position'), 10) || 0 : 0;
+    };
+    /* The page open already recorded the opening chapter. acked only moves
+       on a 2xx, so a failed write is retried the next time that chapter
+       (or a later one) becomes active; pending stops duplicate sends. */
+    var acked = positionOf(opening), pending = {};
     var current = opening;
 
     var swap = function (selector, replacement) {
@@ -97,6 +106,8 @@
       });
       var back = Kip.$('.text-settings input[name="return_to"]');
       if (back && readUrl) { back.value = readUrl; }
+      var exit = state.getAttribute('data-exit-focus');
+      if (exit) { Kip.$$('.focus-hint a, .reader-dock a[href^="/story/read/"]').forEach(function (a) { a.setAttribute('href', exit); }); }
       var parts = state.content;
       var slot = function (name) { var s = parts.querySelector('[data-slot="' + name + '"]'); return s ? s.firstElementChild : null; };
       swap('.reader-bar .bar-count', parts.querySelector('.bar-count'));
@@ -109,12 +120,15 @@
         if (a) { if (on) { a.setAttribute('aria-current', 'page'); } else { a.removeAttribute('aria-current'); } }
       });
       var progressUrl = state.getAttribute('data-progress-url');
-      var n = parseInt(readUrl.split('/').pop(), 10) || 0;
-      if (progressUrl && token && n > reached) {
-        reached = n;
+      var n = positionOf(unit);
+      if (progressUrl && token && n > acked && !pending[n]) {
+        pending[n] = true;
         var body = new FormData();
         body.append('_token', token.value);
-        fetch(progressUrl, { method: 'POST', body: body, credentials: 'same-origin', keepalive: true }).catch(function () {});
+        fetch(progressUrl, { method: 'POST', body: body, credentials: 'same-origin', keepalive: true })
+          .then(function (res) { if (res.ok && n > acked) { acked = n; } })
+          .catch(function () {})
+          .then(function () { delete pending[n]; });
       }
     };
 
@@ -149,6 +163,7 @@
         var unit = doc.querySelector('.chapter-unit');
         if (!unit) { return false; } /* empty or missing unit: stop */
         host.insertBefore(unit, sentinel);
+        shell.classList.add('is-stacked');
         var article = unit.querySelector('.h-entry');
         if (article) { watcher.observe(article); }
         nextUrl = unit.getAttribute('data-next-url') || '';
