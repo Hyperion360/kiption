@@ -38,7 +38,8 @@
     <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
       <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
-      <a href="/search"><?= \App\Lang::t('nav.search') ?></a>
+      <?php /* hidden below 1024 (reader.css): the nav-search-link beside Menu is the sub-desktop search affordance; without this class the tablet header carries Search twice */ ?>
+      <a class="nav-inline-search" href="/search"><?= \App\Lang::t('nav.search') ?></a>
       <a class="nav-account" href="<?= ($loggedIn ?? false) ? '/account' : '/auth/login' ?>"><?= \App\Lang::t(($loggedIn ?? false) ? 'nav.account' : 'nav.login') ?></a>
     </nav>
     <form class="nav-search" role="search" action="/search" method="get">
