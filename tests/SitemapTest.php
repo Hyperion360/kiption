@@ -122,8 +122,9 @@ final class SitemapTest extends TestCase
             'ai_crawlers' => false,
         ], $cacheDir);
         // the BuilderTest count pin applies here too (Task 3: the challenges
-        // index joins the enumeration; sitemaps stay files, not cache pages)
-        $this->assertSame(22, $count);
+        // index joins the enumeration; the /series index rides the fixed set;
+        // sitemaps stay files, not cache pages)
+        $this->assertSame(23, $count);
         $this->assertFileExists($this->publicDir() . '/sitemap.xml');
         $this->assertStringContainsString(
             'https://archive.example/story/view/the-rabbit-hole',

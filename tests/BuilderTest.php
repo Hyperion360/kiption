@@ -47,7 +47,7 @@ final class BuilderTest extends TestCase
     {
         $count = Builder::build($this->config(), $this->cacheDir);
         $cache = new Cache($this->cacheDir);
-        foreach (['/', '/browse', '/browse/recent', '/top', '/browse/category/general',
+        foreach (['/', '/browse', '/browse/recent', '/series', '/top', '/browse/category/general',
                   '/story/view/the-rabbit-hole', '/story/read/the-rabbit-hole/1',
                   '/story/read/the-rabbit-hole/2', '/story/read/the-rabbit-hole/3',
                   '/story/view/after-hours', '/story/read/after-hours/1',
@@ -58,7 +58,7 @@ final class BuilderTest extends TestCase
                   '/browse/authors', '/browse/authors/b', '/browse/authors/d'] as $p) {
             $this->assertNotNull($cache->serve(new Request('GET', $p, [], [], [])), "{$p} built");
         }
-        $this->assertSame(22, $count); // 4 fixed (home, browse, recent, top hub) + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series + 1 seeded about page + demo(view+stories) + beta(view) + directory(index + b for betafriend + d for demo-author) + the adult read builds as its anonymous variant (the gate page, 200) + news index + 1 seeded news item (Task 4: /news + SELECT id FROM news rows) + the challenges index (Task 3; the seeded challenge has no visible items, so its view page never joins the enumeration, finding 10)
+        $this->assertSame(23, $count); // 5 fixed (home, browse, recent, series index, top hub) + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series + 1 seeded about page + demo(view+stories) + beta(view) + directory(index + b for betafriend + d for demo-author) + the adult read builds as its anonymous variant (the gate page, 200) + news index + 1 seeded news item (Task 4: /news + SELECT id FROM news rows) + the challenges index (Task 3; the seeded challenge has no visible items, so its view page never joins the enumeration, finding 10)
     }
 
     public function test_prune_empties_the_layer(): void

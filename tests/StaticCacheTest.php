@@ -25,6 +25,8 @@ final class StaticCacheTest extends TestCase
     {
         $this->assertSame($this->dir . '/index.html', $this->cache->fileFor('/'));
         $this->assertSame($this->dir . '/browse/index.html', $this->cache->fileFor('/browse'));
+        $this->assertSame($this->dir . '/browse/recent/index.html', $this->cache->fileFor('/browse/recent'));
+        $this->assertSame($this->dir . '/series/index.html', $this->cache->fileFor('/series'));
         $this->assertSame($this->dir . '/story/read/x/2/index.html', $this->cache->fileFor('/story/read/x/2'));
         $this->assertSame($this->dir . '/top/index.html', $this->cache->fileFor('/top'));
     }
@@ -203,7 +205,7 @@ final class StaticCacheTest extends TestCase
 
     public function test_purge_story_removes_story_and_collection_pages(): void
     {
-        foreach (['/story/view/x', '/story/read/x/1', '/story/read/x/2', '/browse', '/', '/top', '/story/view/y'] as $p) {
+        foreach (['/story/view/x', '/story/read/x/1', '/story/read/x/2', '/browse', '/', '/top', '/series', '/story/view/y'] as $p) {
             $this->cache->maybeStore(new Request('GET', $p, [], [], []), new Response($p, 200));
         }
         $this->cache->purgeStory('x', ['general']);
@@ -212,6 +214,7 @@ final class StaticCacheTest extends TestCase
         }
         $this->assertNull($this->cache->serve(new Request('GET', '/', [], [], [])), 'home purged');
         $this->assertNull($this->cache->serve(new Request('GET', '/browse', [], [], [])), 'browse purged');
+        $this->assertNull($this->cache->serve(new Request('GET', '/series', [], [], [])), 'series index purged (its counts ride story visibility)');
         $this->assertNull($this->cache->serve(new Request('GET', '/top', [], [], [])), 'top hub purged (engagement rides purgeStory)');
         $this->assertNotNull($this->cache->serve(new Request('GET', '/story/view/y', [], [], [])), 'unrelated story survives');
     }

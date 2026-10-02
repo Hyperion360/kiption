@@ -15,6 +15,35 @@ final class SeriesController
         private SeriesRepository $series,
     ) {}
 
+    /** The /series index (comp nav surface). ALWAYS-ON by design: series has
+     *  NO feature flag (no 'series' name exists in the flags ledger), so this
+     *  action deliberately carries no Features::guard, and the page renders
+     *  200 for every viewer on every archive. Guest-rendered and paged like
+     *  /browse/recent: the ?page param coerces by the max(1,(int)) rule and a
+     *  page past the end is an empty list, still 200. */
+    public function index(): string
+    {
+        $page = max(1, (int) ($this->request->get['page'] ?? 1)); // the junk page-param coercion
+        $perPage = max(1, (int) $this->app->config('items_per_page', 20));
+        // Overflow guard: a hostile page=99999999999999999999 must not make
+        // the offset a float (the BrowseController::paginate rule).
+        $page = min($page, intdiv(PHP_INT_MAX, $perPage));
+        // The cookie-gated $me idiom (plan review finding 13): never a bare
+        // session read, or the cookieless cacheable path starts a session.
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        return $this->view->render('series/index', [
+            'title' => \App\Lang::t('series.index_heading'),
+            'head' => $this->head()->withTitle(\App\Lang::t('series.index_heading'))->withCanonical($this->request->path),
+            'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'loggedIn' => $me !== 0,
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'baseUrl' => '/series',
+            'series' => $this->series->indexPage($perPage, ($page - 1) * $perPage),
+            'page' => $page,
+        ]);
+    }
+
     public function view(string $slug): Response|string
     {
         $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
