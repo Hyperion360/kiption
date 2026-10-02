@@ -30,6 +30,11 @@ final class HomeController
                     (SELECT json_group_array(json_object('slug', c.slug, 'name', c.name)) FROM story_categories sc
                      JOIN categories c ON c.id = sc.category_id WHERE sc.story_id = s.id) AS cats_blob";
         $gates = 's.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0';
+        // A member's mutes hide the author from both shelves, as on every
+        // listing; the guest (cacheable) render binds nothing extra.
+        $viewer = $loggedIn ? (int) $userId : 0;
+        $muted = $viewer > 0 && \App\Features::on('mute');
+        if ($muted) $gates .= \App\Repositories\MuteRepository::clause('s');
         $rows = $this->db->all(
             "SELECT * FROM (SELECT 'featured' AS kind, {$cardCols} FROM stories s
                  JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
@@ -37,7 +42,8 @@ final class HomeController
              UNION ALL
              SELECT * FROM (SELECT 'latest' AS kind, {$cardCols} FROM stories s
                  JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
-                 WHERE {$gates} ORDER BY s.updated_at DESC, s.id DESC LIMIT 6)");
+                 WHERE {$gates} ORDER BY s.updated_at DESC, s.id DESC LIMIT 6)",
+            $muted ? [$viewer, $viewer] : []);
         $featured = array_values(array_filter($rows, static fn (array $r): bool => $r['kind'] === 'featured'));
         $latest = array_values(array_filter($rows, static fn (array $r): bool => $r['kind'] === 'latest'));
         // The layout's operator block (Task 4's recorded scope): home passes

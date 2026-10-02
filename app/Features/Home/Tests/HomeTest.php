@@ -64,6 +64,25 @@ final class HomeTest extends TestCase
         return $app;
     }
 
+    /** A member who muted an author never sees that author on the home
+     *  shelves, as on /browse/recent (qa-full /review, Codex). Guests, whose
+     *  render is the cached one, are unaffected. */
+    public function test_member_mutes_hide_the_author_from_home(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $reader = (int) $db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $db->query("INSERT INTO muted (user_id, author_id) SELECT ?, author_id FROM stories WHERE slug = 'the-rabbit-hole'", [$reader]);
+        $guest = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $guest);
+        $store = [];
+        $session = new Session($store);
+        $session->set('user_id', $reader);
+        $member = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $session)->body;
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $member);
+    }
+
     public function test_home_page_renders_the_site_name(): void
     {
         // canonical URL since kip c2f9730: only / is home
