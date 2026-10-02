@@ -301,7 +301,7 @@ final class StoryController
         if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
             return new Response('Page not found', 404);
         }
-        if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
+        if (\App\AgeGate::blocks($story, $this->request)) {
             if (!$gatePage) return new Response('Page not found', 404);
             return $this->view->render('story/gate', [
                 'title' => \App\Lang::t('story.gate_heading'),
@@ -369,7 +369,7 @@ final class StoryController
         ksort($chapters);
         unset($story['chapters_blob']);
         if ($chapters === []) return new Response('Page not found', 404); // nothing validated to read
-        if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
+        if (\App\AgeGate::blocks($story, $this->request)) {
             return $this->view->render('story/gate', [
                 'title' => \App\Lang::t('story.gate_heading'),
                 'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
@@ -432,7 +432,7 @@ final class StoryController
         ksort($chapters);
         unset($story['chapters_blob']);
         if ($chapters === []) return new Response('Page not found', 404); // nothing validated to export
-        if ((int) $story['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) {
+        if (\App\AgeGate::blocks($story, $this->request)) {
             return $this->view->render('story/gate', [
                 'title' => \App\Lang::t('story.gate_heading'),
                 'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),

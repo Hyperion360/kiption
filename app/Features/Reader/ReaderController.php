@@ -74,7 +74,7 @@ final class ReaderController
         if ($row === null) return null;
         // The adult gate read() enforces (review): members bookmark what they
         // may read, so an unacknowledged adult story refuses the bookmark.
-        if ((int) $row['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) return null;
+        if (\App\AgeGate::blocks($row, $this->request)) return null;
         return ['me' => $me, 'sid' => (int) $row['sid'], 'cid' => (int) $row['cid']];
     }
 
