@@ -55,8 +55,7 @@
       <?php /* D1: both panels are open on desktop, so their toggles read pressed (filled); Bookmark is the ghost control */ ?>
       <a class="rt-ctl is-open" href="#contents"><span class="ctl-bars" aria-hidden="true"><span></span><span></span><span></span></span><?= \App\Lang::t('reader.contents') ?></a>
       <a class="rt-ctl is-open" href="#text"><span class="ctl-aa" aria-hidden="true">A<span>a</span></span><?= \App\Lang::t('reader.text') ?></a>
-      <?php if ($member): ?>
-<?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'story' => $story, 'position' => $position, 'bookmarked' => $bookmarked, 'csrf' => $csrf]) ?>      <?php else: ?><a class="rt-ctl" href="/auth/login"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
+<?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'member' => $member, 'story' => $story, 'position' => $position, 'bookmarked' => $bookmarked, 'csrf' => $csrf]) ?>
     </nav>
     <?php endif; ?>
     <?php /* the position module's wiring (AppJsContractTest): the chapter's own
@@ -110,13 +109,7 @@
       <span class="bar-top"><span class="bar-glyph" aria-hidden="true">Aa</span></span>
       <span class="bar-caption"><?= \App\Lang::t('reader.text') ?></span>
     </a>
-    <?php if ($member): ?>
-<?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'story' => $story, 'position' => $position, 'bookmarked' => $bookmarked, 'csrf' => $csrf]) ?>    <?php else: ?>
-    <a href="/auth/login" aria-label="<?= $this->e(\App\Lang::t('reader.bookmark')) ?>">
-      <span class="bar-top"><svg class="bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3.5L7 20Z"/></svg></span>
-      <span class="bar-caption"><?= \App\Lang::t('reader.bookmark') ?></span>
-    </a>
-    <?php endif; ?>
+<?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'member' => $member, 'story' => $story, 'position' => $position, 'bookmarked' => $bookmarked, 'csrf' => $csrf]) ?>
   </nav>
   <div id="contents" class="sheet" role="dialog" aria-label="<?= $this->e(\App\Lang::t($member ? 'reader.contents_bookmarks' : 'reader.contents')) ?>">
     <a class="sheet-handle" href="#sheet-close" aria-hidden="true" tabindex="-1"></a><a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>

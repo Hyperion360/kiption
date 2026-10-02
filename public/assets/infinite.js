@@ -7,9 +7,10 @@
  * whose article top has crossed the viewport middle (the position
  * module's rule). On activation the module copies that unit's server-built
  * unit-state template into the page: the read URL into history
- * (data-read-url), the keys module's prev/next targets, the bar's chapter
- * count, the member's two bookmark controls, and the contents list's
- * current row. For members it then POSTs the unit's data-progress-url once
+ * (data-read-url, keeping ?focus=1), the keys module's prev/next/focus/
+ * exit/Text targets, the Text form's return_to, the bar's chapter count,
+ * both bookmark controls (member forms, or login links once a session has
+ * expired), and the contents list's current row. For members it then POSTs the unit's data-progress-url once
  * per newly reached chapter (the server never moves progress backwards).
  *
  * Listing (Recent, categories): the list carries data-next-url, the older
@@ -89,14 +90,18 @@
       current = unit;
       var state = unit.querySelector('template.unit-state');
       var readUrl = unit.getAttribute('data-read-url') || '';
-      if (readUrl) { window.history.replaceState(null, '', readUrl); }
+      if (readUrl) { window.history.replaceState(null, '', readUrl + window.location.search); }
       if (!state) { return; }
-      shell.setAttribute('data-prev', state.getAttribute('data-prev') || '');
-      shell.setAttribute('data-next', state.getAttribute('data-next') || '');
+      ['data-prev', 'data-next', 'data-focus-url', 'data-exit-focus', 'data-text-url'].forEach(function (k) {
+        shell.setAttribute(k, state.getAttribute(k) || '');
+      });
+      var back = Kip.$('.text-settings input[name="return_to"]');
+      if (back && readUrl) { back.value = readUrl; }
       var parts = state.content;
+      var slot = function (name) { var s = parts.querySelector('[data-slot="' + name + '"]'); return s ? s.firstElementChild : null; };
       swap('.reader-bar .bar-count', parts.querySelector('.bar-count'));
-      swap('.rt-ctls form', parts.querySelector('form:not(.bar-bookmark)'));
-      swap('.reader-bar form.bar-bookmark', parts.querySelector('form.bar-bookmark'));
+      swap('.rt-ctls > form, .rt-ctls > a[href="/auth/login"]', slot('rt'));
+      swap('.reader-bar > form.bar-bookmark, .reader-bar > a[href="/auth/login"]', slot('bar'));
       Kip.$$('#contents .chapter-list li').forEach(function (li) {
         var a = li.querySelector('a');
         var on = !!a && a.getAttribute('href') === readUrl;

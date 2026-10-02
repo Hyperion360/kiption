@@ -11,9 +11,11 @@
        stays the noscript path - a read URL, never a fragment URL.
        The unit-state template closes the unit: inert markup the infinite
        module swaps into the reader chrome when this chapter becomes the one
-       being read (prev/next read URLs for the keys module, the bar's
-       chapter count, and for members the two bookmark controls plus the
-       progress URL). Everything in it is server-built. */
+       being read (prev/next/focus/exit/Text URLs for the keys module and the
+       Text form's return_to, the bar's chapter count, both bookmark controls
+       in their member or guest shape, and for members the progress URL).
+       Everything in it is server-built. */
+     $unitRead = '/story/read/' . $story['slug'] . '/' . (int) $position;
      $unitRoman = \App\Features\Reader\Roman::numeral((int) $position);
      $unitRawTitle = (string) ($chapter['title'] ?? '');
      $unitTitle = $unitRawTitle !== '' ? $unitRawTitle : \App\Lang::t('story.chapter_n', ['n' => (int) $position]);
@@ -65,11 +67,9 @@
     </div>
     <?php endif; ?>
   </footer>
-  <template class="unit-state" data-prev="<?= isset($prev) && $prev !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $prev : '' ?>" data-next="<?= $next !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $next : '' ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
+  <template class="unit-state" data-prev="<?= isset($prev) && $prev !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $prev : '' ?>" data-next="<?= $next !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $next : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
     <span class="bar-count"><?= (int) $position ?> / <?= (int) $total ?></span>
-    <?php if (!empty($member)): ?>
-<?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?>
-<?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?>
-    <?php endif; ?>
+    <div data-slot="rt"><?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?></div>
+    <div data-slot="bar"><?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?></div>
   </template>
 </div>

@@ -187,13 +187,19 @@ final class ChaptersFragmentTest extends TestCase
      *  one fetch in flight, parses with <template>, and disconnects at the
      *  end of the story. */
     /** The unit-state template: the reader chrome the infinite module swaps
-     *  in when this chapter becomes the one on screen. Guests get the keys
-     *  targets and the chapter count only; members also get both bookmark
-     *  controls (saved state included) and the progress URL. */
+     *  in when this chapter becomes the one on screen. Everyone gets the
+     *  keys targets, the chapter count and both bookmark slots (login links
+     *  for guests); members get the forms (saved state included) and the
+     *  progress URL. */
     public function test_unit_state_template_carries_the_chapter_chrome(): void
     {
         $guest = $this->client()->get('/story/fragment/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('<template class="unit-state" data-prev="/story/read/the-rabbit-hole/1" data-next="/story/read/the-rabbit-hole/3">', $guest);
+        $this->assertStringContainsString('<template class="unit-state" data-prev="/story/read/the-rabbit-hole/1" data-next="/story/read/the-rabbit-hole/3"'
+            . ' data-focus-url="/story/read/the-rabbit-hole/2?focus=1" data-exit-focus="/story/read/the-rabbit-hole/2" data-text-url="/story/read/the-rabbit-hole/2#text">', $guest);
+        // guests get the login link in both slots: a member whose session
+        // expired mid-scroll has the forms swapped out, never left stale
+        $this->assertStringContainsString('<div data-slot="rt"><a class="rt-ctl" href="/auth/login">', $guest);
+        $this->assertStringContainsString('<div data-slot="bar">', $guest);
         $this->assertStringContainsString('<span class="bar-count">2 / 3</span>', $guest);
         $this->assertStringNotContainsString('/reader/bookmark', $guest, 'guests get no bookmark forms');
         $this->assertStringNotContainsString('data-progress-url', $guest);
@@ -234,6 +240,9 @@ final class ChaptersFragmentTest extends TestCase
         $this->assertStringContainsString("template.unit-state", $js);
         $this->assertStringContainsString("rootMargin: '0px 0px -50% 0px'", $js, 'active = top crossed the middle');
         $this->assertStringContainsString("data-progress-url", $js);
+        $this->assertStringContainsString("'data-focus-url', 'data-exit-focus', 'data-text-url'", $js, 'every keys target follows the chapter');
+        $this->assertStringContainsString("readUrl + window.location.search", $js, 'focus mode survives the history swap');
+        $this->assertStringContainsString('input[name="return_to"]', $js, 'Text settings return to the chapter on screen');
         $this->assertStringContainsString("searchParams.set('fragment', '1')", $js, 'the listing branch fetches the card loop');
         $this->assertStringContainsString('disconnect', $js, 'the observer stops at the last chapter');
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
