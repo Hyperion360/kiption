@@ -5,7 +5,7 @@
   --line:#e4e2da; --line-strong:#d6d3c9; --hover:#efede6;
   --accent:#1f4f42; --accent-hover:#2a6a58; --on-accent:#fff;
   --track:#e4e2da; --surface:#fff; --scrim:rgba(28,35,32,.45);
-  --pill-bg:#e3ece6; --cover-ink:#f1efe8; --danger:#b3261e;
+  --pill-bg:#e3ece6; --cover-ink:#f1efe8; --danger:#b3261e; --danger-bg:#f6e3de; --danger-line:#e8c2b8;
   --serif:ui-serif,'Iowan Old Style',Charter,'Bitstream Charter',Georgia,serif;
   --sans:system-ui,-apple-system,'Segoe UI',sans-serif;
   --mono:ui-monospace,'SF Mono',Menlo,monospace;
@@ -16,14 +16,14 @@ html[data-theme="sepia"]{
   --bg:#f4ecdc; --ink:#33291b; --ink-2:#33291b; --muted:#6f5f47;
   --line:#e3d6bd; --line-strong:#d4c4a6; --hover:#ece2cc;
   --accent:#1f4f42; --on-accent:#fff; --track:#e3d6bd; --surface:#f4ecdc;
-  --scrim:rgba(51,41,27,.45); --pill-bg:#e9ddc4; --cover-ink:#f1efe8; --danger:#b3261e;
+  --scrim:rgba(51,41,27,.45); --pill-bg:#e9ddc4; --cover-ink:#f1efe8; --danger:#b3261e; --danger-bg:#f3dccf; --danger-line:#e0bda6;
 }
 html[data-theme="night"]{
   --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
   --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
   --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513;
   --track:#262d29; --surface:#1b201d; --scrim:rgba(0,0,0,.55);
-  --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d;
+  --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark){
@@ -32,7 +32,7 @@ html[data-theme="night"]{
     --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
     --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
     --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d;
-    --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; color-scheme:dark;
+    --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027; color-scheme:dark;
   }
 }
 
@@ -216,10 +216,6 @@ html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
   border: 1px solid var(--line-strong); background: var(--surface);
   padding: 2.5rem 2rem;
 }
-.auth-card, .profile-card {
-  border: 1px solid var(--line); background: var(--surface);
-  padding: 1.5rem; margin-block-end: 2rem;
-}
 
 .review { border-block-start: 1px solid var(--line); padding-block: 1.5rem; max-width: 720px; }
 .review-reply {
@@ -229,16 +225,20 @@ html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
 .whole-toc { margin-block: 1.5rem 2.5rem; }
 .print-hint { display: block; margin-block-start: .5rem; font: 12px var(--sans); color: var(--muted); }
 
-/* Forms and controls: 44px floor, square corners, hairline borders. */
+/* Forms and controls (Kip blog S4/S5, admin 03): bold 13px labels stacked
+   over full-width fields, square 1px boxes, a 44px floor, and one solid
+   brand-green primary action per form. Inline forms (one field plus a
+   button, or a lone toggle) stay on one row with outline buttons. */
 label { display: block; margin-block-end: .5rem; font: 13px/1.5 var(--sans); color: var(--ink-2); }
 input, select, textarea {
   min-height: 44px; padding: 6px 12px;
   border: 1px solid var(--line-strong); border-radius: 0;
   background: var(--surface); color: var(--ink); font: 16px var(--sans);
 }
-input[type="checkbox"], input[type="radio"] { min-height: 0; width: auto; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+input[type="checkbox"], input[type="radio"] { min-height: 0; width: 18px; height: 18px; accent-color: var(--accent); }
 input[type="search"] { min-height: 40px; }
-textarea { min-height: 96px; }
+textarea { min-height: 96px; line-height: 1.6; }
 button {
   min-height: 44px; padding: 8px 16px;
   border: 1px solid var(--line-strong); border-radius: 0;
@@ -246,8 +246,110 @@ button {
   font: 500 15px var(--sans); cursor: pointer;
 }
 button:hover { background: var(--hover); color: var(--ink); }
-.inline { display: inline-flex; align-items: center; gap: 8px; }
-.error, [role="alert"] { color: var(--danger); font-weight: 600; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.site-main form:where(:not(.inline):not(.text-settings)) label:where(:not(.inline)) {
+  display: flex; flex-direction: column; gap: 6px; margin-block-end: 18px;
+  font: 600 13.5px/1.4 var(--sans); color: var(--ink);
+}
+.site-main form:where(:not(.inline):not(.text-settings)) label.inline { display: flex; margin-block-end: 18px; font: 15px/1.4 var(--sans); color: var(--ink); }
+.site-main form:where(:not(.inline):not(.text-settings)) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]), select) { width: 100%; max-width: 560px; font-weight: 400; }
+.site-main form:where(:not(.inline):not(.text-settings)) textarea { width: 100%; font: 400 17px/1.6 var(--serif); }
+.site-main fieldset:not(.text-settings fieldset) { border: 1px solid var(--line); padding: 16px 18px 4px; margin: 0 0 18px; }
+.site-main fieldset legend { padding-inline: 6px; font: 600 12px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.field-hint { display: block; font: 400 13px/1.5 var(--sans); color: var(--muted); }
+/* The primary action: the last direct-child submit of a stacked form. */
+.btn-primary,
+.site-main form:where(:not(.inline):not(.text-settings)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)) {
+  min-height: 48px; padding-inline: 24px;
+  background: #1f4f42; border-color: #1f4f42; color: #fff; font-weight: 500;
+}
+.btn-primary:hover,
+.site-main form:where(:not(.inline):not(.text-settings)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)):hover { background: #1f4f42; color: #fff; opacity: .92; }
+.link-btn { min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.link-btn:hover { background: none; color: var(--accent-hover); }
+/* Alerts (S5): a tinted box with the message and its fix; notices are the
+   quiet green twin. */
+.error, [role="alert"] {
+  display: block; margin: 0 0 18px; padding: 12px 14px;
+  background: var(--danger-bg); border: 1px solid var(--danger-line);
+  color: var(--danger); font: 500 14px/1.5 var(--sans);
+}
+.notice { display: block; margin: 0 0 18px; padding: 12px 14px; background: var(--pill-bg); color: var(--accent); font: 500 14px/1.5 var(--sans); }
+
+/* Page system for the screens the comps did not draw, from the Kip blog
+   (S1/S2) and admin (02) frames: a page head (serif title, one-line lede,
+   strong ink rule), small uppercase section labels, a readable centered
+   column for text pages, admin-style tables, and plain empty states. */
+.page { max-width: 760px; margin-inline: auto; }
+.page-wide { max-width: none; }
+.page-head { display: flex; flex-direction: column; gap: 8px; padding-block-end: 24px; margin-block-end: 8px; border-block-end: 1px solid var(--ink); }
+.page-head > * { margin: 0; }
+.page-head h1 { font-size: 38px; line-height: 1.05; }
+.page-head .eyebrow { margin: 0; }
+.lede { font: 16px/1.5 var(--sans); color: var(--ink-2); max-width: 60ch; }
+.page-head .page-actions { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font: 14px var(--sans); }
+.section-label {
+  margin: 32px 0 4px; font: 12px/1.5 var(--sans); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.page-head + .section-label, .page-head + section > .section-label:first-child { margin-block-start: 24px; }
+.page h2:not(.section-label) { margin-block: 32px 12px; }
+.section-more { margin: 16px 0 0; font: 14px var(--sans); }
+.section-more a::after { content: "\00a0\2192"; }
+.section-label + .story-list > li:first-child { border-block-start: 0; }
+.empty-state { margin: 20px 0; padding: 24px 0; color: var(--muted); font: 15px/1.6 var(--sans); }
+.site-main table {
+  width: 100%; border-collapse: collapse; margin-block: 16px 24px;
+  background: var(--surface); border: 1px solid var(--line-strong);
+  font: 14px/1.45 var(--sans); font-variant-numeric: tabular-nums;
+}
+.site-main th {
+  text-align: start; padding: 12px 16px; border-block-end: 1px solid var(--line-strong);
+  background: var(--bg); font: 500 12px/1.4 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+}
+.site-main td { padding: 12px 16px; border-block-start: 1px solid var(--line); vertical-align: middle; }
+.site-main td form.inline { margin: 0; }
+.site-main td button, .site-main td input, .site-main td select { min-height: 36px; font-size: 14px; }
+.site-main td button { padding: 4px 12px; }
+.site-main ol:not(.chapter-list):not(.bookmark-list), .site-main ul:not(.story-list):not(.bookmark-list):not(.chapter-list) { padding-inline-start: 1.4em; }
+.site-main li { margin-block: 4px; }
+/* Auth (S5): one centered card holding the heading, a one-line lede, the
+   form and its full-width primary button. */
+.auth-card {
+  max-width: 420px; margin: 24px auto; padding: 32px 28px;
+  background: var(--surface); border: 1px solid var(--line-strong);
+}
+.auth-card h1 { font-size: 32px; margin: 0 0 6px; }
+.auth-card .lede { font-size: 14px; color: var(--muted); margin: 0 0 20px; }
+.auth-card form :where(input:not([type="checkbox"]):not([type="hidden"]), select) { max-width: none; }
+.auth-card form:not(.inline) > button:last-of-type { width: 100%; }
+.auth-card .auth-links { margin: 18px 0 0; font: 14px var(--sans); color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+/* Search: one large query row, then a quiet Refine disclosure. */
+.search-form { margin-block: 24px 8px; }
+.search-row { display: flex; gap: 8px; align-items: stretch; }
+.search-form .search-q { flex: 1; margin: 0; }
+.search-form .search-q input { width: 100%; max-width: none; min-height: 52px; font-size: 18px; }
+.search-row .btn-primary { min-height: 52px; }
+.search-refine { margin-block-start: 14px; }
+.search-refine summary { cursor: pointer; font: 500 14px var(--sans); color: var(--ink-2); min-height: 32px; display: inline-flex; align-items: center; }
+.search-refine summary:hover { color: var(--ink); }
+.search-refine summary { list-style: none; }
+.search-refine summary::-webkit-details-marker { display: none; }
+.search-refine summary::before { content: "+"; display: inline-block; width: 1.1em; font-weight: 400; }
+.search-refine[open] summary::before { content: "\2212"; }
+.refine-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 20px; margin-block-start: 14px; align-items: end; }
+.profile-card { border: 1px solid var(--line); background: var(--surface); padding: 1.5rem; margin-block-end: 2rem; }
+@media (max-width:767px) {
+  .site-main table { display: block; overflow-x: auto; }
+  .auth-card { margin: 0; padding: 24px 20px; border-inline: 0; }
+}
+@media (min-width:768px) {
+  .page-head h1 { font-size: 48px; }
+}
+@media (min-width:1024px) {
+  .page-head h1 { font-size: 56px; }
+}
 
 /* Story page (C7, frames M1/T2/D3), values from the comp source. One
    markup, three arrangements: mobile stacks info, actions, chapters (the

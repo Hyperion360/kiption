@@ -53,13 +53,18 @@ return [
 
     // The default meta description (Head's fallback) and the home page.
     'site.meta_description' => 'A self-hosted fiction archive.',
-    'home.intro' => 'A self-hosted fiction archive. This instance is being set up; stories, chapters, and the reading experience arrive with the next milestones.',
+    'home.intro' => 'Original fiction, read a chapter at a time or all at once.',
+    'home.latest' => 'Latest',
+    'home.all_recent' => 'All recently updated stories',
     'home.featured' => 'Featured',
 
     // Auth: login, register, forgot, reset.
     'auth.login.heading' => 'Log in',
     'auth.login.email_verified' => 'Email verified, log in.',
     'auth.login.forgot' => 'Forgot your password?',
+    'auth.login.lede' => 'Reading is open to everyone. Log in to bookmark, follow authors, review, and write.',
+    'auth.forgot.lede' => 'Enter the email on your account and we will send a link to set a new password.',
+    'auth.back_to_login' => 'Back to log in',
     'auth.email' => 'Email',
     'auth.password' => 'Password',
     'auth.register.title' => 'Register',
@@ -465,7 +470,13 @@ return [
     'search.completed_only' => 'completed only',
     'search.submit' => 'Search',
     'search.capped' => 'Only the first 8 search terms are used; terms beyond the first 8 are ignored.',
-    'search.no_match' => 'no stories matched',
+    'search.no_match' => 'No stories matched. Try fewer words, or clear a filter under Refine.',
+    'search.lede' => 'Searches story titles, summaries, and chapter text.',
+    'search.placeholder' => 'Title, phrase, or word',
+    'search.refine' => 'Refine',
+    'search.hint' => 'Type a title, a phrase you remember, or a single word. Quotes match an exact phrase.',
+    'search.results_for' => 'Results for “{q}”',
+    'search.results' => 'Results',
 
     // Series view and form.
     'series.new' => 'New series',

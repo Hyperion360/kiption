@@ -198,7 +198,8 @@ final class AdminToolsTest extends TestCase
         // the toggle flips both ways; with it off the home has no Featured list
         $this->assertSame(302, $admin->postWithToken('/adminstories/featured/the-rabbit-hole')->status);
         $this->assertSame(0, (int) $this->db()->one("SELECT featured FROM stories WHERE slug = 'the-rabbit-hole'")['featured']);
-        $this->assertStringNotContainsString('The Rabbit Hole', $this->client()->get('/')->body);
+        // unfeatured: the featured shelf is gone (the story still rides Latest)
+        $this->assertStringNotContainsString('id="home-featured"', $this->client()->get('/')->body);
         // gates and misses
         $this->assertSame(403, $this->client($this->memberId())->postWithToken('/adminstories/featured/the-rabbit-hole')->status);
         $this->assertSame(403, $this->client($this->moderatorId())->postWithToken('/adminstories/featured/the-rabbit-hole')->status);

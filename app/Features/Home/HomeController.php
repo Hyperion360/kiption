@@ -20,8 +20,26 @@ final class HomeController
         // RATING is not the restricted gate; those stories age-gate on their
         // own pages, as in every listing); idx_stories_updated serves the
         // ORDER BY. One query, the / budget row's pinned 1.
-        $featured = $this->db->all(
-            'SELECT slug, title, summary FROM stories WHERE featured = 1 AND validated = 1 AND deleted_at IS NULL AND is_restricted = 0 ORDER BY updated_at DESC, id DESC LIMIT 5');
+        // The redesign adds the Kip-blog "Latest" list (S1) to the same
+        // query: UNION ALL folds the featured five and the newest six into
+        // one round trip, each arm its own idx_stories_updated walk with the
+        // same guest gates, carrying the M6 card columns. The kind column
+        // splits the rows back apart.
+        $cardCols = "s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at,
+                    u.penname, r.label AS rating_label,
+                    (SELECT json_group_array(json_object('slug', c.slug, 'name', c.name)) FROM story_categories sc
+                     JOIN categories c ON c.id = sc.category_id WHERE sc.story_id = s.id) AS cats_blob";
+        $gates = 's.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0';
+        $rows = $this->db->all(
+            "SELECT * FROM (SELECT 'featured' AS kind, {$cardCols} FROM stories s
+                 JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
+                 WHERE s.featured = 1 AND {$gates} ORDER BY s.updated_at DESC, s.id DESC LIMIT 5)
+             UNION ALL
+             SELECT * FROM (SELECT 'latest' AS kind, {$cardCols} FROM stories s
+                 JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
+                 WHERE {$gates} ORDER BY s.updated_at DESC, s.id DESC LIMIT 6)");
+        $featured = array_values(array_filter($rows, static fn (array $r): bool => $r['kind'] === 'featured'));
+        $latest = array_values(array_filter($rows, static fn (array $r): bool => $r['kind'] === 'latest'));
         // The layout's operator block (Task 4's recorded scope): home passes
         // isAdmin where it is cheap, meaning only for a cookie-carrying viewer;
         // the anonymous render stays at its single content query.
@@ -59,6 +77,7 @@ final class HomeController
             'loggedIn' => $loggedIn,
             'isAdmin' => $isAdmin,
             'featured' => $featured,
+            'latest' => $latest,
             'csrf' => $loggedIn ? $this->session->csrfToken() : null,
         ]);
     }

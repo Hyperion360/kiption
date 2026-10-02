@@ -14,5 +14,5 @@
     <?php endif; ?>
     <button type="submit"><?= \App\Lang::t('auth.register.submit') ?></button>
   </form>
-  <p class="chapter-meta"><?= \App\Lang::t('auth.register.have_account') ?> <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>.</p>
+  <p class="auth-links"><span><?= \App\Lang::t('auth.register.have_account') ?> <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>.</span></p>
 </section>
