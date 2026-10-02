@@ -282,17 +282,20 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 }
 /* Account settings: each form is its own block under the Settings rule. */
 .settings-heading { margin-block: 48px 0; padding-block-start: 24px; border-block-start: 1px solid var(--ink); }
-.settings-group > form { padding-block: 20px; border-block-end: 1px solid var(--line); }
+.settings-group > form { padding-block: 16px 20px; }
+.settings-group > form + form:not(:has(> .section-label:first-of-type)) { padding-block-start: 0; }
+.settings-group .section-label { margin-block: 28px 12px; }
+.settings-group > .section-label:first-child { margin-block-start: 8px; }
 .settings-group .avatar { display: block; margin-block: 16px 0; border: 1px solid var(--line-strong); }
 .field-hint { display: block; font: 400 13px/1.5 var(--sans); color: var(--muted); }
 /* The primary action: the last direct-child submit of a stacked form. */
 .btn-primary,
-.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)) {
+.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)) {
   min-height: 48px; padding-inline: 24px;
   background: #1f4f42; border-color: #1f4f42; color: #fff; font-weight: 500;
 }
 .btn-primary:hover,
-.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link)):hover { background: #1f4f42; color: #fff; opacity: .92; }
+.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)):hover { background: #1f4f42; color: #fff; opacity: .92; }
 .link-btn { min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .link-btn:hover { background: none; color: var(--accent-hover); }
 /* Form card (Kip blog S3 "Leave a comment"): a white surface holding a
@@ -386,6 +389,11 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .row-title { font: 20px/1.3 var(--serif); }
 .row-meta { font: 13px var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .section-label + .row-list > li:first-child { border-block-start: 0; }
+.empty-state a { white-space: nowrap; }
+/* Follow rows carry their own controls, so the row itself is not a link. */
+.follow-rows li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 14px 4px; }
+.follow-rows .row-meta { flex: 1; }
+.row-actions { display: inline-flex; gap: 16px; }
 /* A-Z letter row (authors): square 36px cells, the current one filled. */
 .letter-nav { display: flex; flex-wrap: wrap; gap: 4px; margin-block: 20px 4px; }
 .letter-nav a {

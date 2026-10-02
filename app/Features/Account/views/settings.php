@@ -10,6 +10,7 @@
     <p class="lede"><?= $this->e($me['a']) ?> · <?= $this->e($me['b']) ?> · <span class="badge"><?= $this->e($me['c']) ?></span></p>
   </header>
   <div class="settings-group">
+  <h2 class="section-label"><?= \App\Lang::t('account.section_profile') ?></h2>
 
   <?php if (!empty($me['d'])): ?>
     <img class="avatar" src="<?= $this->e($me['d']) ?>" alt="<?= $this->e(\App\Lang::t('account.avatar_alt')) ?>" width="80" height="80">
@@ -17,17 +18,18 @@
   <form method="post" action="/account/avatar" enctype="multipart/form-data">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('account.avatar_label') ?> <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif"></label>
-    <button type="submit"><?= \App\Lang::t('account.upload') ?></button>
+    <button type="submit" class="btn-secondary"><?= \App\Lang::t('account.upload') ?></button>
   </form>
   <form method="post" action="/account/support">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('account.support_label') ?> <input name="support_url" maxlength="200" value="<?= $this->e($me['e'] ?? '') ?>"></label>
-    <button type="submit"><?= \App\Lang::t('account.support_save') ?></button>
+    <button type="submit" class="btn-secondary"><?= \App\Lang::t('account.support_save') ?></button>
   </form>
   <form method="post" action="/account/prefs">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('account.bio_label') ?> <textarea name="bio" maxlength="2000" rows="4"><?= $this->e($me['g'] ?? '') ?></textarea></label>
     <label><input type="checkbox" name="is_beta" value="1"<?= (int) ($me['h'] ?? 0) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('account.beta_pref') ?></label>
+    <h2 class="section-label"><?= \App\Lang::t('account.section_reading') ?></h2>
     <fieldset>
       <legend><?= \App\Lang::t('account.sort_legend') ?></legend>
       <label><input type="radio" name="default_sort" value="recent"<?= ($me['i'] ?? 'recent') !== 'alpha' ? ' checked' : '' ?>> <?= \App\Lang::t('account.sort_recent') ?></label>
@@ -57,6 +59,7 @@
     <?php endif; ?>
     <?php // toc stays cookie-driven: the cookie is the value read() actually consumes ?>
     <label><input type="checkbox" name="toc_first" value="1"<?= !empty($tocOn) ? ' checked' : '' ?>> <?= \App\Lang::t('account.toc_first') ?></label>
+    <h2 class="section-label"><?= \App\Lang::t('account.section_email') ?></h2>
     <label><input type="checkbox" name="notify_review" value="1"<?= (int) ($me['j'] ?? 1) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('account.notify_review') ?></label>
     <label><input type="checkbox" name="notify_response" value="1"<?= (int) ($me['l'] ?? 1) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('account.notify_response') ?></label>
     <label><input type="checkbox" name="notify_favorites" value="1"<?= (int) ($me['m'] ?? 1) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('account.notify_favorites') ?></label>
@@ -65,8 +68,8 @@
   </form>
     </div>
   <?php if (\App\Features::on('mute')): ?>
-  <h2><?= \App\Lang::t('account.muted') ?></h2>
-  <?php if ($muted === []): ?><p class="chapter-meta"><?= \App\Lang::t('account.nobody_muted') ?></p>
+  <h2 class="section-label"><?= \App\Lang::t('account.muted') ?></h2>
+  <?php if ($muted === []): ?><p class="empty-state"><?= \App\Lang::t('account.nobody_muted') ?></p>
   <?php else: ?>
   <p class="chapter-meta"><?= \App\Lang::t('account.muted_note') ?></p>
   <ul>

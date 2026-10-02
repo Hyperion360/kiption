@@ -212,7 +212,7 @@ final class SeriesTest extends TestCase
         $body = $owner->get('/account')->body;
         // the series page hides the deleted item; the account counts must agree
         // (membership 'closed' distinguishes this row from the seeded open series)
-        $this->assertStringContainsString('(0 works, closed)', $body);
+        $this->assertStringContainsString('0 works · closed', $body);
         $this->assertStringNotContainsString('(1 works, closed)', $body);
     }
 
