@@ -223,6 +223,93 @@ final class BrowseTest extends TestCase
         $this->assertStringContainsString('class="summary clamp-2"', $body);
     }
 
+    /** The chip fixture: the filter fixture (Rabbit Hole in General, WIP,
+     *  under 10k; The Long Finish completed, over 10k, no category) plus a
+     *  third story that is completed AND in General, so cat and filter can
+     *  each discriminate and their combination has a unique survivor. */
+    private function seedChipFixture(): void
+    {
+        $this->seedFilterFixture();
+        $db = new Database($this->dsn);
+        $db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, updated_at) VALUES (?, ?, ?, 1, 1, 1, 1, 15000, ?)",
+            ['The Last Ember', 'the-last-ember', 'Ash, and what survived it.', '2026-09-06T10:00:00Z']);
+        $db->query('INSERT INTO story_categories (story_id, category_id)
+                    VALUES ((SELECT id FROM stories WHERE slug = ?), (SELECT id FROM categories WHERE slug = ?))',
+            ['the-last-ember', 'general']);
+    }
+
+    public function test_recent_renders_category_chips_from_the_fold_in_one_query(): void
+    {
+        $db = $this->app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function () use (&$queries): void { $queries++; });
+        $res = $this->app->handle(new Request('GET', '/browse/recent', [], [], []));
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        // the chip rides the listing fold: the category NAME as the label,
+        // the slug in the href, no second query for the chip row
+        $this->assertStringContainsString('<a class="chip" href="/browse/recent?cat=general">General</a>', $res->body);
+        $this->assertLessThanOrEqual(1, $queries, "the chip row cost {$queries} queries; it must fold into the listing");
+    }
+
+    public function test_cat_param_narrows_the_listing(): void
+    {
+        $this->seedChipFixture();
+        $res = $this->app->handle(new Request('GET', '/browse/recent', ['cat' => 'general'], [], []));
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('The Rabbit Hole', $res->body);
+        $this->assertStringContainsString('The Last Ember', $res->body);
+        $this->assertStringNotContainsString('The Long Finish', $res->body, 'cat=general must drop the uncategorized story');
+    }
+
+    public function test_cat_array_value_reads_as_unfiltered_not_typeerror(): void
+    {
+        $this->seedChipFixture();
+        $res = $this->app->handle(new Request('GET', '/browse/recent', ['cat' => ['x']], [], []));
+        $this->assertSame(200, $res->status, 'cat[]=x must not TypeError the listing into a 500');
+        // the array value reads as unfiltered: all three stories render
+        $this->assertStringContainsString('The Rabbit Hole', $res->body);
+        $this->assertStringContainsString('The Long Finish', $res->body);
+    }
+
+    public function test_unknown_cat_renders_the_no_category_empty_state_with_the_all_chip(): void
+    {
+        $this->seedChipFixture();
+        $res = $this->app->handle(new Request('GET', '/browse/recent', ['cat' => 'nope'], [], []));
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('No stories in this category.', $res->body);
+        // the All chip stays on the empty page (and nothing is active: the
+        // bound cat matched no chip)
+        $this->assertStringContainsString('<a class="chip" href="/browse/recent">All</a>', $res->body);
+        $this->assertStringNotContainsString('aria-current="true"', $res->body);
+    }
+
+    public function test_category_chip_is_active_when_its_cat_is_bound(): void
+    {
+        $this->seedChipFixture();
+        $body = $this->app->handle(new Request('GET', '/browse/recent', ['cat' => 'general'], [], []))->body;
+        $this->assertStringContainsString('<a class="chip is-active" href="/browse/recent?cat=general" aria-current="true">General</a>', $body);
+        $this->assertStringNotContainsString('aria-current="true">All</a>', $body);
+    }
+
+    public function test_pager_links_preserve_cat_and_filter(): void
+    {
+        $this->seedChipFixture();
+        $body = $this->app->handle(new Request('GET', '/browse/recent', ['cat' => 'general', 'filter' => 'complete', 'page' => '3'], [], []))->body;
+        $this->assertStringContainsString('href="/browse/recent?cat=general&amp;filter=complete&amp;page=2"', $body, 'the Newer link keeps cat and filter');
+        $this->assertStringContainsString('href="/browse/recent?cat=general&amp;filter=complete&amp;page=4"', $body, 'the Older link keeps cat and filter');
+    }
+
+    public function test_cat_composes_with_filter(): void
+    {
+        $this->seedChipFixture();
+        $res = $this->app->handle(new Request('GET', '/browse/recent', ['cat' => 'general', 'filter' => 'complete'], [], []));
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('The Last Ember', $res->body);
+        $this->assertStringNotContainsString('The Rabbit Hole', $res->body, 'the WIP story must drop under cat+complete');
+        $this->assertStringNotContainsString('The Long Finish', $res->body, 'the uncategorized story must drop under cat+complete');
+    }
+
     public function test_continue_pill_renders_for_the_member_with_progress_and_never_for_guests(): void
     {
         $db = new Database($this->dsn);

@@ -60,6 +60,9 @@ final class QueryBudgetTest extends TestCase
                 // query as WHERE clauses; every filtered shape stays budget-1
                 // (and cache-ineligible by the queryless rule).
                 ['/browse/recent?filter=complete'], ['/browse/recent?filter=wip'], ['/browse/recent?filter=under10k'],
+                // The category chip's bound facet folds into the same single
+                // statement (the EXISTS probe is a bind, never a second query).
+                ['/browse/recent?cat=general'],
                 ['/browse/category/general'],
                 ['/story/view/the-rabbit-hole'], ['/story/read/the-rabbit-hole/1'], ['/story/read/the-rabbit-hole/3'],
                 ['/story/read/after-hours/1'], // adult story, cookieless: the age-gate render is a page shape too
@@ -243,5 +246,34 @@ final class QueryBudgetTest extends TestCase
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('continue-pill', $res->body, 'the progress fold really engaged');
         $this->assertLessThanOrEqual(1, $queries, "member filtered /browse/recent ran {$queries} content queries, budget is 1");
+    }
+
+    /** The chip task's heaviest listing shape: a MEMBER render with a bound
+     *  cat (the EXISTS probe) AND the progress fold in the same single
+     *  statement. The pill proves the member path really engaged; the chip
+     *  row decoding from cats_blob proves the fold really engaged; neither
+     *  may cost a second query. */
+    public function test_member_recent_listing_with_cat_and_progress_stays_inside_the_one_query_budget(): void
+    {
+        (new Database('sqlite:' . $this->path))->query(
+            'INSERT INTO reading_history (user_id, story_id, last_position)
+             VALUES ((SELECT id FROM users WHERE penname = ?), (SELECT id FROM stories WHERE slug = ?), 2)',
+            ['betafriend', 'the-rabbit-hole']
+        );
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            $queries++;
+        });
+        $res = $client->get('/browse/recent', ['cat' => 'general']);
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('continue-pill', $res->body, 'the progress fold really engaged');
+        $this->assertStringContainsString('<a class="chip is-active" href="/browse/recent?cat=general" aria-current="true">General</a>', $res->body, 'the category chip really rendered from the fold');
+        $this->assertLessThanOrEqual(1, $queries, "member cat-filtered /browse/recent ran {$queries} content queries, budget is 1");
     }
 }
