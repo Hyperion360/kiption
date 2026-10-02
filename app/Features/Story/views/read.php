@@ -45,21 +45,23 @@
     <span class="reader-pct" data-js="reader-pct"><?= \App\Lang::t('story.chapter_of_pct', ['n' => (int) $position, 'm' => (int) $total, 'pct' => (int) $pct_end]) ?></span>
     <?php else: ?>
     <a class="rt-brand" href="/"><?= \App\Lang::t('nav.brand') ?></a>
+    <span class="rt-divider" aria-hidden="true"></span>
     <a class="reader-back" href="/story/view/<?= $this->e($story['slug']) ?>" aria-label="<?= $this->e(\App\Lang::t('reader.back_to_story')) ?>">←</a>
     <div class="reader-titles"><span class="rt-story"><?= $this->e($story['title']) ?></span>
       <span class="rt-chapter"><?= $this->e($rawTitle !== '' ? $roman . ' · ' . $rawTitle : \App\Lang::t('story.chapter_n', ['n' => $roman])) ?></span></div>
     <span class="rt-by"><?= \App\Lang::t('story.by') ?> <?= $this->e($story['penname']) ?></span>
     <span class="reader-pct" data-js="reader-pct"><?= (int) $pct_end ?>%</span>
     <nav class="rt-ctls" aria-label="<?= $this->e(\App\Lang::t('reader.bar_aria')) ?>">
-      <a class="rt-ctl" href="#contents"><?= \App\Lang::t('reader.contents') ?></a>
-      <a class="rt-ctl" href="#text"><?= \App\Lang::t('reader.text') ?></a>
+      <?php /* D1: both panels are open on desktop, so their toggles read pressed (filled); Bookmark is the ghost control */ ?>
+      <a class="rt-ctl is-open" href="#contents"><span class="ctl-bars" aria-hidden="true"><span></span><span></span><span></span></span><?= \App\Lang::t('reader.contents') ?></a>
+      <a class="rt-ctl is-open" href="#text"><span class="ctl-aa" aria-hidden="true">A<span>a</span></span><?= \App\Lang::t('reader.text') ?></a>
       <?php if ($member): ?>
         <?php if ($bookmarked): ?>
-        <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl is-saved"><?= \App\Lang::t('reader.bookmark_saved') ?></button></form>
+        <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl is-saved"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark_saved') ?></button></form>
         <?php else: ?>
-        <form method="post" action="/reader/bookmarkadd/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl"><?= \App\Lang::t('reader.bookmark') ?></button></form>
+        <form method="post" action="/reader/bookmarkadd/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="rt-ctl"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark') ?></button></form>
         <?php endif; ?>
-      <?php else: ?><a class="rt-ctl" href="/auth/login"><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
+      <?php else: ?><a class="rt-ctl" href="/auth/login"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark') ?></a><?php endif; ?>
     </nav>
     <?php endif; ?>
     <?php /* the position module's wiring (AppJsContractTest): the chapter's own
@@ -168,20 +170,38 @@
     <?php if ($member): ?>
     <div class="pane pane-bookmarks">
       <h2 class="sheet-title"><?= \App\Lang::t('reader.bookmarks') ?></h2>
-      <?php if ($bookmarks === []): ?><p class="meta"><?= \App\Lang::t('common.none_yet') ?></p>
+      <?php $resume = ($progress['last_position'] ?? null) !== null ? (int) $progress['last_position'] : null; ?>
+      <?php if ($bookmarks === [] && $resume === null): ?><p class="meta"><?= \App\Lang::t('common.none_yet') ?></p>
       <?php else: ?>
       <ul class="bookmark-list">
+        <?php if ($resume !== null): /* M5: the reading position leads the list */ ?>
+        <li class="bm-resume">
+          <p class="bm-kind"><?= \App\Lang::t('reader.where_left_off') ?></p>
+          <a class="bm-chapter" href="/story/read/<?= $this->e($story['slug']) ?>/<?= $resume ?>"><?= \App\Features\Reader\Roman::numeral($resume) ?> · <?= $this->e(($titles[$resume] ?? '') !== '' ? $titles[$resume] : \App\Lang::t('story.chapter_n', ['n' => $resume])) ?></a><span class="bm-pct"> · <?= (int) ($progress['read_pct'] ?? 0) ?>%</span>
+        </li>
+        <?php endif; ?>
         <?php foreach ($bookmarks as $b): ?>
         <li>
+          <p class="bm-kind"><?= \App\Lang::t('reader.bookmark') ?></p>
           <?php if ($b['position'] !== null): ?>
           <a class="bm-chapter" href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $b['position'] ?>"><?= \App\Features\Reader\Roman::numeral((int) $b['position']) ?> · <?= $this->e(($titles[(int) $b['position']] ?? '') !== '' ? $titles[(int) $b['position']] : \App\Lang::t('story.chapter_n', ['n' => (int) $b['position']])) ?></a>
           <?php endif; ?>
           <?php if ($b['note'] !== ''): ?><p class="bm-note"><?= $this->e($b['note']) ?></p><?php endif; ?>
           <?php if ($b['position'] !== null): ?>
-          <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= (int) $b['position'] ?>" class="inline">
-            <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-            <button type="submit"><?= \App\Lang::t('common.remove') ?></button>
-          </form>
+          <div class="bm-actions">
+            <?php /* the note rides the existing upsert (bookmarkAdd): a no-JS disclosure holds the form */ ?>
+            <details class="bm-note-edit"><summary><?= \App\Lang::t($b['note'] === '' ? 'reader.add_note' : 'reader.edit_note') ?></summary>
+              <form method="post" action="/reader/bookmarkadd/<?= $this->e($story['slug']) ?>/<?= (int) $b['position'] ?>">
+                <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+                <label><span class="visually-hidden"><?= \App\Lang::t('reader.note_label') ?></span><textarea name="note" rows="2" maxlength="500"><?= $this->e($b['note']) ?></textarea></label>
+                <button type="submit"><?= \App\Lang::t('common.save') ?></button>
+              </form>
+            </details>
+            <form method="post" action="/reader/bookmarkremove/<?= $this->e($story['slug']) ?>/<?= (int) $b['position'] ?>" class="inline">
+              <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+              <button type="submit" class="link-btn"><?= \App\Lang::t('common.remove') ?></button>
+            </form>
+          </div>
           <?php endif; ?>
         </li>
         <?php endforeach; ?>
@@ -220,15 +240,15 @@
         <div class="segmented swatches"><?php foreach (\App\Theme::VALUES as $v): ?>
           <label class="swatch swatch-<?= $v ?>"><input type="radio" name="theme" value="<?= $v ?>"<?= $v === $t ? ' checked' : '' ?> data-js-pref="theme"><span class="swatch-aa">Aa</span><span><?= \App\Lang::t('theme.' . $v) ?></span></label>
         <?php endforeach; ?></div></fieldset>
-      <fieldset><legend><?= \App\Lang::t('reader.width') ?></legend>
-        <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::WIDTHS as $s): ?>
-          <label><input type="radio" name="width" value="<?= $s ?>"<?= $s === $p->width ? ' checked' : '' ?> data-js-pref="width"><span><?= \App\Lang::t('reader.width_' . $s) ?></span></label>
-        <?php endforeach; ?></div></fieldset>
       <fieldset><legend><?= \App\Lang::t('reader.mode') ?></legend>
         <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::MODES as $s): ?>
           <label><input type="radio" name="mode" value="<?= $s ?>"<?= $s === $p->mode ? ' checked' : '' ?> data-js-pref="mode"><span><?= \App\Lang::t('reader.mode_' . $s) ?></span></label>
         <?php endforeach; ?></div></fieldset>
-      <button type="submit"><?= \App\Lang::t('common.save') ?></button>
+      <fieldset><legend><?= \App\Lang::t('reader.width') ?> <span class="size-readout"><?= \App\Lang::t('reader.width_chars', ['n' => ['narrow' => 60, 'medium' => 68, 'wide' => 76][$p->width] ?? 68]) ?></span></legend>
+        <div class="segmented"><?php foreach (\App\Features\Reader\Prefs::WIDTHS as $s): ?>
+          <label><input type="radio" name="width" value="<?= $s ?>"<?= $s === $p->width ? ' checked' : '' ?> data-js-pref="width"><span><?= \App\Lang::t('reader.width_' . $s) ?></span></label>
+        <?php endforeach; ?></div></fieldset>
+      <button type="submit" class="settings-save"><?= \App\Lang::t('common.save') ?></button>
     </form>
   </div>
   <?php if ($focus): ?>

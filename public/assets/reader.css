@@ -466,15 +466,15 @@ button:hover { background: var(--hover); color: var(--ink); }
   width: 44px; height: 44px; text-decoration: none;
   color: var(--ink); font-size: 22px; line-height: 1;
 }
-.reader-titles { grid-column: 2; min-width: 0; display: flex; flex-direction: column; text-align: center; }
+.reader-titles { grid-column: 2; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: center; }
 .rt-story, .rt-chapter {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.rt-story { font: 400 17px/1.3 var(--serif); color: var(--ink); }
-.rt-chapter { font: 13px/1.4 var(--sans); color: var(--muted); }
+.rt-story { font: 400 15px/1.3 var(--serif); color: var(--ink); }
+.rt-chapter { font: 12px/1.4 var(--sans); color: var(--muted); }
 .reader-pct {
-  grid-column: 3; text-align: end;
-  font: 600 15px var(--sans); font-variant-numeric: tabular-nums; color: var(--ink-2);
+  grid-column: 3; text-align: center;
+  font: 12px var(--sans); font-variant-numeric: tabular-nums; color: var(--muted);
 }
 /* Progressbar: the track spans the header's second row; the fill paints the
    chapter's span of the whole story. The static fallback is the --p-end
@@ -483,6 +483,7 @@ button:hover { background: var(--hover); color: var(--ink); }
 .reader-progress {
   grid-column: 1 / -1; grid-row: 2;
   height: 2px; background: var(--track);
+  margin-inline: -8px; /* edge to edge: cancels the head's inline padding */
 }
 .reader-progress::after {
   content: ""; display: block; height: 100%;
@@ -512,14 +513,14 @@ html[dir="rtl"] .reader-progress::after {
    first line on the opening paragraph. The end-of-chapter next-chapter
    block repeats the kicker+title+rule anatomy. */
 .reader-main .ch-kicker {
-  margin: 0 0 .5rem; text-align: center;
-  font: 600 12px/1.5 var(--sans);
+  margin: 0 0 12px; text-align: center;
+  font: 12px/1.5 var(--sans);
   letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
 }
-.reader-main .p-name { text-align: center; }
+.reader-main .p-name { text-align: center; font-size: 30px; line-height: 1.12; letter-spacing: -.01em; margin: 0 0 32px; }
 .reader-main .p-name::after {
   content: ""; display: block; width: 40px; height: 1px;
-  margin: 16px auto 0; background: var(--line-strong);
+  margin: 18px auto 0; background: var(--ink);
 }
 .prose > p:first-of-type::first-line { font-variant: small-caps; letter-spacing: .02em; }
 
@@ -583,7 +584,7 @@ html[data-mode="pages"] .reader-main .prose {
 .next-chapter .ch-kicker {
   display: block;
   margin: 0 0 .5rem;
-  font: 600 12px/1.5 var(--sans);
+  font: 12px/1.5 var(--sans);
   letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
 }
 .next-chapter .next-title { display: block; font-family: var(--serif); font-size: 24px; line-height: 1.2; }
@@ -694,7 +695,9 @@ body.focus .site-head { display: none; }
    bar carry navigation. :has() rides the same progressive allowance as the
    scrim: engines without it keep the site header, which stays usable. */
 @media (max-width:1023px) {
-  body:has(.whole-work) .site-head { display: none; }
+  body:has(.whole-work) .site-head, body:has(.reader) .site-head { display: none; }
+  /* keyboard hints are a desktop affordance; on tablet they collide with the pill */
+  .js .hint-keys { display: none; }
 }
 /* The regular reader head keeps brand/byline/controls desktop-only; the
    focus breadcrumb (D2) shows brand + separators at every width and never
@@ -762,51 +765,78 @@ body.focus .js .hint-keys { bottom: 56px; }
 }
 .pane-bookmarks { display: none; }
 #ctab-bookmarks:checked ~ .pane-bookmarks { display: block; }
+#ctab-bookmarks:checked ~ .pane-contents { display: none; }
 .sheet-title { font-size: 18px; margin-block: 1rem .25rem; }
+/* With the member tabs present, the tab row names each pane already. */
+.sheet-tabs ~ .pane .sheet-title { display: none; }
+/* M5 bookmark rows: kind label, chapter line, italic note, text actions. */
 .bookmark-list { list-style: none; margin: 0; padding: 0; }
-.bookmark-list li { border-block-end: 1px solid var(--line); padding-block: 12px; }
-.bm-chapter { font: 600 15px/1.6 var(--sans); }
+.bookmark-list li { border-block-end: 1px solid var(--line); padding-block: 16px; }
+.bm-kind { margin: 0 0 4px; font: 500 11.5px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.bm-resume .bm-kind { color: var(--accent); font-weight: 600; }
+.bm-chapter { font: 600 14px/1.6 var(--sans); color: var(--ink); text-decoration: none; }
+.bm-chapter:hover { color: var(--accent); }
+.bm-pct { font: 14px/1.6 var(--sans); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.bm-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 20px; margin-block-start: 4px; }
+.bm-note-edit summary, .link-btn {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0;
+  background: none; border: 0; cursor: pointer; list-style: none;
+  font: 13px var(--sans); color: var(--muted);
+}
+.bm-note-edit summary::-webkit-details-marker { display: none; }
+.bm-note-edit summary:hover, .link-btn:hover { background: none; color: var(--ink); }
+.bm-note-edit[open] { flex-basis: 100%; }
+.bm-note-edit form { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.bm-note-edit label { width: 100%; margin: 0; }
+.bm-note-edit textarea { width: 100%; min-height: 64px; font: italic 16px/1.5 var(--serif); }
 .bm-note {
   margin: 4px 0; font-family: var(--serif); font-style: italic;
   font-size: 16px; line-height: 1.5; color: var(--ink-2);
 }
-.text-settings fieldset {
-  border: 1px solid var(--line-strong); margin: 0 0 12px; padding: 12px;
-}
+.text-settings { display: flex; flex-direction: column; gap: 20px; }
+.text-settings fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+/* The legend floats so it lays out like a block row: label left, value right. */
 .text-settings legend {
-  padding-inline: 4px; font: 600 12px/1.5 var(--sans);
-  text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  float: inline-start; width: 100%; padding: 0; margin: 0 0 10px;
+  display: flex; justify-content: space-between; align-items: baseline;
+  font: 12px/1.5 var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
 }
+.text-settings legend + * { clear: both; }
 .text-settings legend .val { color: var(--ink); text-transform: none; letter-spacing: 0; }
 /* Text size slider (M4): a native range between the small/large A marks,
    the px readout floated to the legend's far edge. Square 16px thumb on a
    4px hairline track: the system's square-corner vocabulary. */
-.size-row { display: flex; align-items: center; gap: 12px; }
+/* M4/D1: one boxed row, small A | slider | large A. The Small/Large words
+   stay in the markup for screen readers; font-size 0 drops them visually. */
+.size-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; align-items: center; border: 1px solid var(--line-strong); }
 .size-end {
-  display: inline-flex; align-items: baseline; gap: 4px; white-space: nowrap;
-  font: 12px/1 var(--sans); color: var(--muted);
+  display: flex; align-items: center; justify-content: center; height: 48px;
+  font-size: 0; color: var(--ink);
 }
-.size-a { font-family: var(--serif); font-size: 14px; line-height: 1; color: var(--ink-2); }
-.size-a-lg { font-size: 20px; }
+.size-end:first-child { border-inline-end: 1px solid var(--line-strong); }
+.size-end:last-child { border-inline-start: 1px solid var(--line-strong); }
+.size-a { font-family: var(--serif); font-size: 15px; line-height: 1; color: var(--ink); }
+.size-a-lg { font-size: 24px; }
 .size-row input[type="range"] {
-  flex: 1; min-width: 0; min-height: 0; height: 24px; padding: 0;
+  margin-inline: 14px; min-width: 0; min-height: 0; height: 24px; padding: 0;
   appearance: none; -webkit-appearance: none;
   background: none; border: 0;
 }
-.size-row input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: var(--line-strong); }
+.size-row input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: var(--line); }
 .size-row input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 16px; height: 16px; margin-block-start: -6px;
+  -webkit-appearance: none; width: 14px; height: 14px; margin-block-start: -6px;
   background: var(--accent); border: 0; border-radius: 0; cursor: pointer;
 }
-.size-row input[type="range"]::-moz-range-track { height: 4px; background: var(--line-strong); }
+.size-row input[type="range"]::-moz-range-track { height: 2px; background: var(--line); }
+.size-row input[type="range"]::-moz-range-progress { height: 2px; background: var(--accent); }
 .size-row input[type="range"]::-moz-range-thumb {
-  width: 16px; height: 16px; background: var(--accent); border: 0; border-radius: 0; cursor: pointer;
+  width: 14px; height: 14px; background: var(--accent); border: 0; border-radius: 0; cursor: pointer;
 }
 .size-readout {
-  float: inline-end; color: var(--ink);
+  font: 13px var(--sans); color: var(--ink-2);
   font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0;
 }
-.segmented { display: flex; }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--line-strong); }
 .segmented label {
   flex: 1; display: flex; margin: 0; cursor: pointer;
   border-inline-start: 1px solid var(--line-strong);
@@ -818,26 +848,38 @@ body.focus .js .hint-keys { bottom: 56px; }
 }
 .segmented input + span {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  min-height: 44px; font: 15px var(--sans); color: var(--ink-2);
+  min-height: 44px; padding-inline: 6px; font: 500 14px var(--sans); color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
-.segmented input:checked + span { background: var(--ink); color: var(--bg); }
+.segmented input[value="serif"] + span { font-family: var(--serif); font-size: 16px; }
+.segmented input:checked + span { background: var(--ink); color: var(--bg); font-weight: 600; }
 .segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* Theme swatches (M4): a chip previewing each palette, ringed when chosen. */
-.segmented.swatches { flex-wrap: wrap; }
-.swatch { flex-direction: column; gap: 8px; padding: 8px; border-inline-start: 0; }
-.swatch span:last-of-type { text-transform: capitalize; }
+/* Theme swatches (M4/D1): four free-standing chips, no group box; the
+   chosen one carries the 2px accent ring and a bold caption. */
+.segmented.swatches { grid-auto-flow: row; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; border: 0; }
+.segmented.swatches label { border: 0; }
+.swatch { flex-direction: column; align-items: center; gap: 7px; padding: 0; }
+.swatch span:last-of-type { text-transform: capitalize; font: 12.5px var(--sans); color: var(--muted); }
+.swatch input:checked ~ span:last-of-type { color: var(--ink); font-weight: 600; }
 .swatch .swatch-aa {
-  min-height: 0; height: 46px; width: 100%;
-  font-family: var(--serif); font-size: 20px;
+  min-height: 0; height: 46px; width: 100%; flex: none;
+  border: 1px solid var(--line-strong);
+  font-family: var(--serif); font-size: 17px;
 }
-.swatch-paper .swatch-aa { background: #f8f7f3; color: #1c2320; }
-.swatch-sepia .swatch-aa { background: #f4ecdc; color: #33291b; }
-.swatch-night .swatch-aa { background: #121513; color: #d6dcd7; }
-.swatch-auto .swatch-aa { background: linear-gradient(90deg, #f8f7f3 50%, #121513 50%); color: #1c2320; }
-.swatch input:checked ~ .swatch-aa { box-shadow: inset 0 0 0 2px var(--accent); }
+/* .segmented prefix: outranks the generic checked-cell inversion. */
+.segmented .swatch-paper .swatch-aa { background: #f8f7f3; color: #1c2320; }
+.segmented .swatch-sepia .swatch-aa { background: #f4ecdc; color: #33291b; }
+.segmented .swatch-night .swatch-aa { background: #121513; color: #d6dcd7; }
+.segmented .swatch-auto .swatch-aa { background: linear-gradient(90deg, #f8f7f3 50%, #121513 50%); color: transparent; }
+.swatch input:checked ~ .swatch-aa { border: 2px solid var(--accent); font-weight: 400; }
+/* No-JS durability: Save writes the cookie (and the member row). The
+   enhancement layer applies every change instantly, so it stays a quiet
+   full-width control at the end of the panel. */
+.settings-save { width: 100%; }
 @media (min-width:768px) {
   .reader-head { min-height: 56px; padding-inline: 16px; }
+  .reader-progress { margin-inline: -16px; }
   .reader-bar {
     inset-inline: auto; bottom: 28px; left: 50%; transform: translateX(-50%);
     border: 1px solid var(--line-strong); background: var(--surface);
@@ -873,33 +915,62 @@ body.focus .js .hint-keys { bottom: 56px; }
   }
   .reader-head {
     grid-area: head;
-    /* brand | titles | byline(1fr) | controls; the back arrow and percent
-       are display:none here, so five tracks place the four visible items */
-    grid-template-columns: auto auto 1fr auto;
-    grid-template-rows: auto 2px;
-    min-height: 60px; padding-inline: 24px; column-gap: 16px;
+    /* brand | divider | titles | byline(1fr) | controls (D1); the back
+       arrow and percent are display:none here */
+    grid-template-columns: auto 1px auto 1fr auto;
+    grid-template-rows: 60px 2px;
+    min-height: 0; padding-inline: 28px 24px; column-gap: 20px;
   }
+  .reader-head:not(.reader-breadcrumb) .reader-progress { margin-inline: -28px -24px; }
+  .rt-divider { display: block; width: 1px; height: 20px; background: var(--line); }
+  .reader-head:not(.reader-breadcrumb) .rt-chapter { display: none; }
+  .reader-head:not(.reader-breadcrumb) .reader-titles { text-align: start; }
+  .reader-head:not(.reader-breadcrumb) > .rt-brand { grid-area: 1 / 1; }
+  .reader-head:not(.reader-breadcrumb) > .rt-divider { grid-area: 1 / 2; }
+  .reader-head:not(.reader-breadcrumb) > .reader-titles { grid-area: 1 / 3; }
+  .reader-head:not(.reader-breadcrumb) > .rt-by { grid-area: 1 / 4; }
+  .reader-head:not(.reader-breadcrumb) > .rt-ctls { grid-area: 1 / 5; }
+  .reader-head:not(.reader-breadcrumb) .rt-story { font-size: 16px; }
   .reader-back, .reader-pct { display: none; }
   .rt-brand {
     display: inline-flex; align-items: center;
-    font: 400 19px var(--serif); font-variant: small-caps; letter-spacing: .1em;
+    font: 400 21px var(--serif); font-variant: small-caps; letter-spacing: .08em;
     color: var(--ink); text-decoration: none;
   }
-  .rt-by { display: inline; font: 13px/1.4 var(--sans); color: var(--muted); white-space: nowrap; }
-  .rt-ctls { display: inline-flex; gap: 2px; justify-self: end; }
+  .rt-by { display: inline; font: 14px/1.4 var(--sans); color: var(--muted); white-space: nowrap; }
+  .rt-ctls { display: inline-flex; align-items: center; gap: 4px; justify-self: end; }
+  /* D1 controls: Contents and Text read pressed (their panels are open),
+     Bookmark is a ghost control with the outline ribbon. */
   .rt-ctl {
-    display: inline-flex; align-items: center; min-height: 44px; padding-inline: 14px;
-    background: var(--ink); color: var(--bg);
-    font: 600 14px/1 var(--sans); text-decoration: none; border: 0; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 9px; min-height: 40px; padding: 0 12px;
+    background: transparent; color: var(--ink);
+    font: 500 14px/1 var(--sans); text-decoration: none; border: 0; cursor: pointer;
   }
-  .rt-ctl:hover { background: var(--ink); color: var(--bg); opacity: .88; }
-  .rt-ctl.is-saved { background: var(--accent); color: var(--on-accent); }
+  .rt-ctl:hover { background: var(--hover); color: var(--ink); }
+  .rt-ctl.is-open { background: var(--ink); color: var(--bg); }
+  .rt-ctl.is-open:hover { background: var(--ink); color: var(--bg); opacity: .88; }
+  .rt-ctl.is-saved { color: var(--accent); }
+  .ctl-bars { display: flex; flex-direction: column; gap: 3.5px; }
+  .ctl-bars span { display: block; width: 16px; height: 1.6px; background: currentColor; }
+  .ctl-bars span:last-child { width: 10px; }
+  .ctl-aa { font: 16px/1 var(--serif); }
+  .ctl-aa span { font-size: .72em; }
+  .ctl-ribbon {
+    position: relative; display: block; width: 12px; height: 16px; background: currentColor;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+  }
+  .ctl-ribbon::after {
+    content: ""; position: absolute; inset: 1.6px 1.6px 0;
+    background: var(--bg); clip-path: polygon(0 0, 100% 0, 100% 84%, 50% 62%, 0 84%);
+  }
+  .rt-ctl.is-saved .ctl-ribbon::after { display: none; }
   .reader-progress { grid-column: 1 / -1; }
   /* The side panels: the sheets, always on, static, each its own scroll. */
   .reader .sheet {
     display: block; position: static; max-height: none; overflow: visible;
-    background: transparent; border: 0; box-shadow: none; padding: 24px 20px;
+    background: transparent; border: 0; box-shadow: none; padding: 28px 24px;
   }
+  #contents.sheet { padding: 28px 16px; }
   #contents {
     grid-area: contents;
     position: sticky; top: 0; align-self: start;
@@ -921,14 +992,36 @@ body.focus .js .hint-keys { bottom: 56px; }
     background: none; border: 0; padding: 0; min-height: 0; cursor: pointer;
     font: 13px var(--sans); color: var(--accent); text-decoration: underline;
   }
-  .sheet-title { font-size: 18px; margin-block: 0 .25rem; }
-  /* Contents annotations (member): minutes-left on the current chapter,
-     bookmark counts elsewhere; word counts give way to them. */
-  .ch-note { display: inline; font: 12px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+  #text .sheet-title { font-size: 22px; margin: 0; }
+  /* D1 contents: a small uppercase label over borderless rows; the current
+     chapter sits on the surface with the 2px accent rule. Member
+     annotations (minutes left, bookmark counts) ride under the title. */
+  #contents .sheet-title {
+    margin: 0 0 14px; padding-inline: 14px;
+    font: 12px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  }
+  .ch-note { display: block; grid-column: 2; font: 12px/1.6 var(--sans); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ch-note:empty { display: none; }
+  .reader .chapter-list { display: flex; flex-direction: column; gap: 2px; }
+  .reader .chapter-list li { border: 0; }
   .reader .chapter-list .ch-meta { display: none; }
-  .reader .chapter-list a { grid-template-columns: 34px 1fr; }
-  .reader .chapter-list li.is-current { box-shadow: inset 3px 0 0 var(--accent); }
-  .reader-main { grid-area: main; padding-block: 3rem; }
+  .reader .chapter-list a {
+    grid-template-columns: 32px minmax(0, 1fr); gap: 2px 6px; align-items: baseline;
+    min-height: 0; padding: 9px 12px; border-inline-start: 2px solid transparent;
+    color: var(--ink-2);
+  }
+  .reader .chapter-list a:hover { background: none; color: var(--ink); }
+  .reader .chapter-list .ch-num { font-size: 14.5px; padding: 0; color: var(--muted); }
+  .reader .chapter-list .ch-title { font-size: 15.5px; }
+  .reader .chapter-list li.is-current a { background: var(--surface); border-inline-start-color: var(--accent); color: var(--ink); }
+  .reader .chapter-list li.is-current .ch-num { color: var(--accent); }
+  /* D1 chapter opening: left-aligned kicker, 44px title, short ink rule. */
+  .reader-main { grid-area: main; padding: 64px 48px 3rem; }
+  .reader-main .prose > .ch-kicker { text-align: start; }
+  #contents .sheet-tabs { margin: 0 14px 14px; gap: 20px; }
+  #contents .sheet-tabs label { font: 12px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase; min-height: 32px; }
+  .reader-main .p-name { text-align: start; font-size: 44px; margin-block-end: 36px; }
+  .reader-main .p-name::after { margin-inline: 0; }
   .reader-bar { display: none; }
   /* D2 focus (desktop): the distraction-free variant. One centered column;
      the panes yield (the dock's Contents/Text still open the sheets as the
@@ -954,7 +1047,18 @@ body.focus .js .hint-keys { bottom: 56px; }
      desktop-only chrome never renders, and the sheets keep :target. The
      inline Search hides too (the search link beside Menu is the
      sub-desktop affordance; the desktop swaps that link for the form). */
-  .ch-note, .rt-brand, .rt-by, .rt-ctls, .panel-head { display: none; }
+  .ch-note, .rt-brand, .rt-by, .rt-ctls, .rt-divider { display: none; }
+  /* M4: the sheet's title row is "Text ... Done"; Done pins to the row's
+     end and Reset sits beside the title. */
+  .reader .sheet:target { position: fixed; }
+  .reader #contents.sheet:target { top: 92px; max-height: none; }
+  .reader .sheet-done { position: absolute; inset-block-start: 20px; inset-inline-end: 16px; }
+  .reader .panel-head { display: flex; align-items: baseline; gap: 16px; margin: 8px 0 4px; padding-inline-end: 72px; }
+  .reader .panel-head .sheet-title { margin: 0; font-size: 22px; }
+  .reset-link { background: none; border: 0; padding: 0; min-height: 0; cursor: pointer; font: 13px var(--sans); color: var(--accent); text-decoration: underline; }
+  /* M2/T1: the reader chrome is full bleed; the column keeps 24px gutters. */
+  body:has(.reader) .site-main { padding: 0; }
+  .reader-main { padding: 26px 24px 0; }
 }
 
 /* Breakpoints per the comp: <=767 mobile, 768-1023 tablet, >=1024 desktop. */

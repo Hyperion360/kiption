@@ -180,6 +180,10 @@ return [
     // replaced them); the unused add/remove aria spellings died with the C8
     // bar, which labels its buttons with reader.bookmark and common.remove.
     'reader.bookmarks' => 'Bookmarks',
+    'reader.where_left_off' => 'Where you left off',
+    'reader.add_note' => 'Add note',
+    'reader.edit_note' => 'Edit note',
+    'reader.note_label' => 'Note',
 
     // The redesigned story page (C7, frames M1/T2/D3): hero, stats, and the
     // progress vocabulary shared with the chapter reader.
@@ -242,6 +246,7 @@ return [
     'reader.paragraphs_spaced' => 'Spaced',
     'reader.theme' => 'Theme',
     'reader.width' => 'Line width',
+    'reader.width_chars' => '{n} characters',
     'reader.width_narrow' => 'Narrow',
     'reader.width_medium' => 'Medium',
     'reader.width_wide' => 'Wide',

@@ -98,7 +98,34 @@ final class ReadShellTest extends TestCase
         $this->assertStringContainsString('action="/reader/bookmarkremove/the-rabbit-hole/2"', $saved);
         $this->assertStringContainsString('<button type="submit" class="is-saved" aria-label="Saved">', $saved);
         $this->assertStringContainsString('<span class="bar-caption">Saved</span>', $saved);
-        $this->assertStringNotContainsString('action="/reader/bookmarkadd/the-rabbit-hole/2"', $saved);
+        // the bar toggle flips to remove; the bookmark's note form still
+        // posts to the add upsert, so the pin scopes to the bar's form
+        $this->assertStringNotContainsString('action="/reader/bookmarkadd/the-rabbit-hole/2" class="inline bar-bookmark"', $saved);
+    }
+
+    /** M5: each bookmark row carries an Add note disclosure whose form
+     *  posts the note to the existing upsert, the saved note pre-fills the
+     *  field (escaped), and the member's reading position leads the list. */
+    public function test_bookmarks_pane_wires_notes_and_where_you_left_off(): void
+    {
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', []);
+        $body = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('<summary>Add note</summary>', $body, 'an empty note offers Add note');
+        $this->assertStringContainsString('<form method="post" action="/reader/bookmarkadd/the-rabbit-hole/1">', $body,
+            'the note form targets the bookmark upsert');
+        $this->assertStringContainsString('<textarea name="note" rows="2" maxlength="500"></textarea>', $body);
+        // a saved note switches the label and pre-fills the field, escaped
+        $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'look <b>here</b>']);
+        $noted = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('<summary>Edit note</summary>', $noted);
+        $this->assertStringContainsString('maxlength="500">look &lt;b&gt;here&lt;/b&gt;</textarea>', $noted);
+        $this->assertStringNotContainsString('<b>here</b>', $noted);
+        // opening chapter 2 recorded the reading position: it leads the list
+        $this->assertStringContainsString('<p class="bm-kind">Where you left off</p>', $noted);
+        // guests carry none of it
+        $guest = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
+        $this->assertStringNotContainsString('bm-note-edit', $guest);
+        $this->assertStringNotContainsString('Where you left off', $guest);
     }
 
     public function test_guest_bar_bookmark_is_a_login_link_not_a_form(): void
