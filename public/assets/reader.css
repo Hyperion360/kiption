@@ -371,7 +371,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .letter-nav a:hover { background: var(--hover); }
 .letter-nav a[aria-current] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .site-main td.num, .site-main th.num { text-align: end; }
-.site-main td.mono { font: 13px var(--mono); color: var(--ink-2); }
+.site-main td.mono { font: 13px var(--mono); color: var(--ink-2); white-space: nowrap; }
 .cell-strong { font-weight: 600; color: var(--ink); }
 .link-btn.quiet { color: var(--muted); font-size: 13px; margin-inline-start: 8px; }
 /* Series reading order: numeral column + serif title, meta, owner tools. */
