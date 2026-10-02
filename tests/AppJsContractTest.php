@@ -175,5 +175,24 @@ final class AppJsContractTest extends TestCase
             'exactly one percent readout renders');
         return $m[0];
     }
-}
 
+    /** Script-written preference cookies keep the Secure attribute the server
+     *  adds on HTTPS (App\Cookie): the first control move must not drop it. */
+    public function test_script_cookies_are_secure_on_https(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("location.protocol === 'https:' ? '; secure' : ''", $js);
+        $this->assertSame(2, substr_count($js, '+ secure'), 'both the write and the delete carry it');
+    }
+
+    /** Arrow keys stay the browser's when Shift is held (text selection) and
+     *  in pages mode (the horizontal deck turns pages with them); J and K
+     *  always navigate chapters. */
+    public function test_keys_leave_shifted_arrows_and_pages_mode_alone(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/keys.js');
+        $this->assertStringContainsString("e.shiftKey || document.documentElement.getAttribute('data-mode') === 'pages'", $js);
+        $this->assertStringContainsString("key === 'j' || (key === 'arrowright' && arrows)", $js);
+        $this->assertStringContainsString("key === 'k' || (key === 'arrowleft' && arrows)", $js);
+    }
+}

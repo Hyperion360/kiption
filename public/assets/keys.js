@@ -42,8 +42,11 @@
         /* A dialog is open: navigation while it shows confuses, so J/K/T
            wait for Escape to close it. */
         if (claimed(e.target) || openSheet()) { return; }
-        if (key === 'j' || key === 'arrowright') { go(reader.dataset.next); handled = true; }
-        else if (key === 'k' || key === 'arrowleft') { go(reader.dataset.prev); handled = true; }
+        /* Shift+Arrow extends a text selection, and the pages-mode deck
+           turns pages with the arrows: both stay the browser's. */
+        var arrows = !(e.shiftKey || document.documentElement.getAttribute('data-mode') === 'pages');
+        if (key === 'j' || (key === 'arrowright' && arrows)) { go(reader.dataset.next); handled = true; }
+        else if (key === 'k' || (key === 'arrowleft' && arrows)) { go(reader.dataset.prev); handled = true; }
         else if (key === 't') {
           var panel = document.getElementById('text');
           if (panel) {
