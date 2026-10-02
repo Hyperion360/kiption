@@ -76,4 +76,41 @@ final class DemoTest extends TestCase
         $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM reviews WHERE user_id IS NULL AND guest_name IS NULL'), 'no orphaned reviews');
         $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM story_kudos WHERE user_id IS NULL AND ip = \'\''), 'no orphaned kudos');
     }
+
+    /** --force removes only what the demo created: an operator's category
+     *  that shares a demo slug, a warning tag type the demo never makes (and
+     *  its link to a real story), and a page at a demo slug all survive. */
+    public function test_force_rebuild_never_deletes_operator_rows(): void
+    {
+        $this->db->query("INSERT INTO categories (name, slug, description) VALUES ('Mystery', 'mystery', 'The operator wrote this.')");
+        $this->db->query("INSERT INTO tag_types (name) VALUES ('warning')");
+        $this->db->query("INSERT INTO tags (tag_type_id, name) VALUES ((SELECT id FROM tag_types WHERE name = 'warning'), 'Major character death')");
+        $this->db->query("INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), (SELECT id FROM tags WHERE name = 'Major character death'))");
+        $this->db->query("INSERT INTO pages (slug, title, body) VALUES ('guidelines', 'Rules', 'Operator rules.')");
+        \App\Demo::run($this->db);
+        \App\Demo::run($this->db, true);
+        $this->assertSame('The operator wrote this.', (string) $this->db->one("SELECT description FROM categories WHERE slug = 'mystery'")['description']);
+        $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM tag_types WHERE name = 'warning'"), 'a tag type the demo never created survives');
+        $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE t.name = 'Major character death'"),
+            'and so does its link to a real story');
+        $this->assertSame('Operator rules.', (string) $this->db->one("SELECT body FROM pages WHERE slug = 'guidelines'")['body']);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM bookmarks b WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = b.user_id)'),
+            'no bookmarks orphaned by the rebuild');
+    }
+
+    /** A database holding stories by anyone other than the seed fixture or
+     *  demo accounts is a real archive: the demo (and its published admin
+     *  password) refuses to load there. */
+    public function test_refuses_to_load_into_a_real_archive(): void
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('owner@archive.example', 'x', 'realwriter')");
+        $this->db->query("INSERT INTO stories (title, slug, author_id, rating_id, validated) VALUES ('Real work', 'real-work', (SELECT id FROM users WHERE penname = 'realwriter'), (SELECT id FROM ratings LIMIT 1), 1)");
+        try {
+            \App\Demo::run($this->db);
+            $this->fail('the demo must refuse a real archive');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('real archive', $e->getMessage());
+        }
+        $this->assertSame(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"), 'nothing was written');
+    }
 }

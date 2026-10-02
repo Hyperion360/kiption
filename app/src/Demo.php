@@ -43,7 +43,16 @@ final class Demo
     ];
 
     private const NEWS = ['Reading lists are live', 'A quieter reader', 'Lighthouse Week starts Monday'];
-    private const PAGES = ['guidelines', 'faq'];
+    /** slug => [title, body]: the exact rows site() writes and clear() matches. */
+    private const PAGES = [
+        'guidelines' => ['Community guidelines', "## Be kind in reviews\n\nSay what worked before what did not. Spoilers go behind a warning.\n\n## Rate honestly\n\nUse Mature or Explicit for adult content. Readers rely on it.\n\n## Credit your collaborators\n\nAdd co-authors on the story page so both of you get notified."],
+        'faq' => ['Questions', "## How do I bookmark?\n\nOpen any chapter and use Bookmark in the reader bar. Add a note from the Bookmarks tab.\n\n## Can I read offline?\n\nUse EPUB or HTML from any story page.\n\n## Why do some stories ask my age?\n\nMature and Explicit stories show a one-time notice."],
+    ];
+    /** [type, name]: type is genre, content, or the demo's own setting type. */
+    private const TAGS = [['content', 'Slow burn'], ['content', 'Grief'], ['setting', 'Small town'], ['genre', 'Letters'],
+        ['setting', 'Lighthouse'], ['setting', 'Winter'], ['setting', 'Trains'], ['setting', 'Space station'],
+        ['content', 'Cozy'], ['genre', 'Haunted house']];
+    private const NAV = [['Guidelines', '/page/view/guidelines'], ['Questions', '/page/view/faq']];
 
     public static function run(Database $db, bool $force = false): array
     {
@@ -61,6 +70,14 @@ final class Demo
         $existing = (int) $this->db->one('SELECT COUNT(*) c FROM users WHERE email LIKE ?', ['%@' . self::DOMAIN])['c'];
         if ($existing > 0 && !$force) {
             throw new \RuntimeException('Demo data is already loaded (use --force to rebuild it).');
+        }
+        // Real-archive guard: stories by anyone other than the seed fixture's
+        // author or a demo account mean this is somebody's archive, and the
+        // demo (with its published admin password) must not land there.
+        $real = (int) $this->db->one("SELECT COUNT(*) c FROM stories s JOIN users u ON u.id = s.author_id
+            WHERE u.email <> 'demo@example.test' AND u.email NOT LIKE ?", ['%@' . self::DOMAIN])['c'];
+        if ($real > 0) {
+            throw new \RuntimeException("Refusing to load demo content into a real archive ({$real} stories by real authors).");
         }
         if ((int) $this->db->one('SELECT COUNT(*) c FROM ratings')['c'] === 0) {
             Seeder::run($this->db); // the base fixture: ratings, General, the two seed stories
@@ -96,24 +113,36 @@ final class Demo
     {
         $ids = array_map(static fn (array $r): int => (int) $r['id'],
             $this->db->all('SELECT id FROM users WHERE email LIKE ?', ['%@' . self::DOMAIN]));
-        $in = implode(',', $ids ?: [0]);
+        $in = implode(',', $ids ?: [0]); // integer ids from our own query
         foreach (["DELETE FROM reviews WHERE user_id IN ({$in})",
                   "DELETE FROM story_kudos WHERE user_id IN ({$in})",
                   "DELETE FROM news_comments WHERE user_id IN ({$in})",
+                  "DELETE FROM news WHERE author_id IN ({$in})",
                   "DELETE FROM reports WHERE reporter_id IN ({$in})",
                   "DELETE FROM notifications WHERE actor_id IN ({$in})",
+                  "DELETE FROM bookmarks WHERE user_id IN ({$in})",
                   "DELETE FROM users WHERE id IN ({$in})"] as $sql) {
             $this->db->query($sql);
         }
-        $slugs = "'" . implode("','", array_keys(self::CATEGORIES)) . "'";
-        $this->db->query("DELETE FROM categories WHERE slug IN ({$slugs})");
-        $this->db->query("DELETE FROM tag_types WHERE name IN ('setting', 'warning')");
-        $this->db->query("DELETE FROM tags WHERE name IN ('Slow burn', 'Grief', 'Small town', 'Letters', 'Lighthouse', 'Winter', 'Trains', 'Space station', 'Cozy', 'Found Family', 'slowburn', 'Haunted house')");
-        $news = "'" . implode("','", self::NEWS) . "'";
-        $this->db->query("DELETE FROM news WHERE title IN ({$news})");
-        $pages = "'" . implode("','", self::PAGES) . "'";
-        $this->db->query("DELETE FROM pages WHERE slug IN ({$pages})");
-        $this->db->query("DELETE FROM nav_links WHERE url IN ('/page/view/guidelines', '/page/view/faq')");
+        // Shared-namespace rows go only when they are provably ours: the
+        // exact text this class writes, and nothing still pointing at them.
+        foreach (self::CATEGORIES as $slug => [, $desc]) {
+            $this->db->query('DELETE FROM categories WHERE slug = ? AND description = ?
+                AND NOT EXISTS (SELECT 1 FROM story_categories sc WHERE sc.category_id = categories.id)', [$slug, $desc]);
+        }
+        foreach (self::TAGS as [, $name]) {
+            $this->db->query('DELETE FROM tags WHERE name = ? AND NOT EXISTS (SELECT 1 FROM story_tags st WHERE st.tag_id = tags.id)', [$name]);
+        }
+        foreach (['Found Family', 'slowburn'] as $name) {
+            $this->db->query('DELETE FROM tags WHERE name = ? AND NOT EXISTS (SELECT 1 FROM story_tags st WHERE st.tag_id = tags.id)', [$name]);
+        }
+        $this->db->query("DELETE FROM tag_types WHERE name = 'setting' AND NOT EXISTS (SELECT 1 FROM tags t WHERE t.tag_type_id = tag_types.id)");
+        foreach (self::PAGES as $slug => [$title, $body]) {
+            $this->db->query('DELETE FROM pages WHERE slug = ? AND title = ? AND body = ?', [$slug, $title, $body]);
+        }
+        foreach (self::NAV as [$label, $url]) {
+            $this->db->query('DELETE FROM nav_links WHERE label = ? AND url = ?', [$label, $url]);
+        }
     }
 
     // ------------------------------------------------------------------ taxonomy
@@ -122,26 +151,22 @@ final class Demo
     {
         $pos = 2;
         foreach (self::CATEGORIES as $slug => [$name, $desc]) {
-            $this->db->query('INSERT INTO categories (name, slug, description, position) VALUES (?, ?, ?, ?)', [$name, $slug, $desc, $pos++]);
-            $this->categories[$slug] = (int) $this->db->lastInsertId();
+            // an operator's category at the same slug is reused, never replaced
+            $this->db->query('INSERT OR IGNORE INTO categories (name, slug, description, position) VALUES (?, ?, ?, ?)', [$name, $slug, $desc, $pos++]);
+            $this->categories[$slug] = (int) $this->db->one('SELECT id FROM categories WHERE slug = ?', [$slug])['id'];
         }
         $this->categories['general'] = (int) $this->db->one("SELECT id FROM categories WHERE slug = 'general'")['id'];
-        foreach ($this->db->all('SELECT t.id, t.name FROM tags t') as $t) $this->tags[$t['name']] = (int) $t['id'];
-        $genre = (int) $this->db->one("SELECT id FROM tag_types WHERE name = 'genre'")['id'];
-        $content = (int) $this->db->one("SELECT id FROM tag_types WHERE name = 'content'")['id'];
-        $this->db->query("INSERT INTO tag_types (name) VALUES ('setting')");
-        $setting = (int) $this->db->lastInsertId();
-        foreach ([[$content, 'Slow burn'], [$content, 'Grief'], [$setting, 'Small town'], [$genre, 'Letters'],
-                  [$setting, 'Lighthouse'], [$setting, 'Winter'], [$setting, 'Trains'], [$setting, 'Space station'],
-                  [$content, 'Cozy'], [$genre, 'Haunted house']] as [$type, $name]) {
-            $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$type, $name]);
-            $this->tags[$name] = (int) $this->db->lastInsertId();
+        $this->db->query("INSERT OR IGNORE INTO tag_types (name) VALUES ('setting')");
+        $types = [];
+        foreach ($this->db->all('SELECT id, name FROM tag_types') as $t) $types[$t['name']] = (int) $t['id'];
+        foreach (self::TAGS as [$type, $name]) {
+            $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$types[$type], $name]);
         }
+        foreach ($this->db->all('SELECT id, name FROM tags') as $t) $this->tags[$t['name']] = (int) $t['id'];
         // Wrangling has work to do: one synonym already merged, one near
         // duplicate still waiting for an editor.
-        $this->db->query('INSERT INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)', [$genre, 'Found Family', $this->tags['Found family']]);
-        $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$content, 'slowburn']);
-        $this->tags['slowburn'] = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)', [$types['genre'], 'Found Family', $this->tags['Found family']]);
+        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$types['content'], 'slowburn']);
     }
 
     // -------------------------------------------------------------------- people
@@ -572,13 +597,15 @@ final class Demo
                 $this->db->query('INSERT INTO news_comments (news_id, user_id, body, created_at) VALUES (?, ?, ?, ?)', [$newsId, $this->users[$who], $c, $this->day(max(0, $days - 1))]);
             }
         }
-        $this->db->query("INSERT INTO pages (slug, title, body) VALUES ('guidelines', 'Community guidelines', ?), ('faq', 'Questions', ?)", [
-            "## Be kind in reviews\n\nSay what worked before what did not. Spoilers go behind a warning.\n\n## Rate honestly\n\nUse Mature or Explicit for adult content. Readers rely on it.\n\n## Credit your collaborators\n\nAdd co-authors on the story page so both of you get notified.",
-            "## How do I bookmark?\n\nOpen any chapter and use Bookmark in the reader bar. Add a note from the Bookmarks tab.\n\n## Can I read offline?\n\nUse EPUB or HTML from any story page.\n\n## Why do some stories ask my age?\n\nMature and Explicit stories show a one-time notice.",
-        ]);
+        foreach (self::PAGES as $slug => [$title, $body]) {
+            $this->db->query('INSERT OR IGNORE INTO pages (slug, title, body) VALUES (?, ?, ?)', [$slug, $title, $body]); // an operator page at the slug wins
+        }
         $max = (int) $this->db->one('SELECT COALESCE(MAX(position), 0) m FROM nav_links')['m'];
-        $this->db->query('INSERT INTO nav_links (label, url, position) VALUES (?, ?, ?), (?, ?, ?)',
-            ['Guidelines', '/page/view/guidelines', $max + 1, 'Questions', '/page/view/faq', $max + 2]);
+        foreach (self::NAV as $i => [$label, $url]) {
+            if ($this->db->one('SELECT 1 FROM nav_links WHERE url = ?', [$url]) === null) {
+                $this->db->query('INSERT INTO nav_links (label, url, position) VALUES (?, ?, ?)', [$label, $url, $max + $i + 1]);
+            }
+        }
     }
 
     /** An ISO timestamp $days before now (UTC), at a steady mid-afternoon time. */
