@@ -227,8 +227,14 @@ final class StoryRepository
      *  (user_id, story_id) PK directly). $filter is the recent screen's
      *  facet (C10): the controller whitelists it, and anything the match
      *  below does not know reads as unfiltered, like the junk page param.
+     *  $catSlug narrows to one category (the chips task): an EXISTS probe on
+     *  story_categories/categories so a multi-category story is never
+     *  duplicated, bound as a parameter, never interpolated. The cats_blob
+     *  fold rides BOTH paths (guest and member): json_group_array over the
+     *  (story_id, category_id) PK, so membership is already deduplicated and
+     *  a DISTINCT would only buy a TEMP B-TREE sort on name.
      *  @param string $filter ''|complete|wip|under10k */
-    public function recentStories(int $perPage, int $offset, int $viewer = 0, string $filter = ''): array
+    public function recentStories(int $perPage, int $offset, int $viewer = 0, string $filter = '', string $catSlug = ''): array
     {
         $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         $facet = match ($filter) {
@@ -237,6 +243,11 @@ final class StoryRepository
             'under10k' => ' AND s.word_count < 10000',
             default => '',
         };
+        $catClause = $catSlug !== ''
+            ? ' AND EXISTS (SELECT 1 FROM story_categories sc2
+                     JOIN categories c2 ON c2.id = sc2.category_id
+                     WHERE sc2.story_id = s.id AND c2.slug = ?)'
+            : '';
         $progressJoin = $viewer > 0 ? ' LEFT JOIN reading_history rr ON rr.story_id = s.id AND rr.user_id = ' . $viewer : '';
         $progressCols = $viewer > 0 ? ',
                     rr.last_position,
@@ -246,15 +257,23 @@ final class StoryRepository
                        / NULLIF(s.word_count, 0)) AS INTEGER)) END AS read_pct' : '';
         return $this->db->all(
             'SELECT s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, s.created_at,
-                    u.penname, r.label AS rating_label' . $progressCols . '
+                    u.penname, r.label AS rating_label,
+                    (SELECT json_group_array(json_object(\'slug\', c.slug, \'name\', c.name)) FROM story_categories sc
+                     JOIN categories c ON c.id = sc.category_id
+                     WHERE sc.story_id = s.id) AS cats_blob' . $progressCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id' . $progressJoin . '
              WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0'
-            . $facet . $mute .
+            . $facet . $catClause . $mute .
             ' ORDER BY s.updated_at DESC, s.id DESC
              LIMIT ? OFFSET ?',
-            $viewer > 0 ? [$viewer, $perPage, $offset] : [$perPage, $offset]
+            match (true) {
+                $viewer > 0 && $catSlug !== '' => [$catSlug, $viewer, $perPage, $offset],
+                $viewer > 0 => [$viewer, $perPage, $offset],
+                $catSlug !== '' => [$catSlug, $perPage, $offset],
+                default => [$perPage, $offset],
+            }
         );
     }
 

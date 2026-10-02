@@ -57,7 +57,13 @@ final class BrowseController
         // the canonical stays the bare /browse/recent path either way.
         $filter = (string) ($this->request->get['filter'] ?? '');
         $filter = in_array($filter, self::RECENT_FILTERS, true) ? $filter : '';
-        $stories = $this->stories->recentStories($perPage, $offset, \App\Features::on('mute') ? $me : 0, $filter);
+        // The category chip's bound value: cat[]=x arrives as an array, and a
+        // bare pass-through would TypeError the repository into a 500, so a
+        // non-string reads as unfiltered (the junk-page-param coercion). Any
+        // string value is safe to bind: an unknown slug just matches nothing.
+        $cat = $this->request->get['cat'] ?? '';
+        $cat = is_string($cat) ? $cat : '';
+        $stories = $this->stories->recentStories($perPage, $offset, \App\Features::on('mute') ? $me : 0, $filter, $cat);
         $items = [];
         foreach ($stories as $i => $s) {
             $items[] = ['@type' => 'ListItem', 'position' => $i + 1, 'url' => '/story/view/' . $s['slug'], 'name' => $s['title']];
@@ -76,6 +82,7 @@ final class BrowseController
             'page' => $page,
             'baseUrl' => '/browse/recent',
             'filter' => $filter,
+            'cat' => $cat,
             'chips' => true,
         ]);
     }

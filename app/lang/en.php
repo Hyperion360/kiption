@@ -98,6 +98,7 @@ return [
     'browse.filter_aria' => 'Filter stories',
     'browse.filter_wip' => 'In progress',
     'browse.filter_under10k' => 'Under 10k',
+    'browse.no_cat_stories' => 'No stories in this category.',
     'browse.continue_pill' => 'Continue · {roman}, {pct}%',
 
     // Story listing atoms shared by browse, search, series, and the story page.
