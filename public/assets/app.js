@@ -17,14 +17,17 @@
         return m ? decodeURIComponent(m[1]) : '';
       },
       set: function (name, value) {
+        /* Secure on HTTPS, matching the server's App\Cookie, so a control
+           move never strips the attribute the server set. */
+        var secure = location.protocol === 'https:' ? '; secure' : '';
         /* An empty value DELETES (the server's default-clearing economy):
            a year-long empty cookie would still make every request miss the
            static cache. */
         if (value === '') {
-          document.cookie = name + '=; path=/; max-age=0; samesite=lax';
+          document.cookie = name + '=; path=/; max-age=0; samesite=lax' + secure;
           return;
         }
-        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; samesite=lax';
+        document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; samesite=lax' + secure;
       }
     },
     /* Run a module init now if the DOM is ready, else on DOMContentLoaded
