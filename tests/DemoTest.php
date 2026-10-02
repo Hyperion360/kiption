@@ -32,7 +32,7 @@ final class DemoTest extends TestCase
 
     public function test_demo_loads_every_surface_and_keeps_the_fixture(): void
     {
-        $made = \App\Demo::run($this->db);
+        $made = \App\Demo::run($this->db, dev: true);
         $this->assertSame(14, $made['users']);
         $this->assertSame(15, $made['stories']);
         // the Seeder fixture the suite pins is untouched
@@ -62,15 +62,15 @@ final class DemoTest extends TestCase
 
     public function test_second_load_refuses_and_force_rebuilds_without_orphans(): void
     {
-        \App\Demo::run($this->db);
+        \App\Demo::run($this->db, dev: true);
         $before = [$this->rows('SELECT COUNT(*) c FROM stories'), $this->rows('SELECT COUNT(*) c FROM reviews'), $this->rows('SELECT COUNT(*) c FROM tags')];
         try {
-            \App\Demo::run($this->db);
+            \App\Demo::run($this->db, dev: true);
             $this->fail('a second load must refuse');
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('--force', $e->getMessage());
         }
-        \App\Demo::run($this->db, true);
+        \App\Demo::run($this->db, true, true);
         $this->assertSame($before, [$this->rows('SELECT COUNT(*) c FROM stories'), $this->rows('SELECT COUNT(*) c FROM reviews'), $this->rows('SELECT COUNT(*) c FROM tags')],
             'a forced rebuild lands on the same archive, no duplicates');
         $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM reviews WHERE user_id IS NULL AND guest_name IS NULL'), 'no orphaned reviews');
@@ -87,7 +87,7 @@ final class DemoTest extends TestCase
         $this->db->query("INSERT INTO tags (tag_type_id, name) VALUES ((SELECT id FROM tag_types WHERE name = 'warning'), 'Major character death')");
         $this->db->query("INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), (SELECT id FROM tags WHERE name = 'Major character death'))");
         $this->db->query("INSERT INTO pages (slug, title, body) VALUES ('guidelines', 'Rules', 'Operator rules.')");
-        \App\Demo::run($this->db);
+        \App\Demo::run($this->db, dev: true);
         // operator rows that hang off demo-named rows: a child category and a
         // character under the demo's Fantasy, and a warning tag sharing a
         // demo tag's name (the demo's Slow burn is a content tag)
@@ -96,7 +96,7 @@ final class DemoTest extends TestCase
         $this->db->query("INSERT INTO tags (tag_type_id, name) VALUES ((SELECT id FROM tag_types WHERE name = 'warning'), 'Slow burn')");
         // and an operator tag an admin merged into the demo's Cozy
         $this->db->query("INSERT INTO tags (tag_type_id, name, canonical_id) VALUES ((SELECT id FROM tag_types WHERE name = 'content'), 'Snug', (SELECT id FROM tags WHERE name = 'Cozy'))");
-        \App\Demo::run($this->db, true);
+        \App\Demo::run($this->db, true, true);
         $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM categories WHERE slug = 'high-fantasy'"), 'a child category survives');
         $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM characters WHERE name = 'Operator hero'"), 'a character survives');
         $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id WHERE tt.name = 'warning' AND t.name = 'Slow burn'"),
@@ -118,7 +118,7 @@ final class DemoTest extends TestCase
         $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('owner@archive.example', 'x', 'realwriter')");
         $this->db->query("INSERT INTO stories (title, slug, author_id, rating_id, validated) VALUES ('Real work', 'real-work', (SELECT id FROM users WHERE penname = 'realwriter'), (SELECT id FROM ratings LIMIT 1), 1)");
         try {
-            \App\Demo::run($this->db);
+            \App\Demo::run($this->db, dev: true);
             $this->fail('the demo must refuse a real archive');
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('real archive', $e->getMessage());
@@ -126,21 +126,17 @@ final class DemoTest extends TestCase
         $this->assertSame(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"), 'nothing was written');
     }
 
-    /** A fresh production install has an operator account and no stories
-     *  yet. Outside KIP_ENV=dev the demo (and its admin with a published
-     *  password) refuses any database holding accounts beyond the demo and
-     *  seed fixtures; in dev it loads beside the developer's own account. */
-    public function test_refuses_existing_accounts_outside_dev(): void
+    /** Outside KIP_ENV=dev the demo never loads, not even on a pristine
+     *  database with no accounts yet: a fresh production install must never
+     *  receive the admin with the published password (qa-full /pentest). */
+    public function test_refuses_everything_outside_dev(): void
     {
-        $this->db->query("INSERT INTO users (email, password_hash, penname, is_admin) VALUES ('owner@archive.example', 'x', 'operator', 1)");
         try {
             \App\Demo::run($this->db);
-            $this->fail('the demo must refuse an install with real accounts');
+            $this->fail('the demo must refuse outside development');
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('KIP_ENV=dev', $e->getMessage());
         }
-        $this->assertSame(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"));
-        \App\Demo::run($this->db, dev: true);
-        $this->assertGreaterThan(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"), 'dev loads beside it');
+        $this->assertSame(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"), 'nothing was written');
     }
 }

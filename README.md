@@ -41,9 +41,9 @@ bookmarks with notes, favorites, follows, messages, notifications),
 `moderator@demo.kiption.test` or `admin@demo.kiption.test` for the
 validation queue, reports, wrangling and analytics. `db:demo --force`
 rebuilds only the demo rows; the test fixture is never touched. The
-command refuses a database with stories by real authors, and outside
-`KIP_ENV=dev` it also refuses one holding any account beyond the demo
-and test fixtures, so its known-password admin never reaches a live site.
+command runs only with `KIP_ENV=dev`, and even then refuses a database
+with stories by real authors, so its known-password admin never reaches
+a live site.
 
 Maintenance mode: `touch app/maintenance.lock` enables it (effective on
 the next request, no restart), `rm app/maintenance.lock` disables it. The

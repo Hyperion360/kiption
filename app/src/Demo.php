@@ -57,8 +57,7 @@ final class Demo
     private const WRANGLE_TAGS = [['genre', 'Found Family', 'Found family'], ['content', 'slowburn', null]];
     private const NAV = [['Guidelines', '/page/view/guidelines'], ['Questions', '/page/view/faq']];
 
-    /** $dev (KIP_ENV=dev) lets the demo load beside accounts that are not
-     *  demo or seed-fixture rows, the developer's own admin for example. */
+    /** $dev is KIP_ENV=dev: the demo loads only on a development database. */
     public static function run(Database $db, bool $force = false, bool $dev = false): array
     {
         return (new self($db))->build($force, $dev);
@@ -72,6 +71,12 @@ final class Demo
     /** @return array<string, int> what was created, for the CLI summary */
     private function build(bool $force, bool $dev): array
     {
+        // Development only: the demo creates an admin with a published
+        // password, so outside KIP_ENV=dev it refuses every database, a
+        // pristine production one with no accounts yet included.
+        if (!$dev) {
+            throw new \RuntimeException('Refusing to load demo content outside development. Run it with KIP_ENV=dev on a development database.');
+        }
         $existing = (int) $this->db->one('SELECT COUNT(*) c FROM users WHERE email LIKE ?', ['%@' . self::DOMAIN])['c'];
         if ($existing > 0 && !$force) {
             throw new \RuntimeException('Demo data is already loaded (use --force to rebuild it).');
@@ -83,14 +88,6 @@ final class Demo
             WHERE u.email <> 'demo@example.test' AND u.email NOT LIKE ?", ['%@' . self::DOMAIN])['c'];
         if ($real > 0) {
             throw new \RuntimeException("Refusing to load demo content into a real archive ({$real} stories by real authors).");
-        }
-        // A fresh production install has its operator account and no stories
-        // yet: outside dev, any account beyond the demo and seed fixtures
-        // refuses too, so a known-password admin never lands on a live site.
-        $accounts = (int) $this->db->one("SELECT COUNT(*) c FROM users
-            WHERE email NOT IN ('demo@example.test', 'beta@example.test') AND email NOT LIKE ?", ['%@' . self::DOMAIN])['c'];
-        if ($accounts > 0 && !$dev) {
-            throw new \RuntimeException("Refusing to load demo content beside {$accounts} existing account(s) outside development. Run it with KIP_ENV=dev on a development database.");
         }
         if ((int) $this->db->one('SELECT COUNT(*) c FROM ratings')['c'] === 0) {
             Seeder::run($this->db); // the base fixture: ratings, General, the two seed stories
