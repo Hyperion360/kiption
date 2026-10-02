@@ -295,6 +295,18 @@ final class StoryTest extends TestCase
         $this->assertStringNotContainsString('about -', $body);
     }
 
+    /** Design review (run 3): a finished story shows its 100% marker and no
+     *  "about 0 min left" / "0 min left" note; the note only renders while
+     *  minutes remain. */
+    public function test_finished_story_drops_the_zero_minutes_left_note(): void
+    {
+        (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 2)');
+        $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('100%', $body);
+        $this->assertStringNotContainsString('0 min left', $body);
+        $this->assertStringNotContainsString('min left', $body);
+    }
+
     /** Review follow-up (red team): Continue never links a position that no
      *  longer validates. The member read chapter 3; the author then deleted
      *  it; the landing CTA must fall back to the highest surviving position

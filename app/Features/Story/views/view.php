@@ -119,7 +119,7 @@
            desktop widths. */ ?>
       <div class="byline"><?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?><?php if (!empty($csrf)): ?><?php if ((int) $following_author === 1): ?> · <span class="follow-state"><?= \App\Lang::t('story.you_follow_author') ?></span><?php else: ?> · <form method="post" action="/follow/author/<?= (int) $story['author_id'] ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="follow-btn"><?= \App\Lang::t('story.follow_author') ?></button></form><?php endif; ?><?php endif; ?></div>
       <?php /* one markup, two presentations: the meta line shows below 1024px, the stats dl from 1024px up. The reading time is public (word_count at 250 wpm); the member-only minutes-left note joins it. */ ?>
-      <p class="meta meta-line"><?= $this->e($story['rating_label']) ?> · <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?> · <?= \App\Lang::t('reader.chapters_n', ['n' => count($chapters)]) ?> · <?= \App\Lang::t('story.read_time', ['time' => $readTime]) ?><?php if ($progress !== null && $progress['minutes_left'] !== null): ?> · <?= \App\Lang::t('reader.about_left', ['min' => (int) $progress['minutes_left']]) ?><?php endif; ?>
+      <p class="meta meta-line"><?= $this->e($story['rating_label']) ?> · <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?> · <?= \App\Lang::t('reader.chapters_n', ['n' => count($chapters)]) ?> · <?= \App\Lang::t('story.read_time', ['time' => $readTime]) ?><?php /* a finished story (0 min) says so through its 100% marker, not "about 0 min left" */ if ($progress !== null && ($progress['minutes_left'] ?? 0) > 0): ?> · <?= \App\Lang::t('reader.about_left', ['min' => (int) $progress['minutes_left']]) ?><?php endif; ?>
         <?php if ((int) $story['is_adult'] === 1): ?><span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
         <?php if ((int) $story['is_restricted'] === 1): ?><span class="badge"><?= \App\Lang::t('story.registered_only') ?></span><?php endif; ?>
         <?php if ($story['round_robin']): ?><span class="badge"><?= \App\Lang::t('story.round_robin') ?></span><?php endif; ?>
@@ -128,7 +128,7 @@
         <div><dt><?= \App\Lang::t('story.rating') ?></dt><dd><?= $this->e($story['rating_label']) ?></dd></div>
         <div><dt><?= \App\Lang::t('story.words_label') ?></dt><dd><?= number_format((int) $story['word_count']) ?></dd></div>
         <div><dt><?= \App\Lang::t('reader.time_left') ?></dt><dd><?= $this->e($readTime) ?></dd></div>
-        <?php if ($progress !== null && $progress['minutes_left'] !== null): ?><div><dt><?= \App\Lang::t('story.time_left_label') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd></div><?php endif; ?>
+        <?php if ($progress !== null && ($progress['minutes_left'] ?? 0) > 0): ?><div><dt><?= \App\Lang::t('story.time_left_label') ?></dt><dd><?= \App\Lang::t('reader.min_left', ['n' => (int) $progress['minutes_left']]) ?></dd></div><?php endif; ?>
         <div><dt><?= \App\Lang::t('story.kudos_label') ?></dt><dd><?= number_format((int) $kudos_count) ?></dd></div>
         <div><dt><?= \App\Lang::t('story.reviews_heading') ?></dt><dd><?= number_format((int) $review_count) ?></dd></div>
       </dl>
