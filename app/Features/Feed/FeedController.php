@@ -1,12 +1,46 @@
 <?php // app/Features/Feed/FeedController.php
 namespace App\Features\Feed;
-use Kip\{App, Database, Http\Response};
+use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use App\Repositories\StoryRepository;
 use App\Repositories\UserRepository;
 
 final class FeedController
 {
-    public function __construct(private App $app, private Database $db) {}
+    public function __construct(
+        private App $app,
+        private Database $db,
+        private View $view,
+        private Request $request,
+        private Session $session,
+    ) {}
+
+    /** /feed/subscribe: the human page behind the footer's Feed link. A raw
+     *  feed is for feed readers; a browser that opens one either shows XML or
+     *  downloads it, so people land here instead: what a feed is, the
+     *  addresses to paste into a reader, and the per-category feeds. One
+     *  query (the category list). */
+    public function subscribe(): Response
+    {
+        if (($r = \App\Features::guard('feeds')) !== null) return $r;
+        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $base = rtrim((string) $this->app->config('base_url', 'http://localhost'), '/');
+        $categories = $this->db->all('SELECT slug, name FROM categories ORDER BY name');
+        $title = \App\Lang::t('feed.subscribe_heading');
+        return new Response($this->view->render('feed/subscribe', [
+            'title' => $title,
+            'head' => \App\Seo\Head::make(
+                siteName: (string) $this->app->config('site_name', 'Kiption'),
+                ogImage: (string) $this->app->config('og_image', ''),
+                baseUrl: $base,
+            )->withTitle($title)->withCanonical('/feed/subscribe'),
+            'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'loggedIn' => $me !== 0,
+            'base' => $base,
+            'categories' => $categories,
+        ]));
+    }
 
     public function index(): Response
     {
@@ -43,7 +77,12 @@ final class FeedController
             $title,
             rtrim((string) $this->app->config('base_url', 'http://localhost'), '/'),
             $stories,
-            $this->fullText()), 200, ['Content-Type' => 'application/atom+xml; charset=utf-8']);
+            $this->fullText()), 200, [
+                'Content-Type' => 'application/atom+xml; charset=utf-8',
+                // a browser that downloads instead of rendering saves a named,
+                // extension-bearing file (it used to save "feed", no extension)
+                'Content-Disposition' => 'inline; filename="kiption.atom.xml"',
+            ]);
     }
 
     private function fullText(): bool

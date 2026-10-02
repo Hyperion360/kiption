@@ -85,7 +85,7 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('<footer class="site-foot">', $body);
         preg_match('#<footer class="site-foot">.*?</footer>#s', $body, $m);
         $foot = $m[0] ?? '';
-        foreach (['href="/news"', 'href="/top"', 'href="/lists"', 'href="/challenges"', 'href="/feed"'] as $href) {
+        foreach (['href="/news"', 'href="/top"', 'href="/lists"', 'href="/challenges"', 'href="/feed/subscribe"'] as $href) {
             $this->assertStringContainsString($href, $foot);
         }
         $this->assertStringNotContainsString('href="/browse"', $foot, 'header destinations are not repeated');

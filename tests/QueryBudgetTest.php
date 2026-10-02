@@ -55,7 +55,7 @@ final class QueryBudgetTest extends TestCase
 
     public static function pages(): array
     {
-        return [['/'], ['/browse'], ['/browse/recent'],
+        return [['/'], ['/browse'], ['/browse/recent'], ['/feed/subscribe'],
                 // C10: the recent-screen facets fold into the ONE listing
                 // query as WHERE clauses; every filtered shape stays budget-1
                 // (and cache-ineligible by the queryless rule).

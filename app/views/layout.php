@@ -84,7 +84,7 @@
 <?php foreach (\App\NavLinks::all($navFile ?? '') as $l): if (isset($footSeen[$l['url']])) continue; ?>
       <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
 <?php endforeach; ?>
-      <?php if (\App\Features::on('feeds')): ?><a href="/feed"><?= \App\Lang::t('common.feed_title') ?></a><?php endif; ?>
+      <?php if (\App\Features::on('feeds')): ?><a href="/feed/subscribe"><?= \App\Lang::t('common.feed_title') ?></a><?php endif; ?>
     </nav>
   </footer>
   <?php /* The span is the sheets' shared close target: it sits in a fixed

@@ -48,6 +48,23 @@ final class FeedTest extends TestCase
         $this->assertStringContainsString('after-hours', (string) $entries[0]->link['href']); // newest updated_at first per the seeder
     }
 
+    /** Clicking "Feed" used to download a file named "feed" with no
+     *  extension. The footer now opens a human page listing the addresses,
+     *  and the raw feeds name their file when a browser saves them. */
+    public function test_feed_subscribe_page_and_named_feed_files(): void
+    {
+        $page = $this->app->handle(new Request('GET', '/feed/subscribe', [], [], []));
+        $this->assertSame(200, $page->status);
+        $this->assertStringContainsString('<h1>Feeds</h1>', $page->body);
+        $this->assertStringContainsString('<a href="/feed" type="application/atom+xml" rel="alternate">', $page->body);
+        $this->assertStringContainsString('<a href="/rss" type="application/rss+xml" rel="alternate">', $page->body);
+        $this->assertStringContainsString('href="/feed/category/general"', $page->body);
+        $atom = $this->app->handle(new Request('GET', '/feed', [], [], []));
+        $this->assertSame('inline; filename="kiption.atom.xml"', $atom->headers['Content-Disposition'] ?? '');
+        $rss = $this->app->handle(new Request('GET', '/rss', [], [], []));
+        $this->assertSame('inline; filename="kiption.rss.xml"', $rss->headers['Content-Disposition'] ?? '');
+    }
+
     public function test_rss_alias_shape(): void
     {
         $res = $this->app->handle(new Request('GET', '/rss', [], [], []));

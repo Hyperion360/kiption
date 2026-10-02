@@ -397,6 +397,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .follow-rows li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 14px 4px; }
 .follow-rows .row-meta { flex: 1; }
 .row-actions { display: inline-flex; gap: 16px; }
+/* Feed addresses: monospace, selectable, never wrapping mid-address on wide screens. */
+.feed-rows code.row-meta { font: 13px var(--mono); color: var(--ink-2); white-space: normal; overflow-wrap: anywhere; text-align: end; }
+.feed-note { margin-block-start: 20px; }
 /* A-Z letter row (authors): square 36px cells, the current one filled. */
 .letter-nav { display: flex; flex-wrap: wrap; gap: 4px; margin-block: 20px 4px; }
 .letter-nav a {

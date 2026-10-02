@@ -17,6 +17,7 @@ final class RssController
         return new Response(\App\Seo\Feed::rss(
             (string) $this->app->config('site_name', 'Kiption'),
             rtrim((string) $this->app->config('base_url', 'http://localhost'), '/'),
-            $stories), 200, ['Content-Type' => 'application/rss+xml; charset=utf-8']);
+            $stories), 200, ['Content-Type' => 'application/rss+xml; charset=utf-8',
+                'Content-Disposition' => 'inline; filename="kiption.rss.xml"']);
     }
 }
