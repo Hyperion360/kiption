@@ -245,6 +245,26 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('--read-size:19px', $css);
     }
 
+    /** Design review (run 3): the chapter-opening anatomy (small-caps first
+     *  line, book indents, the centered reading column) belongs to chapter
+     *  prose only. A review, a reply, a comment, a message or a bio renders
+     *  as body copy inside its card, never as a chapter opening. */
+    public function test_chapter_prose_anatomy_stays_on_the_reading_surfaces(): void
+    {
+        $flat = str_replace(' ', '', (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css'));
+        $this->assertStringContainsString('.prose.e-content>p:first-of-type::first-line,section.prose>p:first-of-type::first-line{font-variant:small-caps', $flat,
+            'small caps open a chapter, not a review');
+        $this->assertStringNotContainsString("\n.prose>p:first-of-type::first-line", $flat, 'no unscoped small-caps rule');
+        $this->assertStringContainsString('.prose:not(.e-content,section){font-size:17px;line-height:1.6;max-width:none;margin-inline:0;}', $flat,
+            'other markdown bodies are flush body copy');
+        $this->assertStringContainsString('html.prose:not(.e-content,section)p+p{text-indent:0;margin-block-start:.6em;}', $flat,
+            'spaced paragraphs instead of book indents outside the reader (html prefix outranks the indent rule)');
+        // The selectors name real markup: the chapter page's e-content div and
+        // the whole work's section (both pinned by ReadShellTest/WholeViewTest).
+        $this->assertStringContainsString('class="prose e-content"', (string) file_get_contents(dirname(__DIR__) . '/app/Features/Story/views/_chapter.php'));
+        $this->assertStringContainsString('<section class="prose"', (string) file_get_contents(dirname(__DIR__) . '/app/Features/Story/views/whole.php'));
+    }
+
     /** On the desktop reader Contents and Text are always-visible panes, so
      *  targeting them must not raise the scrim: their Done links are hidden
      *  there, and a scrim with no dismissal would trap pointer users with

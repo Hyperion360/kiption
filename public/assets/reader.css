@@ -213,6 +213,14 @@ kbd {
 .prose p { margin: 0; }
 html:not([data-paragraphs="spaced"]) .prose p + p { text-indent: 1.4em; }
 html[data-paragraphs="spaced"] .prose p { margin-block-end: 1em; }
+/* Chapter prose is the reader's own: .e-content on the chapter page and
+   section.prose on the whole work. Every other markdown body (a review, a
+   reply, a news comment, a message, a bio, a challenge prompt) is body copy
+   inside its card: flush, 17px, spaced paragraphs, no opening small caps,
+   no book indent. The design pass caught reviews rendering as chapter
+   openings (centered 640px column, small-caps first line). */
+.prose:not(.e-content, section) { font-size: 17px; line-height: 1.6; max-width: none; margin-inline: 0; }
+html .prose:not(.e-content, section) p + p { text-indent: 0; margin-block-start: .6em; }
 .prose ul, .prose ol { margin: 0 0 1em; padding-inline-start: 1.5em; }
 .prose blockquote { margin: 0 0 1em; padding-inline-start: 1em; border-inline-start: 2px solid var(--line-strong); }
 .prose img { max-width: 100%; height: auto; }
@@ -742,7 +750,7 @@ html[dir="rtl"] .reader-progress::after {
   content: ""; display: block; width: 40px; height: 1px;
   margin: 18px auto 0; background: var(--ink);
 }
-.prose > p:first-of-type::first-line { font-variant: small-caps; letter-spacing: .02em; }
+.prose.e-content > p:first-of-type::first-line, section.prose > p:first-of-type::first-line { font-variant: small-caps; letter-spacing: .02em; }
 
 /* Utility: keeps markup in the document for parsers and screen readers
    while the comp drops it visually (the read page's mf2 byline row). */
