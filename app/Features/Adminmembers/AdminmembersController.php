@@ -48,6 +48,7 @@ final class AdminmembersController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,
+            'hasMore' => count($rows) === $perPage,
             'roles' => Adminness::ROLES,
             'q' => $q,
             'page' => $this->page(),

@@ -45,5 +45,9 @@
 </table>
 <?php
 $qs = $q === '' ? '' : http_build_query(['q' => $q]) . '&';
-if ($page > 1): ?><a href="/adminmembers?<?= $this->e($qs) ?>page=<?= $page - 1 ?>"><?= \App\Lang::t('common.previous') ?></a><?php endif; ?>
-<a href="/adminmembers?<?= $this->e($qs) ?>page=<?= $page + 1 ?>"><?= \App\Lang::t('common.next') ?></a>
+if ($page > 1 || !empty($hasMore)): ?>
+<nav class="pager" aria-label="<?= $this->e(\App\Lang::t('common.pages_aria')) ?>">
+<?php if ($page > 1): ?><a href="/adminmembers?<?= $this->e($qs) ?>page=<?= $page - 1 ?>" rel="prev"><?= \App\Lang::t('common.previous') ?></a><?php endif; ?>
+<?php if (!empty($hasMore)): ?><a class="pager-next" href="/adminmembers?<?= $this->e($qs) ?>page=<?= $page + 1 ?>" rel="next"><?= \App\Lang::t('common.next') ?></a><?php endif; ?>
+</nav>
+<?php endif; ?>

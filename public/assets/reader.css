@@ -347,7 +347,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 @media (min-width:768px) { :is(.site-main > h1:first-child:not(:has(+ .filter-chips)), .site-main > :is(section, article):first-child > h1:first-child) { font-size: 48px; } }
 @media (min-width:1024px) {
   :is(.site-main > h1:first-child:not(:has(+ .filter-chips)), .site-main > :is(section, article):first-child > h1:first-child) { font-size: 56px; }
-  .site-main:has(> h1:first-child), .site-main:has(> section:first-child > h1), .site-main:has(> article:first-child > h1) { max-width: 920px; }
+  /* text screens keep a readable column; table screens (admin, stats) keep the shell width */
+  .site-main:is(:has(> h1:first-child), :has(> section:first-child > h1), :has(> article:first-child > h1)):not(:has(table)) { max-width: 920px; }
 }
 
 /* Row lists (browse categories): serif name left, count right, hairlines
