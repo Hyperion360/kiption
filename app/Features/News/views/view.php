@@ -12,7 +12,7 @@
   <?php else: ?>
     <?php foreach ($comments as $c): ?>
       <article class="review">
-        <p class="chapter-meta"><?= $this->e($c['penname'] ?? \App\Lang::t('common.anonymous')) ?> | <?= $this->e($c['created_at']) ?></p>
+        <p class="chapter-meta"><?= $this->e($c['penname'] ?? \App\Lang::t('common.anonymous')) ?> · <time datetime="<?= $this->e($c['created_at']) ?>"><?= $this->e(date('M j, Y', strtotime((string) $c['created_at']))) ?></time></p>
         <div class="prose"><?= \App\Markdown::render($c['body']) ?></div>
       </article>
     <?php endforeach; ?>

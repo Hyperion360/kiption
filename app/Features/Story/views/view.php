@@ -187,14 +187,14 @@
   <?php else: ?>
     <?php foreach ($reviews as $r): ?>
       <article class="review">
-        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?>
-          <?= $r['rating'] !== null ? '| ' . (int) $r['rating'] . '/10' : '' ?> | <?= $this->e($r['created_at']) ?></p>
+        <?php /* The site's meta convention: middle dots, a short date (the raw
+           ISO stamp stays in the datetime attribute for machines). */ ?>
+        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(date('M j, Y', strtotime((string) $r['created_at']))) ?></time></p>
         <div class="prose"><?= \App\Markdown::render($r['body'] ?? '') ?></div>
         <?php if (!empty($r['replies'])): ?>
           <?php foreach ($r['replies'] as $rep): ?>
             <blockquote class="review-reply">
-              <p class="chapter-meta"><?= $this->e($rep['penname'] ?? $rep['guest_name'] ?? \App\Lang::t('common.anonymous')) ?>
-                <?= $rep['is_author_reply'] ? '| ' . \App\Lang::t('story.author_reply') : '' ?></p>
+              <p class="chapter-meta"><?= $this->e($rep['penname'] ?? $rep['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $rep['is_author_reply'] ? ' · ' . \App\Lang::t('story.author_reply') : '' ?></p>
               <div class="prose"><?= \App\Markdown::render($rep['body'] ?? '') ?></div>
               <?php if (!empty($csrf)): ?>
                 <form method="post" action="/report/review/<?= (int) $rep['id'] ?>" class="inline">

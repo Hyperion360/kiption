@@ -141,6 +141,18 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('7/10', $res->body, 'the rating renders');
     }
 
+    /** Design review (run 3): review meta follows the site convention
+     *  (middle dots, a short date); the ISO stamp is machine-only, inside
+     *  the time element's datetime attribute. */
+    public function test_review_meta_uses_middle_dots_and_a_short_date(): void
+    {
+        $db = new Database($this->dsn);
+        $db->query("INSERT INTO reviews (story_id, guest_name, body, rating, created_at) VALUES (1, 'Guest Reader', 'Loved it.', 7, '2026-09-01T00:00:00Z')");
+        $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('Guest Reader · 7/10 · <time datetime="2026-09-01T00:00:00Z">Sep 1, 2026</time>', $body);
+        $this->assertStringNotContainsString('| 2026-09-01', $body, 'no pipe-separated raw stamp');
+    }
+
     public function test_unknown_story_404(): void
     {
         $res = $this->app->handle(new Request('GET', '/story/view/nope', [], [], []));
