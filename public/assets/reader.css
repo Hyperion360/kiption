@@ -3,7 +3,7 @@
 :root{
   --bg:#f8f7f3; --ink:#1c2320; --ink-2:#4b544e; --muted:#5f6962;
   --line:#e4e2da; --line-strong:#d6d3c9; --hover:#efede6;
-  --accent:#1f4f42; --accent-hover:#2a6a58; --on-accent:#fff;
+  --accent:#1f4f42; --accent-hover:#2a6a58; --on-accent:#fff; --visited:#64506e;
   --track:#e4e2da; --surface:#fff; --scrim:rgba(28,35,32,.45);
   --pill-bg:#e3ece6; --cover-ink:#f1efe8; --danger:#b3261e; --danger-bg:#f6e3de; --danger-line:#e8c2b8;
   --serif:ui-serif,'Iowan Old Style',Charter,'Bitstream Charter',Georgia,serif;
@@ -15,13 +15,13 @@
 html[data-theme="sepia"]{
   --bg:#f4ecdc; --ink:#33291b; --ink-2:#33291b; --muted:#6f5f47;
   --line:#e3d6bd; --line-strong:#d4c4a6; --hover:#ece2cc;
-  --accent:#1f4f42; --on-accent:#fff; --track:#e3d6bd; --surface:#f4ecdc;
+  --accent:#1f4f42; --on-accent:#fff; --track:#e3d6bd; --surface:#f4ecdc; --visited:#644a5f;
   --scrim:rgba(51,41,27,.45); --pill-bg:#e9ddc4; --cover-ink:#f1efe8; --danger:#b3261e; --danger-bg:#f3dccf; --danger-line:#e0bda6;
 }
 html[data-theme="night"]{
   --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
   --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
-  --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513;
+  --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --visited:#c3aecd;
   --track:#262d29; --surface:#1b201d; --scrim:rgba(0,0,0,.55);
   --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
   color-scheme:dark;
@@ -31,7 +31,7 @@ html[data-theme="night"]{
     /* auto + night: same token set as html[data-theme="night"] */
     --bg:#121513; --ink:#d6dcd7; --ink-2:#aab3ad; --muted:#8b958e;
     --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
-    --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d;
+    --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d; --visited:#c3aecd;
     --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027; color-scheme:dark;
   }
 }
@@ -52,6 +52,9 @@ body {
 }
 .site-main { flex: 1 0 auto; width: 100%; }
 a { color: var(--accent); }
+/* Plain text links show where the reader has been; component links (titles,
+   rows, chips, controls) carry their own classes and keep their colors. */
+.site-main a:not([class]):visited { color: var(--visited); }
 a:hover { color: var(--accent-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 ::selection { background: var(--pill-bg); }
