@@ -50,7 +50,7 @@ final class StoryRepository
         // break same-timestamp ties deterministically); the chapters LEFT JOIN
         // resolves the position for the sheet's links.
         $bookmarksCols = $me !== 0 ? ',
-                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note))
+                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note, \'at\', b.created_at))
                      FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
                            ORDER BY b.created_at, b.chapter_id) b
                      LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';
@@ -186,7 +186,7 @@ final class StoryRepository
                     up.theme AS prefs_theme' : '';
         // The C5 bookmarks fold, same member-only shape as findStoryBySlug.
         $bookmarksCols = $me !== 0 ? ',
-                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note))
+                    (SELECT json_group_array(json_object(\'position\', cb.position, \'note\', b.note, \'at\', b.created_at))
                      FROM (SELECT b.* FROM bookmarks b WHERE b.user_id = ' . $me . ' AND b.story_id = s.id
                            ORDER BY b.created_at, b.chapter_id) b
                      LEFT JOIN chapters cb ON cb.id = b.chapter_id) AS bookmarks_blob' : '';

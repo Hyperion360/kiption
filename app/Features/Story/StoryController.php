@@ -787,13 +787,13 @@ final class StoryController
      *  list (position + note; a NULL position means the chapter row is gone,
      *  the note stays). Guests never carry the key: no reader's notes ever
      *  reach another reader's bytes. @param array<string,mixed> $story mutated
-     *  @return list<array{position: ?int, note: string}> */
+     *  @return list<array{position: ?int, note: string, at: string}> */
     private function bookmarksOf(array &$story): array
     {
         if (!array_key_exists('bookmarks_blob', $story)) return [];
         $bookmarks = [];
         foreach (json_decode((string) $story['bookmarks_blob'], true) ?: [] as $b) {
-            $bookmarks[] = ['position' => $b['position'] === null ? null : (int) $b['position'], 'note' => (string) $b['note']];
+            $bookmarks[] = ['position' => $b['position'] === null ? null : (int) $b['position'], 'note' => (string) $b['note'], 'at' => (string) ($b['at'] ?? '')];
         }
         unset($story['bookmarks_blob']);
         return $bookmarks;

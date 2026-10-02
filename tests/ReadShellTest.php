@@ -111,6 +111,8 @@ final class ReadShellTest extends TestCase
         $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', []);
         $body = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
         $this->assertStringContainsString('<summary>Add note</summary>', $body, 'an empty note offers Add note');
+        $this->assertMatchesRegularExpression('#<time class="bm-date" datetime="\d{4}-\d{2}-\d{2}T[^"]+">[A-Z][a-z]{2} \d{1,2}</time>#', $body,
+            'each bookmark carries its saved date (M5)');
         $this->assertStringContainsString('<form method="post" action="/reader/bookmarkadd/the-rabbit-hole/1">', $body,
             'the note form targets the bookmark upsert');
         $this->assertStringContainsString('<textarea name="note" rows="2" maxlength="500"></textarea>', $body);

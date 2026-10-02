@@ -971,6 +971,8 @@ body.focus .site-head { display: none; }
 .bookmark-list li { border-block-end: 1px solid var(--line); padding-block: 16px; }
 .bm-kind { margin: 0 0 4px; font: 500 11.5px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .bm-resume .bm-kind { color: var(--accent); font-weight: 600; }
+.bm-kind { display: flex; justify-content: space-between; gap: 12px; }
+.bm-date { text-transform: none; letter-spacing: 0; font: 12px var(--sans); color: var(--muted); }
 .bm-chapter { font: 600 14px/1.6 var(--sans); color: var(--ink); text-decoration: none; }
 .bm-chapter:hover { color: var(--accent); }
 .bm-pct { font: 14px/1.6 var(--sans); color: var(--ink-2); font-variant-numeric: tabular-nums; }
