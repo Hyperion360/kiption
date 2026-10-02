@@ -425,6 +425,15 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .page-head .byline { font-size: 15px; }
 .page-head .summary { font-size: 18px; margin: 4px 0 0; }
 
+/* Notifications: hairline rows, the unread ones marked by a small accent
+   square and full-strength text, the date right-aligned and quiet. */
+.site-main .notif-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.notif-list li { display: flex; align-items: baseline; gap: 16px; margin: 0; padding: 14px 4px 14px 20px; border-block-end: 1px solid var(--line); color: var(--ink-2); position: relative; }
+.notif-list li > span { flex: 1; }
+.notif-list li.unread { color: var(--ink); }
+.notif-list li.unread::before { content: ""; position: absolute; inset-inline-start: 4px; top: 22px; width: 6px; height: 6px; background: var(--accent); }
+.notif-time { font: 13px var(--sans); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
 /* Search: one large query row, then a quiet Refine disclosure. */
 .search-form { margin-block: 24px 8px; }
 .search-row { display: flex; gap: 8px; align-items: stretch; }

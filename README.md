@@ -29,6 +29,19 @@ Tests:
 
     vendor/bin/phpunit
 
+Demo content for trying every feature by hand:
+
+    php bin/kip db:seed      # the small fixture the tests use (skip if already seeded)
+    php bin/kip db:demo      # 15 stories, 14 accounts, reviews, lists, messages, a full queue
+
+Every demo account's password is `password123`. Sign in as
+`reader@demo.kiption.test` for a reader with a full library (progress,
+bookmarks with notes, favorites, follows, messages, notifications),
+`wrenfield@demo.kiption.test` for an author with reviews and stats,
+`moderator@demo.kiption.test` or `admin@demo.kiption.test` for the
+validation queue, reports, wrangling and analytics. `db:demo --force`
+rebuilds only the demo rows; the test fixture is never touched.
+
 Maintenance mode: `touch app/maintenance.lock` enables it (effective on
 the next request, no restart), `rm app/maintenance.lock` disables it. The
 `KIP_MAINTENANCE=1` environment variable also enables it for deploy-time

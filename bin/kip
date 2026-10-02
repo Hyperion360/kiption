@@ -156,6 +156,26 @@ match ($argv[1] ?? 'help') {
         }
         echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category, five-link starter nav).\n";
     })(),
+    // Demo content for manual testing (App\Demo): rides on top of the db:seed
+    // fixture, never changes it. --force rebuilds only the demo rows.
+    'db:demo' => (function () use ($config, $argv) {
+        $db = new Kip\Database($config['db']['dsn']);
+        try {
+            $made = \App\Demo::run($db, force: in_array('--force', $argv, true));
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, $e->getMessage() . "\n");
+            exit(1);
+        }
+        \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
+        if ($config['static_cache']['enabled'] ?? false) {
+            \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
+        }
+        echo "Loaded demo content: {$made['users']} accounts, {$made['stories']} stories, {$made['chapters']} chapters.\n";
+        echo "Every demo account uses the password " . \App\Demo::PASSWORD . ":\n";
+        foreach (['admin' => 'operator (admin)', 'moderator' => 'moderator', 'wrenfield' => 'author', 'reader' => 'reader with a full library', 'felix' => 'beta reader'] as $local => $what) {
+            echo "  {$local}@" . \App\Demo::DOMAIN . "  {$what}\n";
+        }
+    })(),
     'pages:build' => (function () use ($config) {
         $dir = $config['static_cache']['dir'] ?? null;
         if ($dir === null) { fwrite(STDERR, "static_cache not configured.\n"); exit(1); }
@@ -348,5 +368,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };

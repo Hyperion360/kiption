@@ -1,14 +1,21 @@
 <?php // app/views/notifications/index.php ?>
 <?php $this->layout('layout'); ?>
-<section>
-  <h1><?= \App\Lang::t('notifications.heading') ?></h1>
-  <form method="post" action="/notifications/read">
-    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-    <button type="submit"><?= \App\Lang::t('notifications.mark_read') ?></button>
-  </form>
-  <?php if ($rows === []): ?><p class="chapter-meta"><?= \App\Lang::t('notifications.none') ?></p>
+<?php $unread = count(array_filter($rows, static fn (array $n): bool => $n['read_at'] === null)); ?>
+<section class="page">
+  <header class="page-head">
+    <h1><?= \App\Lang::t('notifications.heading') ?></h1>
+    <?php if ($unread > 0): /* the action exists only when there is something to mark */ ?>
+    <div class="page-actions">
+      <form method="post" action="/notifications/read" class="inline">
+        <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+        <button type="submit" class="link-btn"><?= \App\Lang::t('notifications.mark_read') ?></button>
+      </form>
+    </div>
+    <?php endif; ?>
+  </header>
+  <?php if ($rows === []): ?><p class="empty-state"><?= \App\Lang::t('notifications.none') ?></p>
   <?php else: ?>
-  <ul>
+  <ul class="notif-list">
     <?php foreach ($rows as $n): ?>
       <?php
       // Story links ride the {story} param pre-built (escaped pieces, anchor
@@ -54,7 +61,7 @@
         <?php else: ?>
           <span><?= $this->e($n['kind']) ?></span>
         <?php endif; ?>
-        <span class="chapter-meta"><?= $this->e($n['created_at']) ?></span>
+        <time class="notif-time" datetime="<?= $this->e($n['created_at']) ?>"><?= $this->e(date('M j', strtotime((string) $n['created_at']))) ?></time>
       </li>
     <?php endforeach; ?>
   </ul>
