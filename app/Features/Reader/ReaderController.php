@@ -66,10 +66,15 @@ final class ReaderController
     /** (story, chapter) by slug + validated position in ONE query, behind
      *  StoryController::read()'s exact restricted gate (CAST is load-bearing:
      *  a bare ? != 0 would compare across storage classes and fail the gate
-     *  open for guests). Members bookmark what they may read; 404 otherwise.
-     *  @return array{sid: int, cid: int}|null */
-    private function bookmarkTarget(string $slug, string $position, int $me): ?array
+     *  open for guests). Members bookmark what they may read; null (the
+     *  caller's 404) otherwise. The acting member comes from the session;
+     *  the $me === 0 refusal is defense in depth, since the kernel's Auth
+     *  gate already rejects logged-out callers and user ids start at 1.
+     *  @return array{me: int, sid: int, cid: int}|null */
+    private function bookmarkTarget(string $slug, string $position): ?array
     {
+        $me = (int) ($this->session->get('user_id') ?? 0);
+        if ($me === 0) return null;
         $row = $this->db->one(
             'SELECT s.id AS sid, c.id AS cid, r.is_adult FROM stories s
              JOIN chapters c ON c.story_id = s.id AND c.position = ? AND c.validated = 1
@@ -81,17 +86,19 @@ final class ReaderController
         // The adult gate read() enforces (review): members bookmark what they
         // may read, so an unacknowledged adult story refuses the bookmark.
         if ((int) $row['is_adult'] === 1 && ($this->request->cookies['age_ok'] ?? null) === null) return null;
-        return ['sid' => (int) $row['sid'], 'cid' => (int) $row['cid']];
+        return ['me' => $me, 'sid' => (int) $row['sid'], 'cid' => (int) $row['cid']];
+    }
+
+    private static function backToChapter(string $slug, string $position): Response
+    {
+        return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
     }
 
     #[AuthAttr] #[Post]
     public function bookmarkAdd(string $slug, string $position): Response
     {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        $row = $this->bookmarkTarget($slug, $position, $me);
-        // The $me === 0 half is defense-in-depth: the kernel's Auth gate
-        // already rejects logged-out callers, and user ids start at 1.
-        if ($row === null || $me === 0) { return new Response('Page not found', 404); }
+        $row = $this->bookmarkTarget($slug, $position);
+        if ($row === null) { return new Response('Page not found', 404); }
         $note = mb_substr(trim($this->request->postStr('note')), 0, self::NOTE_MAX);
         // SQLite's json_object returns NULL for invalid UTF-8, which would
         // blank the member's whole bookmarks blob (the sheet renders "none
@@ -105,8 +112,8 @@ final class ReaderController
              VALUES (?, ?, ?, ?)
              ON CONFLICT(user_id, story_id, chapter_id) DO UPDATE SET note = '
              . ($hasNote ? 'excluded.note' : 'bookmarks.note'),
-            [$me, $row['sid'], $row['cid'], $note]));
-        return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
+            [$row['me'], $row['sid'], $row['cid'], $note]));
+        return self::backToChapter($slug, $position);
     }
 
     /** The infinite module's progress write: an appended chapter has become
@@ -116,23 +123,21 @@ final class ReaderController
     #[AuthAttr] #[Post]
     public function progress(string $slug, string $position): Response
     {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        $row = $this->bookmarkTarget($slug, $position, $me);
-        if ($row === null || $me === 0) { return new Response('Page not found', 404); }
-        $this->write(fn () => (new \App\Repositories\EngagementRepository($this->db))->recordProgress($me, $row['sid'], (int) $position));
+        $row = $this->bookmarkTarget($slug, $position);
+        if ($row === null) { return new Response('Page not found', 404); }
+        $this->write(fn () => (new \App\Repositories\EngagementRepository($this->db))->recordProgress($row['me'], $row['sid'], (int) $position));
         return new Response('', 204);
     }
 
     #[AuthAttr] #[Post]
     public function bookmarkRemove(string $slug, string $position): Response
     {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        $row = $this->bookmarkTarget($slug, $position, $me);
-        if ($row === null || $me === 0) { return new Response('Page not found', 404); }
+        $row = $this->bookmarkTarget($slug, $position);
+        if ($row === null) { return new Response('Page not found', 404); }
         $this->write(fn () => $this->db->query(
             'DELETE FROM bookmarks WHERE user_id = ? AND story_id = ? AND chapter_id = ?',
-            [$me, $row['sid'], $row['cid']]));
-        return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
+            [$row['me'], $row['sid'], $row['cid']]));
+        return self::backToChapter($slug, $position);
     }
 
     /** One transaction per action, rolled back if the write throws (busy,
