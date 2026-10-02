@@ -7,12 +7,13 @@
        server-built. Guests ($member false) get the login link instead, so a
        session that expires mid-scroll swaps the member forms out too. */
      $bmAction = '/reader/' . ($bookmarked ? 'bookmarkremove' : 'bookmarkadd') . '/' . $this->e($story['slug']) . '/' . (int) $position;
-     $bmLabel = \App\Lang::t($bookmarked ? 'reader.bookmark_saved' : 'reader.bookmark'); ?>
+     $bmLabel = \App\Lang::t($bookmarked ? 'reader.bookmark_saved' : 'reader.bookmark');
+     $bmIcon = '<span class="bar-top"><svg class="bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3.5L7 20Z"/></svg></span>'; ?>
 <?php if (empty($member) && $variant === 'rt'): ?>
 <a class="rt-ctl" href="/auth/login"><span class="ctl-ribbon" aria-hidden="true"></span><?= \App\Lang::t('reader.bookmark') ?></a>
 <?php elseif (empty($member)): ?>
     <a href="/auth/login" aria-label="<?= $this->e(\App\Lang::t('reader.bookmark')) ?>">
-      <span class="bar-top"><svg class="bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3.5L7 20Z"/></svg></span>
+      <?= $bmIcon, "\n" ?>
       <span class="bar-caption"><?= \App\Lang::t('reader.bookmark') ?></span>
     </a>
 <?php elseif ($variant === 'rt'): ?>
@@ -21,7 +22,7 @@
       <form method="post" action="<?= $bmAction ?>" class="inline bar-bookmark">
         <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
         <button type="submit"<?= $bookmarked ? ' class="is-saved"' : '' ?> aria-label="<?= $this->e($bmLabel) ?>">
-          <span class="bar-top"><svg class="bar-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v16l-5-3.5L7 20Z"/></svg></span>
+          <?= $bmIcon, "\n" ?>
           <span class="bar-caption"><?= $bmLabel ?></span>
         </button>
       </form>

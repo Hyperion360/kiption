@@ -15,7 +15,9 @@
        Text form's return_to, the bar's chapter count, both bookmark controls
        in their member or guest shape, and for members the progress URL).
        Everything in it is server-built. */
-     $unitRead = '/story/read/' . $story['slug'] . '/' . (int) $position;
+     $readUrl = static fn (int $n): string => '/story/read/' . $story['slug'] . '/' . $n;
+     $unitRead = $readUrl((int) $position);
+     $bmArgs = ['member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf];
      $unitRoman = \App\Features\Reader\Roman::numeral((int) $position);
      $unitRawTitle = (string) ($chapter['title'] ?? '');
      $unitTitle = $unitRawTitle !== '' ? $unitRawTitle : \App\Lang::t('story.chapter_n', ['n' => (int) $position]);
@@ -23,7 +25,7 @@
          ? \App\Lang::t('reader.end_of_chapter_titled', ['n' => $unitRoman, 'title' => $unitRawTitle])
          : \App\Lang::t('reader.end_of_chapter', ['n' => $unitRoman]);
      $unitNextAttr = $next !== null ? ' data-next-url="' . $this->e('/story/fragment/' . $story['slug'] . '/' . (int) $next) . '"' : ''; ?>
-<div class="chapter-unit" data-read-url="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>"<?= $unitNextAttr ?>>
+<div class="chapter-unit" data-read-url="<?= $this->e($unitRead) ?>"<?= $unitNextAttr ?>>
   <article class="h-entry" data-p-start="<?= (int) $pct_start ?>" data-p-end="<?= (int) $pct_end ?>"<?= $unitNextAttr ?>>
     <?php /* the byline/dates breadcrumb: the comp drops it visually; the row stays for the mf2 time elements MicroformatsTest pins */ ?>
     <header class="chapter-meta visually-hidden">
@@ -60,16 +62,16 @@
     <?php if ($next !== null):
         $unitNextTitle = ($titles[(int) $next] ?? '') !== '' ? $titles[(int) $next] : \App\Lang::t('story.chapter_n', ['n' => (int) $next]); ?>
     <div class="next-chapter">
-      <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $next ?>">
+      <a href="<?= $this->e($readUrl((int) $next)) ?>">
         <span class="ch-kicker"><?= $this->e(\App\Lang::t('reader.continues', ['roman' => \App\Features\Reader\Roman::numeral((int) $next)])) ?></span>
         <span class="next-title"><?= $this->e($unitNextTitle) ?></span>
       </a>
     </div>
     <?php endif; ?>
   </footer>
-  <template class="unit-state" data-position="<?= (int) $position ?>" data-prev="<?= isset($prev) && $prev !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $prev : '' ?>" data-next="<?= $next !== null ? '/story/read/' . $this->e($story['slug']) . '/' . (int) $next : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
+  <template class="unit-state" data-position="<?= (int) $position ?>" data-prev="<?= isset($prev) && $prev !== null ? $this->e($readUrl((int) $prev)) : '' ?>" data-next="<?= $next !== null ? $this->e($readUrl((int) $next)) : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
     <span class="bar-count"><?= (int) $position ?> / <?= (int) $total ?></span>
-    <div data-slot="rt"><?= $this->render('story/_bookmark_control', ['variant' => 'rt', 'member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?></div>
-    <div data-slot="bar"><?= $this->render('story/_bookmark_control', ['variant' => 'bar', 'member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf]) ?></div>
+    <div data-slot="rt"><?= $this->render('story/_bookmark_control', ['variant' => 'rt'] + $bmArgs) ?></div>
+    <div data-slot="bar"><?= $this->render('story/_bookmark_control', ['variant' => 'bar'] + $bmArgs) ?></div>
   </template>
 </div>

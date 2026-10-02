@@ -240,7 +240,9 @@ final class StoryController
         foreach ($this->bookmarksOf($story) as $b) {
             if ($b['position'] === $position) { $bookmarked = true; break; }
         }
-        $rendered = $this->view->render('story/fragment', [
+        // The response body is exactly one chapter unit: the partial the read
+        // page shares, rendered bare (no layout, no reader chrome).
+        $rendered = $this->view->render('story/_chapter', [
             'story' => $story,
             'chapter' => [
                 'title' => $story['ch_title'], 'notes_before' => $story['ch_notes_before'],
