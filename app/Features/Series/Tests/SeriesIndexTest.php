@@ -67,10 +67,14 @@ final class SeriesIndexTest extends TestCase
         return $id;
     }
 
-    private function seriesId(int $ownerId, string $title, string $slug): int
+    /** A listed series needs one visible story (empty and restricted-only
+     *  series are not listed), so the helper adds one unless told not to. */
+    private function seriesId(int $ownerId, string $title, string $slug, bool $withStory = true): int
     {
         $this->db->query('INSERT INTO series (title, slug, owner_id) VALUES (?, ?, ?)', [$title, $slug, $ownerId]);
-        return (int) $this->db->lastInsertId();
+        $id = (int) $this->db->lastInsertId();
+        if ($withStory) $this->item($id, $this->storyId($ownerId, $title . ' one', $slug . '-one'));
+        return $id;
     }
 
     private function item(int $seriesId, int $storyId, int $confirmed = 1): void
@@ -96,7 +100,7 @@ final class SeriesIndexTest extends TestCase
     public function test_counts_only_confirmed_items_of_validated_live_stories(): void
     {
         $owner = $this->userId('Demo Author', 'demo@e.test');
-        $sid = $this->seriesId($owner, 'Down the Rabbit Hole', 'down-the-rabbit-hole');
+        $sid = $this->seriesId($owner, 'Down the Rabbit Hole', 'down-the-rabbit-hole', false);
         $this->item($sid, $this->storyId($owner, 'Visible', 'visible'));                                   // counts
         $this->item($sid, $this->storyId($owner, 'Pending item', 'pending-item'), 0);                      // unconfirmed: never counts
         $this->item($sid, $this->storyId($owner, 'Unvalidated story', 'unvalidated-story', validated: 0)); // draft: never counts
@@ -156,7 +160,7 @@ final class SeriesIndexTest extends TestCase
     public function test_guest_counts_exclude_restricted_stories(): void
     {
         $a = $this->userId('Alpha Pen', 'alpha@e.test');
-        $se = $this->seriesId($a, 'Alpha Sagas', 'alpha-sagas');
+        $se = $this->seriesId($a, 'Alpha Sagas', 'alpha-sagas', false);
         $this->item($se, $this->storyId($a, 'Open', 'open'));
         $hidden = $this->storyId($a, 'Members only', 'members-only');
         $this->db->query('UPDATE stories SET is_restricted = 1 WHERE id = ?', [$hidden]);
@@ -190,5 +194,23 @@ final class SeriesIndexTest extends TestCase
         $two = $this->get('/series', ['page' => '2'], ['items_per_page' => 1])->body;
         $this->assertStringContainsString('/series/view/same-one', $one);
         $this->assertStringContainsString('/series/view/same-two', $two);
+    }
+
+    /** A series with nothing the viewer may read (only restricted, unconfirmed
+     *  or unvalidated items, or none) is not listed: the cached guest index
+     *  never names a members-only series. */
+    public function test_series_without_visible_stories_are_not_listed_for_guests(): void
+    {
+        $a = $this->userId('Alpha Pen', 'alpha@e.test');
+        $hidden = $this->seriesId($a, 'Members Saga', 'members-saga', false);
+        $story = $this->storyId($a, 'Members only', 'members-only');
+        $this->db->query('UPDATE stories SET is_restricted = 1 WHERE id = ?', [$story]);
+        $this->item($hidden, $story);
+        $this->seriesId($a, 'Empty Shelf', 'empty-shelf', false);
+        $this->seriesId($a, 'Open Saga', 'open-saga');
+        $body = $this->get('/series')->body;
+        $this->assertStringContainsString('Open Saga', $body);
+        $this->assertStringNotContainsString('Members Saga', $body);
+        $this->assertStringNotContainsString('Empty Shelf', $body);
     }
 }

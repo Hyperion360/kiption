@@ -28,19 +28,23 @@ final class SeriesRepository
     {
         // Counts apply the series page's restricted gate: the cookieless
         // (cached) render passes viewer 0, so a guest never sees a
-        // members-only story counted. Title then id is a total order, so
-        // equal titles never skip or repeat across pages; idx_series_title
-        // already carries the rowid, so the walk stays sort-free.
-        return $this->db->all(
-            "SELECT se.*, u.penname,
-                    (SELECT COUNT(*) FROM series_items si JOIN stories s ON s.id = si.story_id
+        // members-only story counted, and a series with nothing visible
+        // (restricted-only, unconfirmed, empty) is not listed at all, so the
+        // cached index never names a members-only series. Title then id is a
+        // total order, so equal titles never skip or repeat across pages;
+        // idx_series_title already carries the rowid, so the walk stays
+        // sort-free.
+        $visible = 'FROM series_items si JOIN stories s ON s.id = si.story_id
                        AND s.validated = 1 AND s.deleted_at IS NULL
                        AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)
-                     WHERE si.series_id = se.id AND si.confirmed = 1) AS story_count
+                     WHERE si.series_id = se.id AND si.confirmed = 1';
+        return $this->db->all(
+            "SELECT se.*, u.penname, (SELECT COUNT(*) {$visible}) AS story_count
              FROM series se JOIN users u ON u.id = se.owner_id
+             WHERE EXISTS (SELECT 1 {$visible})
              ORDER BY se.title, se.id
              LIMIT ? OFFSET ?",
-            [$viewer, $perPage, $offset]
+            [$viewer, $viewer, $perPage, $offset]
         );
     }
 
