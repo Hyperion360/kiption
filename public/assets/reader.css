@@ -1313,7 +1313,7 @@ body.focus .site-head { display: none; }
 
 /* Breakpoints per the comp: <=767 mobile, 768-1023 tablet, >=1024 desktop. */
 @media (min-width:768px) {
-  :root { --read-size:21px; --read-lh:1.72; --read-width:600px; }
+  :root { --read-lh:1.72; --read-width:600px; }
   .site-head { min-height: 64px; padding-inline: 40px 28px; }
   .brand { font-size: 22px; }
   .nav-account { display: inline-flex; }
@@ -1328,7 +1328,7 @@ body.focus .site-head { display: none; }
   .site-main { padding: 40px 64px 80px; }
 }
 @media (min-width:1024px) {
-  :root { --read-size:20px; --read-lh:1.72; --read-width:640px; }
+  :root { --read-lh:1.72; --read-width:640px; }
   /* D3: the header row sits in the 1200px shell (40px gutters inside it). */
   .site-head { min-height: 68px; padding-inline: max(40px, calc((100% - 1200px) / 2 + 40px)); gap: 6px; }
   .brand { font-size: 24px; margin-inline-end: 18px; }

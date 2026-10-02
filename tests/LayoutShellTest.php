@@ -231,6 +231,18 @@ final class LayoutShellTest extends TestCase
 
     /** C7: the story-page components exist as real rules, at all three
      *  breakpoints, so the M1/T2/D3 frames are styled by the sheet. */
+    /** The Text slider advertises one default (19px) and the server and
+     *  prefs.js drop data-size for it, so no breakpoint may rebind the
+     *  default --read-size: choosing 19 rendered 21px on tablets and 20px on
+     *  desktops while the readout said 19 (qa-full /review, Codex). */
+    public function test_default_reading_size_is_the_same_at_every_width(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
+        $this->assertSame(1, preg_match_all('/--read-size:\s*\d+px/', preg_replace('/html\[data-size="\d+"\][^}]*}/', '', $css)),
+            'only :root sets the default size; data-size rules are the only overrides');
+        $this->assertStringContainsString('--read-size:19px', $css);
+    }
+
     /** On the desktop reader Contents and Text are always-visible panes, so
      *  targeting them must not raise the scrim: their Done links are hidden
      *  there, and a scrim with no dismissal would trap pointer users with
