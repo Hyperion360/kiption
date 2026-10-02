@@ -161,7 +161,7 @@ match ($argv[1] ?? 'help') {
     'db:demo' => (function () use ($config, $argv) {
         $db = new Kip\Database($config['db']['dsn']);
         try {
-            $made = \App\Demo::run($db, force: in_array('--force', $argv, true));
+            $made = \App\Demo::run($db, force: in_array('--force', $argv, true), dev: ($config['env'] ?? 'prod') === 'dev');
         } catch (\RuntimeException $e) {
             fwrite(STDERR, $e->getMessage() . "\n");
             exit(1);

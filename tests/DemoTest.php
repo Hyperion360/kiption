@@ -113,4 +113,22 @@ final class DemoTest extends TestCase
         }
         $this->assertSame(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"), 'nothing was written');
     }
+
+    /** A fresh production install has an operator account and no stories
+     *  yet. Outside KIP_ENV=dev the demo (and its admin with a published
+     *  password) refuses any database holding accounts beyond the demo and
+     *  seed fixtures; in dev it loads beside the developer's own account. */
+    public function test_refuses_existing_accounts_outside_dev(): void
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, is_admin) VALUES ('owner@archive.example', 'x', 'operator', 1)");
+        try {
+            \App\Demo::run($this->db);
+            $this->fail('the demo must refuse an install with real accounts');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('KIP_ENV=dev', $e->getMessage());
+        }
+        $this->assertSame(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"));
+        \App\Demo::run($this->db, dev: true);
+        $this->assertGreaterThan(0, $this->rows("SELECT COUNT(*) c FROM users WHERE email LIKE '%@demo.kiption.test'"), 'dev loads beside it');
+    }
 }

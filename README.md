@@ -32,7 +32,7 @@ Tests:
 Demo content for trying every feature by hand:
 
     php bin/kip db:seed      # the small fixture the tests use (skip if already seeded)
-    php bin/kip db:demo      # 15 stories, 14 accounts, reviews, lists, messages, a full queue
+    KIP_ENV=dev php bin/kip db:demo   # 15 stories, 14 accounts, reviews, lists, messages, a full queue
 
 Every demo account's password is `password123`. Sign in as
 `reader@demo.kiption.test` for a reader with a full library (progress,
@@ -40,7 +40,10 @@ bookmarks with notes, favorites, follows, messages, notifications),
 `wrenfield@demo.kiption.test` for an author with reviews and stats,
 `moderator@demo.kiption.test` or `admin@demo.kiption.test` for the
 validation queue, reports, wrangling and analytics. `db:demo --force`
-rebuilds only the demo rows; the test fixture is never touched.
+rebuilds only the demo rows; the test fixture is never touched. The
+command refuses a database with stories by real authors, and outside
+`KIP_ENV=dev` it also refuses one holding any account beyond the demo
+and test fixtures, so its known-password admin never reaches a live site.
 
 Maintenance mode: `touch app/maintenance.lock` enables it (effective on
 the next request, no restart), `rm app/maintenance.lock` disables it. The
