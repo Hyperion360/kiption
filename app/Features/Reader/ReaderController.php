@@ -100,14 +100,12 @@ final class ReaderController
         // Only the note form sends the field. The ribbon button does not, so a
         // repeat bookmark (double click, resubmit, stale tab) keeps the note.
         $hasNote = array_key_exists('note', $this->request->post);
-        $this->db->begin();
-        $this->db->query(
+        $this->write(fn () => $this->db->query(
             'INSERT INTO bookmarks (user_id, story_id, chapter_id, note)
              VALUES (?, ?, ?, ?)
              ON CONFLICT(user_id, story_id, chapter_id) DO UPDATE SET note = '
              . ($hasNote ? 'excluded.note' : 'bookmarks.note'),
-            [$me, $row['sid'], $row['cid'], $note]);
-        $this->db->commit();
+            [$me, $row['sid'], $row['cid'], $note]));
         return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
     }
 
@@ -121,9 +119,7 @@ final class ReaderController
         $me = (int) ($this->session->get('user_id') ?? 0);
         $row = $this->bookmarkTarget($slug, $position, $me);
         if ($row === null || $me === 0) { return new Response('Page not found', 404); }
-        $this->db->begin();
-        (new \App\Repositories\EngagementRepository($this->db))->recordProgress($me, $row['sid'], (int) $position);
-        $this->db->commit();
+        $this->write(fn () => (new \App\Repositories\EngagementRepository($this->db))->recordProgress($me, $row['sid'], (int) $position));
         return new Response('', 204);
     }
 
@@ -133,11 +129,23 @@ final class ReaderController
         $me = (int) ($this->session->get('user_id') ?? 0);
         $row = $this->bookmarkTarget($slug, $position, $me);
         if ($row === null || $me === 0) { return new Response('Page not found', 404); }
-        $this->db->begin();
-        $this->db->query(
+        $this->write(fn () => $this->db->query(
             'DELETE FROM bookmarks WHERE user_id = ? AND story_id = ? AND chapter_id = ?',
-            [$me, $row['sid'], $row['cid']]);
-        $this->db->commit();
+            [$me, $row['sid'], $row['cid']]));
         return Response::redirect('/story/read/' . $slug . '/' . (int) $position);
+    }
+
+    /** One transaction per action, rolled back if the write throws (busy,
+     *  constraint), so a long-lived worker never inherits an open one. */
+    private function write(callable $fn): void
+    {
+        $this->db->begin();
+        try {
+            $fn();
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
     }
 }
