@@ -17,6 +17,13 @@
         return m ? decodeURIComponent(m[1]) : '';
       },
       set: function (name, value) {
+        /* An empty value DELETES (the server's default-clearing economy):
+           a year-long empty cookie would still make every request miss the
+           static cache. */
+        if (value === '') {
+          document.cookie = name + '=; path=/; max-age=0; samesite=lax';
+          return;
+        }
         document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; samesite=lax';
       }
     },
