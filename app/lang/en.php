@@ -214,6 +214,13 @@ return [
     'reader.bookmark_saved' => 'Saved',
     'reader.focus_aria' => 'Focus mode',
     'reader.exit_focus' => 'Exit focus',
+    // The keys module's hint caps. Convention: the first word is the key
+    // rendered as the kbd cap, the rest is the label beside it.
+    'reader.keys_next' => 'J next',
+    'reader.keys_prev' => 'K previous',
+    'reader.keys_focus' => 'F focus',
+    'reader.keys_text' => 'T text',
+    'reader.keys_close' => 'Esc close',
     'common.reset' => 'Reset',
     'reader.size' => 'Text size',
     'reader.size_small' => 'Small',
