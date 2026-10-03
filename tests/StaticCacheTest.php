@@ -31,6 +31,21 @@ final class StaticCacheTest extends TestCase
         $this->assertSame($this->dir . '/top/index.html', $this->cache->fileFor('/top'));
     }
 
+    /** The one directory resolution every write path shares: config wins,
+     *  the app tree's public/cache is the fallback. */
+    public function test_configured_dir_honors_config_and_falls_back(): void
+    {
+        $app = new \Kip\App(['static_cache' => ['dir' => '/tmp/kiption-configured']]);
+        $this->assertSame('/tmp/kiption-configured', Cache::configuredDir($app));
+        $bare = new \Kip\App([]);
+        $this->assertStringEndsWith('/public/cache', Cache::configuredDir($bare));
+        $this->assertSame(
+            (new Cache(Cache::configuredDir($app)))->fileFor('/top'),
+            Cache::configured($app)->fileFor('/top'),
+            'the factory builds a cache against the same configured directory'
+        );
+    }
+
     public function test_file_for_rejects_non_whitelisted_paths(): void
     {
         $this->assertNull($this->cache->fileFor('/admin/members'));
