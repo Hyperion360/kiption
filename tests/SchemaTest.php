@@ -172,6 +172,25 @@ final class SchemaTest extends TestCase
         $this->assertStringNotContainsString('SCAN', $plan);
     }
 
+    /** The two index migrations this branch added roll back and reapply
+     *  cleanly: down() drops exactly its index, up() restores it. */
+    public function test_index_migrations_031_and_032_roll_back_and_reapply(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $root = dirname(__DIR__);
+        foreach (['idx_categories_order' => $root . '/app/migrations/031_categories_order_index.php',
+                  'idx_bookmarks_story' => $root . '/app/Features/Reader/migrations/032_bookmarks_story_index.php'] as $index => $file) {
+            $count = fn (): int => (int) $db->one("SELECT COUNT(*) c FROM sqlite_master WHERE type = 'index' AND name = ?", [$index])['c'];
+            $m = require $file;
+            $this->assertSame(1, $count(), "{$index} present after migrate");
+            $m->down($db);
+            $this->assertSame(0, $count(), "{$index} gone after down()");
+            $m->up($db);
+            $this->assertSame(1, $count(), "{$index} back after up()");
+        }
+    }
+
     private function seedStory(Database $db): void
     {
         $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)', ['a@x.test', 'h', 'Author']);

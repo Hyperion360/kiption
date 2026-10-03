@@ -199,6 +199,21 @@ final class ReaderSettingsTest extends TestCase
         $this->assertSame(21, Prefs::current($valid)->size);
     }
 
+    /** Prefs::fromParts is the one whitelist for cookie segments and form
+     *  fields: the size range's ends are kept, one past them falls back, and
+     *  each field falls back on its own. */
+    public function test_from_parts_keeps_the_size_range_ends_and_falls_back_per_field(): void
+    {
+        $this->assertSame(16, Prefs::fromParts('16', 'serif', 'regular', 'indented', 'medium', 'scroll')->size);
+        $this->assertSame(24, Prefs::fromParts('24', 'serif', 'regular', 'indented', 'medium', 'scroll')->size);
+        foreach (['15', '25', 'abc', '', '-19'] as $junk) {
+            $this->assertSame(19, Prefs::fromParts($junk, 'serif', 'regular', 'indented', 'medium', 'scroll')->size, "size {$junk}");
+        }
+        $this->assertSame('22-serif-airy-indented-wide-scroll',
+            Prefs::fromParts('22', 'Sans', 'airy', 'flipped', 'wide', 'PAGES')->cookieValue(),
+            'case-different and unknown values fall back field by field; valid ones stay');
+    }
+
     public function test_wrong_segment_count_and_array_cookie_read_as_all_defaults(): void
     {
         // PHP parses Cookie: reader[]=x into an array in $_COOKIE; substr_count

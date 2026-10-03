@@ -183,6 +183,9 @@ final class AppJsContractTest extends TestCase
         $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         $this->assertStringContainsString("location.protocol === 'https:' ? '; secure' : ''", $js);
         $this->assertSame(2, substr_count($js, '+ secure'), 'both the write and the delete carry it');
+        // an empty value deletes (max-age=0), never a year-long empty cookie
+        // that would still make every request miss the static cache
+        $this->assertStringContainsString("name + '=; path=/; max-age=0; samesite=lax'", $js);
     }
 
     /** Arrow keys stay the browser's when Shift is held (text selection) and
