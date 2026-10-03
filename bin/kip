@@ -299,6 +299,11 @@ match ($argv[1] ?? 'help') {
         $encoding = 'auto';
         foreach ($argv as $i => $a) { if ($i > 2 && str_starts_with($a, '--encoding=')) { $encoding = substr($a, 11); } }
         if ($bundle === '' || !is_file($bundle) || $mode === '') {
+            // a mistyped or missing path gets its own line: "usage" alone
+            // sends a non-technical operator hunting a typo that isn't there
+            if ($bundle !== '' && !is_file($bundle)) {
+                fwrite(STDERR, "No such file: {$bundle}\n");
+            }
             fwrite(STDERR, "Usage: kip import:efiction <bundle.tar.gz> (--dry-run|--commit) [--encoding=auto|latin1|utf8] [--allow-missing-text]\n");
             exit(1);
         }
