@@ -337,4 +337,16 @@ final class LayoutShellTest extends TestCase
         $this->assertSame(2, substr_count($body, '<script'),
             'exactly two script tags: the deferred layer and the data-only JSON-LD');
     }
+
+    /** Focus mode below the desktop floor shows only its dock and exit hint:
+     *  the regular reader bar under them overlapped the dock and left the
+     *  bookmark target 12.6px wide (qa-full /a11y, WCAG 2.5.8). */
+    public function test_focus_mode_retires_the_reader_bar_at_every_width(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
+        $this->assertStringContainsString('.reader.reader-focus .reader-bar { display: none; }', $css);
+        // and the unbacked exit hint printed over the chapter text; the dock's
+        // close link is the exit there (a plain link, works with scripting off)
+        $this->assertStringContainsString('@media (max-width:1023px) { .focus-hint { display: none; } }', $css);
+    }
 }

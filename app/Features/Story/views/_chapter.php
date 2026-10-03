@@ -49,7 +49,7 @@
     <?php /* the read beacon: a zero-JS read counter into page_stats; the src carries the story id and the chapter's id (never the position) */ ?>
     <img src="/beacon/read/<?= (int) $story['id'] ?>/<?= (int) $story['ch_id'] ?>" alt="" width="1" height="1" loading="lazy">
   </article>
-  <footer class="chapter-end" role="separator" aria-label="<?= $this->e($unitEndLabel) ?>">
+  <div class="chapter-end" role="group" aria-label="<?= $this->e($unitEndLabel) ?>">
     <span class="dots" aria-hidden="true"></span>
     <p><?= $this->e($unitEndLabel) ?></p>
     <div class="chapter-end-actions">
@@ -68,7 +68,7 @@
       </a>
     </div>
     <?php endif; ?>
-  </footer>
+  </div>
   <template class="unit-state" data-position="<?= (int) $position ?>" data-prev="<?= isset($prev) && $prev !== null ? $this->e($readUrl((int) $prev)) : '' ?>" data-next="<?= $next !== null ? $this->e($readUrl((int) $next)) : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
     <span class="bar-count"><?= (int) $position ?> / <?= (int) $total ?></span>
     <div data-slot="rt"><?= $this->render('story/_bookmark_control', ['variant' => 'rt'] + $bmArgs) ?></div>

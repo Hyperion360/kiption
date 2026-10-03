@@ -165,7 +165,7 @@ final class WholeViewTest extends TestCase
         $res = $this->client()->get('/story/whole/the-rabbit-hole');
         $this->assertSame(200, $res->status, $res->body);
         // one separator per chapter, each captioned in roman numerals
-        $this->assertSame(3, substr_count($res->body, '<footer class="chapter-end"'));
+        $this->assertSame(3, substr_count($res->body, '<div class="chapter-end" role="group"'));
         foreach (['I', 'II', 'III'] as $roman) {
             $this->assertStringContainsString('aria-label="End of chapter ' . $roman . '"', $res->body);
         }

@@ -791,6 +791,9 @@ html[data-mode="pages"] .reader-main .prose {
 
 /* End-of-chapter block (M3/D2): dot ornament, kudos + review actions, and
    the next-chapter link. */
+/* The chapter end is a labelled group, not a separator: a separator's
+   children are presentational, which hid the kudos, review and next-chapter
+   controls inside it from screen readers (qa-full /a11y, WCAG 4.1.2). */
 .chapter-end {
   max-width: var(--read-width); margin: 3rem auto 0; padding-block: 24px;
   border-block: 1px solid var(--line-strong); text-align: center;
@@ -996,6 +999,12 @@ body.focus .site-head { display: none; }
    copy of this rule sat above the .js reveal and lost the cascade; the rule
    has to follow the reveal. */
 @media (max-width:1023px) { .js .hint-keys { display: none; } }
+/* Focus mode is the dock plus the exit hint at every width; below the
+   desktop floor the reader bar stayed up underneath them (qa-full /a11y). */
+.reader.reader-focus .reader-bar { display: none; }
+/* The exit hint has no backing, and on narrow screens it printed over the
+   chapter text; the dock's close link is the exit there. */
+@media (max-width:1023px) { .focus-hint { display: none; } }
 .reader-dock {
   position: fixed; inset-inline-end: 28px; bottom: 28px; z-index: 30;
   display: flex; flex-direction: column;

@@ -210,7 +210,7 @@ final class ReadShellTest extends TestCase
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
         // the caption names the chapter when it carries a title, sentence case
-        $this->assertStringContainsString('<footer class="chapter-end" role="separator" aria-label="End of chapter II · Through">', $body);
+        $this->assertStringContainsString('<div class="chapter-end" role="group" aria-label="End of chapter II · Through">', $body);
         $this->assertStringContainsString('<p>End of chapter II · Through</p>', $body);
         $this->assertStringContainsString('<span class="dots" aria-hidden="true"></span>', $body);
         $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $body);

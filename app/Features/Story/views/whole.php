@@ -35,7 +35,7 @@
     <h2 class="p-name"><?= $this->e($c['title'] !== '' ? $c['title'] : \App\Lang::t('story.chapter_n', ['n' => (int) $c['position']])) ?></h2>
     <?= \App\Markdown::render($c['content']) /* markdown at rest; raw HTML cannot be stored */ ?>
   </section>
-  <footer class="chapter-end" role="separator" aria-label="<?= $this->e(\App\Lang::t('reader.end_of_chapter', ['n' => $roman($c)])) ?>">
+  <div class="chapter-end" role="group" aria-label="<?= $this->e(\App\Lang::t('reader.end_of_chapter', ['n' => $roman($c)])) ?>">
     <span class="dots" aria-hidden="true"></span>
     <p><?= \App\Lang::t('reader.end_of_chapter', ['n' => $roman($c)]) ?></p>
     <div class="chapter-end-actions">
@@ -45,6 +45,6 @@
       </form>
       <a href="/story/view/<?= $this->e($story['slug']) ?>#reviews"><?= \App\Lang::t('reader.review_link') ?></a>
     </div>
-  </footer>
+  </div>
   <?php endforeach; ?>
 </article>
