@@ -68,7 +68,7 @@ final class CoauthorController
     private function purges(string $slug, int $storyId, int $authorId, string $coauthorSlug): void
     {
         [$seriesSlugs, $authorSlug] = $this->authoring()->purgeData($storyId, $authorId);
-        $cache = new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache');
+        $cache = \App\StaticCache\Cache::configured($this->app);
         $cache->purgeStory($slug, [], $seriesSlugs, $authorSlug);
         if ($coauthorSlug !== '') $cache->purgeUser($coauthorSlug);
     }

@@ -517,6 +517,7 @@ final class StoryController
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $tagIds);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
+        $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
         return Response::redirect('/story/edit/' . $slug);
     }
 
@@ -693,7 +694,7 @@ final class StoryController
         // Config-injected dir when present (the AdminstoriesController/Importer
         // pattern), the tree's public/cache otherwise: tests pin
         // through-controller purges without ever writing into the real dir.
-        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
+        return \App\StaticCache\Cache::configured($this->app);
     }
 
     /** @return array{string,string,string,int,array,bool,bool,string,bool,string,array} */

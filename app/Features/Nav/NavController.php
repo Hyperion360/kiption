@@ -130,7 +130,7 @@ final class NavController
         // the old menu indefinitely (the QA 10a live-smoke finding). The dirs
         // come from config so the KIP_STATIC_CACHE_DIR override (tests,
         // imports, alternate deploys) purges the layer actually in front.
-        $cacheDir = (string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache');
+        $cacheDir = \App\StaticCache\Cache::configuredDir($this->app);
         \App\StaticCache\Builder::prune($cacheDir, (string) $this->app->config('app_dir', dirname(__DIR__, 2)));
     }
 

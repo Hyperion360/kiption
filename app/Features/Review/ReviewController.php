@@ -8,7 +8,7 @@ use App\Repositories\UserRepository;
 
 final class ReviewController
 {
-    public function __construct(private Database $db, private Request $request, private Session $session) {}
+    public function __construct(private Database $db, private Request $request, private Session $session, private \Kip\App $app) {}
 
     #[Post]
     public function add(string $slug): Response
@@ -31,7 +31,7 @@ final class ReviewController
             foreach ((new UserRepository($this->db))->notifyRecipients($storyId, 'notify_review', is_int($userId) ? $userId : 0) as $recipientId) {
                 $notifications->create($recipientId, 'review', $storyId, is_int($userId) ? $userId : null, $title);
             }
-            (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, []);
+            (\App\StaticCache\Cache::configured($this->app))->purgeStory($slug, []);
         }
         return Response::redirect('/story/view/' . $slug . '#reviews');
     }
@@ -55,7 +55,7 @@ final class ReviewController
                 (new Notifications($this->db))->create($notifyUserId, 'reply', $storyId, $userId, null);
             }
         }
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, []);
+        (\App\StaticCache\Cache::configured($this->app))->purgeStory($slug, []);
         return Response::redirect('/story/view/' . $slug . '#reviews');
     }
 }

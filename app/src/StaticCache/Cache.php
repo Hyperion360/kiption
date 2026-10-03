@@ -8,6 +8,21 @@ final class Cache
 
     public function __construct(private string $dir) {}
 
+    /** The configured cache directory: config first (KIP_STATIC_CACHE_DIR),
+     *  the app tree's public/cache as the fallback. Every write path resolves
+     *  the directory through these two statics and never guesses it: a purge
+     *  against the fallback while pages are served from the configured
+     *  directory leaves them stale. */
+    public static function configuredDir(\Kip\App $app): string
+    {
+        return (string) (($app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache');
+    }
+
+    public static function configured(\Kip\App $app): self
+    {
+        return new self(self::configuredDir($app));
+    }
+
     /** Route shapes this layer may serve and fill. Mirrors the router's own
      *  segment whitelist; anything else maps to null and is never cached. */
     public function fileFor(string $path): ?string
@@ -39,12 +54,19 @@ final class Cache
 
     /** Fill after a successful anonymous render. Refuses anything that could
      *  poison the anonymous variant: non-200, Set-Cookie, or a request that
-     *  was not cookieless/queryless/whitelisted to begin with. */
+     *  was not cookieless/queryless/whitelisted to begin with. Known window,
+     *  accepted by design: a guest render that started before a write's
+     *  purge can finish after it and re-store pre-write bytes; guest bytes
+     *  only, one render wide, healed by the next write to the same keys. */
     public function maybeStore(Request $request, Response $response): void
     {
         if (!$this->isCacheable($request)) return;
         if ($response->status !== 200) return;
-        if (array_intersect(['Set-Cookie', 'set-cookie'], array_keys($response->headers)) !== []) return;
+        foreach (array_keys($response->headers) as $h) {
+            // name-based, any casing: the guard must not depend on a writer's
+            // spelling of the header (the list-valued scan's same stance)
+            if (strcasecmp((string) $h, 'set-cookie') === 0) return;
+        }
         if (($response->headers['X-Robots-Tag'] ?? '') !== '') return; // nothing worth indexing, nothing worth caching
         $file = $this->fileFor($request->path);
         if ($file === null) return;

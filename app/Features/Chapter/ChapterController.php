@@ -134,7 +134,7 @@ final class ChapterController
         // Config-injected dir when present (the StoryController pattern), the
         // tree's public/cache otherwise: tests pin through-controller purges
         // without ever writing into the real dir.
-        (new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache')))
+        (\App\StaticCache\Cache::configured($this->app))
             ->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
     }
 

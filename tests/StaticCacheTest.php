@@ -108,6 +108,18 @@ final class StaticCacheTest extends TestCase
         $this->assertNull($this->cache->serve($req), 'a list-valued Set-Cookie never lands in the file cache');
     }
 
+    /** The refusal is name-based and casing-proof: a future writer emitting
+     *  'SET-COOKIE' (or any other spelling) must not slip a personalized
+     *  header past the guard into a cache file. */
+    public function test_maybe_store_refuses_set_cookie_in_any_casing(): void
+    {
+        $req = new Request('GET', '/story/view/x', [], [], []);
+        $this->cache->maybeStore($req, new Response('ok', 200, ['SET-COOKIE' => 'theme=light']));
+        $this->assertNull($this->cache->serve($req), 'an upper-cased Set-Cookie never lands in the file cache');
+        $this->cache->maybeStore($req, new Response('ok', 200, ['sEt-CoOkIe' => 'theme=light']));
+        $this->assertNull($this->cache->serve($req), 'mixed casing refuses too');
+    }
+
     public function test_maybe_store_refuses_noindexed_responses(): void
     {
         $req = new Request('GET', '/browse/category/junk', [], [], []);

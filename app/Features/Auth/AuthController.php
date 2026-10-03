@@ -161,7 +161,7 @@ final class AuthController
         // Invite mode lands in the member directory immediately (verified +
         // approved at insert); verify/approval modes complete later, where those
         // paths purge too. A purge with no directory change is a no-op.
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors();
+        (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
         if ($mode === 'verify') {
             $raw = $this->users->createVerification($email);
             $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/auth/verify/' . $raw;
@@ -181,7 +181,7 @@ final class AuthController
         if ($this->users->consumeVerification($token)) {
             // The member just became email-verified; in verify mode registration
             // already approved them, so this is the moment they join the directory.
-            (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors();
+            (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
         }
         return Response::redirect('/auth/login?verified=1');
     }

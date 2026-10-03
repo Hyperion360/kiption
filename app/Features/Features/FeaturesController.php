@@ -72,7 +72,7 @@ final class FeaturesController
      *  a freshly hidden surface drops out of the index on the same request. */
     private function purge(): void
     {
-        $cacheDir = (string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache');
+        $cacheDir = \App\StaticCache\Cache::configuredDir($this->app);
         \App\StaticCache\Builder::prune($cacheDir, (string) $this->app->config('app_dir', dirname(__DIR__, 2)));
         $publicDir = $this->app->config('public_dir');
         $baseUrl = rtrim((string) $this->app->config('base_url', ''), '/');

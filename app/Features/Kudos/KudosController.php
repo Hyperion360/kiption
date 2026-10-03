@@ -10,6 +10,7 @@ final class KudosController
 {
     public function __construct(
         private Database $db, private Request $request, private Session $session,
+        private \Kip\App $app, // the configured static cache for the count purge
     ) {}
 
     #[Post]
@@ -27,7 +28,7 @@ final class KudosController
                 $notifications->create($recipientId, 'kudos', $storyId, is_int($userId) ? $userId : null, $title);
             }
             // the anonymous page shows the count: refresh it
-            (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeStory($slug, []);
+            (\App\StaticCache\Cache::configured($this->app))->purgeStory($slug, []);
         }
         return Response::redirect('/story/view/' . $slug);
     }

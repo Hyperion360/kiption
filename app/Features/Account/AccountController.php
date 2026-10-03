@@ -231,7 +231,7 @@ final class AccountController
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         $this->purgeOwnProfile($me);
         // the beta badge flips directory membership too, not just the profile card
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors();
+        (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
         // The cookie sync (ruling 5): the save is a write point, so the pref and
         // the runtime cookie land together. Every directive is one
         // withAddedHeader leaf, the same chain shape whatever the count
@@ -262,7 +262,7 @@ final class AccountController
     {
         $slug = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$userId]);
         if ($slug === null) return;
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeUser((string) $slug['profile_slug']);
+        (\App\StaticCache\Cache::configured($this->app))->purgeUser((string) $slug['profile_slug']);
     }
 
     private function head(): \App\Seo\Head

@@ -45,7 +45,7 @@ final class QueueController
         $coords = $op === 'approve' ? $repo->approveStory((int) $id) : $repo->removeStory((int) $id);
         if ($coords !== null) {
             $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
-            (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors(); // story counts changed
+            (\App\StaticCache\Cache::configured($this->app))->purgeAuthors(); // story counts changed
             if ($op === 'approve') $this->notifyPublish($coords[0]);
         }
         return Response::redirect('/queue');
@@ -75,7 +75,7 @@ final class QueueController
         }
         // Both ops change directory membership: approve completes an
         // approval-mode member, reject locks them out of the listing.
-        (new \App\StaticCache\Cache(dirname(__DIR__, 3) . '/public/cache'))->purgeAuthors();
+        (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
         return Response::redirect('/queue');
     }
 
@@ -92,7 +92,7 @@ final class QueueController
         // and story visibility shift. Caller-side lookup: Cache stays DB-free.
         $storyId = (int) ($this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'] ?? 0);
         $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($storyId);
-        (new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache')))
+        (\App\StaticCache\Cache::configured($this->app))
             ->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
     }
 

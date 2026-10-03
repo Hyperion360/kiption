@@ -131,7 +131,7 @@ final class PageController
      *  the layer actually serving, never a hardcoded default (QA 10a). */
     private function cache(): \App\StaticCache\Cache
     {
-        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
+        return \App\StaticCache\Cache::configured($this->app);
     }
 
     private function admin(): bool
