@@ -35,14 +35,28 @@
     };
 
     /* The fraction of the active article the reader has passed: vertical
-       for the ordinary page scroller, the horizontal fraction of
-       .reader-main in pages mode (the column deck scrolls there). */
+       for the ordinary page scroller; in pages mode the active chapter's
+       own column deck, measured geometrically so stacked chapters each
+       report their own span (the deck-wide scrollLeft/span readout stalled
+       or jumped once infinite scroll stacked unequal decks). */
     var fraction = function () {
       if (main && document.documentElement.getAttribute('data-mode') === 'pages') {
-        var span = main.scrollWidth - main.clientWidth;
-        if (span > 0) {
-          var f = main.scrollLeft / span;
-          return f < 0 ? 0 : (f > 1 ? 1 : f);
+        var a2 = active();
+        var deck = a2 && a2.querySelector('.prose');
+        if (deck) {
+          var mr = main.getBoundingClientRect();
+          var dr = deck.getBoundingClientRect();
+          var span = dr.width - mr.width;
+          if (span > 0) {
+            var f = (mr.left - dr.left) / span;
+            return f < 0 ? 0 : (f > 1 ? 1 : f);
+          }
+          return 0;
+        }
+        var spanAll = main.scrollWidth - main.clientWidth;
+        if (spanAll > 0) {
+          var fAll = main.scrollLeft / spanAll;
+          return fAll < 0 ? 0 : (fAll > 1 ? 1 : fAll);
         }
       }
       var a = active();

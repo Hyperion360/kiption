@@ -54,7 +54,12 @@
             /* The sheet spell: hidden or fixed-overlay text settings open
                through the hash; a static panel scrolls into view. */
             if (cs.display === 'none' || cs.position === 'fixed') { window.location.hash = '#text'; }
-            else { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            else {
+              /* an explicit behavior:'smooth' does not defer to the CSS
+                 scroll-behavior kill switch, so ask the media query here */
+              var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+              panel.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+            }
             handled = true;
           }
         }
