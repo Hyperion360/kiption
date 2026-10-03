@@ -85,6 +85,27 @@ final class StoryRepositoryTest extends TestCase
         $this->assertSame(['position' => 3, 'title' => 'A|B~C', 'word_count' => 444], $toc[2]);
     }
 
+    /** The derived-table shape is load-bearing: SQLite drops a bare ORDER BY
+     *  on an aggregate with no GROUP BY, so once rowid order diverges from
+     *  position order (a renumber via UPDATE never touches rowids), only the
+     *  derived table keeps the blob position-ordered. */
+    public function test_toc_blob_orders_by_position_not_rowid(): void
+    {
+        $this->db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (1, 3, ?, ?, 1, 100)',
+            ['Third', 'Body.']);
+        // swap positions 2 and 3 via UPDATE: rowid order (1,2,3) now carries
+        // positions (1,4,2), the exact post-renumber divergence
+        $this->db->query('UPDATE chapters SET position = 4 WHERE story_id = 1 AND position = 2');
+        $this->db->query('UPDATE chapters SET position = 2 WHERE story_id = 1 AND position = 3');
+        $story = (new StoryRepository($this->db))->findStoryBySlug('the-rabbit-hole');
+        $toc = json_decode((string) $story['chapters_blob'], true);
+        $this->assertSame([1, 2, 4], array_column($toc, 'position'),
+            'the landing TOC reads in position order, not rowid order');
+        $row = (new StoryRepository($this->db))->findStoryWithChapter('the-rabbit-hole', 1);
+        $this->assertSame([1, 2, 4], array_column(json_decode((string) $row['chapters_blob'], true), 'position'),
+            'the reader TOC derives prev/next from position order too');
+    }
+
     public function test_find_story_with_chapter_pivots_target(): void
     {
         $row = (new StoryRepository($this->db))->findStoryWithChapter('the-rabbit-hole', 2);

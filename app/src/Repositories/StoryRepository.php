@@ -56,8 +56,8 @@ final class StoryRepository
                      JOIN categories c ON c.id = sc.category_id
                      WHERE sc.story_id = s.id) AS category_names,
                     (SELECT json_group_array(json_object(\'position\', ch.position, \'title\', ch.title, \'word_count\', ch.word_count))
-                     FROM chapters ch WHERE ch.story_id = s.id AND ch.validated = 1
-                     ORDER BY ch.position) AS chapters_blob,
+                     FROM (SELECT position, title, word_count FROM chapters WHERE story_id = s.id AND validated = 1
+                           ORDER BY position) ch) AS chapters_blob,
                     (SELECT json_group_array(json_object(\'id\', r.id, \'user_id\', r.user_id, \'penname\',
                             (SELECT penname FROM users ru WHERE ru.id = r.user_id), \'guest_name\', r.guest_name,
                             \'body\', r.body, \'rating\', r.rating, \'created_at\', r.created_at))
@@ -176,8 +176,11 @@ final class StoryRepository
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;
         // C4: the titled TOC blob rides every chapter read (findStoryBySlug's
-        // expression verbatim, alias shifted to ch3 because this statement
-        // already aliases chapters as ch and ch2), so the read page can render
+        // fold with the derived-table alias shifted to ch3 because this
+        // statement already aliases chapters as ch and ch2; the derived table
+        // is load-bearing, not style: SQLite drops a bare ORDER BY on an
+        // aggregate with no GROUP BY, so only this shape orders the blob),
+        // so the read page can render
         // a titled contents sheet AND derive prev/next positions from its keys
         // (review: the old positions_blob GROUP_CONCAT scanned the same
         // chapter set a second time). The member fold also carries the stored
@@ -203,8 +206,8 @@ final class StoryRepository
                     MAX(CASE WHEN ch.position = ? THEN ch.notes_after END) AS ch_notes_after,
                     MAX(CASE WHEN ch.position = ? THEN ch.word_count END) AS ch_word_count,
                     (SELECT json_group_array(json_object(\'position\', ch3.position, \'title\', ch3.title, \'word_count\', ch3.word_count))
-                     FROM chapters ch3 WHERE ch3.story_id = s.id AND ch3.validated = 1
-                     ORDER BY ch3.position) AS chapters_blob,
+                     FROM (SELECT position, title, word_count FROM chapters WHERE story_id = s.id AND validated = 1
+                           ORDER BY position) ch3) AS chapters_blob,
                     (SELECT COUNT(*) FROM reviews r4 WHERE r4.story_id = s.id AND r4.parent_id IS NULL) AS review_count' . $progressCols . $bookmarksCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
