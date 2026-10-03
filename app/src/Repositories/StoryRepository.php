@@ -146,16 +146,6 @@ final class StoryRepository
         );
     }
 
-    /** ONE query for the reading page: story meta plus the target chapter
-     *  pivoted via conditional aggregation, plus the validated-position list
-     *  for prev/next (positions can be non-contiguous when a middle chapter
-     *  is unvalidated). ch_title NULL means the chapter does not exist.
-     *  Same restricted gate as findStoryBySlug (CAST is load-bearing). The
-     *  syndication pair rides along so chapter reads apply the SAME Head
-     *  branch as the story view (the deindex must cover both surfaces).
-     *  ch_id pivots the chapter's id for the read beacon img (finding 5:
-     *  the beacon wants chapters.id, never the position).
-     *  @return array<string,mixed>|null */
     /** C5 bookmarks fold, the member path only (guests get ''), shared by
      *  the story page and the reader: notes are free text, so the blob is
      *  JSON (the TOC discipline; no delimiter survives a note). Ordering rides
@@ -172,6 +162,16 @@ final class StoryRepository
                      LEFT JOIN chapters cb ON cb.id = b.chapter_id AND cb.validated = 1) AS bookmarks_blob' : '';
     }
 
+    /** ONE query for the reading page: story meta plus the target chapter
+     *  pivoted via conditional aggregation, plus the validated-position list
+     *  for prev/next (positions can be non-contiguous when a middle chapter
+     *  is unvalidated). ch_title NULL means the chapter does not exist.
+     *  Same restricted gate as findStoryBySlug (CAST is load-bearing). The
+     *  syndication pair rides along so chapter reads apply the SAME Head
+     *  branch as the story view (the deindex must cover both surfaces).
+     *  ch_id pivots the chapter's id for the read beacon img (finding 5:
+     *  the beacon wants chapters.id, never the position).
+     *  @return array<string,mixed>|null */
     public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return null;

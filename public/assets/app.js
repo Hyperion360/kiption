@@ -26,9 +26,6 @@
         document.cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=31536000; samesite=lax' + secure;
       }
     },
-    /* Run a module init now if the DOM is ready, else on DOMContentLoaded
-       (defer scripts run before that event, but dynamically appended ones
-       may land after it). */
     /* The one theme setter (header toggle and Text controls alike): the
        root attribute, the cookie, and the Text sheet's swatch radio when
        that sheet is on the page, so it opens agreeing with the screen.
@@ -42,6 +39,9 @@
       else { document.documentElement.setAttribute('data-theme', t); }
       Kip.cookie.set('theme', auto ? '' : t);
     },
+    /* Run a module init now if the DOM is ready, else on DOMContentLoaded
+       (defer scripts run before that event, but dynamically appended ones
+       may land after it). */
     init: function (fn) {
       if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', fn); }
       else { fn(); }
