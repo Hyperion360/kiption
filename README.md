@@ -211,10 +211,12 @@ chapters and listings, instant preference application, and the header
 theme quick toggle. Every feature module loads only when its markup
 marker is present, and every behavior has a no-script path (forms,
 `:target` sheets, the pager, the Text sheet's Save). Fragment renders
-of chapters always answer with `X-Robots-Tag: noindex`, apply the same
-gates as the chapter page (age, restricted, validation), and never
-write reading progress - progress records when the chapter page itself
-is read, exactly as before.
+of chapters always answer with `X-Robots-Tag: noindex` and
+`Cache-Control: private, no-store`, apply the same gates as the chapter
+page (age, restricted, validation), and never write reading progress,
+since a fragment is often a prefetch. Progress records when the chapter
+page opens, and for an appended chapter through `POST /reader/progress`
+once it is the chapter on screen (members only, never backwards).
 
 Discovery surfaces. `/browse/recent` carries the comp's chip rows:
 the built-in completion/length filters plus category chips folded from
