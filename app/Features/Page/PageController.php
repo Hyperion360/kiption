@@ -32,7 +32,7 @@ final class PageController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'page' => $row,
-            'loggedIn' => $this->request->cookies !== [] && (int) ($this->session->get('user_id') ?? 0) !== 0,
+            'loggedIn' => \App\Viewer::id($this->request, $this->session, $this->db) !== 0,
         ];
         // An empty body is the empty-category precedent: meta noindex plus the
         // X-Robots-Tag header, which also keeps it out of the static layer.

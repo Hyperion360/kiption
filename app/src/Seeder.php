@@ -12,6 +12,11 @@ final class Seeder
         }
         $db->begin();
         try {
+        // our fixture users go in both modes: --force wipes everything, and
+        // the fresh path recycles them so a stories-free database that
+        // already seeded once (stories deleted since) re-seeds cleanly
+        // instead of dying on the penname UNIQUE constraint
+        $db->query('DELETE FROM users WHERE email IN (?, ?)', ['demo@example.test', 'beta@example.test']);
         if ($force) {
             foreach (['reviews', 'favorites', 'page_stats', 'chapters', 'story_characters', 'story_tags',
                       'story_categories', 'coauthors', 'challenge_items', 'challenge_prompts', 'challenges',
@@ -19,16 +24,11 @@ final class Seeder
                       'tag_types', 'categories', 'ratings', 'news'] as $t) { // news last: its comments cascade (FK on, finding 12)
                 $db->query("DELETE FROM {$t}");
             }
-            $db->query('DELETE FROM users WHERE email IN (?, ?)', ['demo@example.test', 'beta@example.test']); // only OUR fixture rows
         } else {
             // fresh install: taxonomy rows may not exist yet either way; make seeding idempotent for them
             foreach (['ratings', 'tag_types', 'tags', 'categories', 'characters'] as $t) {
                 $db->query("DELETE FROM {$t}");
             }
-            // and drop OUR fixture users: a stories-free database that already
-            // seeded once (stories deleted since) must re-seed cleanly, not die
-            // on the penname UNIQUE constraint (basic-review finding)
-            $db->query('DELETE FROM users WHERE email IN (?, ?)', ['demo@example.test', 'beta@example.test']);
         }
         foreach ([['General', 0, '', 1], ['Teen', 0, '', 2], ['Mature', 1, 'Contains adult content.', 3],
                   ['Explicit', 1, 'Contains explicit adult content.', 4]] as [$label, $adult, $warn, $pos]) {

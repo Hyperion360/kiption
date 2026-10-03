@@ -11,6 +11,7 @@ final class TopController
         private App $app,
         private ToplistRepository $toplists,
         private Session $session,
+        private \Kip\Database $db, // App\Viewer::id's epoch re-validation
     ) {}
 
     /** GET /top: the toplists hub, all four sections riding the repository's
@@ -27,7 +28,7 @@ final class TopController
         // The layout envelope's cookie-gated idiom: only a cookie-carrying
         // request can belong to a member, so cookieless renders never start
         // a session and the cached bytes stay identical.
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         return $this->view->render('top/index', [
             'title' => \App\Lang::t('top.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('top.heading'))->withCanonical('/top'),

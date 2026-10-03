@@ -39,10 +39,9 @@
        own column deck, measured geometrically so stacked chapters each
        report their own span (the deck-wide scrollLeft/span readout stalled
        or jumped once infinite scroll stacked unequal decks). */
-    var fraction = function () {
+    var fraction = function (a) {
       if (main && document.documentElement.getAttribute('data-mode') === 'pages') {
-        var a2 = active();
-        var deck = a2 && a2.querySelector('.prose');
+        var deck = a && a.querySelector('.prose');
         if (deck) {
           var mr = main.getBoundingClientRect();
           var dr = deck.getBoundingClientRect();
@@ -69,12 +68,13 @@
 
     var paint = function () {
       /* The band: the active article's own stamp when it carries one (an
-         appended fragment does), else the server attributes on the bar. */
+         appended fragment does), else the server attributes on the bar.
+         The active scan runs once here; fraction() reuses it. */
       var src = active();
       if (!src || src.dataset.pEnd === undefined) { src = bar; }
       var start = num(src.dataset.pStart);
       var end = num(src.dataset.pEnd);
-      var at = Math.round(start + (end - start) * fraction());
+      var at = Math.round(start + (end - start) * fraction(src));
       bar.style.setProperty('--p-end', at + '%');
       bar.setAttribute('aria-valuenow', String(at));
       if (pct) {

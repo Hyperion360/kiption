@@ -90,15 +90,23 @@ final class AuthoringTest extends TestCase
             'SELECT COUNT(*) c FROM story_categories WHERE story_id = ?', [$row['id']])['c']);
     }
 
+    /** Purge-pinning tests plant cache files here, never in the repo's real
+     *  public/cache: a failed run must leave nothing the preview server
+     *  could serve as a stale hit. */
+    private function cacheDir(): string
+    {
+        return sys_get_temp_dir() . '/kiption-authoring-cache-' . md5($this->path);
+    }
+
     /** A self-published story changes the authors directory's story counts,
      *  so create purges the cached directory like delete does (basic-review:
      *  the counts otherwise stay stale until an unrelated write). */
     public function test_create_purges_the_authors_directory(): void
     {
-        $cacheDir = dirname(__DIR__, 4) . '/public/cache';
+        $cacheDir = $this->cacheDir();
         @mkdir($cacheDir . '/browse/authors/d', 0775, true);
         file_put_contents($cacheDir . '/browse/authors/d/index.html', 'stale');
-        $res = $this->clientAs(1)->postWithToken('/story/create',
+        $res = $this->clientAs(1, ['static_cache' => ['enabled' => true, 'dir' => $cacheDir]])->postWithToken('/story/create',
             ['title' => 'Counted Work', 'summary' => 'S.', 'rating_id' => (string) $this->ratingId(), 'categories' => [(string) $this->categoryId()]]);
         $this->assertSame(302, $res->status, $res->body);
         $this->assertFileDoesNotExist($cacheDir . '/browse/authors/d/index.html');

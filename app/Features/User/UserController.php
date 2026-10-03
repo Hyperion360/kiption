@@ -18,7 +18,7 @@ final class UserController
 
     public function view(string $slug): Response|string
     {
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $profile = $this->users->findByProfileSlug($slug);
         if ($profile === null) return new Response('Page not found', 404);
         $site = (string) $this->app->config('site_name', 'Kiption');
@@ -160,7 +160,7 @@ final class UserController
             ->withCanonical($baseUrl);
         // The cookie-gated idiom: the listing is a public page, so cookieless
         // guests never start a session.
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $data = [
             'title' => $title,
             'head' => $tab['stories'] === [] ? $head->withNoindex() : $head,

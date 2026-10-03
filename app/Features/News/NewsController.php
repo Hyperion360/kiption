@@ -23,7 +23,7 @@ final class NewsController
         [$items, $page] = [(new NewsRepository($this->db))->listing($perPage, $offset), $this->page()];
         // The view()'s own idiom: cookie-gated, so a cookieless guest (the
         // cacheable shape) never starts a session.
-        $loggedIn = $this->request->cookies !== [] && (int) ($this->session->get('user_id') ?? 0) !== 0;
+        $loggedIn = \App\Viewer::id($this->request, $this->session, $this->db) !== 0;
         return $this->view->render('news/index', [
             'title' => \App\Lang::t('news.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('news.heading'))->withCanonical('/news')
@@ -48,7 +48,7 @@ final class NewsController
         [$perPage, $offset] = $repo->commentWindow();
         $fold = $repo->withComments((int) $id, $perPage, $offset);
         if ($fold === null) return new Response('Page not found', 404);
-        $loggedIn = $this->request->cookies !== [] && (int) ($this->session->get('user_id') ?? 0) !== 0;
+        $loggedIn = \App\Viewer::id($this->request, $this->session, $this->db) !== 0;
         $head = $this->head()->withTitle($fold['news']['title'])
             ->withDescription($this->description($fold['news']['body']))
             ->withCanonical('/news/view/' . (int) $fold['news']['id'])

@@ -186,7 +186,10 @@ final class Demo
             // carry it, so create it on demand instead of warning and binding NULL
             if ($canonical !== null && !isset($this->tags[$canonical])) {
                 $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$types[$type], $canonical]);
-                $this->tags[$canonical] = (int) $this->db->one('SELECT id FROM tags WHERE name = ?', [$canonical])['id'];
+                // by name AND type: the map is name-keyed across all tag
+                // types, so a same-named row under another type would
+                // otherwise win the lookup
+                $this->tags[$canonical] = (int) $this->db->one('SELECT id FROM tags WHERE name = ? AND tag_type_id = ?', [$canonical, $types[$type]])['id'];
             }
             $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)',
                 [$types[$type], $name, $canonical === null ? null : $this->tags[$canonical]]);
