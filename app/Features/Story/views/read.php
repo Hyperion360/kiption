@@ -235,6 +235,11 @@
     <a href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>" aria-label="<?= $this->e(\App\Lang::t('reader.exit_focus')) ?>">×</a>
   </nav>
   <?php endif; ?>
+  <?php /* the activation status: infinite scroll swaps the chapter chrome in
+     place, which a full page load would have announced by re-reading; this
+     region restores that announcement for assistive tech (WCAG 4.1.3). The
+     text is server-built in the unit-state, never invented client-side. */ ?>
+  <p class="visually-hidden" role="status"></p>
   <?php /* The keyboard hint bar (keys module): always-present markup so the
      bytes never depend on scripting, hidden until the enhancement layer
      runs (html.js reveals it; noscript never sees it). Each string's first

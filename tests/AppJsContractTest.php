@@ -261,4 +261,19 @@ final class AppJsContractTest extends TestCase
         $this->assertStringContainsString('data-pct-focus=', $view,
             'the unit-state carries the focus breadcrumb text');
     }
+
+    /** A stacked chapter never reloads the page, so the activation writes the
+     *  server-built chapter name into a status region (WCAG 4.1.3): what a
+     *  chapter load announces by re-reading, infinite scroll announces here. */
+    public function test_activation_announces_the_chapter_in_a_status_region(): void
+    {
+        $body = $this->client()->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringContainsString('role="status"', $body, 'the reader carries a status region');
+        $fragment = $this->client()->get('/story/fragment/the-rabbit-hole/2')->body;
+        $this->assertStringContainsString('data-status="Chapter 2 of 3 · Through"', $fragment,
+            'the unit-state carries the server-built announcement');
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/infinite.js');
+        $this->assertStringContainsString("Kip.\$('[role=\"status\"]', shell)", $js);
+        $this->assertStringContainsString('statusEl.textContent = say', $js);
+    }
 }

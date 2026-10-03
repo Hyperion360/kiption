@@ -129,6 +129,11 @@
         var pf = state.getAttribute('data-pct-focus');
         if (pctEl && pf) { pctEl.textContent = pf; }
       }
+      /* the status region: a stacked chapter never reloads the page, so the
+         announcement a load would have made is made here instead */
+      var statusEl = Kip.$('[role="status"]', shell);
+      var say = state.getAttribute('data-status');
+      if (statusEl && say) { statusEl.textContent = say; }
       /* this unit's parked beacon fires now: the chapter is being read */
       var bs = unit.getAttribute('data-beacon-src');
       if (bs) {
