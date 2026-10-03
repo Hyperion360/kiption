@@ -195,7 +195,10 @@ final class ChaptersFragmentTest extends TestCase
     {
         $guest = $this->client()->get('/story/fragment/the-rabbit-hole/2')->body;
         $this->assertStringContainsString('<template class="unit-state" data-position="2" data-prev="/story/read/the-rabbit-hole/1" data-next="/story/read/the-rabbit-hole/3"'
-            . ' data-focus-url="/story/read/the-rabbit-hole/2?focus=1" data-exit-focus="/story/read/the-rabbit-hole/2" data-text-url="/story/read/the-rabbit-hole/2#text">', $guest);
+            . ' data-focus-url="/story/read/the-rabbit-hole/2?focus=1" data-exit-focus="/story/read/the-rabbit-hole/2" data-text-url="/story/read/the-rabbit-hole/2#text"'
+            . ' data-pct-focus="Chapter 2 of 3 · 17%">', $guest);
+        // the label and count the activation swaps: server-built, never invented client-side
+        $this->assertStringContainsString('<div data-slot="label"><span class="rt-chapter">II · Through</span></div>', $guest);
         // guests get the login link in both slots: a member whose session
         // expired mid-scroll has the forms swapped out, never left stale
         $this->assertStringContainsString('<div data-slot="rt"><a class="rt-ctl" href="/auth/login">', $guest);

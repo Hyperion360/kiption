@@ -12,9 +12,10 @@
        The unit-state template closes the unit: inert markup the infinite
        module swaps into the reader chrome when this chapter becomes the one
        being read (prev/next/focus/exit/Text URLs for the keys module and the
-       Text form's return_to, the bar's chapter count, both bookmark controls
-       in their member or guest shape, and for members the progress URL).
-       Everything in it is server-built. */
+       Text form's return_to, the bar's chapter count, the visible chapter
+       label and the focus breadcrumb's chapter-of text, both bookmark
+       controls in their member or guest shape, and for members the progress
+       URL). Everything in it is server-built. */
      $readUrl = static fn (int $n): string => '/story/read/' . $story['slug'] . '/' . $n;
      $unitRead = $readUrl((int) $position);
      $bmArgs = ['member' => !empty($member), 'story' => $story, 'position' => $position, 'bookmarked' => !empty($bookmarked), 'csrf' => $csrf];
@@ -69,7 +70,8 @@
     </div>
     <?php endif; ?>
   </div>
-  <template class="unit-state" data-position="<?= (int) $position ?>" data-prev="<?= isset($prev) && $prev !== null ? $this->e($readUrl((int) $prev)) : '' ?>" data-next="<?= $next !== null ? $this->e($readUrl((int) $next)) : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
+  <template class="unit-state" data-position="<?= (int) $position ?>" data-prev="<?= isset($prev) && $prev !== null ? $this->e($readUrl((int) $prev)) : '' ?>" data-next="<?= $next !== null ? $this->e($readUrl((int) $next)) : '' ?>" data-focus-url="<?= $this->e($unitRead . '?focus=1') ?>" data-exit-focus="<?= $this->e($unitRead) ?>" data-text-url="<?= $this->e($unitRead . '#text') ?>" data-pct-focus="<?= $this->e(\App\Lang::t('story.chapter_of_pct', ['n' => (int) $position, 'm' => (int) $total, 'pct' => (int) $pct_start])) ?>"<?= !empty($member) ? ' data-progress-url="/reader/progress/' . $this->e($story['slug']) . '/' . (int) $position . '"' : '' ?>>
+    <div data-slot="label"><span class="rt-chapter"><?= $this->e($unitRawTitle !== '' ? $unitRoman . ' · ' . $unitRawTitle : \App\Lang::t('story.chapter_n', ['n' => $unitRoman])) ?></span></div>
     <span class="bar-count"><?= (int) $position ?> / <?= (int) $total ?></span>
     <div data-slot="rt"><?= $this->render('story/_bookmark_control', ['variant' => 'rt'] + $bmArgs) ?></div>
     <div data-slot="bar"><?= $this->render('story/_bookmark_control', ['variant' => 'bar'] + $bmArgs) ?></div>

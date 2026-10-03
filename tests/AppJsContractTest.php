@@ -159,7 +159,6 @@ final class AppJsContractTest extends TestCase
     }
 
     /** The .reader-progress opening tag: the element carrying the module marker. */
-    /** The .reader-progress opening tag: the element carrying the module marker. */
     private function progressTag(string $body): string
     {
         $this->assertSame(1, preg_match('/<div class="reader-progress"[^>]*>/s', $body, $m),
@@ -167,7 +166,6 @@ final class AppJsContractTest extends TestCase
         return $m[0];
     }
 
-    /** Every .reader-pct opening tag: one readout per reader page. */
     /** Every .reader-pct opening tag: one readout per reader page. */
     private function pctTags(string $body): array
     {
@@ -208,5 +206,59 @@ final class AppJsContractTest extends TestCase
         $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
         $this->assertStringContainsString("bar.classList.add('is-live')", $js);
         $this->assertStringContainsString('.reader-progress.is-live::after { animation: none; }', $css);
+    }
+
+    /** The hint bar reveals only when keys.js has actually run: the CSS
+     *  reveal carries :not([hidden]) (an author display rule outranks the
+     *  UA's [hidden] rule, so a bare .js reveal would flash the bar on
+     *  every load and stick forever if keys.js failed), and the keys
+     *  module is what clears the attribute. */
+    public function test_hint_keys_reveal_lets_the_hidden_attribute_win(): void
+    {
+        $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');
+        $this->assertStringContainsString('.js .hint-keys:not([hidden])', $css,
+            'the reveal requires keys.js to have cleared the hidden attribute');
+        $this->assertStringNotContainsString(".js .hint-keys {", $css,
+            'no bare .js .hint-keys display rule may outrank [hidden]');
+        $this->assertStringContainsString('@media (max-width:1023px) { .js .hint-keys:not([hidden]) { display: none; } }',
+            $css, 'the tablet hide carries the same specificity or it loses the cascade');
+    }
+
+    /** An explicit behavior:'smooth' does not defer to the CSS
+     *  scroll-behavior kill switch, so the keys module asks the media query
+     *  itself (prefers-reduced-motion) before animating the T shortcut. */
+    public function test_the_text_shortcut_honors_reduced_motion(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/keys.js');
+        $this->assertStringContainsString("matchMedia('(prefers-reduced-motion: reduce)')", $js);
+        $this->assertStringContainsString("reduce ? 'auto' : 'smooth'", $js);
+    }
+
+    /** A prefetched fragment never counts a read: the infinite module parks
+     *  the unit's beacon src on data-beacon-src and drops the img on
+     *  insert, and activation re-creates it for the chapter being read. */
+    public function test_fragments_park_the_read_beacon_until_activation(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/infinite.js');
+        $this->assertStringContainsString('img[src^="/beacon/"]', $js);
+        $this->assertStringContainsString('data-beacon-src', $js);
+        $this->assertStringContainsString('read.appendChild(img)', $js);
+    }
+
+    /** Activation swaps the visible chapter label and the focus breadcrumb's
+     *  chapter-of prefix: both are server-rendered into the unit-state
+     *  (the module invents no label), and the percent node itself is
+     *  rewritten in place because the position module holds its reference. */
+    public function test_activation_swaps_the_chapter_label_from_the_unit_state(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/infinite.js');
+        $this->assertStringContainsString("swap('.rt-chapter', slot('label'))", $js);
+        $this->assertStringContainsString('data-pct-focus', $js);
+        $this->assertStringContainsString('pctEl.textContent = pf', $js);
+        $view = (string) file_get_contents(dirname(__DIR__) . '/app/Features/Story/views/_chapter.php');
+        $this->assertStringContainsString('data-slot="label"', $view,
+            'the unit-state carries the label the module swaps in');
+        $this->assertStringContainsString('data-pct-focus=', $view,
+            'the unit-state carries the focus breadcrumb text');
     }
 }
