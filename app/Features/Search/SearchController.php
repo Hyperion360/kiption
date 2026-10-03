@@ -10,6 +10,7 @@ final class SearchController
         private Request $request,
         private \Kip\Session $session, // finding 9: the StoryController::view idiom,
         private App $app,              // NOT a Request->session property (none exists)
+        private \Kip\Database $db,     // App\Viewer::id's epoch re-validation
         private SearchRepository $search,
     ) {}
 
@@ -29,7 +30,8 @@ final class SearchController
             'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($this->request->get['language'] ?? '')) ? (string) $this->request->get['language'] : null,
         ];
         [$perPage, $offset] = $this->paginate();
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        // the gate binds the member id: a revoked session filters as a guest
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // Finding 9: the mute gate rides here in the controller, so flag off
         // disables the filtering everywhere, not just the buttons.
         $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0);

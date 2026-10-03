@@ -96,6 +96,20 @@ final class SearchTest extends TestCase
         $this->assertSame([], $repo->search('rabbit', [], 20, 0, 1)['rows'], 'unvalidated never searched');
     }
 
+    /** Through the controller: a session revoked by a password change
+     *  searches as a guest (the Viewer::id doctrine, f7ca7c3's
+     *  /browse/recent rider), so restricted rows stay hidden after
+     *  revocation even though the session cookie still names the member. */
+    public function test_revoked_session_searches_as_a_guest(): void
+    {
+        $this->db()->query("UPDATE stories SET is_restricted = 1 WHERE slug = 'the-rabbit-hole'");
+        $member = (int) $this->db()->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $c = $this->client($member);
+        $this->assertStringContainsString('the-rabbit-hole', $c->get('/search', ['q' => 'rabbit'])->body);
+        $this->db()->query("UPDATE users SET password_hash = 'rotated' WHERE id = $member");
+        $this->assertStringNotContainsString('the-rabbit-hole', $c->get('/search', ['q' => 'rabbit'])->body);
+    }
+
     public function test_search_filters_category_rating_completed_language(): void
     {
         $repo = new \App\Repositories\SearchRepository($this->db());

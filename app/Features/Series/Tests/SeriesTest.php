@@ -152,6 +152,20 @@ final class SeriesTest extends TestCase
         $this->assertStringContainsString('href="/story/view/after-hours"', $member); // members still see it
     }
 
+    /** A session revoked by a password change filters the series page as a
+     *  guest (the Viewer::id doctrine, f7ca7c3's /browse/recent rider): the
+     *  raw session id would keep member-tier visibility after revocation. */
+    public function test_revoked_session_sees_the_guest_series_list(): void
+    {
+        $this->db->query("UPDATE stories SET is_restricted = 1 WHERE slug = 'the-rabbit-hole'");
+        $member = $this->memberId();
+        $c = $this->client($member);
+        $this->assertStringContainsString('href="/story/view/the-rabbit-hole"', $c->get('/series/view/down-the-rabbit-hole')->body);
+        $this->db->query("UPDATE users SET password_hash = 'rotated' WHERE id = $member");
+        $this->assertStringNotContainsString('href="/story/view/the-rabbit-hole"', $c->get('/series/view/down-the-rabbit-hole')->body,
+            'the revoked session filters the series as a guest (the series slug itself is a different string)');
+    }
+
     public function test_series_json_ld_urls_are_absolute(): void
     {
         $body = $this->client()->get('/series/view/down-the-rabbit-hole')->body;

@@ -28,9 +28,9 @@ final class SeriesController
         // Overflow guard: a hostile page=99999999999999999999 must not make
         // the offset a float (the BrowseController::paginate rule).
         $page = min($page, intdiv(PHP_INT_MAX, $perPage));
-        // The cookie-gated $me idiom (plan review finding 13): never a bare
-        // session read, or the cookieless cacheable path starts a session.
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        // App\Viewer::id keeps the cookieless cacheable path session-free and
+        // reads a session revoked by a password change as a guest.
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // One extra row decides "older" exactly: a total that is a multiple
         // of the page size no longer links to an empty page.
         $seriesRows = $this->series->indexPage($perPage + 1, ($page - 1) * $perPage, $me);
@@ -52,7 +52,8 @@ final class SeriesController
 
     public function view(string $slug): Response|string
     {
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        // viewer resolves the item-visibility gates; a revoked session is a guest
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // The mute gate (finding 9): the item branch filters only while the
         // flag is on; $me itself keeps driving the visibility gates.
         $page = $this->series->seriesPage($slug, $me, \App\Features::on('mute') ? $me : 0);
@@ -253,7 +254,7 @@ final class SeriesController
      *  resolves it, so series purges hit the directory pages are served from. */
     private function staticCache(): \App\StaticCache\Cache
     {
-        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
+        return \App\StaticCache\Cache::configured($this->app);
     }
 
     private function head(): \App\Seo\Head
