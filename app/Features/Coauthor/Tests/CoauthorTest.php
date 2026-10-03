@@ -131,6 +131,8 @@ final class CoauthorTest extends TestCase
         $owner->postWithToken('/coauthor/add/the-rabbit-hole', ['penname' => 'otherwriter']);
         $inbox = $this->client($this->otherId())->get('/notifications')->body;
         $this->assertStringContainsString('coauthor', $inbox);
+        // unread is announced, not only drawn as an accent square (qa-full /a11y, WCAG 1.4.1)
+        $this->assertStringContainsString('<span class="visually-hidden">Unread: </span>', $inbox);
         $mail = file_get_contents($this->mailLog);
         $this->assertStringContainsString('coauthor', $mail);
         $this->assertStringContainsString('The Rabbit Hole', $mail);

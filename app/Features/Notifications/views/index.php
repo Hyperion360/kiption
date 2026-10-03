@@ -26,6 +26,8 @@
       $actor = fn (string $fallback): string => $this->e($n['actor'] ?? \App\Lang::t($fallback));
       ?>
       <li class="<?= $n['read_at'] === null ? 'unread' : '' ?>">
+        <?php /* the accent square is visual only; screen readers hear the state */ ?>
+        <?php if ($n['read_at'] === null): ?><span class="visually-hidden"><?= \App\Lang::t('notifications.unread') ?>: </span><?php endif; ?>
         <?php if ($n['kind'] === 'kudos' && $n['story_id'] !== null): ?>
           <span><?= \App\Lang::t('notifications.kudos', ['actor' => $actor('notifications.a_reader'), 'story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'favorite' && $n['story_id'] !== null): ?>

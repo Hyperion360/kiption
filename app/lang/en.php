@@ -443,6 +443,7 @@ return [
     // Notifications.
     'notifications.heading' => 'Notifications',
     'notifications.mark_read' => 'Mark all read',
+    'notifications.unread' => 'Unread',
     'notifications.none' => 'Nothing yet.',
     'notifications.a_reader' => 'A reader',
     'notifications.someone' => 'Someone',
