@@ -109,18 +109,34 @@ final class RateLimitTest extends TestCase
         // Testing specialist finding: the mechanism is pinned with a synthetic
         // prefix, but nothing tied the SHIPPED config.php map to a real route;
         // deleting or misspelling a production segment would ship green. This
-        // loads the real config (paths overridden) and drives /auth/attempt
-        // past the shipped auth bucket.
+        // loads the real config (paths overridden) and drives a real POST
+        // route past its shipped bucket.
+        //
+        // The route is /warning/accept, not /auth/attempt: the login route
+        // carries a SECOND throttle (Auth::throttled, 5 failed attempts per
+        // email OR ip per 15 minutes), so when the limiter's fixed window
+        // rolled mid-sequence the 11th request reached the controller and
+        // returned the CONTROLLER's header-less 429 - the pin passed on the
+        // wrong 429 and failed on the missing Retry-After (observed in a
+        // full-suite run, 2026-10-03). The warning accept has no second
+        // throttle, so a 429 here can only be the limiter's.
+        //
+        // The sequence starts two seconds after a window boundary (fixed
+        // windows align on unix-time minutes), so all eleven requests share
+        // one window deterministically. It costs up to a minute of waiting
+        // once per suite run and removes the last timing flake.
+        sleep(62 - (time() % 60));
         $config = require dirname(__DIR__) . '/config.php';
         $config['db'] = ['dsn' => 'sqlite:' . $this->path];
         $config['log_db'] = ['dsn' => 'sqlite::memory:'];
         $config['cache_db'] = ['dsn' => 'sqlite::memory:'];
         $client = new TestClient(new App($config));
         for ($i = 0; $i < 10; $i++) {
-            $client->post('/auth/attempt', ['email' => 'x' . $i . '@x.test', 'password' => 'nope']);
+            $this->assertSame(302, $client->post('/warning/accept', ['return_to' => '/'])->status,
+                'the first 10 pass the shipped warning bucket (max 10)');
         }
-        $over = $client->post('/auth/attempt', ['email' => 'over@x.test', 'password' => 'nope']);
-        $this->assertSame(429, $over->status, 'the 11th auth POST trips the shipped auth bucket (max 10)');
+        $over = $client->post('/warning/accept', ['return_to' => '/']);
+        $this->assertSame(429, $over->status, 'the 11th POST trips the shipped warning bucket (max 10)');
         $this->assertGreaterThanOrEqual(1, (int) ($over->headers['Retry-After'] ?? '0'));
     }
 }
