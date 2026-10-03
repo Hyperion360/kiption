@@ -25,6 +25,10 @@ final class Seeder
             foreach (['ratings', 'tag_types', 'tags', 'categories', 'characters'] as $t) {
                 $db->query("DELETE FROM {$t}");
             }
+            // and drop OUR fixture users: a stories-free database that already
+            // seeded once (stories deleted since) must re-seed cleanly, not die
+            // on the penname UNIQUE constraint (basic-review finding)
+            $db->query('DELETE FROM users WHERE email IN (?, ?)', ['demo@example.test', 'beta@example.test']);
         }
         foreach ([['General', 0, '', 1], ['Teen', 0, '', 2], ['Mature', 1, 'Contains adult content.', 3],
                   ['Explicit', 1, 'Contains explicit adult content.', 4]] as [$label, $adult, $warn, $pos]) {

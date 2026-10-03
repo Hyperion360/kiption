@@ -59,6 +59,20 @@ final class SeedTest extends TestCase
         \App\Seeder::run($db);
     }
 
+    /** A stories-free database that already carries the fixture users (seed
+     *  once, the stories deleted since, seed again without --force) re-seeds
+     *  cleanly: our own fixture rows go with the taxonomy refresh, so the
+     *  penname UNIQUE constraint never surfaces as a raw PDO fatal. */
+    public function test_reseed_without_force_recycles_its_own_users(): void
+    {
+        $db = new Database($this->dsn);
+        \App\Seeder::run($db);
+        $db->query('DELETE FROM stories');
+        \App\Seeder::run($db);
+        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM users WHERE penname = 'Demo Author'")['c']);
+    }
+
     public function test_seed_force_wipes_and_reseeds(): void
     {
         $db = new Database($this->dsn);
@@ -73,22 +87,23 @@ final class SeedTest extends TestCase
 
     public function test_failed_seed_rolls_back_completely(): void
     {
-        // the fresh path never deletes the demo user, so a pre-existing
-        // demo@example.test row makes the users INSERT fail mid-seed;
+        // a penname squatter with a foreign email is not one of the seeder's
+        // own fixture rows (the fresh path recycles only demo/beta@example.test),
+        // so the users INSERT fails mid-seed on the penname UNIQUE constraint;
         // the transaction must restore exactly the pre-seed state
         $db = new Database($this->dsn);
         $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, 0, \'\', 1)', ['Solo']);
         $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)',
-            ['demo@example.test', 'x', 'Earlier User']);
+            ['squat@example.test', 'x', 'Demo Author']);
         try {
             \App\Seeder::run($db);
-            $this->fail('Seeder should have hit the UNIQUE user constraint');
+            $this->fail('Seeder should have hit the UNIQUE penname constraint');
         } catch (\PDOException $e) {
             $this->assertStringContainsString('UNIQUE', $e->getMessage());
         }
         $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM ratings')['c'], 'ratings rolled back');
         $this->assertSame('Solo', $db->one('SELECT label FROM ratings')['label']);
         $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM stories')['c'], 'no stories leaked');
-        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the earlier user survived');
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the squatter survived');
     }
 }

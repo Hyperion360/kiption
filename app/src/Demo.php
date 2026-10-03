@@ -181,6 +181,13 @@ final class Demo
         // Wrangling has work to do: one synonym already merged, one near
         // duplicate still waiting for an editor.
         foreach (self::WRANGLE_TAGS as [$type, $name, $canonical]) {
+            // the canonical tag belongs to the seed fixture: a dev database
+            // with its own taxonomy (ratings present, seed never run) may not
+            // carry it, so create it on demand instead of warning and binding NULL
+            if ($canonical !== null && !isset($this->tags[$canonical])) {
+                $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$types[$type], $canonical]);
+                $this->tags[$canonical] = (int) $this->db->one('SELECT id FROM tags WHERE name = ?', [$canonical])['id'];
+            }
             $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)',
                 [$types[$type], $name, $canonical === null ? null : $this->tags[$canonical]]);
         }
