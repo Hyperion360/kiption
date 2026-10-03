@@ -1,6 +1,6 @@
 <?php // app/Features/Lists/ListsController.php
 namespace App\Features\Lists;
-use Kip\{App, Http\Request, Http\Response, Session, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\ListsRepository;
 
@@ -11,13 +11,16 @@ final class ListsController
         private Request $request,
         private Session $session,
         private App $app,
+        private Database $db, // App\Viewer::id's epoch re-validation
         private ListsRepository $lists,
     ) {}
 
     public function view(string $slug): Response|string
     {
         if (($r = \App\Features::guard('lists')) !== null) return $r;
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        // owner checks ride the validated viewer: a session revoked by a
+        // password change must not open the owner's private list
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $list = $this->lists->view($slug, $me);
         if ($list === null) return new Response('Page not found', 404);
         $items = $list['items'];
@@ -199,7 +202,7 @@ final class ListsController
         // Config-injected dir when present (the AdminstoriesController/Importer
         // pattern), the tree's public/cache otherwise: tests pin
         // through-controller purges without ever writing into the real dir.
-        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
+        return \App\StaticCache\Cache::configured($this->app);
     }
 
     private function head(): \App\Seo\Head

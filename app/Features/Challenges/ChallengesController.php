@@ -26,7 +26,7 @@ final class ChallengesController
     public function index(): Response|string
     {
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $rows = $this->challenges->indexRows($me);
         $title = \App\Lang::t('challenges.index');
         $data = [
@@ -48,7 +48,7 @@ final class ChallengesController
     public function view(string $slug): Response|string
     {
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // The mute gate (finding 9): the item branch filters only while the
         // flag is on; $me itself keeps driving the visibility gates.
         $page = $this->challenges->challengePage($slug, $me, \App\Features::on('mute') ? $me : 0);
@@ -263,7 +263,7 @@ final class ChallengesController
         // Config-injected dir when present (the ListsController pattern), the
         // tree's public/cache otherwise: tests pin through-controller purges
         // without ever writing into the real dir.
-        return new \App\StaticCache\Cache((string) (($this->app->config('static_cache', []) ?? [])['dir'] ?? dirname(__DIR__, 3) . '/public/cache'));
+        return \App\StaticCache\Cache::configured($this->app);
     }
 
     /** title 1-120, summary clamped to 2000 (plain text at rest, never

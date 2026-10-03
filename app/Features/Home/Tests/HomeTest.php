@@ -76,11 +76,21 @@ final class HomeTest extends TestCase
         $db->query("INSERT INTO muted (user_id, author_id) SELECT ?, author_id FROM stories WHERE slug = 'the-rabbit-hole'", [$reader]);
         $guest = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
         $this->assertStringContainsString('/story/view/the-rabbit-hole', $guest);
+        $member = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $member);
+    }
+
+    /** A session shaped like a real login: the id AND the password epoch a
+     *  login stamps (App\Viewer::id treats an epoch-less session as revoked,
+     *  which is the point of the check, so the fixture carries one). */
+    private function memberSession(Database $db, int $userId): Session
+    {
         $store = [];
         $session = new Session($store);
-        $session->set('user_id', $reader);
-        $member = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $session)->body;
-        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $member);
+        $session->set('user_id', $userId);
+        $hash = (string) $db->one('SELECT password_hash FROM users WHERE id = ?', [$userId])['password_hash'];
+        $session->set('pwd_epoch', substr($hash, 0, \Kip\Auth::EPOCH_LEN));
+        return $session;
     }
 
     public function test_home_page_renders_the_site_name(): void
@@ -94,10 +104,10 @@ final class HomeTest extends TestCase
 
     public function test_logged_in_home_shows_logout_form_with_csrf(): void
     {
-        $store = [];
-        $session = new Session($store);
-        $session->set('user_id', 1);
-        $res = $this->app()->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $session);
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $res = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, 1));
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('action="/auth/logout"', $res->body);
         $this->assertStringContainsString('name="_token"', $res->body);

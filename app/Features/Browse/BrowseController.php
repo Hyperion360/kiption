@@ -33,7 +33,7 @@ final class BrowseController
         // session read, or the cookieless cacheable path starts a session) and
         // the mute gate (finding 9: flag off disables the filtering, not just
         // the buttons).
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         return $this->view->render('browse/index', [
             'title' => \App\Lang::t('browse.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('browse.heading'))->withCanonical('/browse'),
@@ -117,7 +117,7 @@ final class BrowseController
     {
         [$perPage, $offset] = $this->paginate();
         $page = $this->page();
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $stories = $this->stories->storiesInCategory($slug, $perPage, $offset, \App\Features::on('mute') ? $me : 0);
         // The recent listing's fragment mode: the infinite module mounts on
         // this list too and fetches ?fragment=1 for the bare card loop.
@@ -183,7 +183,7 @@ final class BrowseController
         // not stories); the mute BUTTON rides its rows for members. $me is the
         // cookie-gated idiom, never a bare session read, so the cookieless
         // cacheable path starts no session (plan review finding 13).
-        $me = $this->request->cookies !== [] ? (int) ($this->session->get('user_id') ?? 0) : 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
         [$perPage, $offset] = $this->paginate();
         $members = $this->users->authorsDirectory($letter === '' ? null : $letter, $betaOnly, $perPage, $offset);
         $canonical = $letter === '' ? '/browse/authors' : '/browse/authors/' . $letter;

@@ -10,8 +10,11 @@ final class HomeController
     {
         // Cookieless guests must never touch the session. A get() would start
         // one and set a cookie, making this page uncacheable for everyone.
-        // Only a request already carrying a cookie can belong to a logged-in user.
-        $userId = $this->request->cookies !== [] ? $this->session->get('user_id') : null;
+        // Only a request already carrying a cookie can belong to a logged-in
+        // user, and App\Viewer::id re-validates the epoch: a session revoked
+        // by a password change reads as a guest, never as the owner.
+        $viewerId = \App\Viewer::id($this->request, $this->session, $this->db);
+        $userId = $viewerId !== 0 ? $viewerId : null;
         $loggedIn = $userId !== null;
         // The home page's FIRST content query (finding 3): the featured five.
         // Guest-safe gates match browse (validated, not deleted, not
