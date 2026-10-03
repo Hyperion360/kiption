@@ -1,14 +1,18 @@
 /* Kiption enhancement layer, infinite module. Two shapes share it:
  *
  * Reader: when the sentinel nears the viewport the module fetches the next
- * chapter's fragment and inserts its .chapter-unit before the sentinel. An
- * append is often a prefetch, so nothing reader-facing changes on insert.
+ * chapter's fragment and inserts its .chapter-unit before the sentinel.
+ * An append is often a prefetch, so nothing reader-facing changes on
+ * insert: the unit's read beacon rides along inert (its src is parked on
+ * data-beacon-src and the img dropped) and fires only in activation, when
+ * the chapter is the one being read, so a prefetch never counts a read.
  * The reader chrome follows the ACTIVE chapter instead: the last unit
  * whose article top has crossed the viewport middle (the position
  * module's rule). On activation the module copies that unit's server-built
  * unit-state template into the page: the read URL into history
  * (data-read-url, keeping ?focus=1), the keys module's prev/next/focus/
  * exit/Text targets, the Text form's return_to, the bar's chapter count,
+ * the visible chapter label and the focus breadcrumb's chapter-of text,
  * both bookmark controls (member forms, or login links once a session has
  * expired), the contents list's current row, and the visible focus-mode
  * exit links; once chapters stack it retires the opening chapter's static
@@ -115,6 +119,27 @@
       swap('.reader-bar .bar-count', parts.querySelector('.bar-count'));
       swap('.rt-ctls > form, .rt-ctls > a[href="/auth/login"]', slot('rt'));
       swap('.reader-bar > form.bar-bookmark, .reader-bar > a[href="/auth/login"]', slot('bar'));
+      swap('.rt-chapter', slot('label'));
+      /* the focus breadcrumb's "Chapter n of m" prefix: the position module
+         rewrites only its trailing percent, and it holds this node's
+         reference from init, so the prefix is rewritten in place, never
+         via replaceWith (non-focus pages have no chapter number in it) */
+      if (shell.classList.contains('reader-focus')) {
+        var pctEl = Kip.$('[data-js="reader-pct"]');
+        var pf = state.getAttribute('data-pct-focus');
+        if (pctEl && pf) { pctEl.textContent = pf; }
+      }
+      /* this unit's parked beacon fires now: the chapter is being read */
+      var bs = unit.getAttribute('data-beacon-src');
+      if (bs) {
+        unit.removeAttribute('data-beacon-src');
+        var read = unit.querySelector('.h-entry');
+        if (read) {
+          var img = document.createElement('img');
+          img.src = bs; img.alt = ''; img.width = 1; img.height = 1;
+          read.appendChild(img);
+        }
+      }
       Kip.$$('#contents .chapter-list li').forEach(function (li) {
         var a = li.querySelector('a');
         var on = !!a && a.getAttribute('href') === readUrl;
@@ -164,6 +189,13 @@
       return getHtml(nextUrl).then(function (doc) {
         var unit = doc.querySelector('.chapter-unit');
         if (!unit) { return false; } /* empty or missing unit: stop */
+        /* a prefetch must not count a read: park the beacon's src, drop the
+           img; activation re-creates it for the chapter being read */
+        var beacon = unit.querySelector('img[src^="/beacon/"]');
+        if (beacon) {
+          unit.setAttribute('data-beacon-src', beacon.getAttribute('src') || '');
+          beacon.remove();
+        }
         host.insertBefore(unit, sentinel);
         shell.classList.add('is-stacked');
         var article = unit.querySelector('.h-entry');
