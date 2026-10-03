@@ -195,7 +195,7 @@ final class ExportTest extends TestCase
         $this->assertStringContainsString('Contains explicit adult content.', $gate->body);
         $this->assertArrayNotHasKey('Content-Disposition', $gate->headers, 'the gate page is not an attachment');
         $this->assertStringNotContainsString('Body.', $gate->body, 'the prose stays behind the gate');
-        $this->assertStringContainsString('return_to=/story/download/after-hours/epub', $gate->body, 'the gate returns to the download');
+        $this->assertStringContainsString('name="return_to" value="/story/download/after-hours/epub"', $gate->body, 'the gate posts back to the download (the accept is a form since the cross-site-img fix)');
         // with the cookie the download flows
         $read = $this->app->handle(new Request('GET', '/story/download/after-hours/epub', [], [], ['age_ok' => '1']));
         $this->assertSame('application/epub+zip', $read->headers['Content-Type'] ?? '');
