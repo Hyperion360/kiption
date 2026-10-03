@@ -267,11 +267,12 @@ final class LayoutShellTest extends TestCase
 
     /** Design review (run 3): the keyboard hint row is desktop chrome. Below
      *  1024px the fixed reader bar owns the bottom edge and the hints
-     *  overlapped it at tablet widths. */
+     *  overlapped it at tablet widths. The hide carries the reveal's
+     *  :not([hidden]) specificity or it loses the cascade to it. */
     public function test_keyboard_hints_hide_below_the_desktop_floor(): void
     {
         $flat = str_replace(' ', '', (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css'));
-        $this->assertStringContainsString('@media(max-width:1023px){.js.hint-keys{display:none;}}', $flat);
+        $this->assertStringContainsString('@media(max-width:1023px){.js.hint-keys:not([hidden]){display:none;}}', $flat);
     }
 
     /** On the desktop reader Contents and Text are always-visible panes, so

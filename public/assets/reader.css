@@ -984,21 +984,25 @@ body.focus .site-head { display: none; }
 .focus-hint a { color: var(--ink); }
 /* Keyboard hint bar (keys module): always in the markup, hidden until the
    enhancement layer runs - the html.js rule reveals it, so noscript bytes
-   carry nothing. Fixed bottom-left like the focus hint, muted, under the
-   sheets' z-order; focus mode lifts it above the focus-hint line. */
+   carry nothing. The reveal is gated on :not([hidden]) as well as .js: an
+   author display rule outranks the UA's [hidden] rule, so a bare .js
+   reveal would show the bar for the window before keys.js clears the
+   attribute, and forever if keys.js fails to load. Fixed bottom-left like
+   the focus hint, muted, under the sheets' z-order; focus mode lifts it
+   above the focus-hint line. */
 .hint-keys { display: none; }
-.js .hint-keys {
+.js .hint-keys:not([hidden]) {
   display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: baseline;
   position: fixed; inset-inline-start: 24px; bottom: 24px; z-index: 25;
   font: 13px/1.6 var(--sans); color: var(--muted);
 }
-.js .hint-keys kbd { color: var(--ink); }
-.js body.focus .hint-keys { bottom: 56px; }
+.js .hint-keys:not([hidden]) kbd { color: var(--ink); }
+.js body.focus .hint-keys:not([hidden]) { bottom: 56px; }
 /* Below the desktop floor the reader bar owns the bottom edge, and the
    hint row collided with it on tablets (design review, run 3). An earlier
    copy of this rule sat above the .js reveal and lost the cascade; the rule
-   has to follow the reveal. */
-@media (max-width:1023px) { .js .hint-keys { display: none; } }
+   has to follow the reveal and carry its :not([hidden]) specificity. */
+@media (max-width:1023px) { .js .hint-keys:not([hidden]) { display: none; } }
 /* Focus mode is the dock plus the exit hint at every width; below the
    desktop floor the reader bar stayed up underneath them (qa-full /a11y). */
 .reader.reader-focus .reader-bar { display: none; }
