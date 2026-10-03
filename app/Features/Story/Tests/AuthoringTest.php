@@ -160,10 +160,13 @@ final class AuthoringTest extends TestCase
 
     public function test_delete_is_soft_and_purges(): void
     {
-        $cacheDir = dirname(__DIR__, 4) . '/public/cache';
+        // the purge pins plant their cache files in a configured temp
+        // directory: a failed run must leave nothing the preview server
+        // could serve as a stale hit (the create-purge test's same rule)
+        $cacheDir = $this->cacheDir();
         @mkdir($cacheDir . '/story/view/the-rabbit-hole', 0775, true);
         file_put_contents($cacheDir . '/story/view/the-rabbit-hole/index.html', 'stale');
-        $res = $this->clientAs(1)->postWithToken('/story/delete/the-rabbit-hole');
+        $res = $this->clientAs(1, ['static_cache' => ['enabled' => true, 'dir' => $cacheDir]])->postWithToken('/story/delete/the-rabbit-hole');
         $this->assertSame(302, $res->status);
         $this->assertNotNull($this->db->one("SELECT deleted_at FROM stories WHERE slug = 'the-rabbit-hole'")['deleted_at']);
         $this->assertFileDoesNotExist($cacheDir . '/story/view/the-rabbit-hole/index.html');
