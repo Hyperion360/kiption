@@ -103,7 +103,7 @@ final class WholeViewTest extends TestCase
         $this->assertSame(200, $gate->status);
         $this->assertStringContainsString('Contains explicit adult content.', $gate->body, 'the age-gate page renders');
         $this->assertStringNotContainsString('Body.', $gate->body, 'the prose stays behind the gate');
-        $this->assertStringContainsString('return_to=/story/whole/after-hours', $gate->body, 'the gate returns to the whole view');
+        $this->assertStringContainsString('name="return_to" value="/story/whole/after-hours"', $gate->body, 'the gate posts back to the whole view (the accept is a form since the cross-site-img fix)');
         $read = $this->app->handle(new Request('GET', '/story/whole/after-hours', [], [], ['age_ok' => '1']));
         $this->assertSame(200, $read->status);
         $this->assertStringContainsString('Body.', $read->body);

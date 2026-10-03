@@ -13,6 +13,7 @@ return [
         'follow'    => ['max' => 30, 'window' => 60],
         'story'     => ['max' => 30, 'window' => 60],  // mark, review-add forms
         'report'    => ['max' => 10, 'window' => 60],
+        'warning'   => ['max' => 10, 'window' => 60],  // the age gate's continue (POST since the cross-site-img fix)
         'messages'  => ['max' => 20, 'window' => 60],
         'account'   => ['max' => 20, 'window' => 60],
         // Review follow-up: every POST-bearing first segment is throttled.

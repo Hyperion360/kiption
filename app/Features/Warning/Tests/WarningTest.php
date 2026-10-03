@@ -19,8 +19,8 @@ final class WarningTest extends TestCase
 
     public function test_accept_sets_cookie_and_redirects(): void
     {
-        $res = $this->app()->handle(new Request('GET', '/warning/accept',
-            ['return_to' => '/story/read/after-hours/1'], [], []));
+        $res = $this->app()->handle(new Request('POST', '/warning/accept',
+            [], ['return_to' => '/story/read/after-hours/1'], []));
         $this->assertSame(302, $res->status);
         $this->assertSame('/story/read/after-hours/1', $res->headers['Location']);
         $this->assertStringContainsString('age_ok=1', $res->headers['Set-Cookie']);
@@ -29,8 +29,19 @@ final class WarningTest extends TestCase
 
     public function test_accept_rejects_unsafe_return(): void
     {
-        $res = $this->app()->handle(new Request('GET', '/warning/accept',
-            ['return_to' => 'https://evil.example'], [], []));
+        $res = $this->app()->handle(new Request('POST', '/warning/accept',
+            [], ['return_to' => 'https://evil.example'], []));
         $this->assertSame('/', $res->headers['Location']);
+    }
+
+    /** The cross-site-img fix: the year-long preference cookie is set by a
+     *  POST form, never a bare GET, so a third-party page cannot dismiss a
+     *  visitor's one-time warning with an <img src="/warning/accept">. */
+    public function test_accept_refuses_get(): void
+    {
+        $res = $this->app()->handle(new Request('GET', '/warning/accept',
+            ['return_to' => '/'], [], []));
+        $this->assertNotSame(302, $res->status);
+        $this->assertArrayNotHasKey('Set-Cookie', $res->headers);
     }
 }
