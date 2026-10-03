@@ -90,6 +90,20 @@ final class AuthoringTest extends TestCase
             'SELECT COUNT(*) c FROM story_categories WHERE story_id = ?', [$row['id']])['c']);
     }
 
+    /** A self-published story changes the authors directory's story counts,
+     *  so create purges the cached directory like delete does (basic-review:
+     *  the counts otherwise stay stale until an unrelated write). */
+    public function test_create_purges_the_authors_directory(): void
+    {
+        $cacheDir = dirname(__DIR__, 4) . '/public/cache';
+        @mkdir($cacheDir . '/browse/authors/d', 0775, true);
+        file_put_contents($cacheDir . '/browse/authors/d/index.html', 'stale');
+        $res = $this->clientAs(1)->postWithToken('/story/create',
+            ['title' => 'Counted Work', 'summary' => 'S.', 'rating_id' => (string) $this->ratingId(), 'categories' => [(string) $this->categoryId()]]);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertFileDoesNotExist($cacheDir . '/browse/authors/d/index.html');
+    }
+
     public function test_member_goes_through_queue(): void
     {
         $res = $this->clientAs($this->memberId())->postWithToken('/story/create',
