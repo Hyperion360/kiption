@@ -1,0 +1,1 @@
+Added: bin/publish-audit publish gate (five checks: protected paths in the tree and in all history, secret shapes in history, private-cloud boundary strings in tracked files, required docs; --json mode; exit 0 only when publishable)
