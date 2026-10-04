@@ -174,6 +174,39 @@ final class AuthoringTest extends TestCase
         $this->db->query("UPDATE stories SET deleted_at = NULL WHERE slug = 'the-rabbit-hole'");
     }
 
+    /** The delete-path cache race: a guest render already in flight when
+     *  the purge ran finishes after it and re-stores pre-delete bytes, and
+     *  no later write ever purges a deleted story's own files. The delete
+     *  defers a second purge that runs after the response is sent (the
+     *  front controller's runDeferred), which heals exactly that window.
+     *  Drives handle() directly because TestClient drains the deferred
+     *  queue itself; the ordering here is production's: purge in the
+     *  action, the in-flight render lands, THEN the front controller runs
+     *  the queue. */
+    public function test_delete_defers_a_repurge_for_the_inflight_render_window(): void
+    {
+        $cacheDir = $this->cacheDir();
+        $req = new \Kip\Http\Request('GET', '/story/view/the-rabbit-hole', [], [], []);
+        $plant = fn () => (new \App\StaticCache\Cache($cacheDir))->maybeStore($req, new \Kip\Http\Response('stale bytes', 200));
+        $plant();
+        $this->assertNotNull((new \App\StaticCache\Cache($cacheDir))->serve($req), 'the stale page serves before the delete');
+        $app = new App($this->config(['static_cache' => ['enabled' => true, 'dir' => $cacheDir]]));
+        $session = $app->session;
+        $session->set('user_id', 1);
+        $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = 1')['password_hash'];
+        $session->set('pwd_epoch', substr($hash, 0, \Kip\Auth::EPOCH_LEN));
+        $form = ['_token' => $session->csrfToken()];
+        $res = $app->handle(new \Kip\Http\Request('POST', '/story/delete/the-rabbit-hole', [], $form, ['kip_session' => 'x'], '127.0.0.1'));
+        $this->assertSame(302, $res->status);
+        $this->assertNull((new \App\StaticCache\Cache($cacheDir))->serve($req), 'the immediate purge removed it');
+        $plant(); // the in-flight render lands between the purge and the queue drain
+        $this->assertNotNull((new \App\StaticCache\Cache($cacheDir))->serve($req), 'the race window exists');
+        $app->runDeferred(); // what the front controller does after send()
+        $this->assertNull((new \App\StaticCache\Cache($cacheDir))->serve($req), 'the deferred re-purge healed the window');
+        // restore for other tests
+        $this->db->query("UPDATE stories SET deleted_at = NULL WHERE slug = 'the-rabbit-hole'");
+    }
+
     /** Throwaway story for chapter tests. */
     private function chapterFixture(string $slug): void
     {
