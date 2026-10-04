@@ -708,6 +708,22 @@ return [
     'features.peruserlang.desc' => 'Members choosing their own interface language (RTL packs included)',
     'features.perusertheme.desc' => 'Members choosing their own light or dark theme',
 
+    // The operator settings board (/settings): values stored in the database,
+    // resolved in the same boot statement as the feature flags.
+    'settings.heading' => 'Site settings',
+    'settings.note' => 'These values live in the database and override config.php on every page. Saving clears the page caches, so a renamed site takes effect immediately.',
+    'settings.site_name' => 'Site name',
+    'settings.registration_mode' => 'Registration mode',
+    'settings.mode_open' => 'Open (anyone joins immediately)',
+    'settings.mode_verify' => 'Verify (email confirmation required)',
+    'settings.mode_approval' => 'Approval (a moderator admits each member)',
+    'settings.mode_invite' => 'Invite (an invite code required)',
+    'settings.validation_required' => 'Chapters pass the moderation queue before publishing',
+    'settings.items_per_page' => 'Items per page (1-100)',
+    'settings.powered_by' => 'Show the powered-by attribution in the footer',
+    'settings.powered_by_note' => 'The attribution switch takes effect when the footer ships; the stored preference is kept either way.',
+    'settings.save' => 'Save settings',
+
     // The site-wide admin analytics dashboard (/analytics).
     'analytics.heading' => 'Site analytics',
     'analytics.approx_note' => 'Reads are approximate beacon counts (no bot filtering); kudos, favorites, and membership counts are exact.',
