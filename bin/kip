@@ -31,6 +31,27 @@ $migration_dirs = static function () use ($config): array {
     return $dirs;
 };
 
+// The nav-links tail db:seed and db:blank share: both install the starter
+// header and both owe the caches a purge (any cached page may carry the old
+// nav). One closure, not two copies.
+$seedNav = function () use ($config) {
+    $db = new Kip\Database($config['db']['dsn']);
+    // The comp's desktop nav (D3): Browse | Recent | Authors | Series |
+    // Library as the operator's starting set (nav_links is operator-managed
+    // after this; a reseed resets it so the header never carries stale or
+    // duplicate links beside the shell's own Search affordances).
+    $db->query('DELETE FROM nav_links');
+    $db->query("INSERT INTO nav_links (label, url, position) VALUES
+        ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2),
+        ('Authors', '/browse/authors', 3), ('Series', '/series', 4),
+        ('Reading lists', '/lists', 5)");
+    \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
+    if ($config['static_cache']['enabled'] ?? false) {
+        \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
+        echo "Static page cache and framework page cache purged.\n";
+    }
+};
+
 match ($argv[1] ?? 'help') {
     'migrate' => (function () use ($config, $migration_dirs) {
         $db = new Kip\Database($config['db']['dsn']);
@@ -132,7 +153,7 @@ match ($argv[1] ?? 'help') {
             (int) ($config['backups']['keep_days'] ?? 14)))->run(date('Ymd-His'));
         echo "Backup written: {$result}\n";
     })(),
-    'db:seed' => (function () use ($config, $argv) {
+    'db:seed' => (function () use ($config, $argv, $seedNav) {
         $db = new Kip\Database($config['db']['dsn']);
         try {
             \App\Seeder::run($db, force: in_array('--force', $argv, true));
@@ -140,21 +161,22 @@ match ($argv[1] ?? 'help') {
             fwrite(STDERR, $e->getMessage() . "\n");
             exit(1);
         }
-        // The comp's desktop nav (D3): Browse | Recent | Authors | Series |
-        // Library as the operator's starting set (nav_links is operator-managed
-        // after this; a --force seed resets it so the demo header never carries
-        // stale or duplicate links beside the shell's own Search affordances).
-        $db->query('DELETE FROM nav_links');
-        $db->query("INSERT INTO nav_links (label, url, position) VALUES
-            ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2),
-            ('Authors', '/browse/authors', 3), ('Series', '/series', 4),
-            ('Reading lists', '/lists', 5)");
-        \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
-        if ($config['static_cache']['enabled'] ?? false) {
-            \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
-            echo "Static page cache and framework page cache purged.\n";
-        }
+        $seedNav();
         echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category, five-link starter nav).\n";
+    })(),
+    // The fresh-install path: taxonomy and nav, never demo content (the
+    // hosted provisioner's stamp runs this too; self-hosters get an empty
+    // but usable archive instead of demo stories).
+    'db:blank' => (function () use ($config, $seedNav) {
+        $db = new Kip\Database($config['db']['dsn']);
+        try {
+            \App\Seeder::bootstrap($db);
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, $e->getMessage() . "\n");
+            exit(1);
+        }
+        $seedNav();
+        echo "Bootstrap data written (ratings ladder, starter tags, one category, five-link nav; no demo content).\n";
     })(),
     // Demo content for manual testing (App\Demo): rides on top of the db:seed
     // fixture, never changes it. --force rebuilds only the demo rows.
@@ -373,5 +395,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };
