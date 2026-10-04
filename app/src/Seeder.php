@@ -15,8 +15,13 @@ final class Seeder
         // our fixture users go in both modes: --force wipes everything, and
         // the fresh path recycles them so a stories-free database that
         // already seeded once (stories deleted since) re-seeds cleanly
-        // instead of dying on the penname UNIQUE constraint
-        $db->query('DELETE FROM users WHERE email IN (?, ?)', ['demo@example.test', 'beta@example.test']);
+        // instead of dying on the penname UNIQUE constraint. The recycle is
+        // identity-narrowed (email AND penname): a squatted fixture email
+        // under a foreign penname fails loudly on the UNIQUE constraint and
+        // rolls back, like any other pre-existing account (red-team: an
+        // unscoped DELETE silently ate such rows instead).
+        $db->query('DELETE FROM users WHERE (email = ? AND penname = ?) OR (email = ? AND penname = ?)',
+            ['demo@example.test', 'Demo Author', 'beta@example.test', 'betafriend']);
         if ($force) {
             foreach (['reviews', 'favorites', 'page_stats', 'chapters', 'story_characters', 'story_tags',
                       'story_categories', 'coauthors', 'challenge_items', 'challenge_prompts', 'challenges',

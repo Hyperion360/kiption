@@ -79,8 +79,12 @@
       bar.setAttribute('aria-valuenow', String(at));
       if (pct) {
         var txt = pct.textContent || '';
+        /* shape-based, not wording-based: the module owns the trailing
+           percent token, whatever language wrote the prefix (an en-only
+           regex would freeze the focus readout the moment a second
+           language pack rendered chapter_of_pct differently) */
         if (/^\d+%$/.test(txt.trim())) { pct.textContent = at + '%'; }
-        else if (/Chapter .*·\s*\d+%$/.test(txt)) { pct.textContent = txt.replace(/\d+%$/, at + '%'); }
+        else if (/\D\d+%$/.test(txt)) { pct.textContent = txt.replace(/\d+%$/, at + '%'); }
       }
     };
 

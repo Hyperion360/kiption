@@ -135,6 +135,21 @@ final class StaticCacheTest extends TestCase
         $this->assertNull($this->cache->serve($req), 'mixed casing refuses too');
     }
 
+    /** The noindex refusal is name-based and casing-proof, same stance as
+     *  the Set-Cookie refusal: a writer emitting 'X-ROBOTS-TAG' must not
+     *  slip a noindexed page into the anonymous cache. An EMPTY noindex
+     *  header still stores (nothing was asserted). */
+    public function test_maybe_store_refuses_x_robots_tag_in_any_casing(): void
+    {
+        $req = new Request('GET', '/story/view/x', [], [], []);
+        $this->cache->maybeStore($req, new Response('ok', 200, ['X-ROBOTS-TAG' => 'noindex']));
+        $this->assertNull($this->cache->serve($req), 'upper-cased X-Robots-Tag refuses');
+        $this->cache->maybeStore($req, new Response('ok', 200, ['x-robots-tag' => 'noindex']));
+        $this->assertNull($this->cache->serve($req), 'lower-cased refuses too');
+        $this->cache->maybeStore($req, new Response('ok', 200, ['X-Robots-Tag' => '']));
+        $this->assertNotNull($this->cache->serve($req), 'an empty noindex header stores');
+    }
+
     public function test_maybe_store_refuses_noindexed_responses(): void
     {
         $req = new Request('GET', '/browse/category/junk', [], [], []);

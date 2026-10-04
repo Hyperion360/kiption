@@ -63,11 +63,15 @@ final class Cache
         if (!$this->isCacheable($request)) return;
         if ($response->status !== 200) return;
         foreach (array_keys($response->headers) as $h) {
-            // name-based, any casing: the guard must not depend on a writer's
+            // name-based, any casing: neither guard may depend on a writer's
             // spelling of the header (the list-valued scan's same stance)
             if (strcasecmp((string) $h, 'set-cookie') === 0) return;
+            if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
+                foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
+                    if ((string) $leaf !== '') return; // nothing worth indexing, nothing worth caching
+                }
+            }
         }
-        if (($response->headers['X-Robots-Tag'] ?? '') !== '') return; // nothing worth indexing, nothing worth caching
         $file = $this->fileFor($request->path);
         if ($file === null) return;
         @mkdir(dirname($file), 0775, true);

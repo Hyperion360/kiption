@@ -245,6 +245,18 @@ final class AppJsContractTest extends TestCase
         $this->assertStringContainsString('read.appendChild(img)', $js);
     }
 
+    /** The percent rewrite is shape-based: the module owns the trailing
+     *  percent token and never matches translated wording, so a second
+     *  language pack cannot freeze the focus readout (red-team finding:
+     *  the en-only regex stopped matching the moment chapter_of_pct
+     *  rendered differently). */
+    public function test_the_percent_rewrite_never_hardcodes_wording(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/position.js');
+        $this->assertStringNotContainsString('Chapter', $js, 'no en wording in the module: the rewrite is shape-based');
+        $this->assertStringContainsString('/\\D\\d+%$/', $js, 'the trailing-percent rewrite anchors on shape');
+    }
+
     /** Activation swaps the visible chapter label and the focus breadcrumb's
      *  chapter-of prefix: both are server-rendered into the unit-state
      *  (the module invents no label), and the percent node itself is

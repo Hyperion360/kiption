@@ -73,6 +73,25 @@ final class SeedTest extends TestCase
         $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM users WHERE penname = 'Demo Author'")['c']);
     }
 
+    /** A squatted fixture email under a foreign penname is not ours to
+     *  recycle: the seed fails loudly on the email UNIQUE constraint and
+     *  rolls back (red-team: the unscoped recycle DELETE silently deleted
+     *  such accounts instead). */
+    public function test_squatted_fixture_email_fails_loudly_and_rolls_back(): void
+    {
+        $db = new Database($this->dsn);
+        $db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)',
+            ['demo@example.test', 'x', 'Squatter']);
+        try {
+            \App\Seeder::run($db);
+            $this->fail('Seeder should have hit the UNIQUE email constraint');
+        } catch (\PDOException $e) {
+            $this->assertStringContainsString('UNIQUE', $e->getMessage());
+        }
+        $this->assertSame('Squatter', $db->one("SELECT penname FROM users WHERE email = 'demo@example.test'")['penname']);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM stories')['c'], 'no stories leaked');
+    }
+
     public function test_seed_force_wipes_and_reseeds(): void
     {
         $db = new Database($this->dsn);
