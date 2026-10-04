@@ -38,6 +38,8 @@
           <span><?= \App\Lang::t('notifications.reply', ['actor' => $actor('notifications.someone'), 'story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'follow'): ?>
           <span><?= \App\Lang::t('notifications.follow', ['actor' => $actor('notifications.someone')]) ?></span>
+        <?php elseif ($n['kind'] === 'recommendation' && $n['story_id'] !== null): ?>
+          <span><?= \App\Lang::t('notifications.recommendation', ['actor' => $actor('notifications.someone'), 'story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'pm'): ?>
           <?php // The thread link rides the actor's profile slug (the actor_slug
                 // scalar fold); the actor falls back to the stand-in when the

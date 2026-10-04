@@ -86,6 +86,7 @@ final class StoryController
             'chapters' => array_values($chapters),
             'kudos_count' => (int) $story['kudos_count'],
             'kudos_by_me' => (int) $story['kudos_by_me'],
+            'rec_count' => (int) ($story['rec_count'] ?? 0),
             'favorite_count' => (int) $story['favorite_count'],
             'favorite_by_me' => (int) $story['favorite_by_me'],
             'following_author' => (int) $story['following_author'],

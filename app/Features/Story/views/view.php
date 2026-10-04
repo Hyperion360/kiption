@@ -88,6 +88,22 @@
         </div>
         <div class="action-aux">
           <?php if (\App\Features::on('lists')): ?><a href="/lists"><?= \App\Lang::t('story.lists_link') ?></a><?php endif; ?>
+          <?php /* The public recommendation count rides the same one-query fold
+               (rec_count); the forms are member-gated beside the Report
+               disclosure (the zero-JS details pattern). */ ?>
+          <span class="action-label"><?= \App\Lang::t((int) $rec_count === 1 ? 'story.rec_count_one' : 'story.rec_count', ['n' => number_format((int) $rec_count)]) ?></span>
+          <?php if (!empty($csrf)): ?>
+          <details class="report-disclosure"><summary><?= \App\Lang::t('story.recommend') ?></summary>
+          <form method="post" action="/recommend/add/<?= $this->e($story['slug']) ?>" class="inline">
+            <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+            <input name="note" maxlength="200" placeholder="<?= $this->e(\App\Lang::t('story.recommend_note_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('story.recommend_note_placeholder')) ?>">
+            <button type="submit"><?= \App\Lang::t('story.recommend') ?></button>
+          </form>
+          <form method="post" action="/recommend/remove/<?= $this->e($story['slug']) ?>" class="inline">
+            <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+            <button type="submit"><?= \App\Lang::t('story.recommend_remove') ?></button>
+          </form></details>
+          <?php endif; ?>
           <?php if (!empty($csrf)): ?>
             <?php if (!empty($amCoauthor)): ?>
             <form method="post" action="/coauthor/leave/<?= $this->e($story['slug']) ?>" class="inline">

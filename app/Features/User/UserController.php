@@ -21,6 +21,17 @@ final class UserController
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $profile = $this->users->findByProfileSlug($slug);
         if ($profile === null) return new Response('Page not found', 404);
+        // The recommendation fold arrives as '~~'-joined id|title|slug|note
+        // rows (the same statement as the profile row; zero extra queries).
+        // The slug is the regex anchor (pipe-free, [a-z0-9-]); id anchors the
+        // head, so free-text titles and notes survive their own pipes.
+        $recs = [];
+        foreach (explode('~~', (string) ($profile['rec_list'] ?? '')) as $item) {
+            if (preg_match('/^(\d+)\|(.*)\|([a-z0-9-]+)\|(.*)$/s', $item, $m) === 1) {
+                $recs[] = ['id' => (int) $m[1], 'title' => $m[2], 'slug' => $m[3], 'note' => $m[4]];
+            }
+        }
+        unset($profile['rec_list']);
         $site = (string) $this->app->config('site_name', 'Kiption');
         $head = $this->head()->withTitle($profile['penname'])
             ->withDescription(($profile['bio'] ?? '') !== '' ? (string) $profile['bio'] : \App\Lang::t('user.meta_stories_by', ['name' => $profile['penname'], 'site' => $site]))
@@ -41,6 +52,7 @@ final class UserController
             'path' => $this->request->path,
             'slug' => $slug,
             'profile' => $profile,
+            'recs' => $recs,
             'me' => $me,
             // The mute button needs a token, but a cookieless render must not
             // grow one (the cacheable-path rule): the ChallengesController idiom.
