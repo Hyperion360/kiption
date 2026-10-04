@@ -86,6 +86,12 @@
 <?php endforeach; ?>
       <?php if (\App\Features::on('feeds')): ?><a href="/feed/subscribe"><?= \App\Lang::t('common.feed_title') ?></a><?php endif; ?>
     </nav>
+    <?php /* Attribution (the WordPress pattern): on by default, off by the
+       powered_by config key, identical bytes for every visitor so cached
+       pages stay stable. */ ?>
+    <?php if (\App\Attribution::on()): ?>
+    <p class="poweredby"><a href="<?= $this->e(\App\Attribution::url()) ?>"><?= \App\Lang::t('foot.powered_by') ?></a></p>
+    <?php endif; ?>
   </footer>
   <?php /* The span is the sheets' shared close target: it sits in a fixed
      1px box, so landing on it never scrolls; Done links point here instead

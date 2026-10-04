@@ -36,6 +36,7 @@ require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
 $config['views'] = $config['app_dir'] . '/views';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // every view's strings render through the pack layer
+\App\Attribution::init($config); // the footer seam: layout templates read it statically (no config in view scope)
 
 $request = Kip\Http\Request::fromGlobals(trustedProxy: $config['trusted_proxy']);
 

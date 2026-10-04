@@ -3,6 +3,7 @@
 require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // CLI renders too (pages:build); views render through the pack layer
+\App\Attribution::init($config); // the footer seam (pages:build renders layouts; default-on when unset)
 \App\Features::init(new \Kip\Database($config['db']['dsn']), $config['features'] ?? []); // feature-flag resolution shares the request bootstrap
 
 // Feature folders (Kip guide ch. 3): migrations live in the app directory AND in
@@ -29,6 +30,27 @@ $migration_dirs = static function () use ($config): array {
         if (is_dir($m) || is_link($m) || file_exists($m)) $dirs[] = $m;
     }
     return $dirs;
+};
+
+// The nav-links tail db:seed and db:blank share: both install the starter
+// header and both owe the caches a purge (any cached page may carry the old
+// nav). One closure, not two copies.
+$seedNav = function () use ($config) {
+    $db = new Kip\Database($config['db']['dsn']);
+    // The comp's desktop nav (D3): Browse | Recent | Authors | Series |
+    // Library as the operator's starting set (nav_links is operator-managed
+    // after this; a reseed resets it so the header never carries stale or
+    // duplicate links beside the shell's own Search affordances).
+    $db->query('DELETE FROM nav_links');
+    $db->query("INSERT INTO nav_links (label, url, position) VALUES
+        ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2),
+        ('Authors', '/browse/authors', 3), ('Series', '/series', 4),
+        ('Reading lists', '/lists', 5)");
+    \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
+    if ($config['static_cache']['enabled'] ?? false) {
+        \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
+        echo "Static page cache and framework page cache purged.\n";
+    }
 };
 
 match ($argv[1] ?? 'help') {
@@ -108,6 +130,55 @@ match ($argv[1] ?? 'help') {
             printf("%s %3d %-6s %-40s %6.1fms %-15s %s\n", $r['created_at'], $r['status'], $r['method'], $r['path'], $r['duration_ms'], $r['ip'], $user);
         }
     })(),
+    'doctor' => (function () use ($config, $argv, $migration_dirs) {
+        $expected = 0;
+        foreach ($migration_dirs() as $dir) {          // same discovery the migrate arm trusts
+            foreach (scandir($dir) ?: [] as $f) {
+                if (str_ends_with($f, '.php')) $expected++;
+            }
+        }
+        $env = [
+            'app_dir' => (string) $config['app_dir'],
+            'public_dir' => (string) $config['public_dir'],
+            'config' => [
+                'base_url' => (string) ($config['base_url'] ?? ''),
+                'db' => ['dsn' => (string) ($config['db']['dsn'] ?? '')], // doctor reads the configured database, not a guessed path
+                'mail' => $config['mail'] ?? [],
+                'backups' => $config['backups'] ?? [],
+                'static_cache' => $config['static_cache'] ?? [],
+                'uploads' => $config['uploads'] ?? [],
+            ],
+            'expected_migrations' => $expected,
+        ];
+        if (in_array('--json', $argv, true)) {
+            echo \App\Doctor::runJson($env) . "\n";
+            exit(0); // machine-readable: the caller decides on the report, not the exit code
+        }
+        $r = \App\Doctor::run($env);
+        foreach ($r['checks'] as $c) {
+            echo ($c['ok'] ? '[ ok ] ' : '[FAIL] ') . $c['summary'] . "\n";
+            if (!$c['ok'] && $c['fix'] !== '') echo '        fix: ' . $c['fix'] . "\n";
+        }
+        echo $r['failures'] === 0
+            ? "All checks passed. Search mode: {$r['search_mode']}.\n"
+            : $r['failures'] . " check(s) failed.\n";
+        exit($r['failures'] === 0 ? 0 : 1);
+    })(),
+    'version' => (function () use ($argv) {
+        // Three lines state the whole stack: app version (App\Version is the
+        // single source, CHANGELOG.md the narrative), the locked framework
+        // pin from composer.lock (packages AND packages-dev), and the PHP
+        // build. --check adds the upstream tag comparison; network optional.
+        $lock = getenv('KIP_COMPOSER_LOCK') ?: dirname(__DIR__) . '/composer.lock'; // tests point this at a fixture lock
+        echo 'kiption ' . \App\Version::VERSION . "\n";
+        echo 'kip/framework ' . \App\Version::frameworkLock($lock) . "\n";
+        echo 'php ' . PHP_VERSION . "\n";
+        if (in_array('--check', $argv, true)) {
+            foreach (\App\Version::upstreamCheck($lock) as $line) {
+                echo $line . "\n";
+            }
+        }
+    })(),
     'logs:prune' => (function () use ($config, $argv) {
         $arg = $argv[2] ?? '--days=30';
         if (!preg_match('/^--days=(\d+)$/', $arg, $m) || (int) $m[1] < 1) {
@@ -132,7 +203,7 @@ match ($argv[1] ?? 'help') {
             (int) ($config['backups']['keep_days'] ?? 14)))->run(date('Ymd-His'));
         echo "Backup written: {$result}\n";
     })(),
-    'db:seed' => (function () use ($config, $argv) {
+    'db:seed' => (function () use ($config, $argv, $seedNav) {
         $db = new Kip\Database($config['db']['dsn']);
         try {
             \App\Seeder::run($db, force: in_array('--force', $argv, true));
@@ -140,21 +211,22 @@ match ($argv[1] ?? 'help') {
             fwrite(STDERR, $e->getMessage() . "\n");
             exit(1);
         }
-        // The comp's desktop nav (D3): Browse | Recent | Authors | Series |
-        // Library as the operator's starting set (nav_links is operator-managed
-        // after this; a --force seed resets it so the demo header never carries
-        // stale or duplicate links beside the shell's own Search affordances).
-        $db->query('DELETE FROM nav_links');
-        $db->query("INSERT INTO nav_links (label, url, position) VALUES
-            ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2),
-            ('Authors', '/browse/authors', 3), ('Series', '/series', 4),
-            ('Reading lists', '/lists', 5)");
-        \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
-        if ($config['static_cache']['enabled'] ?? false) {
-            \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
-            echo "Static page cache and framework page cache purged.\n";
-        }
+        $seedNav();
         echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category, five-link starter nav).\n";
+    })(),
+    // The fresh-install path: taxonomy and nav, never demo content (the
+    // hosted provisioner's stamp runs this too; self-hosters get an empty
+    // but usable archive instead of demo stories).
+    'db:blank' => (function () use ($config, $seedNav) {
+        $db = new Kip\Database($config['db']['dsn']);
+        try {
+            \App\Seeder::bootstrap($db);
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, $e->getMessage() . "\n");
+            exit(1);
+        }
+        $seedNav();
+        echo "Bootstrap data written (ratings ladder, starter tags, one category, five-link nav; no demo content).\n";
     })(),
     // Demo content for manual testing (App\Demo): rides on top of the db:seed
     // fixture, never changes it. --force rebuilds only the demo rows.
@@ -373,5 +445,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };

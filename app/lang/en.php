@@ -39,6 +39,7 @@ return [
     'foot.kip' => 'Kip',
     'foot.more_label' => 'More',
     'foot.lists' => 'Reading lists',
+    'foot.powered_by' => 'Powered by Kiption',
     'feed.subscribe_heading' => 'Feeds',
     'feed.subscribe_lede' => 'Follow new stories and chapters in any feed reader. Copy an address below into your reader.',
     'feed.whole_archive' => 'The whole archive',

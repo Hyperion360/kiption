@@ -4,6 +4,42 @@ use Kip\Database;
 
 final class Seeder
 {
+    /** Taxonomy every archive needs: ratings ladder, tag types, starter tags, one
+     *  category. Idempotent (the taxonomy tables are cleared first), and the one
+     *  shared implementation for both install paths: run() layers the demo
+     *  fixture over it, db:blank ships it alone so a fresh install reaches a
+     *  usable empty archive without demo content. */
+    public static function bootstrap(Database $db): void
+    {
+        $db->begin(); // own transaction standalone (db:blank); a savepoint under run()
+        try {
+            // fresh install: taxonomy rows may not exist yet either way; make seeding idempotent for them
+            foreach (['ratings', 'tag_types', 'tags', 'categories', 'characters'] as $t) {
+                $db->query("DELETE FROM {$t}");
+            }
+            foreach ([['General', 0, '', 1], ['Teen', 0, '', 2], ['Mature', 1, 'Contains adult content.', 3],
+                      ['Explicit', 1, 'Contains explicit adult content.', 4]] as [$label, $adult, $warn, $pos]) {
+                $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, ?, ?, ?)',
+                    [$label, $adult, $warn, $pos]);
+            }
+            $db->query('INSERT INTO tag_types (name) VALUES (?)', ['genre']);
+            $tagTypeId = (int) $db->lastInsertId();
+            $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Fantasy']);
+            $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Adventure']);
+            $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Found family']);
+            $db->query('INSERT INTO tag_types (name) VALUES (?)', ['content']);
+            $contentTypeId = (int) $db->lastInsertId();
+            $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$contentTypeId, 'Coming of age']);
+            $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$contentTypeId, 'Maritime']);
+            $db->query('INSERT INTO categories (name, slug, description) VALUES (?, ?, ?)',
+                ['General', 'general', 'Stories that fit nowhere finer.']);
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
+        $db->commit();
+    }
+
     public static function run(Database $db, bool $force = false): void
     {
         $existing = (int) $db->one('SELECT COUNT(*) c FROM stories')['c'];
@@ -29,32 +65,13 @@ final class Seeder
                       'tag_types', 'categories', 'ratings', 'news'] as $t) { // news last: its comments cascade (FK on, finding 12)
                 $db->query("DELETE FROM {$t}");
             }
-        } else {
-            // fresh install: taxonomy rows may not exist yet either way; make seeding idempotent for them
-            foreach (['ratings', 'tag_types', 'tags', 'categories', 'characters'] as $t) {
-                $db->query("DELETE FROM {$t}");
-            }
         }
-        foreach ([['General', 0, '', 1], ['Teen', 0, '', 2], ['Mature', 1, 'Contains adult content.', 3],
-                  ['Explicit', 1, 'Contains explicit adult content.', 4]] as [$label, $adult, $warn, $pos]) {
-            $db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, ?, ?, ?)',
-                [$label, $adult, $warn, $pos]);
-        }
-        $db->query('INSERT INTO tag_types (name) VALUES (?)', ['genre']);
-        $tagTypeId = (int) $db->lastInsertId();
-        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Fantasy']);
-        $fantasyTagId = (int) $db->lastInsertId();
-        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Adventure']);
-        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$tagTypeId, 'Found family']);
-        $foundFamilyTagId = (int) $db->lastInsertId();
-        $db->query('INSERT INTO tag_types (name) VALUES (?)', ['content']);
-        $contentTypeId = (int) $db->lastInsertId();
-        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$contentTypeId, 'Coming of age']);
-        $comingOfAgeTagId = (int) $db->lastInsertId();
-        $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$contentTypeId, 'Maritime']);
-        $maritimeTagId = (int) $db->lastInsertId();
-        $db->query('INSERT INTO categories (name, slug, description) VALUES (?, ?, ?)',
-            ['General', 'general', 'Stories that fit nowhere finer.']);
+        self::bootstrap($db); // taxonomy for both modes (a savepoint inside this transaction)
+        $tagTypeId = (int) $db->one('SELECT id FROM tag_types WHERE name = ?', ['genre'])['id'];
+        $fantasyTagId = (int) $db->one('SELECT id FROM tags WHERE name = ?', ['Fantasy'])['id'];
+        $foundFamilyTagId = (int) $db->one('SELECT id FROM tags WHERE name = ?', ['Found family'])['id'];
+        $comingOfAgeTagId = (int) $db->one('SELECT id FROM tags WHERE name = ?', ['Coming of age'])['id'];
+        $maritimeTagId = (int) $db->one('SELECT id FROM tags WHERE name = ?', ['Maritime'])['id'];
         $db->query('INSERT INTO users (email, password_hash, penname, role, email_verified_at, approved_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
             ['demo@example.test', password_hash('password123', PASSWORD_DEFAULT), 'Demo Author', 'validated_author',
              '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z']);

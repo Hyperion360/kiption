@@ -5,6 +5,7 @@ use Kip\Database;
 use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
+use Kip\View;
 use PHPUnit\Framework\TestCase;
 
 // C6: the responsive shell. The comp ships a compact header (brand, inline
@@ -31,6 +32,27 @@ final class LayoutShellTest extends TestCase
     protected function tearDown(): void
     {
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
+        \App\Attribution::reset(); // no later suite inherits a disabled footer
+    }
+
+    /** Renders the bare layout the way the app constructs its view (same
+     *  dir + features-dir wiring as Kip\App's constructor), with the config
+     *  overrides applied to the attribution boot seam. Returns the HTML, so
+     *  layout-level config branches have a direct harness instead of a full
+     *  page render through a controller. */
+    private function renderLayout(array $configOverrides): string
+    {
+        $config = array_merge([
+            'app_dir' => dirname(__DIR__) . '/app',
+            'views' => dirname(__DIR__) . '/app/views',
+            'powered_by' => true,
+            'powered_by_url' => 'https://kiption.cloud',
+        ], $configOverrides);
+        \App\Attribution::init($config);
+        $featuresDir = $config['features_dir']
+            ?? (is_dir($config['app_dir'] . '/Features') ? $config['app_dir'] . '/Features' : '');
+        return (new View($config['views'], $featuresDir))
+            ->render('layout', ['content' => '', 'navFile' => '', 'title' => 'Layout']);
     }
 
     private function app(array $extra = []): App
@@ -349,5 +371,16 @@ final class LayoutShellTest extends TestCase
         // and the unbacked exit hint printed over the chapter text; the dock's
         // close link is the exit there (a plain link, works with scripting off)
         $this->assertStringContainsString('@media (max-width:1023px) { .focus-hint { display: none; } }', $css);
+    }
+
+    /** The attribution footer: on by default, off by one config key, the
+     *  link through the config-supplied product URL. */
+    public function test_powered_by_renders_by_default_and_hides_when_disabled(): void
+    {
+        $on = $this->renderLayout(['powered_by' => true]);
+        $this->assertStringContainsString('Powered by Kiption', $on);
+        $this->assertStringContainsString('href="https://kiption.cloud"', $on);
+        $off = $this->renderLayout(['powered_by' => false]);
+        $this->assertStringNotContainsString('Powered by Kiption', $off);
     }
 }

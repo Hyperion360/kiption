@@ -4,8 +4,9 @@ Self-hosted fiction archive built on [Kip](https://github.com/Hyperion360/kip),
 the batteries-included, zero-dependency PHP framework. Working title; the
 product name is not final.
 
-Status: bootstrap milestone. The schema is complete; reading, authoring,
-validation queues, and the static page cache arrive in the next milestones.
+Status: feature-complete through milestone 14 (reading, authoring,
+moderation, search, imports, engagement, and the reader experience); the
+README below is the tour.
 
 ## Requirements
 
@@ -14,6 +15,13 @@ validation queues, and the static page cache arrive in the next milestones.
 - Network access to fetch `kip/framework` from its GitHub repository
   (during dual-repo framework development, a temporary local path
   repository pointing at `../MVC-Lite` may be substituted; do not commit it)
+
+## Hosted or self-hosted
+
+Self-hosting is free forever: this repository is the whole product, and the
+four commands below are the whole install. If you would rather not run a
+server at all, Kiption Cloud hosts archives for you, including eFiction
+migration on paid tiers; see https://kiption.cloud.
 
 ## Run it
 
@@ -24,6 +32,9 @@ validation queues, and the static page cache arrive in the next milestones.
 
 The `user:create` line creates your admin account; run it without a password
 argument to be prompted with hidden input instead.
+
+Detailed guide: INSTALL.md (permissions, SMTP, cron, troubleshooting,
+upgrades).
 
 Tests:
 
