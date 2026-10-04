@@ -49,6 +49,8 @@ return [
     'site_name' => 'Kiption',
     'ui_lang' => getenv('KIP_UI_LANG') ?: 'en', // UI language pack (App\Lang, app/lang/{code}.php); KIP_UI_LANG overrides
     'og_image' => '',   // absolute or root-relative path; renders og:image/twitter cards when set
+    'powered_by' => true,   // footer attribution; hosted Pro tenants get false written by their provisioning, self-hosters choose
+    'powered_by_url' => getenv('KIP_POWERED_BY_URL') ?: 'https://kiption.cloud',
     'feeds_full_text' => (bool) getenv('KIP_FEEDS_FULL_TEXT') ?: false, // Atom entries carry the first chapter in <content type="html">
     'ai_crawlers' => getenv('KIP_AI_CRAWLERS') === false || (bool) getenv('KIP_AI_CRAWLERS'), // robots.txt stance; KIP_AI_CRAWLERS=0 disallows GPTBot & co
     'registration_mode' => 'verify',   // open | verify | approval | invite

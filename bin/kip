@@ -3,6 +3,7 @@
 require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // CLI renders too (pages:build); views render through the pack layer
+\App\Attribution::init($config); // the footer seam (pages:build renders layouts; default-on when unset)
 \App\Features::init(new \Kip\Database($config['db']['dsn']), $config['features'] ?? []); // feature-flag resolution shares the request bootstrap
 
 // Feature folders (Kip guide ch. 3): migrations live in the app directory AND in
