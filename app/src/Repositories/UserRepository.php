@@ -122,7 +122,11 @@ final class UserRepository
     /** The profile card: any unlocked member with a penname is linkable by
      *  direct URL; the directory (Task 6) lists only approved+verified members
      *  and counts authored works only. The gating difference is intentional
-     *  (plan review finding 17). */
+     *  (plan review finding 17). The member's recommendations ride the SAME
+     *  statement as a correlated SCALAR subquery (never a second LEFT JOIN:
+     *  a second one-to-many join onto an already-aggregating query fans out
+     *  rows and cross-corrupts the existing pivots), '~~'-joined
+     *  id|title|slug|note rows decoded by UserController::view. */
     public function findByProfileSlug(string $slug): ?array
     {
         if (!preg_match('#^[a-z0-9_-]+$#', $slug)) return null;
@@ -130,7 +134,10 @@ final class UserRepository
             'SELECT u.id, u.penname, u.bio, u.avatar_path, u.support_url, u.is_beta, u.role, u.created_at, u.email,
                     (SELECT COUNT(*) FROM stories st WHERE st.deleted_at IS NULL AND st.validated = 1
                        AND (st.author_id = u.id OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = st.id AND ca.user_id = u.id))) story_count,
-                    (SELECT COUNT(*) FROM series ser WHERE ser.owner_id = u.id) series_count
+                    (SELECT COUNT(*) FROM series ser WHERE ser.owner_id = u.id) series_count,
+                    (SELECT GROUP_CONCAT(s.id || \'|\' || s.title || \'|\' || s.slug || \'|\' || r.note, \'~~\')
+                     FROM recommendations r JOIN stories s ON s.id = r.story_id
+                     WHERE r.user_id = u.id) AS rec_list
              FROM users u WHERE u.profile_slug = ? AND u.is_locked = 0 AND u.penname IS NOT NULL', [$slug]
         );
     }

@@ -11,6 +11,7 @@ return [
         'review'    => ['max' => 30, 'window' => 60],
         'favorites' => ['max' => 30, 'window' => 60],
         'follow'    => ['max' => 30, 'window' => 60],
+        'recommend' => ['max' => 30, 'window' => 60],  // member recommendations (first URL segment /recommend/*)
         'story'     => ['max' => 30, 'window' => 60],  // mark, review-add forms
         'report'    => ['max' => 10, 'window' => 60],
         'warning'   => ['max' => 10, 'window' => 60],  // the age gate's continue (POST since the cross-site-img fix)

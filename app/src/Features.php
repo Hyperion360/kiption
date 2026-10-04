@@ -37,12 +37,17 @@ final class Features
     /** @var array<string, bool>|null the resolved map, null = resolve lazily */
     private static ?array $memo = null;
 
+    /** @var array<string, string> operator settings from the SAME resolution
+     *  pass (empty until resolve() runs with a settings table present). */
+    private static array $settings = [];
+
     /** Capture the DB handle and deploy defaults; re-init re-reads everything. */
     public static function init(\Kip\Database $db, array $defaults = []): void
     {
         self::$db = $db;
         self::$defaults = $defaults;
         self::$memo = null;
+        self::$settings = [];
     }
 
     /** Drop all state (memo, DB handle, defaults); the tearDown of every
@@ -52,6 +57,31 @@ final class Features
         self::$db = null;
         self::$defaults = [];
         self::$memo = null;
+        self::$settings = [];
+    }
+
+    /** @return array<string, string> the settings rows from the last (or next)
+     *  resolution: ONE statement reads flags and settings together, so the
+     *  query-budget contract keeps the boot round trips exactly where they
+     *  were before settings existed. */
+    public static function settings(): array
+    {
+        self::resolve();
+        return self::$settings;
+    }
+
+    /** Write one operator setting: INSERT OR REPLACE a row, then drop BOTH
+     *  memos so the next read re-resolves (the toggle() discipline). The key
+     *  whitelist lives in Settings::put (the facade the board goes through);
+     *  this is the raw write seam, mirroring toggle()'s trust boundary. */
+    public static function putSetting(string $key, string $value): void
+    {
+        if (self::$db === null) {
+            throw new \LogicException('Features::putSetting before init (no DB handle)');
+        }
+        self::$db->query('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [$key, $value]);
+        self::$memo = null;
+        self::$settings = [];
     }
 
     /** Is the flag on? Unknown keys are OFF; uninit reads the inventory alone. */
@@ -96,7 +126,13 @@ final class Features
         self::$memo = null;
     }
 
-    /** @return array<string, bool> inventory <- config defaults <- DB rows */
+    /** @return array<string, bool> inventory <- config defaults <- DB rows
+     *  Flags and settings resolve in ONE statement (UNION ALL fold): the boot
+     *  query count is exactly what it was before settings existed. GUARDED so
+     *  an unmigrated database (the git-pull window before `migrate` runs)
+     *  degrades to flags-only instead of fataling every page and CLI arm; a
+     *  database with NEITHER table throws from the fallback, and the callers
+     *  that must survive that (Settings::apply, the CLI seams) catch it. */
     private static function resolve(): array
     {
         if (self::$memo !== null) return self::$memo;
@@ -104,9 +140,17 @@ final class Features
         foreach (self::$defaults as $key => $on) {
             if (\array_key_exists($key, $map)) $map[$key] = (bool) $on;
         }
+        self::$settings = [];
         if (self::$db !== null) {
-            foreach (self::$db->all('SELECT key, enabled FROM feature_flags') as $row) {
-                if (\array_key_exists($row['key'], $map)) $map[$row['key']] = (bool) $row['enabled'];
+            try {
+                $rows = self::$db->all("SELECT key, enabled AS v, 'flag' AS src FROM feature_flags
+                                        UNION ALL SELECT key, value, 'setting' FROM settings");
+            } catch (\Throwable) {
+                $rows = self::$db->all('SELECT key, enabled AS v, \'flag\' AS src FROM feature_flags'); // pre-settings DB
+            }
+            foreach ($rows as $row) {
+                if ($row['src'] === 'flag' && \array_key_exists($row['key'], $map)) $map[$row['key']] = (bool) $row['v'];
+                if ($row['src'] === 'setting') self::$settings[$row['key']] = (string) $row['v'];
             }
         }
         return self::$memo = $map;

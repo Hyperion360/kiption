@@ -97,6 +97,11 @@ $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 // 301 exits above (a cached serve or a maintenance 503 never opens the flags DB)
 // and BEFORE the app boots, so every controller and view shares one resolution.
 \App\Features::init(new \Kip\Database($config['db']['dsn']), $config['features'] ?? []);
+// The settings seam: operator settings ride the SAME resolution (one statement,
+// no new round trip) and overlay config in place, so every $app->config(...) read
+// point picks up DB values with zero downstream edits. Guarded: an unmigrated
+// database keeps the config-file values instead of fataling the first page.
+$config = \App\Settings::apply($config);
 
 $app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
 $response = $app->handle($request);

@@ -19,7 +19,20 @@
     <div class="prose p-note"><?= \App\Markdown::render((string) $profile['bio']) /* markdown at rest; raw HTML cannot be stored */ ?></div>
   <?php endif; ?>
   <?php if (!empty($profile['support_url'])): ?>
-    <p><a href="<?= $this->e($profile['support_url']) ?>" rel="noopener nofollow"><?= \App\Lang::t('user.support', ['name' => $this->e($profile['penname'])]) ?></a></p>
+  <p><a href="<?= $this->e($profile['support_url']) ?>" rel="noopener nofollow"><?= \App\Lang::t('user.support', ['name' => $this->e($profile['penname'])]) ?></a></p>
+  <?php endif; ?>
+  <?php /* The recommendation shelf (renders only when it has content): the
+       member's own picks with their one-line notes, oldest-rec first (the
+       fold's GROUP_CONCAT walks the table in insertion order). */ ?>
+  <?php if ($recs !== []): ?>
+  <section class="profile-recs" aria-labelledby="profile-recs-h">
+    <h2 id="profile-recs-h"><?= \App\Lang::t('user.recommended_heading') ?></h2>
+    <ul>
+      <?php foreach ($recs as $rec): ?>
+      <li><a href="/story/view/<?= $this->e($rec['slug']) ?>"><?= $this->e($rec['title']) ?></a><?php if ($rec['note'] !== ''): ?> <span class="chapter-meta"><?= $this->e($rec['note']) ?></span><?php endif; ?></li>
+      <?php endforeach; ?>
+    </ul>
+  </section>
   <?php endif; ?>
   <nav class="tabs chapter-meta" aria-label="<?= $this->e(\App\Lang::t('user.tabs_aria')) ?>">
     <a href="/user/view/<?= $this->e($slug) ?>" class="u-url"><?= \App\Lang::t('user.profile_tab') ?></a> |
