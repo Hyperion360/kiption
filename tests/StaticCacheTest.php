@@ -90,6 +90,9 @@ final class StaticCacheTest extends TestCase
         $this->assertSame(200, $hit->status);
         $this->assertSame('<html>x</html>', $hit->body);
         $this->assertSame('HIT', $hit->headers['X-Static-Cache']);
+        // A HIT is a stored-eligible page leaving the origin: the shared-cache
+        // header rides it, so the edge may hold what the file layer already holds.
+        $this->assertSame('public, s-maxage=14400', $hit->headers['Cache-Control']);
     }
 
     public function test_serve_miss_is_null(): void
@@ -100,9 +103,36 @@ final class StaticCacheTest extends TestCase
     public function test_maybe_store_refuses_unsafe_responses(): void
     {
         $req = new Request('GET', '/story/view/x', [], [], []);
-        $this->cache->maybeStore($req, new Response('err', 500));
-        $this->cache->maybeStore($req, new Response('ok', 200, ['Set-Cookie' => 'theme=light']));
+        $err = new Response('err', 500);
+        $cookied = new Response('ok', 200, ['Set-Cookie' => 'theme=light']);
+        $this->cache->maybeStore($req, $err);
+        $this->cache->maybeStore($req, $cookied);
         $this->assertNull($this->cache->serve($req));
+        // The cache-control seam rides the same refusal: a response this
+        // layer refuses never tells a shared cache it may hold it.
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor($req, $err), 'non-200 is never shareable');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor($req, $cookied), 'a Set-Cookie response is personalized');
+    }
+
+    /** The shared-cache contract in one place: exactly the responses
+     *  maybeStore would store may carry the public header; everything
+     *  else (query-bearing, cookie-bearing, POST, non-whitelisted,
+     *  noindexed) is private and uncacheable. Same predicate, so the
+     *  file cache and the Cache-Control emission can never drift. */
+    public function test_cache_control_matrix_matches_store_eligibility(): void
+    {
+        $eligible = new Request('GET', '/story/view/x', [], [], []);
+        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor($eligible, new Response('x', 200)));
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            new Request('GET', '/story/view/x', ['page' => '2'], [], []), new Response('x', 200)), 'query-bearing never');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            new Request('GET', '/story/view/x', [], [], ['theme' => 'sepia']), new Response('x', 200)), 'cookie-bearing never');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            new Request('POST', '/story/view/x', [], [], []), new Response('x', 200)), 'POST never');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            new Request('GET', '/auth/login', [], [], []), new Response('x', 200)), 'non-whitelisted route never');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            $eligible, new Response('x', 200, ['X-Robots-Tag' => 'noindex'])), 'noindexed never');
     }
 
     public function test_maybe_store_refuses_a_list_valued_set_cookie(): void

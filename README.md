@@ -85,7 +85,8 @@ wipe it; `cache:clear` is the scoped, deploy-time command.
 
 Serving the layer without PHP at the webserver level is OPTIONAL and
 subtle. The PHP fallback in `public/index.php` is the supported path and is
-always correct on its own.
+always correct on its own. The shipped `public/.htaccess` carries the
+optional block commented out; enabling it is uncommenting five lines.
 
     # Apache 2.4, in .htaccess: GET, cookieless, queryless requests only.
     # All three conditions are load-bearing: dropping the cookie condition
@@ -97,7 +98,17 @@ always correct on its own.
     RewriteCond %{QUERY_STRING} ^$
     RewriteCond %{HTTP_COOKIE} ^$
     RewriteCond %{DOCUMENT_ROOT}/cache%{REQUEST_URI}/index.html -f
-    RewriteRule ^ cache%{REQUEST_URI}/index.html [L]
+    RewriteRule ^ cache%{REQUEST_URI}/index.html [L,E=KIP_STATIC_HIT:1]
+
+Every response carries a Cache-Control decided at this layer's own
+eligibility seam: a response the static cache would store (anonymous,
+200, cookieless, queryless, whitelisted GET) leaves the origin with
+`Cache-Control: public, s-maxage=14400`, and every other response,
+including every render while the static cache is disabled, carries
+`Cache-Control: private, no-store`. A CDN in front of the origin can
+therefore hold exactly what the file layer holds and nothing else;
+webserver-served cache files get the same header from the env-gated
+`Header set` line shipped in `public/.htaccess`.
 
 nginx deliberately has NO snippet here: `try_files` cannot express the
 cookie and query conditions, and the map- or internal-location workarounds
