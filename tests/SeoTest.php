@@ -52,6 +52,21 @@ final class SeoTest extends TestCase
         $this->assertStringContainsString('rel="alternate" type="application/atom+xml"', $body);
     }
 
+    /** The gate lives at the story's canonical URL, so it is the crawler's
+     *  view of the work: its index entry names the story, carries the
+     *  summary, and classifies as adult (Google's adult-content guidance:
+     *  the rating meta, never a bare warning page, never noindexed prose).
+     *  SEO decision 2026-10-04. */
+    public function test_adult_gate_carries_the_story_identity_and_rating(): void
+    {
+        $body = $this->get('/story/read/after-hours/1');
+        $this->assertStringContainsString('<title>After Hours by Demo Author - Kiption</title>', $body);
+        $this->assertStringContainsString('name="rating" content="adult"', $body);
+        $this->assertStringContainsString('name="description" content="What the warning is for."', $body);
+        $this->assertStringContainsString('Demo Author', $body, 'the author rides the gate card');
+        $this->assertStringNotContainsString('Body.', $body, 'the prose stays behind the gate');
+    }
+
     public function test_meta_description_override_wins(): void
     {
         $db = new Database('sqlite:' . $this->path);

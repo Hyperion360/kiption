@@ -3,6 +3,8 @@ namespace App\Seo;
 
 final class Head
 {
+    private ?string $rating = null;
+
     private function __construct(
         public readonly string $siteName,
         public string $ogImage, // mutated by withOgImage(): readonly props cannot be written after clone on PHP 8.4
@@ -57,6 +59,13 @@ final class Head
     {
         $c = clone $this; $c->noindex = true; return $c;
     }
+    /** The maturity signal for search classification (the age gate carries
+     *  "adult"): Google's adult-content guidance is the rating meta plus
+     *  SafeSearch filtering, never hiding the work behind the gate. */
+    public function withRating(string $rating): self
+    {
+        $c = clone $this; $c->rating = $rating; return $c;
+    }
     /** Per-page og:image override (a member's avatar on their profile). */
     public function withOgImage(string $path): self
     {
@@ -110,6 +119,9 @@ final class Head
     public function metaTags(): array
     {
         $tags = [['name' => 'description', 'content' => $this->description()]];
+        if ($this->rating !== null) {
+            $tags[] = ['name' => 'rating', 'content' => $this->rating];
+        }
         if ($this->noindex) {
             $tags[] = ['name' => 'robots', 'content' => 'noindex'];
         }

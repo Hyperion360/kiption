@@ -252,6 +252,14 @@ html .prose:not(.e-content, section) p + p { text-indent: 0; margin-block-start:
   border: 1px solid var(--line-strong); background: var(--surface);
   padding: 2.5rem 2rem;
 }
+/* The age gate card: the story's identity leads (the gate page is the
+   crawler's view of the work), the warning reads as the label it is. */
+.gate-kicker {
+  display: block; margin: 0 0 .25rem;
+  font: 500 12px/1.5 var(--sans); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.gate-by { margin: 0 0 1.5rem; color: var(--muted); }
 
 .review { border-block-start: 1px solid var(--line); padding-block: 1.5rem; max-width: 720px; }
 .review-reply {

@@ -304,8 +304,15 @@ final class StoryController
         if (\App\AgeGate::blocks($story, $this->request)) {
             if (!$gatePage) return new Response('Page not found', 404);
             return $this->view->render('story/gate', [
-                'title' => \App\Lang::t('story.gate_heading'),
-                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
+                // the gate lives at the story's canonical URL: its index entry
+                // names the work and classifies it as adult (Google's
+                // adult-content guidance), never a bare "Content warning" page
+                'title' => (string) $story['title'],
+                'head' => $this->head()
+                    ->withTitle((string) $story['title'] . ' ' . \App\Lang::t('story.by') . ' ' . (string) $story['penname'])
+                    ->withDescription((string) $story['summary'])
+                    ->withRating('adult')
+                    ->withCanonical($this->request->path),
                 'theme' => \App\Theme::current($this->request),
                 'request' => $this->request,
                 'loggedIn' => $me !== 0,
@@ -371,8 +378,15 @@ final class StoryController
         if ($chapters === []) return new Response('Page not found', 404); // nothing validated to read
         if (\App\AgeGate::blocks($story, $this->request)) {
             return $this->view->render('story/gate', [
-                'title' => \App\Lang::t('story.gate_heading'),
-                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
+                // the gate lives at the story's canonical URL: its index entry
+                // names the work and classifies it as adult (Google's
+                // adult-content guidance), never a bare "Content warning" page
+                'title' => (string) $story['title'],
+                'head' => $this->head()
+                    ->withTitle((string) $story['title'] . ' ' . \App\Lang::t('story.by') . ' ' . (string) $story['penname'])
+                    ->withDescription((string) $story['summary'])
+                    ->withRating('adult')
+                    ->withCanonical($this->request->path),
                 'theme' => \App\Theme::current($this->request),
                 'request' => $this->request,
                 'loggedIn' => $me !== 0,
@@ -434,8 +448,15 @@ final class StoryController
         if ($chapters === []) return new Response('Page not found', 404); // nothing validated to export
         if (\App\AgeGate::blocks($story, $this->request)) {
             return $this->view->render('story/gate', [
-                'title' => \App\Lang::t('story.gate_heading'),
-                'head' => $this->head()->withTitle(\App\Lang::t('story.gate_heading'))->withCanonical($this->request->path),
+                // the gate lives at the story's canonical URL: its index entry
+                // names the work and classifies it as adult (Google's
+                // adult-content guidance), never a bare "Content warning" page
+                'title' => (string) $story['title'],
+                'head' => $this->head()
+                    ->withTitle((string) $story['title'] . ' ' . \App\Lang::t('story.by') . ' ' . (string) $story['penname'])
+                    ->withDescription((string) $story['summary'])
+                    ->withRating('adult')
+                    ->withCanonical($this->request->path),
                 'theme' => \App\Theme::current($this->request),
                 'request' => $this->request,
                 'loggedIn' => $me !== 0,
@@ -574,6 +595,12 @@ final class StoryController
         $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($this->storyId($slug));
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // the directory's story counts changed
+        // A guest render already in flight when the purge ran can finish after
+        // it and re-store pre-delete bytes, and a deleted story is never
+        // purged again by later writes - the stale page would stand until
+        // pages:prune. The re-purge runs after this response is sent, so only
+        // renders that outlast this entire request can still slip through.
+        $this->app->defer(fn () => $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs));
         return Response::redirect('/account');
     }
 
