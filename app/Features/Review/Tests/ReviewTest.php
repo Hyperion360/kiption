@@ -71,6 +71,23 @@ final class ReviewTest extends TestCase
         $this->assertStringContainsString('Casual Reader', $body);
     }
 
+    /** A session revoked by a password change writes as a guest (the
+     *  Viewer::id doctrine's write twin): the review must not carry the
+     *  victim's id, or a hijacked session keeps posting victim-attributed
+     *  reviews after the reset (adversarial second pass). */
+    public function test_revoked_session_reviews_as_a_guest(): void
+    {
+        $c = $this->client($this->fanId);
+        $this->db->query("UPDATE users SET password_hash = 'rotated' WHERE id = ?", [$this->fanId]);
+        $res = $c->postWithToken('/review/add/the-rabbit-hole',
+            ['body' => 'Revoked write.', 'rating' => '7', 'guest_name' => 'Rogue']);
+        $this->assertSame(302, $res->status, $res->body);
+        $row = $this->db->one("SELECT user_id, guest_name FROM reviews WHERE body = 'Revoked write.'");
+        $this->assertNotNull($row, 'the write landed');
+        $this->assertNull($row['user_id'], 'the revoked session must not attribute the review to the victim');
+        $this->assertSame('Rogue', $row['guest_name'], 'it is attributed as the guest it now is');
+    }
+
     public function test_guest_review_throttled_per_story_per_day(): void
     {
         $client = $this->client();

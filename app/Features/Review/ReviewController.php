@@ -13,7 +13,11 @@ final class ReviewController
     #[Post]
     public function add(string $slug): Response
     {
-        $userId = $this->session->get('user_id');
+        // the review is attributed to the validated viewer: a session revoked
+        // by a password change writes as a guest (App\Viewer, the read-side
+        // doctrine's write twin), never as the victim
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        $userId = $me !== 0 ? $me : null;
         $raw = $this->request->postStr('rating');
         $rating = $raw === '' ? null : max(0, min(10, (int) $raw));
         [$added, $authorId, $title, $error] = (new ReviewRepository($this->db))->addReview(

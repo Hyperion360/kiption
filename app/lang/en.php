@@ -175,6 +175,9 @@ return [
     'story.chapter_n' => 'Chapter {n}',
     'story.chapter_page_title' => 'Chapter {n}: {chapter} - {story}',
     'story.chapter_of' => 'Chapter {n} of {m}',
+    // {pct} must stay the TRAILING token: position.js's focus readout
+    // rewrite is shape-based (trailing digits + %), so a pack moving it
+    // elsewhere freezes the live percent (the pack contract)
     'story.chapter_of_pct' => 'Chapter {n} of {m} · {pct}%',
     'story.published' => 'Published',
     'story.updated_label' => 'Updated',

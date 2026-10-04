@@ -16,7 +16,10 @@ final class KudosController
     #[Post]
     public function add(string $slug): Response
     {
-        $userId = $this->session->get('user_id');
+        // attributed to the validated viewer: a revoked session writes as a
+        // guest (App\Viewer, the read-side doctrine's write twin)
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        $userId = $me !== 0 ? $me : null;
         [$inserted, $authorId, $title] = (new EngagementRepository($this->db))
             ->addKudos($slug, is_int($userId) ? $userId : null, $this->request->ip);
         if ($authorId === 0) return new Response('Page not found', 404);

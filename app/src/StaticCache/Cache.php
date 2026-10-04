@@ -56,8 +56,12 @@ final class Cache
      *  poison the anonymous variant: non-200, Set-Cookie, or a request that
      *  was not cookieless/queryless/whitelisted to begin with. Known window,
      *  accepted by design: a guest render that started before a write's
-     *  purge can finish after it and re-store pre-write bytes; guest bytes
-     *  only, one render wide, healed by the next write to the same keys. */
+     *  purge can finish after it and re-store pre-write bytes. On write
+     *  paths the next write to the same keys heals it; on DELETE paths
+     *  nothing re-purges the story's own files, so a deleted story's stale
+     *  bytes stand until pages:prune, purgeAll, or maintenance (one render
+     *  wide, guest bytes only; a deferred re-purge is the recorded
+     *  follow-up if that window ever matters). */
     public function maybeStore(Request $request, Response $response): void
     {
         if (!$this->isCacheable($request)) return;

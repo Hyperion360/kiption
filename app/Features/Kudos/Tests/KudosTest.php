@@ -98,6 +98,24 @@ final class KudosTest extends TestCase
             "SELECT COUNT(*) c FROM notifications WHERE kind = 'kudos' AND user_id = 1")['c']);
     }
 
+    /** A session revoked by a password change writes as a guest (the
+     *  Viewer::id doctrine's write twin): no victim-attributed row, or a
+     *  hijacked session keeps posting victim-attributed kudos after the
+     *  reset (adversarial second pass). */
+    public function test_revoked_session_kudos_as_a_guest(): void
+    {
+        $c = $this->client($this->fanId);
+        $this->db->query("UPDATE users SET password_hash = 'rotated' WHERE id = ?", [$this->fanId]);
+        $res = $c->postWithToken('/kudos/add/the-rabbit-hole');
+        $this->assertSame(302, $res->status);
+        $this->assertSame(0, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM story_kudos WHERE user_id = {$this->fanId}")['c'],
+            'the revoked session must not attribute the kudos to the victim');
+        $this->assertSame(1, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM story_kudos k JOIN stories s ON s.id = k.story_id WHERE s.slug = 'the-rabbit-hole' AND k.user_id IS NULL")['c'],
+            'it counts as the guest it now is');
+    }
+
     public function test_guest_kudos_notifies_author_without_actor(): void
     {
         $res = $this->client()->post('/kudos/add/the-rabbit-hole');
