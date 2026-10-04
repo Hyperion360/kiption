@@ -130,6 +130,40 @@ match ($argv[1] ?? 'help') {
             printf("%s %3d %-6s %-40s %6.1fms %-15s %s\n", $r['created_at'], $r['status'], $r['method'], $r['path'], $r['duration_ms'], $r['ip'], $user);
         }
     })(),
+    'doctor' => (function () use ($config, $argv, $migration_dirs) {
+        $expected = 0;
+        foreach ($migration_dirs() as $dir) {          // same discovery the migrate arm trusts
+            foreach (scandir($dir) ?: [] as $f) {
+                if (str_ends_with($f, '.php')) $expected++;
+            }
+        }
+        $env = [
+            'app_dir' => (string) $config['app_dir'],
+            'public_dir' => (string) $config['public_dir'],
+            'config' => [
+                'base_url' => (string) ($config['base_url'] ?? ''),
+                'db' => ['dsn' => (string) ($config['db']['dsn'] ?? '')], // doctor reads the configured database, not a guessed path
+                'mail' => $config['mail'] ?? [],
+                'backups' => $config['backups'] ?? [],
+                'static_cache' => $config['static_cache'] ?? [],
+                'uploads' => $config['uploads'] ?? [],
+            ],
+            'expected_migrations' => $expected,
+        ];
+        if (in_array('--json', $argv, true)) {
+            echo \App\Doctor::runJson($env) . "\n";
+            exit(0); // machine-readable: the caller decides on the report, not the exit code
+        }
+        $r = \App\Doctor::run($env);
+        foreach ($r['checks'] as $c) {
+            echo ($c['ok'] ? '[ ok ] ' : '[FAIL] ') . $c['summary'] . "\n";
+            if (!$c['ok'] && $c['fix'] !== '') echo '        fix: ' . $c['fix'] . "\n";
+        }
+        echo $r['failures'] === 0
+            ? "All checks passed. Search mode: {$r['search_mode']}.\n"
+            : $r['failures'] . " check(s) failed.\n";
+        exit($r['failures'] === 0 ? 0 : 1);
+    })(),
     'logs:prune' => (function () use ($config, $argv) {
         $arg = $argv[2] ?? '--days=30';
         if (!preg_match('/^--days=(\d+)$/', $arg, $m) || (int) $m[1] < 1) {
@@ -396,5 +430,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };

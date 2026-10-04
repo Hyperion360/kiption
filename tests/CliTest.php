@@ -21,7 +21,7 @@ final class CliTest extends TestCase
     }
 
     /** @return array{0: int, 1: string} exit code, stdout */
-    private function kip(string $args, string $cacheDsn = ''): array
+    private function kip(string $args, string $cacheDsn = '', string $extraEnv = ''): array
     {
         // KIP_STATIC_CACHE_DIR always points at a throwaway dir: cache:clear
         // purges the static layer too, and the live public/cache must never
@@ -29,10 +29,11 @@ final class CliTest extends TestCase
         // the framework cache database).
         $staticDir = $this->path . '-static';
         if (!is_dir($staticDir)) { mkdir($staticDir); }
-        $cmd = sprintf('KIP_DB_DSN=%s%s KIP_STATIC_CACHE_DIR=%s %s %s %s 2>&1',
+        $cmd = sprintf('KIP_DB_DSN=%s%s KIP_STATIC_CACHE_DIR=%s %s %s %s %s 2>&1',
             escapeshellarg('sqlite:' . $this->path),
             $cacheDsn === '' ? '' : ' KIP_CACHE_DB_DSN=' . escapeshellarg($cacheDsn),
             escapeshellarg($staticDir),
+            $extraEnv,
             escapeshellarg(PHP_BINARY),
             escapeshellarg(dirname(__DIR__) . '/bin/kip'),
             $args);
@@ -132,5 +133,34 @@ final class CliTest extends TestCase
         $this->assertStringNotContainsString('framework page cache', $out);
         $this->assertStringContainsString('static layer:', $out);
         exec('rm -rf ' . escapeshellarg($dir));
+    }
+
+    public function test_doctor_passes_end_to_end_and_names_a_broken_install(): void
+    {
+        $this->kip('migrate');
+        // Healthy: fully migrated temp DB, throwaway cache and backup dirs.
+        [$code, $out] = $this->kip('doctor', '', 'KIP_BACKUP_DIR=' . escapeshellarg($this->path . '-backups'));
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('All checks passed', $out);
+        // Machine-readable mode decodes and agrees with the human run.
+        [$code, $json] = $this->kip('doctor --json', '', 'KIP_BACKUP_DIR=' . escapeshellarg($this->path . '-backups'));
+        $this->assertSame(0, $code, $json);
+        $this->assertTrue(json_decode($json, true)['ok']);
+        // A static cache path nothing can create (a regular file in the way)
+        // fails the named check with its fix and exits 1.
+        $blocker = $this->path . '-blocker';
+        file_put_contents($blocker, 'x');
+        $cmd = sprintf('KIP_DB_DSN=%s KIP_STATIC_CACHE_DIR=%s KIP_BACKUP_DIR=%s %s %s doctor 2>&1',
+            escapeshellarg('sqlite:' . $this->path),
+            escapeshellarg($blocker . '/cache'),
+            escapeshellarg($this->path . '-backups'),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(dirname(__DIR__) . '/bin/kip'));
+        exec($cmd, $sabotage, $scode);
+        $sabotageOut = implode("\n", $sabotage);
+        $this->assertSame(1, $scode, $sabotageOut);
+        $this->assertStringContainsString('[FAIL] static cache writable', $sabotageOut);
+        $this->assertStringContainsString('1 check(s) failed', $sabotageOut);
+        @unlink($blocker);
     }
 }
