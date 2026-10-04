@@ -35,6 +35,7 @@ final class SettingsController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'current' => $this->current(),
+            'skins' => \App\Skins::installed(['app_dir' => (string) $this->app->config('app_dir', dirname(__DIR__, 2))]),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
             'isAdmin' => true, // the gate above already proved it
@@ -53,6 +54,7 @@ final class SettingsController
             'validation_required' => (string) ($this->request->post['validation_required'] ?? '0'),
             'items_per_page' => (string) ($this->request->post['items_per_page'] ?? '20'),
             'powered_by' => (string) ($this->request->post['powered_by'] ?? '0'),
+            'skin' => (string) ($this->request->post['skin'] ?? \App\Skins::DEFAULT),
         ];
         $invalid = [];
         foreach ($submitted as $k => $v) {
@@ -76,6 +78,7 @@ final class SettingsController
             'validation_required' => (string) ($all['validation_required'] ?? $bool($this->app->config('validation_required'))),
             'items_per_page' => (string) ($all['items_per_page'] ?? $this->app->config('items_per_page', 20)),
             'powered_by' => (string) ($all['powered_by'] ?? $bool($this->app->config('powered_by'))),
+            'skin' => (string) ($all['skin'] ?? $this->app->config('skin', \App\Skins::DEFAULT)),
         ];
     }
 

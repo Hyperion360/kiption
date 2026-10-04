@@ -104,6 +104,11 @@ $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 // point picks up DB values with zero downstream edits. Guarded: an unmigrated
 // database keeps the config-file values instead of fataling the first page.
 $config = \App\Settings::apply($config);
+// The skins seam (views_override): the operator's chosen skin directory wins
+// over the app defaults template-by-template, '' for the default skin. It sits
+// AFTER the static-cache HIT and the maintenance 503 above by construction:
+// both serve before the skin layer exists, so neither is ever skinned.
+$config['views_override'] = \App\Skins::overrideDir($config);
 
 $app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
 $response = $app->handle($request);

@@ -53,8 +53,9 @@ final class SettingsTest extends TestCase
             'site_name' => 'Renamed Archive', 'registration_mode' => 'invite',
             'validation_required' => '0', 'items_per_page' => '50', 'powered_by' => '0',
         ])->status);
-        // Rows landed for every key the board writes.
-        $this->assertSame(5, (int) $this->db()->one('SELECT COUNT(*) c FROM settings')['c']);
+        // Rows landed for every key the board writes (skin included: an
+        // absent field defaults to 'default', never 'leave unchanged').
+        $this->assertSame(6, (int) $this->db()->one('SELECT COUNT(*) c FROM settings')['c']);
         // A FRESH client (the entrypoint seam: init then apply) sees the new
         // values on read points that never learned settings exist: the layout
         // reads site_name, AuthController reads registration_mode.
@@ -165,7 +166,8 @@ final class SettingsTest extends TestCase
             ['registration_mode', 'casual'],
             ['validation_required', '2'],
             ['items_per_page', '0'], ['items_per_page', '101'], ['items_per_page', 'ten'],
-            ['skin', str_repeat('x', 61)], // skin rides the string kind (1-60 chars) per KEYS
+            ['skin', str_repeat('x', 61)], // skin rides the skin kind: [a-z0-9-], 1-30 chars
+            ['skin', 'Big Skin'], ['skin', '../views'],
         ];
         foreach ($bad as [$key, $value]) {
             try {

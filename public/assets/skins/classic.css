@@ -1,0 +1,69 @@
+/* public/assets/skins/classic.css
+   The classic skin: the compact archive look. Loaded AFTER reader.css by the
+   classic layout override, so equal-specificity token declarations here win
+   by cascade order while every component rule left alone keeps the default
+   rendering. The palette is restated per theme slot (paper default, sepia,
+   night, and the dark auto block) with the SAME selector shapes reader.css
+   uses, so the per-user theme feature keeps working under the skin. */
+
+:root{
+  --bg:#fbfaf7; --ink:#1a1c1b; --ink-2:#43484a; --muted:#585e60;
+  --line:#ddd9cf; --line-strong:#c9c4b6; --hover:#f0ede4;
+  --accent:#8a1f1f; --accent-hover:#a02a2a; --on-accent:#fff; --visited:#5a4a7a;
+  --track:#ddd9cf; --surface:#fff; --scrim:rgba(26,28,27,.45);
+  --pill-bg:#f0e2da; --cover-ink:#f4f1e8; --danger:#b3261e; --danger-bg:#f6e3de; --danger-line:#e8c2b8;
+  color-scheme:light;
+}
+html[data-theme="sepia"]{
+  --bg:#f3ead9; --ink:#33291b; --ink-2:#3d3423; --muted:#6f5f47;
+  --line:#e0d3b8; --line-strong:#d1c1a0; --hover:#ece1c9;
+  --accent:#7a2e18; --accent-hover:#8d3a20; --on-accent:#fff; --visited:#644a5f;
+  --track:#e0d3b8; --surface:#f6efe1; --scrim:rgba(51,41,27,.45);
+  --pill-bg:#e9dcc2; --cover-ink:#f4f1e8; --danger:#b3261e; --danger-bg:#f3dccf; --danger-line:#e0bda6;
+}
+html[data-theme="night"]{
+  --bg:#16161a; --ink:#d9d6cf; --ink-2:#a8a5a0; --muted:#8b8985;
+  --line:#26262c; --line-strong:#383841; --hover:#1f1f25;
+  --accent:#d3a15c; --accent-hover:#e0b273; --on-accent:#16161a; --visited:#b9a4cf;
+  --track:#26262c; --surface:#1d1d23; --scrim:rgba(0,0,0,.55);
+  --pill-bg:#2a251c; --cover-ink:#f4f1e8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){
+  html:not([data-theme="paper"]):not([data-theme="sepia"]){
+    --bg:#16161a; --ink:#d9d6cf; --ink-2:#a8a5a0; --muted:#8b8985;
+    --line:#26262c; --line-strong:#383841; --hover:#1f1f25;
+    --accent:#d3a15c; --accent-hover:#e0b273; --on-accent:#16161a; --visited:#b9a4cf;
+    --track:#26262c; --surface:#1d1d23; --scrim:rgba(0,0,0,.55);
+    --pill-bg:#2a251c; --cover-ink:#f4f1e8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
+    color-scheme:dark;
+  }
+}
+
+/* Compact type scale and denser list rhythm, scoped to the skin's body hook
+   (only pages rendered by the classic layout carry it). */
+body.skin-classic { font-size: 15px; line-height: 1.55; }
+body.skin-classic .page { max-width: 680px; }
+body.skin-classic .page-head { padding-block-end: 16px; margin-block-end: 4px; }
+body.skin-classic .page-head h1 { font-size: 26px; }
+body.skin-classic h1 { font-size: 26px; }
+body.skin-classic .section-label { font-size: 12px; letter-spacing: .08em; }
+body.skin-classic .lede { font-size: 15px; }
+
+/* The listing screens this skin overrides wrap in .skin-listing: tighter
+   rows, smaller serif titles, chips shrunk to the compact scale. */
+body.skin-classic .skin-listing .story-list li.story-card { padding: 12px 0; gap: 5px; }
+body.skin-classic .skin-listing .story-list > li > a:first-child { font-size: 17px; }
+body.skin-classic .skin-listing .summary { font-size: 14px; }
+body.skin-classic .skin-listing .meta { font-size: 12.5px; }
+body.skin-classic .filter-chips { margin-block: 10px; }
+body.skin-classic .chip { padding: 3px 10px; font-size: 12.5px; }
+
+/* The browse index's category grid: two columns of dense rows on wide
+   viewports, one on narrow. */
+.skin-cat-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; }
+.skin-cat-grid li { border-block-start: 1px solid var(--line); }
+.skin-cat-grid li:last-child { border-block-end: 1px solid var(--line); }
+.skin-cat-grid .row-title { font-size: 15px; }
+.skin-cat-grid .row-meta { font-size: 12.5px; }
+@media (max-width: 560px){ .skin-cat-grid { grid-template-columns: 1fr; } }

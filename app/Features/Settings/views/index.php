@@ -20,5 +20,13 @@
   <label><input type="checkbox" name="validation_required" value="1"<?= $current['validation_required'] === '1' ? ' checked' : '' ?>> <?= \App\Lang::t('settings.validation_required') ?></label>
   <label><input type="checkbox" name="powered_by" value="1"<?= $current['powered_by'] === '1' ? ' checked' : '' ?>> <?= \App\Lang::t('settings.powered_by') ?></label>
   <p class="chapter-meta"><?= \App\Lang::t('settings.powered_by_note') ?></p>
+  <label><?= \App\Lang::t('settings.skin') ?>
+    <select name="skin">
+      <?php foreach (($skins ?? [\App\Skins::DEFAULT]) as $skinName): ?>
+      <option value="<?= $this->e($skinName) ?>"<?= $current['skin'] === $skinName ? ' selected' : '' ?>><?= $this->e($skinName) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </label>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.skin_note') ?></p>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save') ?></button>
 </form>

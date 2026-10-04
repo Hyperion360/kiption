@@ -1,0 +1,61 @@
+/* public/assets/skins/manuscript.css
+   The manuscript skin: serif-led, wide-measure reading. Loaded AFTER
+   reader.css by the manuscript layout override. Token blocks restate the
+   same selector shapes reader.css uses so the per-user theme slots survive;
+   reading-posture defaults sit on :root (never on the body hook) so a
+   member's own width/size/spacing preferences, whose selectors carry an
+   attribute on html, keep winning over the skin default. */
+
+:root{
+  --bg:#f6f1e7; --ink:#2b241c; --ink-2:#4a4033; --muted:#5f5546;
+  --line:#e2d9c8; --line-strong:#d3c7af; --hover:#efe7d7;
+  --accent:#3b3480; --accent-hover:#4a4296; --on-accent:#fff; --visited:#64485f;
+  --track:#e2d9c8; --surface:#fbf8f1; --scrim:rgba(43,36,28,.45);
+  --pill-bg:#e7e0ee; --cover-ink:#f4efe2; --danger:#b3261e; --danger-bg:#f6e3de; --danger-line:#e8c2b8;
+  /* the manuscript posture: wider measure, one step larger type */
+  --read-size:20px; --read-lh:1.75; --read-width:720px;
+  color-scheme:light;
+}
+html[data-theme="sepia"]{
+  --bg:#efe3cd; --ink:#33281a; --ink-2:#3f3423; --muted:#6f5f47;
+  --line:#dfcfb0; --line-strong:#cfbc97; --hover:#e8dbbe;
+  --accent:#5c3a8a; --accent-hover:#6d4a9e; --on-accent:#fff; --visited:#644a5f;
+  --track:#dfcfb0; --surface:#f3ead6; --scrim:rgba(51,40,26,.45);
+  --pill-bg:#e6dcc6; --cover-ink:#f4efe2; --danger:#b3261e; --danger-bg:#f3dccf; --danger-line:#e0bda6;
+}
+html[data-theme="night"]{
+  --bg:#1a1814; --ink:#ddd2c0; --ink-2:#aca294; --muted:#8d8578;
+  --line:#292620; --line-strong:#3b372e; --hover:#232019;
+  --accent:#b8a3e0; --accent-hover:#c6b4e9; --on-accent:#1a1814; --visited:#c3aecd;
+  --track:#292620; --surface:#221f1a; --scrim:rgba(0,0,0,.55);
+  --pill-bg:#2b2620; --cover-ink:#f4efe2; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){
+  html:not([data-theme="paper"]):not([data-theme="sepia"]){
+    --bg:#1a1814; --ink:#ddd2c0; --ink-2:#aca294; --muted:#8d8578;
+    --line:#292620; --line-strong:#3b372e; --hover:#232019;
+    --accent:#b8a3e0; --accent-hover:#c6b4e9; --on-accent:#1a1814; --visited:#c3aecd;
+    --track:#292620; --surface:#221f1a; --scrim:rgba(0,0,0,.55);
+    --pill-bg:#2b2620; --cover-ink:#f4efe2; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
+    color-scheme:dark;
+  }
+}
+
+/* Serif-led: the whole page speaks in the serif stack, UI chrome included,
+   one step up in size so body copy leads. */
+body.skin-manuscript { font-family: var(--serif); font-size: 17px; line-height: 1.7; }
+body.skin-manuscript .site-head, body.skin-manuscript .site-foot,
+body.skin-manuscript .sheet, body.skin-manuscript .filter-chips { font-family: var(--serif); }
+
+/* The manuscript chapter opening and closing (the skin's story/_chapter
+   override renders them inside .prose): centered numeral kicker, italic
+   title, hairline rules above and below the chapter body. */
+.skin-manuscript .manuscript-opening, .skin-manuscript .manuscript-closing { text-align: center; }
+.skin-manuscript .mo-rule { display: inline-block; width: 64px; border-block-start: 1px solid var(--line-strong); }
+.skin-manuscript .manuscript-opening { margin-block: 0 1.25rem; }
+.skin-manuscript .manuscript-closing { margin-block: 2.5rem 0; }
+.skin-manuscript .ch-kicker { text-align: center; font-variant: small-caps; letter-spacing: .14em; font-size: 15px; }
+.skin-manuscript .prose > h1.p-name, .skin-manuscript .prose h1.p-name {
+  text-align: center; font-style: italic; font-weight: 500; font-size: 30px;
+}

@@ -65,4 +65,5 @@ return [
     'backups' => ['dir' => getenv('KIP_BACKUP_DIR') ?: __DIR__ . '/app/backups', 'keep_days' => 14], // KIP_BACKUP_DIR: tests/CLI point kip backup at a throwaway dir
     'cdn' => ['enabled' => false, 'zone_id' => '', 'api_token' => '', 'purge_host' => ''],   // optional CDN purge (Cloudflare-compatible purge_cache endpoint), default-off; purge_host is the host prefix purged on every cache-purging write. Leave empty on a plain install: nothing changes until all four keys are set
     'items_per_page' => 20,
+    'skin' => 'default',   // operator skin: app/skins/{name}/views overrides the app views when not 'default'; the /settings board writes this key
 ];

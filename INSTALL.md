@@ -187,6 +187,11 @@ Final gate: `php bin/kip doctor` must print `All checks passed` before you
 take traffic. Fix anything it names, then run `php bin/kip pages:build`
 once to pre-render the static layer.
 
+If you change the skin before launch (SKINS.md; `/settings` or the `skin`
+key in config.php), run `php bin/kip pages:build` again before taking
+traffic: a config-file skin change triggers no board save, so nothing else
+purges the static layer for you.
+
 ## 8. Troubleshooting
 
 Each entry names the doctor check (section 1 command: `php bin/kip

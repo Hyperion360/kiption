@@ -11,7 +11,7 @@ namespace App;
 final class Settings
 {
     public const KEYS = ['site_name' => 'string', 'registration_mode' => 'oneof:open,verify,approval,invite',
-        'validation_required' => 'bool', 'items_per_page' => 'int:1,100', 'powered_by' => 'bool', 'skin' => 'string'];
+        'validation_required' => 'bool', 'items_per_page' => 'int:1,100', 'powered_by' => 'bool', 'skin' => 'skin'];
     // powered_by: the board stores the row today; the override activates the
     // moment the app-prep footer lane ships the config key (overrides() skips
     // keys the config lacks, so the row waits harmlessly until then).

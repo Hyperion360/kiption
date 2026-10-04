@@ -80,6 +80,9 @@ surfaces end to end:
 
 Operators read this README; point members at the guides.
 
+Skins (site-wide template overrides; `classic` and `manuscript` ship) are
+documented in [SKINS.md](SKINS.md).
+
 ## Static page cache
 
 Anonymous guests are served pre-rendered HTML from `public/cache/` before PHP
