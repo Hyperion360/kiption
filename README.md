@@ -52,6 +52,23 @@ use. `KIP_ENV=dev` bypasses the guard for the developer; note `php bin/kip
 serve` runs in dev mode, so maintenance is observed via a plain
 `php -S` server as shown in the plan's smoke test.
 
+## Guides
+
+Three audience guides live in `docs/guides/` and cover the non-operator
+surfaces end to end:
+
+- [AUTHORS.md](docs/guides/AUTHORS.md): account levels, the submission
+  flow, scheduled releases, the markdown subset, coauthors, series,
+  challenges, and exports.
+- [MODERATORS.md](docs/guides/MODERATORS.md): the validation queue's
+  four sections, what each approve/remove/reject does, reports, and the
+  moderator/admin boundary.
+- [READERS.md](docs/guides/READERS.md): themes, reader typography,
+  bookmarks and lists, follows, kudos vs reviews, feeds, and the
+  keyboard shortcuts.
+
+Operators read this README; point members at the guides.
+
 ## Static page cache
 
 Anonymous guests are served pre-rendered HTML from `public/cache/` before PHP
