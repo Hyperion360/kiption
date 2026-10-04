@@ -5,6 +5,7 @@ use Kip\Http\{Request, Response};
 final class Cache
 {
     private const MARKER = '.maintenance-purged';
+    private const PUBLIC_CC = 'public, s-maxage=14400';
 
     public function __construct(private string $dir) {}
 
@@ -41,7 +42,9 @@ final class Cache
             && $this->fileFor($request->path) !== null;
     }
 
-    /** Serve a cached hit without booting App. Null = miss (caller falls through). */
+    /** Serve a cached hit without booting App. Null = miss (caller falls through).
+     *  A HIT is by definition a response this layer stored, so it leaves the
+     *  origin carrying the shared-cache header (the CDN seam). */
     public function serve(Request $request): ?Response
     {
         if (!$this->isCacheable($request)) return null;
@@ -49,7 +52,18 @@ final class Cache
         if ($file === null) return null;
         $body = @file_get_contents($file); // the read is the check: a purge between
         if ($body === false) return null;  // is_file and read yields a miss, not an empty HIT
-        return new Response($body, 200, ['X-Static-Cache' => 'HIT']);
+        return new Response($body, 200, ['X-Static-Cache' => 'HIT', 'Cache-Control' => self::PUBLIC_CC]);
+    }
+
+    /** The Cache-Control a response deserves, decided at the one seam that
+     *  knows store eligibility: a response this layer would store is the only
+     *  response a shared cache may hold (public, s-maxage bounded), and every
+     *  other response is private and uncacheable. Single predicate, shared
+     *  with maybeStore, so the file layer and the header can never disagree.
+     *  The front controller stamps the returned value on every send path. */
+    public function cacheControlFor(Request $request, Response $response): string
+    {
+        return $this->storable($request, $response) ? self::PUBLIC_CC : 'private, no-store';
     }
 
     /** Fill after a successful anonymous render. Refuses anything that could
@@ -61,20 +75,25 @@ final class Cache
      *  forever-stale version of this window with a deferred re-purge
      *  (StoryController::delete, App::defer) that runs after its response
      *  is sent. */
-    public function maybeStore(Request $request, Response $response): void
+    private function storable(Request $request, Response $response): bool
     {
-        if (!$this->isCacheable($request)) return;
-        if ($response->status !== 200) return;
+        if (!$this->isCacheable($request)) return false;
+        if ($response->status !== 200) return false;
         foreach (array_keys($response->headers) as $h) {
             // name-based, any casing: neither guard may depend on a writer's
             // spelling of the header (the list-valued scan's same stance)
-            if (strcasecmp((string) $h, 'set-cookie') === 0) return;
+            if (strcasecmp((string) $h, 'set-cookie') === 0) return false;
             if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
                 foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
-                    if ((string) $leaf !== '') return; // nothing worth indexing, nothing worth caching
+                    if ((string) $leaf !== '') return false; // nothing worth indexing, nothing worth caching
                 }
             }
         }
+        return true;
+    }
+    public function maybeStore(Request $request, Response $response): void
+    {
+        if (!$this->storable($request, $response)) return;
         $file = $this->fileFor($request->path);
         if ($file === null) return;
         @mkdir(dirname($file), 0775, true);

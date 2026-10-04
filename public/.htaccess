@@ -9,8 +9,29 @@ Options -Indexes
     # Block dotfiles (.env, .git, ...), but let ACME's .well-known through
     RewriteRule (^|/)\.(?!well-known/) - [F]
 
+    # OPTIONAL: serve the static page cache without PHP (shipped commented;
+    # the PHP fallback in index.php is the supported path and always correct
+    # on its own). Read the README's "Static page cache" section before
+    # enabling: the cookie and query conditions are load-bearing, and during
+    # maintenance the webserver serves cached pages without running PHP.
+    # The E= flag marks a cache HIT so the Header set below applies to it.
+    #RewriteCond %{REQUEST_METHOD} ^GET$ [NC]
+    #RewriteCond %{QUERY_STRING} ^$
+    #RewriteCond %{HTTP_COOKIE} ^$
+    #RewriteCond %{DOCUMENT_ROOT}/cache%{REQUEST_URI}/index.html -f
+    #RewriteRule ^ cache%{REQUEST_URI}/index.html [L,E=KIP_STATIC_HIT:1]
+
     # Front controller: /controller/action/args is not a real file
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [L]
+</IfModule>
+
+# The shared-cache header for webserver-served cache files: only the optional
+# block above sets KIP_STATIC_HIT, so this is inert while that block stays
+# commented and fires the moment it is enabled. It mirrors the PHP send
+# path's Cache-Control emission exactly, so a CDN in front of the origin
+# sees one policy whichever path served the page.
+<IfModule mod_headers.c>
+    Header set Cache-Control "public, s-maxage=14400" env=KIP_STATIC_HIT
 </IfModule>

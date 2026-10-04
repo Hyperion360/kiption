@@ -1,0 +1,1 @@
+Added: Cache-Control decided at the static-cache seam; the one response shape the layer stores answers public with s-maxage=14400, everything else private no-store, and webserver-served cache files get the same header from an env-gated Header set in public/.htaccess

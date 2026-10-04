@@ -63,5 +63,6 @@ return [
     'public_dir' => __DIR__ . '/public', // web-served root: sitemap/robots regeneration target (never derived from the cache dir, env-free like app_dir)
     'nav_file' => getenv('KIP_NAV_FILE') ?: __DIR__ . '/app/nav.json', // KIP_NAV_FILE: tests/imports point the nav artifact at a throwaway path
     'backups' => ['dir' => getenv('KIP_BACKUP_DIR') ?: __DIR__ . '/app/backups', 'keep_days' => 14], // KIP_BACKUP_DIR: tests/CLI point kip backup at a throwaway dir
+    'cdn' => ['enabled' => false, 'zone_id' => '', 'api_token' => '', 'purge_host' => ''],   // optional CDN purge (Cloudflare-compatible purge_cache endpoint), default-off; purge_host is the host prefix purged on every cache-purging write. Leave empty on a plain install: nothing changes until all four keys are set
     'items_per_page' => 20,
 ];
