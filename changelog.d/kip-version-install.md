@@ -1,0 +1,1 @@
+Added: bin/kip version reports the app version, the locked framework pin (git/path/tag renderings from composer.lock), and PHP; INSTALL.md documents install, permissions, web servers, SMTP, cron, first run, troubleshooting, and upgrades

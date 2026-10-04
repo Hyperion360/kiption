@@ -33,6 +33,9 @@ migration on paid tiers; see https://kiption.cloud.
 The `user:create` line creates your admin account; run it without a password
 argument to be prompted with hidden input instead.
 
+Detailed guide: INSTALL.md (permissions, SMTP, cron, troubleshooting,
+upgrades).
+
 Tests:
 
     vendor/bin/phpunit

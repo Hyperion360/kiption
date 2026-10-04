@@ -164,6 +164,21 @@ match ($argv[1] ?? 'help') {
             : $r['failures'] . " check(s) failed.\n";
         exit($r['failures'] === 0 ? 0 : 1);
     })(),
+    'version' => (function () use ($argv) {
+        // Three lines state the whole stack: app version (App\Version is the
+        // single source, CHANGELOG.md the narrative), the locked framework
+        // pin from composer.lock (packages AND packages-dev), and the PHP
+        // build. --check adds the upstream tag comparison; network optional.
+        $lock = getenv('KIP_COMPOSER_LOCK') ?: dirname(__DIR__) . '/composer.lock'; // tests point this at a fixture lock
+        echo 'kiption ' . \App\Version::VERSION . "\n";
+        echo 'kip/framework ' . \App\Version::frameworkLock($lock) . "\n";
+        echo 'php ' . PHP_VERSION . "\n";
+        if (in_array('--check', $argv, true)) {
+            foreach (\App\Version::upstreamCheck($lock) as $line) {
+                echo $line . "\n";
+            }
+        }
+    })(),
     'logs:prune' => (function () use ($config, $argv) {
         $arg = $argv[2] ?? '--days=30';
         if (!preg_match('/^--days=(\d+)$/', $arg, $m) || (int) $m[1] < 1) {
@@ -430,5 +445,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };
