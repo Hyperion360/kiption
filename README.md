@@ -984,3 +984,24 @@ copies of `efiction-export.php` import zero admins (the report line
 through the built-in admin panel afterwards, or create a fresh
 administrator with `php bin/kip user:create <email> [password]
 --admin`.
+
+## Versioning and releases
+
+Kiption is versioned for the people who run it. Tags are how self-hosters
+pin, compare, and roll back an install (`git checkout v1.2.0`), and every
+release gets a dated section in `CHANGELOG.md` assembled from reviewed
+notes, in the Keep a Changelog format.
+
+Development uses changelog fragments: each change lands with exactly one
+`changelog.d/<slug>.md` file containing a single line such as
+`Fixed: story feeds validate their language code before use`. The type is
+one of Added, Changed, Fixed, Security, Deprecated, or Removed. Nobody
+edits `CHANGELOG.md` by hand, so parallel branches never conflict on it.
+
+A release is `php bin/release <x.y.z>`: the script combines the fragments
+into a dated section, deletes them, commits, and writes an annotated tag.
+The maintainer picks the number, reviews the printed notes, and pushes the
+tag (`git push origin main --tags`) as a separate, explicit step. A fix
+that must ship against an older release lands on `main` first and is
+cherry-picked to a branch cut from that release's tag; nothing merges from
+a release branch back to `main`.
