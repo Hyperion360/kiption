@@ -1,0 +1,270 @@
+#!/usr/bin/env php
+<?php // bin/publish-audit: the publish gate (publish-pipeline plan, task 1).
+//
+// Audits a git checkout before anything is pushed to a public remote:
+//   1. tree     no tracked or addable path matches the protected set
+//   2. history  no protected path was ever added to any ref
+//   3. secrets  no secret shapes in tracked-file history
+//   4. boundary no private-cloud references in tracked files
+//   5. docs     LICENSE, CHANGELOG.md, INSTALL.md, truthful README present
+//
+// Exit 0 = publishable; any finding fails the run and the publish halts
+// here. The push itself is an owner gate that never happens in this script;
+// this only says go or no-go. The report is printed, committed to nothing.
+//
+// Usage: bin/publish-audit [--json] [--path <repo>]
+// Zero dependencies beyond PHP and git on PATH (GIT=<path> overrides).
+// Probe strings below are built by runtime concatenation so this scanner,
+// which is tracked and whose first commit is part of the history it scans,
+// can never match its own probe table.
+
+error_reporting(E_ALL);
+
+function usage(string $msg): never
+{
+    fwrite(STDERR, $msg . "\nusage: bin/publish-audit [--json] [--path <repo>]\n");
+    exit(2);
+}
+
+/** @return array{0: int, 1: string[]} exit code, output lines */
+function gitc(string $git, string $repo, array $args): array
+{
+    $cmd = $git . ' -C ' . escapeshellarg($repo) . ' ' . implode(' ', array_map('escapeshellarg', $args));
+    exec($cmd, $out, $code);
+    return [$code, $out];
+}
+
+// ---- args -------------------------------------------------------------------
+
+$json = false;
+$repo = dirname(__DIR__);
+for ($i = 1; $i < count($argv); $i++) {
+    if ($argv[$i] === '--json') { $json = true; continue; }
+    if ($argv[$i] === '--path' && isset($argv[$i + 1])) { $repo = $argv[++$i]; continue; }
+    usage("unknown argument: {$argv[$i]}");
+}
+$repo = (string) realpath($repo);
+if ($repo === '' || !is_dir($repo)) usage('no such directory');
+$git = getenv('GIT') ?: 'git';
+if (gitc($git, $repo, ['rev-parse', '--git-dir'])[0] !== 0) {
+    usage("not a git repository: {$repo}");
+}
+
+// ---- protected paths (checks 1 and 2) ---------------------------------------
+// The .gitignore inventory plus the planning chain. The audit asserts the
+// EFFECT, not the ignore file: nothing protected is tracked or addable, and
+// nothing protected was ever added to any ref. kinds: seg = one exact path
+// component at any depth; glob = one component matching the wildcard; suffix
+// = a component ending with the text; prefix = anchored at the repo root.
+
+$RULES = [
+    ['vendor/',             'seg',    'vendor'],
+    ['.env',                'seg',    '.env'],
+    ['*.sqlite',            'glob',   '*.sqlite'],
+    ['*-wal',               'suffix', '-wal'],
+    ['*-shm',               'suffix', '-shm'],
+    ['app/backups/',        'prefix', 'app/backups'],
+    ['*.log',               'glob',   '*.log'],
+    ['app/nav.json',        'prefix', 'app/nav.json'],
+    ['public/cache/',       'prefix', 'public/cache'],
+    ['public/uploads/',     'prefix', 'public/uploads'],
+    ['public/sitemap*.xml', 'sitemap', 'sitemap*.xml'],
+    ['AGENTS.md',           'seg',    'AGENTS.md'],
+    ['CLAUDE.md',           'seg',    'CLAUDE.md'],
+    ['Kiption Designs/',    'seg',    'Kiption Designs'],
+    ['daily-qa-reports/',   'seg',    'daily-qa-reports'],
+    ['.daily-qa-last-run',  'seg',    '.daily-qa-last-run'],
+    ['docs/superpowers/',   'prefix', 'docs/superpowers'],
+];
+
+$matchProtected = static function (string $path) use ($RULES): ?string {
+    $path = rtrim($path, '/');
+    if ($path === '') return null;
+    $parts = explode('/', $path);
+    foreach ($RULES as [$label, $kind, $arg]) {
+        $hit = match ($kind) {
+            'seg'     => in_array($arg, $parts, true),
+            'glob'    => (bool) array_filter($parts, static fn($p) => fnmatch($arg, $p)),
+            'suffix'  => (bool) array_filter($parts, static fn($p) => str_ends_with($p, $arg)),
+            'prefix'  => $path === $arg || str_starts_with($path, $arg . '/'),
+            'sitemap' => ($parts[0] ?? '') === 'public' && fnmatch($arg, $parts[1] ?? ''),
+        };
+        if ($hit) return $label;
+    }
+    return null;
+};
+
+// ---- check 1: tree ----------------------------------------------------------
+
+$tree = [];
+$trackedSet = [];
+[$code, $trackedLines] = gitc($git, $repo, ['ls-files']);
+if ($code !== 0) {
+    $tree[] = 'git ls-files failed';
+} else {
+    foreach ($trackedLines as $f) {
+        if ($f === '') continue;
+        $trackedSet[$f] = true;
+        if ($l = $matchProtected($f)) $tree[] = "{$f} (tracked; protected: {$l})";
+    }
+}
+// Addable = present, untracked, and NOT ignored: one `git add -A` ships it.
+[$code, $statusLines] = gitc($git, $repo, ['status', '--porcelain', '--ignored']);
+if ($code !== 0) {
+    $tree[] = 'git status failed';
+} else {
+    foreach ($statusLines as $line) {
+        if (strlen($line) < 4) continue;
+        $xy = substr($line, 0, 2);
+        $p = substr($line, 3);
+        if ($p === '') continue;
+        if (str_contains($p, ' -> ')) [$p] = explode(' -> ', $p, 2); // rename: keep the new path
+        if ($xy === '??' && ($l = $matchProtected($p))) $tree[] = "{$p} (addable; protected: {$l})";
+    }
+}
+
+// ---- check 2: history -------------------------------------------------------
+
+$history = [];
+[$code, $logLines] = gitc($git, $repo, ['log', '--all', '--diff-filter=A', '--name-only', '--format=__C__%h']);
+if ($code !== 0) {
+    $history[] = 'git log failed: ' . implode(' ', array_slice($logLines, 0, 1));
+} else {
+    $commit = '';
+    foreach ($logLines as $line) {
+        if (str_starts_with($line, '__C__')) { $commit = substr($line, 5); continue; }
+        $f = trim($line);
+        if ($f === '' || $commit === '') continue;
+        if ($l = $matchProtected($f)) {
+            $history["{$commit} {$f}"] = "{$commit} added {$f} (protected: {$l})";
+        }
+    }
+}
+
+// ---- check 3: secrets -------------------------------------------------------
+
+/**
+ * Scan `git log -p` output for ADDED lines matching $regex; the $verify
+ * callback receives the full match and can veto it (placeholder values).
+ * Returns "sha path" => finding, deduplicated.
+ * @return array<string, string>
+ */
+$scanAddedLines = static function (array $lines, string $regex, ?callable $verify = null): array {
+    $out = [];
+    $commit = '';
+    $file = '';
+    foreach ($lines as $line) {
+        if (preg_match('/^commit ([0-9a-f]{7})[0-9a-f]+/i', $line, $m)) { $commit = $m[1]; continue; }
+        if (str_starts_with($line, '+++ b/')) { $file = substr($line, 6); continue; }
+        if (str_starts_with($line, '+++')) { $file = ''; continue; }
+        if (!str_starts_with($line, '+')) continue;
+        if ($file === '') continue;
+        if (!preg_match($regex, $line, $m)) continue;
+        if ($verify !== null && !$verify($m)) continue;
+        $out["{$commit} {$file}"] = "{$commit} {$file}";
+    }
+    return $out;
+};
+
+$secrets = [];
+// Pickaxe anchors (-S) narrow each probe to commits where the anchor count
+// changed; the regex then verifies the added line, so the anchor alone never
+// makes a finding (a superset of the plan's -S probe set).
+$shapes = [
+    ['aws-access-key', 'AK' . 'IA',          '/AK' . 'IA[0-9A-Z]{16}/'],
+    ['github-token',   'gh' . 'p_',          '/gh' . 'p_[A-Za-z0-9]{36,}/'],
+    ['github-oauth',   'gh' . 'o_',          '/gh' . 'o_[A-Za-z0-9]{36,}/'],
+    ['private-key',    'BEG' . 'IN PRIVATE', '/-----' . 'BEGIN[ A-Z0-9_-]{0,64}PRIVATE' . ' KEY/'],
+];
+foreach ($shapes as [$name, $anchor, $regex]) {
+    [$code, $patch] = gitc($git, $repo, ['log', '--all', '-p', '--no-color', '-S' . $anchor]);
+    if ($code !== 0) { $secrets[] = "secret scan failed for shape {$name}"; continue; }
+    foreach ($scanAddedLines($patch, $regex) as $hit) $secrets[] = "{$hit} (shape: {$name})";
+}
+// Password assignments: a literal value on a password-family key, scoped to
+// config-shaped files (where a literal is an operator secret; fixture
+// literals in tests and seeders are not). Placeholder values are excluded.
+$pwRegex = '/(password|passwd|passphrase|secret|api[_-]?key|access[_-]?key|token)[\'"]?\s*(=>|=|:)\s*[\'"]([^\'"]{6,})[\'"]/i';
+$placeholder = '/password|changeme|change.?me|example|placeholder|dummy|sample|^x+$|xxx|test|fixture|your[-_]/i';
+[$code, $cfgPatch] = gitc($git, $repo, ['log', '--all', '-p', '--no-color', '--',
+    ':(glob)**/config*.php', ':(glob)**/.env*', ':(glob)**/settings*.php']);
+if ($code !== 0) {
+    $secrets[] = 'secret scan failed for password assignments';
+} else {
+    $pwFindings = $scanAddedLines($cfgPatch, $pwRegex, static fn(array $m): bool =>
+        !preg_match($placeholder, $m[3] ?? ''));
+    foreach ($pwFindings as $hit) $secrets[] = "{$hit} (shape: password-assignment)";
+}
+
+// ---- check 4: boundary ------------------------------------------------------
+
+$boundary = [];
+$boundaryProbes = [
+    ['kiption-' . 'cloud', true],   // the private repo's path/name
+    ['CLOUD' . '_', false],         // its env/config prefix shapes
+    ['tenant' . '_domains', false], // its registry schema tables
+];
+foreach ($boundaryProbes as [$probe, $ci]) {
+    $args = array_merge(['grep', '-n', '-I'], $ci ? ['-i'] : [], ['-e', $probe]);
+    [$code, $hits] = gitc($git, $repo, $args);
+    if ($code > 1) { $boundary[] = "boundary scan failed near {$probe}"; continue; }
+    foreach ($hits as $h) {
+        $h = trim($h);
+        if ($h !== '') $boundary[] = "{$h} (probe: {$probe})";
+    }
+}
+
+// ---- check 5: docs ----------------------------------------------------------
+
+$docs = [];
+foreach (['LICENSE', 'CHANGELOG.md', 'INSTALL.md', 'README.md'] as $doc) {
+    if (!isset($trackedSet[$doc])) $docs[] = "missing required doc: {$doc} (must be tracked)";
+}
+if (isset($trackedSet['README.md'])) {
+    $readme = (string) file_get_contents($repo . '/README.md');
+    if (str_contains($readme, 'bootstrap milestone')) {
+        $docs[] = "README.md still carries the stale 'bootstrap milestone' phrase; the intro must be the truthful one";
+    }
+}
+
+// ---- report -----------------------------------------------------------------
+
+$checks = [
+    ['tree',     'tree: no tracked or addable protected path', $tree],
+    ['history',  'history: no protected path ever added', $history],
+    ['secrets',  'secrets: no secret shapes in tracked-file history', $secrets],
+    ['boundary', 'boundary: no private-cloud references in tracked files', $boundary],
+    ['docs',     'docs: LICENSE, CHANGELOG.md, INSTALL.md, truthful README', $docs],
+];
+$failures = 0;
+foreach ($checks as &$c) { if ($c[2] !== []) $failures++; }
+unset($c);
+
+const DETAIL_CAP = 20;
+
+if ($json) {
+    echo json_encode([
+        'ok' => $failures === 0,
+        'repo' => $repo,
+        'failures' => $failures,
+        'checks' => array_map(static fn($c) => [
+            'name' => $c[0],
+            'summary' => $c[1],
+            'ok' => $c[2] === [],
+            'findings' => array_slice($c[2], 0, DETAIL_CAP),
+        ], $checks),
+    ]) . "\n";
+    exit($failures === 0 ? 0 : 1);
+}
+
+foreach ($checks as [$name, $summary, $findings]) {
+    echo ($findings === [] ? '[ ok ] ' : '[FAIL] ') . $summary . "\n";
+    foreach (array_slice($findings, 0, DETAIL_CAP) as $f) echo '        ' . $f . "\n";
+    if (count($findings) > DETAIL_CAP) {
+        echo '        ... and ' . (count($findings) - DETAIL_CAP) . ' more' . "\n";
+    }
+}
+echo $failures === 0
+    ? "All checks passed. Publishable.\n"
+    : $failures . " check(s) failed; the publish halts here.\n";
+exit($failures === 0 ? 0 : 1);
