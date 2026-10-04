@@ -240,6 +240,20 @@ final class ListsTest extends TestCase
         $this->assertSame(['after-hours' => 1, 'the-rabbit-hole' => 2], $this->positions());
     }
 
+    /** A session revoked by a password change filters as a guest (the
+     *  Viewer::id doctrine): the owner's private list must not open to the
+     *  raw session id. Pinned through the controller because a one-line
+     *  revert to the raw idiom must ship red (testing specialist). */
+    public function test_revoked_session_cannot_open_the_owners_private_list(): void
+    {
+        $this->seedSecretList();
+        $member = $this->memberId();
+        $c = $this->client($member);
+        $this->assertSame(200, $c->get('/lists/view/secret-list')->status, 'the owner still sees it');
+        $this->db->query("UPDATE users SET password_hash = 'rotated' WHERE id = $member");
+        $this->assertSame(404, $c->get('/lists/view/secret-list')->status, 'the revoked session is a guest');
+    }
+
     public function test_member_lists_index_lists_own_lists_with_counts(): void
     {
         $this->seedComfortReads();

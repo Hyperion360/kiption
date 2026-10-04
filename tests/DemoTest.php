@@ -30,6 +30,26 @@ final class DemoTest extends TestCase
         return (int) $this->db->one($sql)['c'];
     }
 
+    /** The wrangle loop creates the missing canonical on demand and resolves
+     *  it by name AND type: with the canonical tag deleted and a same-named
+     *  decoy planted under another type, the synonym must bind the
+     *  genre-typed row the loop just created, never the decoy (the
+     *  specialist's unseeded-DB shape is unreachable end to end: Demo rides
+     *  on the seed's people and tags too, so this is the reachable form). */
+    public function test_demo_binds_the_canonical_tag_it_creates_on_demand(): void
+    {
+        $this->db->query("DELETE FROM tags WHERE name = 'Found family'");
+        $this->db->query("INSERT INTO tags (tag_type_id, name) SELECT id, 'Found family' FROM tag_types WHERE name = 'content'");
+        \App\Demo::run($this->db, force: true, dev: true);
+        $synonym = $this->db->one("SELECT t.canonical_id, tt.name AS type_name FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id
+                                   WHERE t.name = 'Found Family' AND tt.name = 'genre'");
+        $this->assertNotNull($synonym['canonical_id'], 'the missing canonical was created on demand');
+        $canon = $this->db->one('SELECT name, tag_type_id FROM tags WHERE id = ?', [$synonym['canonical_id']]);
+        $this->assertSame('Found family', (string) $canon['name']);
+        $this->assertSame('genre', (string) $this->db->one('SELECT name FROM tag_types WHERE id = ?', [$canon['tag_type_id']])['name'],
+            'the canonical is the genre-typed row, never the content decoy');
+    }
+
     public function test_demo_loads_every_surface_and_keeps_the_fixture(): void
     {
         $made = \App\Demo::run($this->db, dev: true);

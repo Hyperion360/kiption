@@ -181,15 +181,18 @@ final class Demo
         // Wrangling has work to do: one synonym already merged, one near
         // duplicate still waiting for an editor.
         foreach (self::WRANGLE_TAGS as [$type, $name, $canonical]) {
-            // the canonical tag belongs to the seed fixture: a dev database
-            // with its own taxonomy (ratings present, seed never run) may not
-            // carry it, so create it on demand instead of warning and binding NULL
-            if ($canonical !== null && !isset($this->tags[$canonical])) {
-                $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$types[$type], $canonical]);
-                // by name AND type: the map is name-keyed across all tag
-                // types, so a same-named row under another type would
-                // otherwise win the lookup
-                $this->tags[$canonical] = (int) $this->db->one('SELECT id FROM tags WHERE name = ? AND tag_type_id = ?', [$canonical, $types[$type]])['id'];
+            // the canonical tag belongs to the seed fixture: resolve it by
+            // name AND type, creating it on demand when an operator's
+            // taxonomy lacks it. The name-keyed map cannot scope by type,
+            // so a same-named row under another type must never win this
+            // lookup (the pin races a decoy to prove it).
+            if ($canonical !== null) {
+                $have = $this->db->one('SELECT id FROM tags WHERE name = ? AND tag_type_id = ?', [$canonical, $types[$type]])['id'] ?? null;
+                if ($have === null) {
+                    $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$types[$type], $canonical]);
+                    $have = $this->db->one('SELECT id FROM tags WHERE name = ? AND tag_type_id = ?', [$canonical, $types[$type]])['id'];
+                }
+                $this->tags[$canonical] = (int) $have;
             }
             $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)',
                 [$types[$type], $name, $canonical === null ? null : $this->tags[$canonical]]);
