@@ -3,9 +3,9 @@
 require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // CLI renders too (pages:build); views render through the pack layer
-\App\Attribution::init($config); // the footer seam (pages:build renders layouts; default-on when unset)
-\App\Features::init(new \Kip\Database($config['db']['dsn']), $config['features'] ?? []); // feature-flag resolution shares the request bootstrap
+\App\Features::init(new Kip\Database($config['db']['dsn']), $config['features'] ?? []); // feature-flag resolution shares the request bootstrap
 $config = \App\Settings::apply($config); // operator settings overlay the config in the same resolution; guarded, so doctor/migrate survive an unmigrated DB
+\App\Attribution::init($config); // the footer seam, from the MERGED config (the index.php order: after the settings overlay, so pages:build renders the board's powered_by row)
 $config['views_override'] = \App\Skins::overrideDir($config); // the skins seam: CLI renders (pages:build above all) use the operator skin, and Builder::build() propagates the key into its own App
 
 // Feature folders (Kip guide ch. 3): migrations live in the app directory AND in

@@ -36,7 +36,6 @@ require __DIR__ . '/../vendor/autoload.php';
 $config = require __DIR__ . '/../config.php';
 $config['views'] = $config['app_dir'] . '/views';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // every view's strings render through the pack layer
-\App\Attribution::init($config); // the footer seam: layout templates read it statically (no config in view scope)
 
 $request = Kip\Http\Request::fromGlobals(trustedProxy: $config['trusted_proxy']);
 
@@ -104,6 +103,12 @@ $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 // point picks up DB values with zero downstream edits. Guarded: an unmigrated
 // database keeps the config-file values instead of fataling the first page.
 $config = \App\Settings::apply($config);
+// The footer seam: layout templates read it statically (no config in view
+// scope). It inits from the MERGED config, after the settings overlay: the
+// board's powered_by row must govern the footer on the very next render.
+// Nothing above reads it (the static-cache HIT serves stored bytes, the
+// maintenance view is standalone), so init-after-apply covers every render.
+\App\Attribution::init($config);
 // The skins seam (views_override): the operator's chosen skin directory wins
 // over the app defaults template-by-template, '' for the default skin. It sits
 // AFTER the static-cache HIT and the maintenance 503 above by construction:

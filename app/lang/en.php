@@ -729,7 +729,7 @@ return [
     'settings.validation_required' => 'Chapters pass the moderation queue before publishing',
     'settings.items_per_page' => 'Items per page (1-100)',
     'settings.powered_by' => 'Show the powered-by attribution in the footer',
-    'settings.powered_by_note' => 'The attribution switch takes effect when the footer ships; the stored preference is kept either way.',
+    'settings.powered_by_note' => 'Saving takes effect immediately and clears the page caches.',
     'settings.skin' => 'Skin (site-wide look)',
     'settings.skin_note' => 'Skins override templates under app/skins and are documented in SKINS.md. Saving clears the page caches, then rebuilds happen on first visit (or run pages:build).',
     'settings.save' => 'Save settings',

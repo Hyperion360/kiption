@@ -34,6 +34,7 @@ final class SettingsTest extends TestCase
     protected function tearDown(): void
     {
         \App\Features::reset();
+        \App\Attribution::reset(); // the footer-seam test must not leak into later suites
         unset($this->db);
         exec('rm -rf ' . escapeshellarg($this->root));
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
@@ -220,6 +221,54 @@ final class SettingsTest extends TestCase
                 'validation_required' => '1', 'items_per_page' => '20', 'powered_by' => '0'])->status);
         $this->assertNull($static->serve($homeReq), 'static file unlinked');
         $this->assertFileDoesNotExist($this->root . '/app/cache.sqlite', 'framework cache file unlinked');
+    }
+
+    /** The footer seam, pinned end to end: a stored powered_by row must govern
+     *  the rendered footer. The board's own save writes exactly this row
+     *  (reproduced over HTTP 2026-10-04: the toggle saved green while the
+     *  footer kept rendering, because Attribution::init read the config-file
+     *  value before Settings::apply layered the row over it). */
+    public function test_a_stored_powered_by_row_governs_the_footer(): void
+    {
+        $this->seed();
+        \App\Features::init($this->db(), []);
+        \App\Settings::put('powered_by', '0');
+        // The entrypoint order, mirrored: apply overlays the row, THEN the
+        // footer seam consumes the merged config.
+        $config = \App\Settings::apply($this->config() + ['powered_by' => true, 'powered_by_url' => 'https://kiption.cloud']);
+        \App\Attribution::init($config);
+        $html = (new \Kip\View($this->config()['views']))
+            ->render('layout', ['content' => '', 'navFile' => '', 'title' => 'Seam']);
+        $this->assertStringNotContainsString('Powered by Kiption', $html, 'the stored row turns the footer off');
+        \App\Attribution::reset();
+    }
+
+    /** The suite cannot execute the front controller (the PerUserTest
+     *  source-probe idiom), so the ORDER is pinned textually: in both
+     *  entrypoints Attribution::init must run AFTER Settings::apply, or the
+     *  footer reads only the config-file value and the board's row is inert. */
+    public function test_both_entrypoints_init_attribution_after_the_settings_overlay(): void
+    {
+        foreach (['public/index.php', 'bin/kip'] as $entry) {
+            $src = (string) preg_replace('#/\*.*?\*/#s', '',
+                (string) file_get_contents(dirname(__DIR__, 4) . '/' . $entry));
+            $init = strpos($src, '\App\Attribution::init(');
+            $apply = strpos($src, '\App\Settings::apply(');
+            $this->assertNotFalse($init, "{$entry} must keep the Attribution::init seam");
+            $this->assertNotFalse($apply, "{$entry} must keep the Settings::apply seam");
+            $this->assertGreaterThan($apply, $init, "{$entry} inits Attribution after the settings overlay");
+        }
+    }
+
+    /** config.php's own comment promises every POST-bearing first segment is
+     *  throttled; /settings/save is the board's POST surface. */
+    public function test_the_shipped_config_throttles_the_settings_save(): void
+    {
+        $config = require dirname(__DIR__, 4) . '/config.php';
+        $bucket = $config['rate_limit']['settings'] ?? null;
+        $this->assertIsArray($bucket, 'rate_limit.settings must exist: /settings/save POSTs under its first segment');
+        $this->assertGreaterThan(0, (int) ($bucket['max'] ?? 0));
+        $this->assertGreaterThan(0, (int) ($bucket['window'] ?? 0));
     }
 
     /** The seed plus the admin/member/moderator fixtures (the FeaturesTest idiom). */
