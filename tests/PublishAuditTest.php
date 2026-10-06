@@ -112,6 +112,23 @@ final class PublishAuditTest extends TestCase
         $this->assertStringContainsString('addable', $out);
     }
 
+    public function test_addable_qa_full_report_fails_the_tree_check(): void
+    {
+        // The qa-full pipeline writes its report into qa-full-reports/ beside
+        // the tree; before the rule existed the audit called such a tree
+        // publishable while `git add -A` staged the internal reports (and
+        // home.html, router.php scratch artifacts) for the public remote.
+        $dir = $this->fixture();
+        mkdir($dir . '/qa-full-reports');
+        file_put_contents($dir . '/qa-full-reports/main-2026-10-04.md', "# internal QA report\n");
+        [$code, $out] = $this->audit('--path ' . escapeshellarg($dir));
+        $this->assertSame(1, $code, $out);
+        $this->assertStringContainsString('[FAIL] tree', $out);
+        // git status reports an untracked non-empty directory as one path.
+        $this->assertStringContainsString('qa-full-reports/', $out);
+        $this->assertStringContainsString('addable', $out);
+    }
+
     public function test_env_in_history_fails_the_history_check_even_after_removal(): void
     {
         $dir = $this->fixture();

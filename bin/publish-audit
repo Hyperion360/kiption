@@ -73,6 +73,7 @@ $RULES = [
     ['CLAUDE.md',           'seg',    'CLAUDE.md'],
     ['Kiption Designs/',    'seg',    'Kiption Designs'],
     ['daily-qa-reports/',   'seg',    'daily-qa-reports'],
+    ['qa-full-reports/',    'seg',    'qa-full-reports'],
     ['.daily-qa-last-run',  'seg',    '.daily-qa-last-run'],
     ['docs/superpowers/',   'prefix', 'docs/superpowers'],
 ];
