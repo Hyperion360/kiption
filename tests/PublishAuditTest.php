@@ -174,6 +174,37 @@ final class PublishAuditTest extends TestCase
         $this->assertStringContainsString('1 check(s) failed', $out);
     }
 
+    public function test_hosted_pipe_prose_fails_the_boundary_check(): void
+    {
+        // The deep-scan class the identifier probes cannot see: ordinary
+        // prose about the hosted install pipe (its verbs, its tier
+        // vocabulary). Concatenated so this tracked test file never carries
+        // a contiguous probe string.
+        $dir = $this->fixture();
+        $stamp = 'provisio' . 'ner';
+        $verb = 'provisio' . 'ning';
+        $plural = 'ten' . 'ants';
+        file_put_contents($dir . '/src/notes.md',
+            "The hosted {$stamp}'s stamp runs db:blank too; {$verb} writes the footer flag for Pro {$plural}.\n");
+        $this->commit($dir, 'add prose');
+        [$code, $out] = $this->audit('--path ' . escapeshellarg($dir));
+        $this->assertSame(1, $code, $out);
+        $this->assertStringContainsString('[FAIL] boundary', $out);
+        $this->assertStringContainsString('src/notes.md', $out);
+    }
+
+    public function test_ordinary_provisional_english_still_passes_the_boundary_check(): void
+    {
+        // Guard the prose probes against false positives: "provisional" is
+        // ordinary English (import dates) and must not trip the gate.
+        $dir = $this->fixture();
+        file_put_contents($dir . '/src/notes.md', "Zero-date stories keep the provisional date on import.\n");
+        $this->commit($dir, 'add prose');
+        [$code, $out] = $this->audit('--path ' . escapeshellarg($dir));
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('[ ok ] boundary', $out);
+    }
+
     public function test_missing_license_fails_the_docs_check(): void
     {
         $dir = $this->fixture();

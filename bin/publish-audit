@@ -203,7 +203,10 @@ $boundary = [];
 $boundaryProbes = [
     ['kiption-' . 'cloud', true],   // the private repo's path/name
     ['CLOUD' . '_', false],         // its env/config prefix shapes
-    ['tenant' . '_domains', false], // its registry schema tables
+    ['ten' . 'ant', true],          // its tier vocabulary, schema names to prose
+    ['provisio' . 'ner', true],     // its install-pipe verbs in prose (not
+    ['provisio' . 'ning', true],    // "provisional", which is ordinary
+    ['provisio' . 'ned', true],     // English and stays legal)
 ];
 foreach ($boundaryProbes as [$probe, $ci]) {
     $args = array_merge(['grep', '-n', '-I'], $ci ? ['-i'] : [], ['-e', $probe]);

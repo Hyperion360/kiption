@@ -1,1 +1,2 @@
 Added: bin/publish-audit publish gate (five checks: protected paths in the tree and in all history, secret shapes in history, private-cloud boundary strings in tracked files, required docs; --json mode; exit 0 only when publishable)
+Added: boundary check now also rejects the hosted install pipe's prose stems (tier vocabulary and its verbs), not just identifier shapes; ordinary English such as a provisional import date still passes
