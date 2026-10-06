@@ -1,5 +1,5 @@
 #!/usr/bin/env php
-<?php // bin/publish-audit: the publish gate (publish-pipeline plan, task 1).
+<?php // bin/publish-audit: the publish gate.
 //
 // Audits a git checkout before anything is pushed to a public remote:
 //   1. tree     no tracked or addable path matches the protected set
@@ -170,7 +170,7 @@ $scanAddedLines = static function (array $lines, string $regex, ?callable $verif
 $secrets = [];
 // Pickaxe anchors (-S) narrow each probe to commits where the anchor count
 // changed; the regex then verifies the added line, so the anchor alone never
-// makes a finding (a superset of the plan's -S probe set).
+// makes a finding (a superset of a bare -S probe).
 $shapes = [
     ['aws-access-key', 'AK' . 'IA',          '/AK' . 'IA[0-9A-Z]{16}/'],
     ['github-token',   'gh' . 'p_',          '/gh' . 'p_[A-Za-z0-9]{36,}/'],

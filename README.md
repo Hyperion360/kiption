@@ -13,8 +13,8 @@ README below is the tour.
 - PHP 8.3+ with the pdo_sqlite extension
 - Composer
 - Network access to fetch `kip/framework` from its GitHub repository
-  (during dual-repo framework development, a temporary local path
-  repository pointing at `../MVC-Lite` may be substituted; do not commit it)
+  (during framework development, a temporary Composer path repository
+  pointing at a local kip checkout may be substituted; do not commit it)
 
 ## Hosted or self-hosted
 
@@ -60,8 +60,8 @@ Maintenance mode: `touch app/maintenance.lock` enables it (effective on
 the next request, no restart), `rm app/maintenance.lock` disables it. The
 `KIP_MAINTENANCE=1` environment variable also enables it for deploy-time
 use. `KIP_ENV=dev` bypasses the guard for the developer; note `php bin/kip
-serve` runs in dev mode, so maintenance is observed via a plain
-`php -S` server as shown in the plan's smoke test.
+serve` runs in dev mode, so observe maintenance mode with a plain
+`php -S` server instead.
 
 ## Guides
 
@@ -89,8 +89,8 @@ Anonymous guests are served pre-rendered HTML from `public/cache/` before PHP
 boots. The layer fills itself on first visit; `php bin/kip pages:build`
 pre-renders everything (run it after deploys and imports); `php bin/kip
 pages:prune` wipes it plus the framework page cache (run it after editing
-stories through the built-in admin panel until Plan 5 makes the app's own
-writers the only write path, and after template-only deploys). `php bin/kip
+stories through the built-in admin panel, whose writes do not purge this
+layer, and after template-only deploys). `php bin/kip
 cache:clear` deletes the framework page cache alone (`app/cache.sqlite` and
 its WAL sidecars): a page cached while public stays servable until its TTL
 even after its route gains an auth gate, because the cache answers before
@@ -127,7 +127,7 @@ webserver-served cache files get the same header from the env-gated
 nginx deliberately has NO snippet here: `try_files` cannot express the
 cookie and query conditions, and the map- or internal-location workarounds
 have not been validated on a real server. A tested webserver cookbook
-(nginx included) is a tracked TODO; until then, nginx users get the PHP
+(nginx included) is on the roadmap; until then, nginx users get the PHP
 fallback, which is fully correct.
 
 ## Languages (interface packs)
