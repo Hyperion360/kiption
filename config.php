@@ -35,6 +35,7 @@ return [
         'queue'         => ['max' => 30, 'window' => 60],
         'templates'     => ['max' => 30, 'window' => 60],
         'features'      => ['max' => 30, 'window' => 60],
+        'settings'      => ['max' => 30, 'window' => 60],  // the operator settings board's save
         'images'        => ['max' => 10, 'window' => 60],  // per-request upload cost
         'wrangling'     => ['max' => 60, 'window' => 60],
         'adminstories'  => ['max' => 60, 'window' => 60],
