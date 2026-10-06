@@ -73,10 +73,14 @@ final class RecommendController
 
     /** One line, at most 200 characters: the note rides the profile's
      *  GROUP_CONCAT blob, so a newline would break the one-line list shape
-     *  and an essay would drown it. */
+     *  and an essay would drown it. '|' and '~' are the blob's field and row
+     *  delimiters; a note carrying them would shift the decode's parsed
+     *  fields (a pipe-delimited slug-shaped token steals the slug anchor and
+     *  the shelf links a 404), so both are spaces before the row lands. */
     private function oneLineNote(): string
     {
         $note = trim($this->request->postStr('note'));
+        $note = (string) preg_replace('/[|~]+/', ' ', $note);
         return mb_substr((string) preg_replace('/\s+/u', ' ', $note), 0, 200);
     }
 }

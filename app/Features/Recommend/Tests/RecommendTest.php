@@ -145,6 +145,18 @@ final class RecommendTest extends TestCase
         $this->assertSame(200, mb_strlen((string) $this->db->one('SELECT note FROM recommendations')['note']));
     }
 
+    /** The note rides the profile fold's GROUP_CONCAT blob, where '|' and '~'
+     *  are the field and row delimiters; a note carrying them corrupts the
+     *  decode (qa-full 2026-10-04: a note like "love | part-two | it" shifted
+     *  the parsed slug onto part-two and the shelf linked a 404). The write
+     *  side replaces both with spaces before the row ever lands. */
+    public function test_a_note_cannot_smuggle_the_fold_delimiters(): void
+    {
+        $client = $this->client($this->memberId);
+        $client->postWithToken('/recommend/add/the-rabbit-hole', ['note' => "love | part-two | it~~a lot"]);
+        $this->assertSame('love part-two it a lot', (string) $this->db->one('SELECT note FROM recommendations')['note']);
+    }
+
     public function test_the_31st_recommend_in_the_window_hits_the_rate_limit(): void
     {
         // The real map entry (config.php: 'recommend' => 30/60, keyed by the
