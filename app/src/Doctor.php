@@ -54,7 +54,7 @@ final class Doctor
     private static function migrationsApplied(array $env): int
     {
         // is_file FIRST: a diagnostic must never create the database it is checking.
-        // The configured DSN wins (tests and provisioned installs point it elsewhere);
+        // The configured DSN wins (tests and scripted installs point it elsewhere);
         // the app_dir default matches a stock config.php install.
         $file = self::sqliteFile((string) ($env['config']['db']['dsn'] ?? ''));
         if ($file === null) $file = $env['app_dir'] . '/data.sqlite';

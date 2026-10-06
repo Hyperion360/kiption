@@ -216,9 +216,8 @@ match ($argv[1] ?? 'help') {
         $seedNav();
         echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category, five-link starter nav).\n";
     })(),
-    // The fresh-install path: taxonomy and nav, never demo content (the
-    // hosted provisioner's stamp runs this too; self-hosters get an empty
-    // but usable archive instead of demo stories).
+    // The fresh-install path: taxonomy and nav, never demo content (an
+    // empty but usable archive instead of demo stories).
     'db:blank' => (function () use ($config, $seedNav) {
         $db = new Kip\Database($config['db']['dsn']);
         try {
