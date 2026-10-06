@@ -1,1 +1,0 @@
-Added: bin/publish-audit publish gate (protected paths in tree and history, secret shapes, private-cloud boundary strings incl. the hosted pipe prose stems, required docs; --json mode; exit 0 only when publishable)

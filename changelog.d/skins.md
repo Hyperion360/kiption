@@ -1,1 +1,0 @@
-Added: operator skins (classic, manuscript) as view-override directories under app/skins with the views_override boot seam in both entrypoints, a skin select on the /settings board that purges the static layer on save, and SKINS.md as the authoring guide
