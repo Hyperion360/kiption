@@ -253,4 +253,35 @@ final class SearchTest extends TestCase
         $this->assertSame(200, $res->status);
         $this->assertLessThanOrEqual(1, $queries, "search ran {$queries} content queries, budget is 1");
     }
+
+    /** Perf regression guard (qa-full 2026-10-07, probed on a 1,500-story /
+     *  6,000-chapter scratch archive): the FTS ranking statement MUST keep the
+     *  per-story aggregate in the fts_matches CTE and pin it as the OUTER loop
+     *  with CROSS JOIN. The pre-fix shape (JOIN stories ... GROUP BY s.id, ...
+     *  ORDER BY rank LIMIT) let the planner flip stories to the outer loop and
+     *  re-run the FTS co-routine once per grouped row: 10.0-13.1s median for a
+     *  token matching every chapter, 0.78s even for a rare token. The fixed
+     *  statement runs the same archive at 14ms median. EQP loop order is
+     *  deterministic here because CROSS JOIN is a hard ordering constraint. */
+    public function test_fts_statement_pins_the_aggregate_as_the_outer_loop(): void
+    {
+        $db = $this->db();
+        $repo = new \App\Repositories\SearchRepository($db);
+        $sqls = [];
+        $db->onQuery(function (string $sql) use (&$sqls): void { $sqls[] = $sql; });
+        $repo->searchWithTaxonomies('rabbit', [], 20, 0, 1, 1);
+        $db->onQuery(fn () => null);
+        $fts = array_values(array_filter($sqls, fn (string $s): bool => str_contains($s, 'bm25(')));
+        $this->assertCount(1, $fts, 'exactly one FTS ranking statement per search');
+        $this->assertStringContainsString('WITH fts_matches', $fts[0], 'the per-story aggregate rides a CTE');
+        $this->assertStringContainsString('CROSS JOIN stories s', $fts[0], 'the CTE is pinned as the outer loop');
+        $st = $db->query('EXPLAIN QUERY PLAN ' . $fts[0]);
+        $details = array_column($st->fetchAll(), 'detail');
+        $mScan = array_search('SCAN m', $details, true);
+        $sSeek = (int) array_search('SEARCH s USING INTEGER PRIMARY KEY (rowid=?)', $details, true);
+        $this->assertNotFalse($mScan, 'the aggregate co-routine is scanned once');
+        $this->assertGreaterThan($mScan, $sSeek, 'stories must be sought per aggregate row, never the reverse');
+        // and the page still answers through the guarded statement
+        $this->assertSame('the-rabbit-hole', $repo->searchWithTaxonomies('rabbit', [], 20, 0, 0)['rows'][0]['slug'] ?? null);
+    }
 }

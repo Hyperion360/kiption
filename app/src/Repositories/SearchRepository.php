@@ -44,13 +44,13 @@ final class SearchRepository
      *  taxonomy-only compound, mode 'none', no results query. FTS failures
      *  (missing virtual tables, PDOException) memoize the negative and fall
      *  back to the LIKE fold (finding 6: never probe ftsAvailable() here).
-     *  Binds, strictly by SQL text order (COUNT the ?s against the array):
-     *  taxonomy branches carry none; the results subselect keeps the Task 2
-     *  bind orders verbatim with the Task 2 mute viewer slotted immediately
-     *  after the restricted-gate $me (the clause rides right after
-     *  fromGates' CAST in text) - FTS [$match, $match, $me, $viewer,
-     *  ...filters..., perPage+1, $offset] (the MATCH ?s live in the FROM
-     *  derived table, binding before fromGates' WHERE CAST), LIKE [$me,
+ *  Binds, strictly by SQL text order (COUNT the ?s against the array):
+ *  taxonomy branches carry none; the results subselect keeps the Task 2
+ *  bind orders verbatim with the Task 2 mute viewer slotted immediately
+ *  after the restricted-gate $me (the clause rides right after fromGates'
+ *  CAST in text) - FTS [$match, $match, $me, $viewer,
+ *  ...filters..., perPage+1, $offset] (the MATCH ?s live in the fts_matches
+ *  CTE, binding before fromGates' WHERE CAST), LIKE [$me,
      *  $viewer, ...filters..., $like x3, perPage+1, $offset]. Anonymous
      *  callers ($viewer = 0) keep the exact pre-mute statements.
      *  @param array{category?:string,rating_id?:int,completed?:bool,language?:string} $filters
@@ -77,13 +77,7 @@ final class SearchRepository
                     $taxonomy . " UNION ALL
                     SELECT 's', ROW_NUMBER() OVER (ORDER BY st.rank ASC), st.slug, st.title, st.summary,
                            st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-                    FROM (SELECT {$this->selectList()}, MIN(f.rank) AS rank FROM (
-                            SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
-                            UNION
-                            SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
-                          ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$mute}{$this->chapterGate()}{$filter}
-                          GROUP BY s.id, s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label
-                          ORDER BY rank ASC LIMIT ? OFFSET ?) st
+                    FROM ({$this->ftsStatement($mute, $filter)}) st
                     ORDER BY k, p",
                     $params
                 );
@@ -166,41 +160,68 @@ final class SearchRepository
      *  blob, /story/read), so search must not make pending chapter text or
      *  titles discoverable ahead of moderation. Story-arm rows carry a NULL
      *  chapter_id and pass untouched. Param-free: the documented bind arrays
-     *  are unchanged. */
+     *  are unchanged. Rides INSIDE the fts_matches CTE as its WHERE, before
+     *  the per-story fold. */
     private function chapterGate(): string
     {
-        return ' AND (f.chapter_id IS NULL OR EXISTS (SELECT 1 FROM chapters c WHERE c.id = f.chapter_id AND c.validated = 1))';
+        return ' WHERE (f.chapter_id IS NULL OR EXISTS (SELECT 1 FROM chapters c WHERE c.id = f.chapter_id AND c.validated = 1))';
     }
 
     public function searchFts(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
     {
         $match = self::matchExpression($q);
         $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
-        // Bind order (finding 2, probed): the two MATCH ?s live in the FROM
-        // derived table, which binds BEFORE fromGates' CAST in the WHERE; the
-        // Task 2 mute viewer sits immediately after that CAST (the clause's
-        // text position); then filter params in filterSql's fixed order; then
-        // LIMIT/OFFSET.
+        // Bind order (finding 2, probed): the two MATCH ?s live in the fts_matches
+        // CTE, which binds BEFORE fromGates' CAST in the WHERE; the Task 2 mute
+        // viewer sits immediately after that CAST (the clause's text position);
+        // then filter params in filterSql's fixed order; then LIMIT/OFFSET.
         $params = [$match, $match, $me];
         if ($viewer > 0) $params[] = $viewer;
         $filter = $this->filterSql($filters, $params);
         $params[] = $perPage + 1; $params[] = $offset;
-        $rows = $this->db->all(
-            "SELECT {$this->selectList()}, MIN(f.rank) AS rank FROM (
-                SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
-                UNION
-                SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
-            ) f JOIN stories s ON s.id = f.story_id {$this->fromGates()}{$mute}{$this->chapterGate()}{$filter}
-            GROUP BY s.id, s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label
-            ORDER BY rank ASC LIMIT ? OFFSET ?",
-            $params
-        );
+        $rows = $this->db->all($this->ftsStatement($mute, $filter), $params);
         $hasMore = count($rows) > $perPage;
         return ['rows' => array_slice($rows, 0, $perPage), 'hasMore' => $hasMore, 'mode' => 'fts'];
         // Finding 3, probed: bm25() CANNOT sit inside MIN(...) GROUP BY in the
         // chapters arm ("unable to use function bm25 in the requested context");
-        // the plain UNION arm is correct because the outer GROUP BY + MIN(f.rank)
-        // already aggregates both arms per story.
+        // the plain UNION arm is correct because the fts_matches CTE already
+        // aggregates both arms per story before the join.
+    }
+
+    /** The FTS ranking statement, shared by /search (wrapped in the taxonomy
+     *  fold) and the searchFts seam. Perf finding 2026-10-07, probed on a
+     *  1,500-story / 6,000-chapter synthetic archive: the old shape
+     *  (JOIN stories ... GROUP BY s.id, ... ORDER BY rank LIMIT) let the
+     *  planner flip stories to the OUTER loop and re-ran the FTS co-routine
+     *  once per grouped output row, so a token matching every chapter cost
+     *  10.0-13.1s median and even a rare token cost 0.78s. The fix aggregates
+     *  per story in the fts_matches CTE first, then pins the CTE as the OUTER
+     *  loop with CROSS JOIN (SQLite's documented join-order constraint; plain
+     *  JOIN is free to reorder and does). Same plan class as the old statement
+     *  in the fast cases, 12.4ms median for the common token after (was
+     *  10,000ms+). Bind positions are unchanged: MATCH, MATCH, the gate CAST,
+     *  then the mute viewer and filter ?s, then LIMIT/OFFSET. Story-level
+     *  gates (validated, deleted, restricted), the mute clause, and the facet
+     *  filters apply AFTER the per-story fold, which is the same result set
+     *  because every one of them is a per-story predicate; the chapter gate
+     *  stays per-f-row inside the CTE, where a story whose only match is an
+     *  unvalidated chapter is dropped before the fold. WITH needs SQLite
+     *  3.8.3 (2014), far below the FTS5 floor this table feature-detects. */
+    private function ftsStatement(string $mute, string $filter): string
+    {
+        return "WITH fts_matches AS (
+                SELECT f.story_id AS story_id, MIN(f.rank) AS rank FROM (
+                    SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts) AS rank FROM stories_fts WHERE stories_fts MATCH ?
+                    UNION
+                    SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
+                ) f{$this->chapterGate()}
+                GROUP BY f.story_id
+            )
+            SELECT {$this->selectList()}, m.rank AS rank FROM fts_matches m
+            CROSS JOIN stories s
+            JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
+            WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}{$filter}
+            ORDER BY rank ASC LIMIT ? OFFSET ?";
     }
 
     public function searchLike(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
