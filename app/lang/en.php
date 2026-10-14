@@ -243,6 +243,12 @@ return [
     'reader.end_of_chapter_titled' => 'End of chapter {n} · {title}',
     'reader.continues' => 'Chapter {roman} continues below',
     'reader.review_link' => 'Review',
+    // The chapter comment thread link (the reader unit's count-free
+    // affordance) and the thread page's own form vocabulary.
+    'reader.comment_on_chapter' => 'Comment on this chapter',
+    'review.chapter_heading' => 'Chapter {n} comments',
+    'review.comment_label' => 'Comment',
+    'review.post_comment' => 'Post comment',
     'reader.bar_aria' => 'Reader controls',
     'reader.contents' => 'Contents',
     'reader.contents_bookmarks' => 'Contents and bookmarks',

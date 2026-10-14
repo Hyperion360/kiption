@@ -153,4 +153,62 @@ final class ChapterReviewTest extends TestCase
         $this->assertStringContainsString('Reviews (1)', $body, 'the headline count excludes the chapter comment');
         $this->assertStringNotContainsString('Chapter-only remark.', $body, 'chapter comments never reach the story feed');
     }
+
+    public function test_member_thread_page_renders_heading_comment_and_reply_form(): void
+    {
+        $this->seedStory('cctest');
+        (new \App\Repositories\ReviewRepository($this->db))->addChapterReview(
+            'cctest', 2, $this->fanId, null, 'The garden scene lands.', '127.0.0.1');
+        $rootId = (int) $this->db->one("SELECT id FROM reviews WHERE body = ? AND parent_id IS NULL", ['The garden scene lands.'])['id'];
+        $res = $this->client($this->fanId)->get('/review/chapter/cctest/2');
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('Chapter 2 comments', $res->body, 'the heading carries the position');
+        $this->assertStringContainsString('The garden scene lands.', $res->body);
+        $this->assertStringContainsString('/review/reply/' . $rootId, $res->body, 'a reply form posts at the comment id');
+    }
+
+    public function test_guest_thread_on_restricted_story_404s_like_unknown_slug(): void
+    {
+        $this->seedStory('restricted-cctest', 1);
+        $restricted = $this->client()->get('/review/chapter/restricted-cctest/2');
+        $unknown = $this->client()->get('/review/chapter/nope/2');
+        $this->assertSame(404, $restricted->status);
+        $this->assertSame(404, $unknown->status);
+        $this->assertSame($unknown->body, $restricted->body, 'no oracle: restricted and unknown slugs are indistinguishable');
+    }
+
+    public function test_unknown_position_thread_404s(): void
+    {
+        $this->seedStory('cctest');
+        $this->assertSame(404, $this->client($this->fanId)->get('/review/chapter/cctest/9')->status);
+    }
+
+    public function test_member_post_addchapter_redirects_notifies_and_threads_replies(): void
+    {
+        $storyId = $this->seedStory('cctest');
+        $authorId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $res = $this->client($this->fanId)->postWithToken('/review/addchapter/cctest/2', ['body' => 'Posted over HTTP.']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame('/review/chapter/cctest/2', $res->headers['Location']);
+        $this->assertStringContainsString('Posted over HTTP.',
+            $this->client($this->fanId)->get('/review/chapter/cctest/2')->body, 'the thread lists the new comment');
+        $note = $this->db->one("SELECT actor_id, story_title FROM notifications WHERE kind = 'review' AND user_id = ?", [$authorId]);
+        $this->assertNotNull($note, 'a review notification exists for the story author');
+        $this->assertSame($this->fanId, (int) $note['actor_id']);
+        $this->assertSame('CCTest', (string) $note['story_title'], 'the notification carries the story title, not null');
+        $rootId = (int) $this->db->one('SELECT id FROM reviews WHERE body = ?', ['Posted over HTTP.'])['id'];
+        $reply = $this->client($this->fanId)->postWithToken('/review/reply/' . $rootId, ['body' => 'A reply over HTTP.']);
+        $this->assertSame(302, $reply->status, $reply->body);
+        $this->assertStringContainsString('A reply over HTTP.',
+            $this->client($this->fanId)->get('/review/chapter/cctest/2')->body, 'replies render in the thread');
+    }
+
+    public function test_guest_post_empty_body_422_and_unknown_position_404(): void
+    {
+        $this->seedStory('cctest');
+        $res = $this->client()->post('/review/addchapter/cctest/2', ['body' => '   ', 'guest_name' => 'G1']);
+        $this->assertSame(422, $res->status, $res->body);
+        $missing = $this->client()->post('/review/addchapter/cctest/9', ['body' => 'Hi.', 'guest_name' => 'G1']);
+        $this->assertSame(404, $missing->status, $missing->body);
+    }
 }
