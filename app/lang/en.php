@@ -59,6 +59,7 @@ return [
     'nav.messages' => 'Messages',
     'nav.admin' => 'Admin',
     'nav.queue' => 'Queue',
+    'nav.invites' => 'Invites',
     'nav.post_news' => 'Post news',
     'nav.site_label' => 'Site',
     'common.done' => 'Done',
@@ -677,6 +678,20 @@ return [
     'wrangling.err_retired' => 'The merge target must be an active tag, not a synonym itself.',
     'story.tags' => 'Tags',
     'story.tags_label' => 'Tags:',
+
+    // The admin invite-code surface (list, mint, revoke-unused). Registration
+    // mode `invite` consumes the codes; this is where they come from.
+    'invites.heading' => 'Invites',
+    'invites.create' => 'Mint invite code',
+    'invites.revoke' => 'Revoke',
+    'invites.none' => 'No invite codes yet.',
+    'invites.code' => 'Code',
+    'invites.created_by' => 'Created by',
+    'invites.created_at' => 'Created',
+    'invites.used_by' => 'Used by',
+    'invites.used_at' => 'Used',
+    'invites.actions' => 'Actions',
+    'invites.used' => 'used',
 
     // The author stats dashboard (member-only, tables and no charts).
     'stats.heading' => 'Your statistics',

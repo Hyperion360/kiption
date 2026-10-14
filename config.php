@@ -38,6 +38,7 @@ return [
         'settings'      => ['max' => 30, 'window' => 60],  // the operator settings board's save
         'images'        => ['max' => 10, 'window' => 60],  // per-request upload cost
         'wrangling'     => ['max' => 60, 'window' => 60],
+        'invites'       => ['max' => 30, 'window' => 60],  // invite mint/revoke POSTs
         'adminstories'  => ['max' => 60, 'window' => 60],
         'adminmembers'  => ['max' => 30, 'window' => 60],
     ],
