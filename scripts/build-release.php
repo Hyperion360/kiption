@@ -284,7 +284,8 @@ function build_release_main(array $args, string $sourceRoot): int
 
     // Stable entry sources (never in the release root, never in the upgrade ZIP).
     $stable = dirname(__DIR__) . '/upgrade';
-    foreach (['dispatch.php', 'stable/public-index.php', 'stable/docroot-index.php'] as $src) {
+    foreach (['dispatch.php', 'stable/public-index.php', 'stable/docroot-index.php',
+        'stable/public-setup.php', 'stable/docroot-setup.php'] as $src) {
         if (!is_file($stable . '/' . $src)) {
             build_release_fail("missing stable wrapper source: upgrade/{$src}");
         }
@@ -311,6 +312,7 @@ function build_release_main(array $args, string $sourceRoot): int
         foreach (['site/public', 'public_html'] as $web) {
             mkdir($tree . '/' . $web, 0775, true);
             copy($stable . '/stable/' . ($web === 'site/public' ? 'public-index.php' : 'docroot-index.php'), $tree . '/' . $web . '/index.php');
+            copy($stable . '/stable/' . ($web === 'site/public' ? 'public-setup.php' : 'docroot-setup.php'), $tree . '/' . $web . '/setup.php');
             copy($sourceRoot . '/public/.htaccess', $tree . '/' . $web . '/.htaccess');
             build_release_copy($sourceRoot . '/public/assets', $tree . '/' . $web . '/assets', 'public/assets/');
         }

@@ -16,6 +16,9 @@ final class SetupTest extends TestCase
 
     protected function tearDown(): void
     {
+        if (getenv('KIPTION_KEEP_TMP') !== false) {
+            return; // debug seam: keep the temp trees for inspection
+        }
         foreach ($this->tmpDirs as $dir) {
             $this->chmodRecursive($dir, 0775);
             $this->rrmdir($dir);
@@ -366,5 +369,626 @@ final class SetupTest extends TestCase
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('refusing to migrate a partial inventory', $e->getMessage());
         }
+    }
+
+    // --------------------------------------------------------- browser setup
+
+    /** Setup config for one disposable install state. */
+    private function setupConfig(string $dataDir, array $overrides = []): array
+    {
+        return [...[
+            'app_dir' => dirname(__DIR__) . '/app',
+            'data_dir' => $dataDir,
+            'db' => ['dsn' => 'sqlite:' . $dataDir . '/data.sqlite'],
+            'public_dir' => $dataDir . '-public',
+            'base_url' => 'http://localhost:8080',
+            'mail' => ['transport' => 'log', 'log_path' => $dataDir . '/mail.log', 'from' => 'noreply@localhost'],
+            'static_cache' => ['enabled' => false, 'dir' => $dataDir . '-public/cache'],
+            'uploads' => ['dir' => $dataDir . '-public/uploads'],
+            'backups' => ['dir' => $dataDir . '/backups'],
+            'nav_file' => $dataDir . '/nav.json',
+            // Test seams (production config.php never sets these): the mail
+            // seam redirects the setup test send to a local log so a test can
+            // complete a "successful send" without a live SMTP peer; the fault
+            // and stall seams drive the recovery and lock tests.
+            'setup_mail_log' => $dataDir . '/setup-mail.log',
+        ], ...$overrides];
+    }
+
+    /** @return array{status:int, headers:list<string>, body:string} */
+    private function callSetup(array $config, array $server, array $post, array &$session): array
+    {
+        static $loaded = false;
+        if (!$loaded) {
+            define('KIPTION_SETUP_LIBRARY_ONLY', 1);
+            require_once dirname(__DIR__) . '/public/setup.php';
+            $loaded = true;
+        }
+        return setup_handle([...$server], $post, [], $config, $session);
+    }
+
+    private function get(array $config, array &$session, array $server = []): array
+    {
+        return $this->callSetup($config, [
+            'REQUEST_METHOD' => 'GET',
+            'REMOTE_ADDR' => '127.0.0.1',
+            ...$server,
+        ], [], $session);
+    }
+
+    private function post(array $config, array $post, array &$session, array $server = []): array
+    {
+        return $this->callSetup($config, [
+            'REQUEST_METHOD' => 'POST',
+            'REMOTE_ADDR' => '127.0.0.1',
+            ...$server,
+        ], $post, $session);
+    }
+
+    private function freshToken(array $config): string
+    {
+        $token = bin2hex(random_bytes(32));
+        file_put_contents($this->tokenPath($config), $token . "\n");
+        chmod($this->tokenPath($config), 0600);
+        return $token;
+    }
+
+    private function tokenPath(array $config): string
+    {
+        return $config['data_dir'] . '/setup-token.txt';
+    }
+
+    /** A CSRF-paired session for POST tests. */
+    private function sessionWithCsrf(array $config): array
+    {
+        $session = [];
+        $this->get($config, $session);
+        return $session;
+    }
+
+    /** @return array<string,string> the full valid operator POST body */
+    private function goodPost(string $token, string $csrf): array
+    {
+        return [
+            'setup_token' => $token,
+            'csrf' => $csrf,
+            'email' => 'owner@archive.example',
+            'password' => 'correct horse battery',
+            'confirm' => 'correct horse battery',
+            'base_url' => 'https://Archive.Example.com/',
+            'mail_transport' => 'smtp',
+            'mail_from' => 'noreply@archive.example',
+            'smtp_host' => 'smtp.archive.example',
+            'smtp_port' => '587',
+            'smtp_username' => 'archive',
+            'smtp_password' => 'smtp-secret-123',
+        ];
+    }
+
+    private function assertSetupClosed(array $config, string $stage, bool $deploymentMayExist = false): void
+    {
+        if (!$deploymentMayExist) {
+            $this->assertFileDoesNotExist($config['data_dir'] . '/deployment.php', "{$stage}: deployment must not be written");
+        }
+        $this->assertFileDoesNotExist($config['data_dir'] . '/setup-complete.lock', "{$stage}: setup must not complete");
+        $dbFile = substr((string) $config['db']['dsn'], strlen('sqlite:'));
+        if (is_file($dbFile)) {
+            $db = new \Kip\Database($config['db']['dsn']);
+            $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], "{$stage}: no admin may exist");
+        }
+    }
+
+    public function test_browser_setup_get(): void
+    {
+        $config = $this->setupConfig($this->tmptree('kiption-setup-'));
+        $session = [];
+
+        // No token: a controlled 404, never a traceback.
+        $r = $this->get($config, $session);
+        $this->assertSame(404, $r['status']);
+        $this->assertStringContainsString('private, no-store', implode("\n", $r['headers']));
+
+        // With the token: the form and a generic preflight summary only.
+        $token = $this->freshToken($config);
+        $r = $this->get($config, $session);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertStringContainsString('setup_token', $r['body']);
+        $this->assertStringContainsString('name="csrf"', $r['body']);
+        $this->assertStringContainsString('private, no-store', implode("\n", $r['headers']));
+        $this->assertStringNotContainsString($token, $r['body'], 'the token never renders');
+        $this->assertStringNotContainsString($config['data_dir'], $r['body'], 'no filesystem paths');
+        $this->assertStringNotContainsString('noreply@', $r['body'], 'no configuration values');
+
+        // GET initializes nothing.
+        $this->assertFileDoesNotExist(substr((string) $config['db']['dsn'], 7));
+        $this->assertFileDoesNotExist($config['data_dir'] . '/deployment.php');
+        $this->assertFileDoesNotExist($config['data_dir'] . '/setup-complete.lock');
+        $this->assertFileExists($this->tokenPath($config), 'GET keeps the token usable');
+    }
+
+    public function test_browser_setup_post_token_failures(): void
+    {
+        $config = $this->setupConfig($this->tmptree('kiption-setup-'));
+        $this->freshToken($config);
+        $session = $this->sessionWithCsrf($config);
+        $csrf = $session['setup_csrf'];
+
+        foreach (['', str_repeat('a', 64), '../etc/passwd', bin2hex(random_bytes(31))] as $bad) {
+            $body = $this->goodPost($bad, $csrf);
+            unset($body['setup_token']);
+            if ($bad !== '') {
+                $body['setup_token'] = $bad;
+            }
+            $r = $this->post($config, $body, $session);
+            $this->assertSame(403, $r['status'], "token [{$bad}] must fail");
+            $this->assertStringNotContainsString($config['data_dir'], $r['body']);
+        }
+        $this->assertSetupClosed($config, 'bad tokens');
+        $this->assertFileExists($this->tokenPath($config), 'failures keep the token');
+        $this->assertFileExists($config['data_dir'] . '/setup-attempts', 'failures are rate-counted');
+
+        // The tenth-minute window: the eleventh failure is turned away.
+        for ($i = 0; $i < 10; $i++) {
+            $r = $this->post($config, $this->goodPost('wrong', $csrf), $session);
+            $this->assertContains($r['status'], [403, 429], 'attempt ' . $i);
+        }
+        $r = $this->post($config, $this->goodPost('wrong', $csrf), $session);
+        $this->assertSame(429, $r['status'], 'the window closes after repeated failures');
+
+        // Time passes; the window reopens.
+        $later = [...$config, 'setup_now' => time() + 601];
+        $r = $this->post($later, $this->goodPost('wrong', $csrf), $session);
+        $this->assertSame(403, $r['status'], 'an expired window no longer rate-limits');
+    }
+
+    public function test_browser_setup_post_validations(): void
+    {
+        $config = $this->setupConfig($this->tmptree('kiption-setup-'));
+        $token = $this->freshToken($config);
+        $session = $this->sessionWithCsrf($config);
+        $csrf = $session['setup_csrf'];
+
+        $cases = [
+            'plain http url' => ['base_url' => 'http://archive.example.com'],
+            'localhost url' => ['base_url' => 'https://localhost/'],
+            'userinfo url' => ['base_url' => 'https://u:p@archive.example.com/'],
+            'query url' => ['base_url' => 'https://archive.example.com/?x=1'],
+            'fragment url' => ['base_url' => 'https://archive.example.com/#f'],
+            'path url' => ['base_url' => 'https://archive.example.com/forum'],
+            'log transport' => ['mail_transport' => 'log'],
+            'smtp missing host' => ['smtp_host' => ''],
+            'smtp missing port' => ['smtp_port' => ''],
+            'smtp missing username' => ['smtp_username' => ''],
+            'smtp missing password' => ['smtp_password' => ''],
+            'invalid admin email' => ['email' => 'not-an-email'],
+            'short password' => ['password' => 'short', 'confirm' => 'short'],
+            'invalid sender' => ['mail_from' => 'not-an-email'],
+        ];
+        foreach ($cases as $name => $override) {
+            $r = $this->post($config, [...$this->goodPost($token, $csrf), ...$override], $session);
+            $this->assertSame(400, $r['status'], "{$name} must fail validation: {$r['body']}");
+            $this->assertStringNotContainsString('smtp-secret-123', $r['body'], 'no credential echo');
+            $this->assertSetupClosed($config, $name);
+        }
+        $this->assertFileExists($this->tokenPath($config), 'validation failures keep the token usable');
+    }
+
+    public function test_browser_setup_csrf_and_origin(): void
+    {
+        $config = $this->setupConfig($this->tmptree('kiption-setup-'));
+        $token = $this->freshToken($config);
+        $session = $this->sessionWithCsrf($config);
+        $csrf = $session['setup_csrf'];
+        $good = $this->goodPost($token, $csrf);
+
+        $r = $this->post($config, $good, $session, ['HTTP_ORIGIN' => 'https://evil.example']);
+        $this->assertSame(403, $r['status'], 'a foreign Origin fails');
+        $this->assertSetupClosed($config, 'foreign origin');
+
+        $badCsrf = [...$good, 'csrf' => str_repeat('0', 64)];
+        $r = $this->post($config, $badCsrf, $session, ['HTTP_ORIGIN' => 'https://archive.example.com']);
+        $this->assertSame(403, $r['status'], 'a wrong CSRF token fails');
+
+        $noCsrf = $good;
+        unset($noCsrf['csrf']);
+        $r = $this->post($config, $noCsrf, $session);
+        $this->assertSame(403, $r['status'], 'a missing CSRF token fails');
+
+        // Plain HTTP from a public address is refused before anything runs.
+        $r = $this->post($config, $good, $session, ['REMOTE_ADDR' => '203.0.113.9', 'HTTP_ORIGIN' => 'http://archive.example.com']);
+        $this->assertSame(403, $r['status'], 'setup requires HTTPS off-loopback');
+        $this->assertFileExists($this->tokenPath($config));
+    }
+
+    public function test_browser_setup_happy_path(): void
+    {
+        $config = $this->setupConfig($this->tmptree('kiption-setup-'));
+        $token = $this->freshToken($config);
+        $session = $this->sessionWithCsrf($config);
+
+        $r = $this->post($config, $this->goodPost($token, $session['setup_csrf']), $session,
+            ['HTTP_ORIGIN' => 'https://archive.example.com']);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertStringContainsString('invite', $r['body'], 'the completion page explains invite-only start');
+        $this->assertStringContainsString('/settings', $r['body'], 'the completion page points at the settings board');
+        $this->assertStringNotContainsString('smtp-secret-123', $r['body'], 'no credential echo');
+
+        // The test send went out to the admin address.
+        $mail = (string) file_get_contents($config['setup_mail_log']);
+        $this->assertStringContainsString('owner@archive.example', $mail);
+        $this->assertStringContainsString('Kiption mail test', $mail);
+
+        // The private deployment record: canonical URL, public path, mail, invite mode.
+        $deployment = require $config['data_dir'] . '/deployment.php';
+        $this->assertSame('https://archive.example.com', $deployment['base_url'], 'URL is canonical (lowercase host, no path)');
+        $this->assertSame($config['public_dir'], $deployment['public_dir']);
+        $this->assertSame('smtp', $deployment['mail']['transport']);
+        $this->assertSame(587, $deployment['mail']['port']);
+        $this->assertSame('invite', $deployment['registration_mode']);
+        $this->assertSame('0600', substr(sprintf('%o', fileperms($config['data_dir'] . '/deployment.php')), -4));
+
+        // Exactly one admin, born verified and approved.
+        $db = new \Kip\Database($config['db']['dsn']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $admin = $db->one("SELECT is_admin, email_verified_at, approved_at FROM users WHERE email = 'owner@archive.example'");
+        $this->assertSame(1, (int) $admin['is_admin']);
+        $this->assertNotNull($admin['email_verified_at']);
+        $this->assertNotNull($admin['approved_at']);
+
+        // Setup closes forever.
+        $this->assertFileExists($config['data_dir'] . '/setup-complete.lock');
+        $this->assertFileDoesNotExist($this->tokenPath($config));
+        $this->assertSame(404, $this->get($config, $session)['status']);
+        $this->assertSame(404, $this->post($config, $this->goodPost($token, $session['setup_csrf']), $session)['status']);
+    }
+
+    public function test_browser_setup_concurrent_posts_yield_one_winner(): void
+    {
+        $home = $this->tmptree('kiption-race-');
+        $config = $this->setupConfig($home . '/shared');
+        mkdir($config['data_dir'], 0775, true);
+        mkdir($config['public_dir'], 0775, true);
+        $token = $this->freshToken($config);
+        file_put_contents($home . '/config.php', '<?php return ' . var_export($config, true) . ";\n");
+        file_put_contents($home . '/harness.php', $this->harnessSource());
+
+        $spec = fn (string $who): string => json_encode([
+            'harness' => $home . '/harness.php', 'setup' => dirname(__DIR__) . '/public/setup.php',
+            'config' => $home . '/config.php',
+            'result' => $home . '/result-' . $who . '.json',
+            'ready' => $home . '/ready-' . $who,
+            'go' => $home . '/go',
+            'post' => $this->goodPost($token, '{csrf}'),
+            'origin' => 'https://archive.example.com',
+            'server' => ['REMOTE_ADDR' => '127.0.0.1'],
+        ], JSON_UNESCAPED_SLASHES);
+        file_put_contents($home . '/spec-a.json', $spec('a'));
+        file_put_contents($home . '/spec-b.json', $spec('b'));
+        $run = static function (string $specFile) use ($home): mixed {
+            $pipes = [];
+            $log = str_replace('.json', '.stderr.log', $specFile);
+            $proc = proc_open([PHP_BINARY, $home . '/harness.php', $specFile],
+                [1 => ['file', '/dev/null', 'w'], 2 => ['file', $log, 'w']], $pipes);
+            if (!is_resource($proc)) {
+                fwrite(STDERR, "harness failed to start: {$specFile}\n");
+                exit(1);
+            }
+            return $proc;
+        };
+        $pa = $run($home . '/spec-a.json');
+        $pb = $run($home . '/spec-b.json');
+
+        // Both racers fetch the form (CSRF), then fire the POST together.
+        $deadline = microtime(true) + 15;
+        while ((!is_file($home . '/ready-a') || !is_file($home . '/ready-b')) && microtime(true) < $deadline) {
+            usleep(50000);
+        }
+        file_put_contents($home . '/go', '1');
+        $deadline = microtime(true) + 90;
+        while ((!is_file($home . '/result-a.json') || !is_file($home . '/result-b.json')) && microtime(true) < $deadline) {
+            usleep(100000);
+        }
+        foreach ([$pa, $pb] as $p) {
+            proc_terminate($p);
+            proc_close($p);
+        }
+
+        $statuses = [];
+        foreach (['a', 'b'] as $who) {
+            $this->assertFileExists($home . "/result-{$who}.json", 'both racers finished');
+            $statuses[] = json_decode((string) file_get_contents($home . "/result-{$who}.json"), true)['status'];
+        }
+        sort($statuses);
+        $this->assertSame([200, 409], $statuses, 'exactly one winner: ' . json_encode($statuses));
+
+        $db = new \Kip\Database($config['db']['dsn']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'one admin, not two');
+        $this->assertFileExists($config['data_dir'] . '/setup-complete.lock');
+        $this->assertFileDoesNotExist($this->tokenPath($config));
+    }
+
+    public function test_browser_setup_killed_worker_releases_the_lock(): void
+    {
+        $home = $this->tmptree('kiption-kill-');
+        $config = $this->setupConfig($home . '/shared');
+        mkdir($config['data_dir'], 0775, true);
+        mkdir($config['public_dir'], 0775, true);
+        $token = $this->freshToken($config);
+        $stall = $home . '/stalled';
+        $config['setup_test_stall'] = $stall;
+        file_put_contents($home . '/config.php', '<?php return ' . var_export($config, true) . ";\n");
+        file_put_contents($home . '/harness.php', $this->harnessSource());
+
+        $spec = json_encode([
+            'harness' => $home . '/harness.php', 'setup' => dirname(__DIR__) . '/public/setup.php',
+            'config' => $home . '/config.php', 'result' => $home . '/result.json',
+            'post' => $this->goodPost($token, '{csrf}'),
+            'origin' => 'https://archive.example.com',
+            'server' => ['REMOTE_ADDR' => '127.0.0.1'],
+        ], JSON_UNESCAPED_SLASHES);
+        file_put_contents($home . '/spec.json', $spec);
+        $pipes = [];
+        $proc = proc_open([PHP_BINARY, $home . '/harness.php', $home . '/spec.json'],
+            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+        $this->assertIsResource($proc);
+
+        // It reaches the POST, takes the lock, and parks inside the mutation.
+        $deadline = microtime(true) + 15;
+        while (!is_file($stall) && microtime(true) < $deadline) {
+            usleep(50000);
+        }
+        $this->assertFileExists($stall, 'the worker holds the lock');
+        $status = proc_get_status($proc);
+        exec('kill -9 ' . (int) $status['pid']);
+        proc_close($proc);
+        $this->assertFileExists($this->tokenPath($config), 'the kill leaves no completion');
+
+        // The next valid POST acquires the released OS lock and finishes.
+        $session = $this->sessionWithCsrf($config);
+        $r = $this->post($config, $this->goodPost($token, $session['setup_csrf']), $session,
+            ['HTTP_ORIGIN' => 'https://archive.example.com']);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $db = new \Kip\Database($config['db']['dsn']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertFileExists($config['data_dir'] . '/setup-complete.lock');
+    }
+
+    public function test_browser_setup_fault_injection_converges_to_one_site(): void
+    {
+        foreach (['migrated', 'blank', 'deployed'] as $fault) {
+            $config = $this->setupConfig($this->tmptree('kiption-fault-'));
+            $token = $this->freshToken($config);
+            $session = $this->sessionWithCsrf($config);
+
+            // The faulted run reports a generic failure and keeps the token.
+            $r = $this->post([...$config, 'setup_test_fault' => $fault],
+                $this->goodPost($token, $session['setup_csrf']), $session,
+                ['HTTP_ORIGIN' => 'https://archive.example.com']);
+            $this->assertSame(500, $r['status'], "{$fault}: the fault surfaces as a server error");
+            $this->assertFileExists($this->tokenPath($config), "{$fault}: token survives the fault");
+            $this->assertStringNotContainsString('<?php', $r['body'], "{$fault}: no source or trace leak");
+            $this->assertSetupClosed($config, $fault, $fault === 'deployed');
+
+            // The retry (fault off) converges to exactly one complete site.
+            $r2 = $this->post($config, $this->goodPost($token, $session['setup_csrf']), $session,
+                ['HTTP_ORIGIN' => 'https://archive.example.com']);
+            $this->assertSame(200, $r2['status'], "{$fault}: retry completes: {$r2['body']}");
+            $db = new \Kip\Database($config['db']['dsn']);
+            $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], "{$fault}: one admin");
+            $this->assertFileExists($config['data_dir'] . '/setup-complete.lock');
+            $this->assertFileDoesNotExist($this->tokenPath($config));
+        }
+    }
+
+    public function test_browser_setup_admin_fault_goes_through_owner_recovery(): void
+    {
+        $config = $this->setupConfig($this->tmptree('kiption-recover-'));
+        $token = $this->freshToken($config);
+        $session = $this->sessionWithCsrf($config);
+
+        // The crash lands after admin creation, before the completion marker.
+        $r = $this->post([...$config, 'setup_test_fault' => 'admin'],
+            $this->goodPost($token, $session['setup_csrf']), $session,
+            ['HTTP_ORIGIN' => 'https://archive.example.com']);
+        $this->assertSame(500, $r['status']);
+        $db = new \Kip\Database($config['db']['dsn']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the admin exists');
+        $this->assertFileDoesNotExist($config['data_dir'] . '/setup-complete.lock');
+
+        // GET now shows the owner-recovery form.
+        $r = $this->get($config, $session);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertStringContainsString('recover', strtolower($r['body']));
+
+        // A token POST cannot create another admin: the gate denies it.
+        $r = $this->post($config, $this->goodPost($token, $session['setup_csrf']), $session,
+            ['HTTP_ORIGIN' => 'https://archive.example.com']);
+        $this->assertSame(403, $r['status']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+
+        // Wrong password fails closed.
+        $r = $this->post($config, [
+            'recover_email' => 'owner@archive.example', 'recover_password' => 'wrong-password',
+            'csrf' => $session['setup_csrf'],
+        ], $session);
+        $this->assertSame(403, $r['status']);
+        $this->assertFileDoesNotExist($config['data_dir'] . '/setup-complete.lock');
+
+        // The owner finalizes with the real admin credentials.
+        $r = $this->post($config, [
+            'recover_email' => 'owner@archive.example', 'recover_password' => 'correct horse battery',
+            'csrf' => $session['setup_csrf'],
+        ], $session);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertFileExists($config['data_dir'] . '/setup-complete.lock');
+        $this->assertFileDoesNotExist($this->tokenPath($config));
+        $this->assertSame(404, $this->get($config, $session)['status']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'recovery never duplicates the admin');
+    }
+
+    public function test_browser_setup_session_cookie_params(): void
+    {
+        $params = \App\Setup\SetupGate::sessionCookieParams();
+        $this->assertTrue($params['secure']);
+        $this->assertTrue($params['httponly']);
+        $this->assertSame('Lax', $params['samesite']);
+    }
+
+    public function test_setup_state_serves_a_generic_503_from_the_front_controller(): void
+    {
+        $home = $this->tmptree('kiption-503gate-');
+        $shared = $home . '/shared';
+        $public = $home . '/public';
+        mkdir($shared, 0775, true);
+        mkdir($public, 0775, true);
+        $prepend = $home . '/prepend.php';
+        file_put_contents($prepend, '<?php
+define("KIPTION_ROOT", ' . var_export(dirname(__DIR__), true) . ');
+define("KIPTION_SHARED_DIR", ' . var_export($shared, true) . ');
+define("KIPTION_PUBLIC_DIR", ' . var_export($public, true) . ');
+');
+        // Pending setup state: the front controller must 503 before anything else.
+        file_put_contents($shared . '/setup-token.txt', bin2hex(random_bytes(32)) . "\n");
+
+        $port = $this->freePort(8097);
+        $handle = proc_open(
+            [PHP_BINARY, '-d', 'auto_prepend_file=' . $prepend, '-S', '127.0.0.1:' . $port, '-t', $public, dirname(__DIR__) . '/public/index.php'],
+            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+            $pipes
+        );
+        $this->assertIsResource($handle);
+        try {
+            $deadline = microtime(true) + 10;
+            while (@fsockopen('127.0.0.1', $port, timeout: 0.2) === false && microtime(true) < $deadline) {
+                usleep(100000);
+            }
+            $this->assertSame(503, $this->httpStatus($port, '/'));
+            $this->assertSame(503, $this->httpStatus($port, '/browse'));
+            $body = (string) $this->httpBody($port, '/');
+            $this->assertStringNotContainsString($home, $body, 'no filesystem paths in the gate');
+            $this->assertSame([], glob($public . '/cache/*.html') ?: [], 'no setup response lands in the static cache');
+        } finally {
+            proc_terminate($handle);
+            proc_close($handle);
+        }
+    }
+
+    public function test_web_and_cli_boot_the_same_deployment(): void
+    {
+        $home = $this->tmptree('kiption-parity-deploy-');
+        $shared = $home . '/shared';
+        mkdir($shared, 0775, true);
+        file_put_contents($shared . '/deployment.php', "<?php\nreturn [\n"
+            . "    'public_dir' => " . var_export($home . '/public_html', true) . ",\n"
+            . "    'base_url' => 'https://archive.example.com',\n"
+            . "    'mail' => ['transport' => 'log', 'log_path' => " . var_export($shared . '/mail.log', true) . ", 'from' => 'noreply@archive.example'],\n"
+            . "    'registration_mode' => 'invite',\n"
+            . "];\n");
+        // One subprocess per side: constants must not leak across tests.
+        $read = static function (string $side) use ($shared): array {
+            $code = 'define("KIPTION_SHARED_DIR", ' . var_export($shared, true) . ');'
+                . '$c = require ' . var_export(dirname(__DIR__) . '/config.php', true) . ';'
+                . 'echo json_encode(["base_url" => $c["base_url"], "mail" => $c["mail"], "registration_mode" => $c["registration_mode"]]);';
+            $out = shell_exec(sprintf('%s -r %s 2>&1', escapeshellarg(PHP_BINARY), escapeshellarg($code)));
+            $decoded = json_decode((string) $out, true);
+            return is_array($decoded) ? $decoded : [];
+        };
+        foreach (['web' => 'w', 'cli' => 'c'] as $side) {
+            $r = $read((string) $side);
+            $this->assertSame('https://archive.example.com', $r['base_url'], "{$side} boots the canonical URL");
+            $this->assertSame('invite', $r['registration_mode'], "{$side} boots invite-only");
+            $this->assertSame('noreply@archive.example', $r['mail']['from'], "{$side} boots the recorded mail");
+        }
+
+        // After the operator opts into verify mode, registration links use the
+        // canonical URL: one registration through the front controller.
+        $config = $this->setupConfig($home . '/data', [
+            'base_url' => 'https://archive.example.com',
+            'registration_mode' => 'verify',
+            'mail' => ['transport' => 'log', 'log_path' => $home . '/data/mail.log', 'from' => 'noreply@archive.example'],
+            'db' => ['dsn' => 'sqlite:' . $home . '/data/data.sqlite'],
+        ]);
+        mkdir($home . '/data', 0775, true);
+        Install::fresh($config, 'seed@archive.example', 'password123');
+        $app = new \Kip\App([
+            'app_dir' => dirname(__DIR__) . '/app',
+            'env' => 'prod',
+            'views' => dirname(__DIR__) . '/app/views',
+            'db' => $config['db'],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+            'base_url' => 'https://archive.example.com',
+            'registration_mode' => 'verify',
+            'mail' => $config['mail'],
+            'features' => ['comments' => false, 'pms' => false],
+        ]);
+        $client = new \Kip\Testing\TestClient($app);
+        $res = $client->post('/auth/store', ['penname' => 'rhea', 'email' => 'rhea@archive.example',
+            'password' => 'password123', 'confirm' => 'password123']);
+        $this->assertSame(302, $res->status, substr($res->body, 0, 300));
+        $mail = (string) file_get_contents($home . '/data/mail.log');
+        $this->assertStringContainsString('https://archive.example.com/auth/verify/', $mail);
+    }
+
+    private function freePort(int $start): int
+    {
+        for ($port = $start; $port < $start + 8; $port++) {
+            $sock = @fsockopen('127.0.0.1', $port, timeout: 0.2);
+            if ($sock === false) {
+                return $port;
+            }
+            fclose($sock);
+        }
+        $this->fail('no free port in the ad-hoc range');
+    }
+
+    private function httpStatus(int $port, string $path): int
+    {
+        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
+        $body = @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
+        if ($body === false) {
+            return 0;
+        }
+        $code = 0;
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
+                $code = (int) $m[1];
+            }
+        }
+        return $code;
+    }
+
+    private function httpBody(int $port, string $path): string|false
+    {
+        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
+        return @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
+    }
+
+    /** The child-process harness for the concurrency and killed-worker tests. */
+    private function harnessSource(): string
+    {
+        return <<<'PHP'
+<?php
+define('KIPTION_SETUP_LIBRARY_ONLY', 1);
+$spec = json_decode(file_get_contents($argv[1]), true);
+require $spec['setup'];
+$config = require $spec['config'];
+$session = [];
+$out = setup_handle(['REQUEST_METHOD' => 'GET', 'REMOTE_ADDR' => '127.0.0.1'], [], [], $config, $session);
+if (($out['status'] ?? 0) !== 200) {
+    file_put_contents($spec['result'], json_encode($out));
+    exit(0);
+}
+if (isset($spec['ready'])) {
+    file_put_contents($spec['ready'], '1');
+    $deadline = microtime(true) + 20;
+    while (!is_file($spec['go']) && microtime(true) < $deadline) { usleep(20000); }
+}
+// The CSRF value only exists inside this process's session; the spec carries
+// the '{csrf}' placeholder for it.
+$post = array_map(static fn ($v) => $v === '{csrf}' ? (string) $session['setup_csrf'] : $v, $spec['post']);
+$out = setup_handle(['REQUEST_METHOD' => 'POST', 'REMOTE_ADDR' => '127.0.0.1',
+    'HTTP_ORIGIN' => $spec['origin']] + $spec['server'], $post, [], $config, $session);
+file_put_contents($spec['result'], json_encode($out));
+PHP;
     }
 }

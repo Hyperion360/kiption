@@ -9,6 +9,10 @@ Options -Indexes
     # Block dotfiles (.env, .git, ...), but let ACME's .well-known through
     RewriteRule (^|/)\.(?!well-known/) - [F]
 
+    # Block private setup state by name, wherever a misupload may have put it:
+    # these files live outside the web root in every supported layout.
+    RewriteRule (^|/)(deployment\.php|setup-token\.txt|setup-complete\.lock|setup\.lock|setup-attempts)$ - [F]
+
     # OPTIONAL: serve the static page cache without PHP (shipped commented;
     # the PHP fallback in index.php is the supported path and always correct
     # on its own). Read the README's "Static page cache" section before

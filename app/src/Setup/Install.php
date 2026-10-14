@@ -143,10 +143,21 @@ final class Install
     }
 
     /** True once any administrator exists; setup and fresh-install refuse after this. */
-    public static function hasAdmin(Database $db): bool
+    public static function hasAdmin(Database|array $dbOrConfig): bool
     {
         try {
-            return (int) $db->one('SELECT COUNT(*) c FROM users WHERE is_admin = 1')['c'] > 0;
+            if ($dbOrConfig instanceof Database) {
+                return (int) $dbOrConfig->one('SELECT COUNT(*) c FROM users WHERE is_admin = 1')['c'] > 0;
+            }
+            // A config: never create the database just to ask the question.
+            $dsn = (string) ($dbOrConfig['db']['dsn'] ?? '');
+            if ($dsn !== '' && str_starts_with($dsn, 'sqlite:')) {
+                $file = explode('?', substr($dsn, strlen('sqlite:')), 2)[0];
+                if ($file === '' || $file === ':memory:' || !is_file($file)) {
+                    return false;
+                }
+            }
+            return (int) (new Database($dsn))->one('SELECT COUNT(*) c FROM users WHERE is_admin = 1')['c'] > 0;
         } catch (\Throwable) {
             return false; // unmigrated database: no admin can exist yet
         }

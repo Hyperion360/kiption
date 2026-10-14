@@ -53,6 +53,18 @@ $root = defined('KIPTION_ROOT') ? KIPTION_ROOT : dirname(__DIR__);
 require $root . '/vendor/autoload.php';
 
 $config = require $root . '/config.php';
+
+// Pending browser setup: a generic 503 before the cache, routing, or any
+// session work. File checks only (never the database). setup.php itself
+// stays reachable as a real file; this closes every routed page and stops
+// the static cache from storing anything until setup completes.
+if (\App\Setup\SetupGate::pending($config)) {
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: private, no-store');
+    exit("Kiption is being installed. Try again soon.\n");
+}
+
 $config['views'] = $config['app_dir'] . '/views';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // every view's strings render through the pack layer
 
