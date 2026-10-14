@@ -809,8 +809,8 @@ in `app/backups/` holding `data.sqlite`, `logs.sqlite`, and
 `cache.sqlite`; restoring is unzipping the files back into place. Each
 run prunes archives older than `backups.keep_days` (14 by default), so
 it is safe in cron, and the `KIP_BACKUP_DIR` environment variable
-redirects the archive directory. The archive name has one-second
-resolution: two runs in the same second overwrite the same zip.
+redirects the archive directory. The archive name carries millisecond
+resolution, so back-to-back runs never overwrite each other.
 
 Rate limiting. Every non-GET request passes a fixed-window limiter keyed
 on the first URL segment and the caller IP, counted in `rate_limits`

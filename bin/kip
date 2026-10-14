@@ -202,7 +202,7 @@ match ($argv[1] ?? 'help') {
             'logs'  => $config['log_db']['dsn'] ?? null,
             'cache' => $config['cache_db']['dsn'] ?? null,
         ]), $config['backups']['dir'] ?? $config['app_dir'] . '/backups',
-            (int) ($config['backups']['keep_days'] ?? 14)))->run(date('Ymd-His'));
+            (int) ($config['backups']['keep_days'] ?? 14)))->run((new DateTimeImmutable())->format('Ymd-Hisv')); // milliseconds (date('v') alone is always 000), so same-second runs never overwrite
         echo "Backup written: {$result}\n";
     })(),
     'db:seed' => (function () use ($config, $argv, $seedNav) {

@@ -62,17 +62,20 @@ final class BackupTest extends TestCase
         // the source DB still queries (and holds its rows) after the snapshot
         $this->assertSame($users, (int) $this->db()->one('SELECT COUNT(*) c FROM users')['c']);
         $this->assertGreaterThan(0, (int) $this->db()->one('SELECT COUNT(*) c FROM stories')['c']);
+    }
 
-        // Finding 9: the stamp has 1-second resolution, so back-to-back runs
-        // overwrite the SAME zip; only a run a full second later archives
-        // separately. keepDays pruning is deliberately NOT asserted here:
-        // keepDays=0 prunes by file mtime versus now, and a just-written
-        // archive's mtime IS now, so the comparison races (probed) and can
-        // delete the fresh archive; only the two-archive behavior is pinned.
-        sleep(1);
+    /** Finding 9, fixed: the stamp carries millisecond resolution, so two
+     *  back-to-back runs (launch ops runs cron backups; a manual run can
+     *  follow a cron run inside the same second) produce two archives, never
+     *  a silent overwrite. Deliberately no sleep between the runs. */
+    public function test_backups_in_quick_succession_do_not_collide(): void
+    {
+        [$code1, $out1] = $this->kip('backup');
         [$code2, $out2] = $this->kip('backup');
+        $this->assertSame(0, $code1, $out1);
         $this->assertSame(0, $code2, $out2);
-        $this->assertCount(2, glob($this->root . '/backups/kip-backup-*.zip') ?: [],
-            'a second run a second apart creates a second archive');
+        $zips = glob($this->root . '/backups/kip-backup-*.zip') ?: [];
+        $this->assertCount(2, $zips, 'two same-second runs leave two distinct archives');
+        $this->assertNotEquals(basename($zips[0]), basename($zips[1]));
     }
 }
