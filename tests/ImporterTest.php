@@ -429,6 +429,200 @@ final class ImporterTest extends TestCase
         }
     }
 
+    /** Task 2: the eight legacy ratingwarning bit combinations land as three
+     *  INDEPENDENT gates: bit 2 -> ratings.is_adult, bit 4 -> stories
+     *  .is_restricted, bit 1 counted as an unmigrated acknowledgment gate and
+     *  never turned into an age gate. Every guest surface (page, read, browse,
+     *  search, feed, sitemap, epub, static cache) denies the bit-4 story while
+     *  members read it; bit 2 alone reaches the age consent gate; operator
+     *  edits survive recommit; dry-run persists nothing. */
+    public function test_rating_matrix_preserves_member_and_age_gates(): void
+    {
+        $this->migrate();
+        $b = $this->bundle(function (\EfictionInstall $fx, string $root): void {
+            $p = $fx->prefix;
+            for ($bits = 0; $bits <= 7; $bits++) {
+                $rid = 10 + $bits;
+                $wt = $bits % 2 === 1 ? 'warn ' . $bits : '';
+                $fx->pdo->exec("INSERT INTO {$p}fanfiction_ratings (rid, rating, ratingwarning, warningtext) VALUES ($rid, 'Rate $bits', '$bits', '$wt')");
+                $sid = 100 + $bits;
+                $chapid = 200 + $bits;
+                $fx->pdo->exec("INSERT INTO {$p}fanfiction_stories (sid, title, summary, catid, classes, rid, date, updated, uid, validated, completed, wordcount, count) VALUES ($sid, 'Bit $bits Tale', 'matrix $bits', '0', '0', '$rid', '2011-01-01 00:00:00', '2012-01-01 00:00:00', 1, '1', '0', 5, 0)");
+                $fx->pdo->exec("INSERT INTO {$p}fanfiction_chapters (chapid, title, inorder, storytext, validated, wordcount, sid, uid) VALUES ($chapid, 'Ch', 1, NULL, '1', 5, $sid, 1)");
+                file_put_contents($root . '/src/stories/1/' . $chapid . '.txt', 'Matrix chapter text ' . $bits . '.');
+            }
+        });
+        $db = $this->db();
+
+        // dry-run: the honest preflight renders, nothing persists
+        $dry = $this->import($b, 'dry-run');
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM ratings')['c']);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
+        $this->assertStringContainsString('warning acknowledgment gates not migrated: 4', $dry, 'the preflight counts bits 1, 3, 5, 7');
+
+        $out = $this->import($b, 'commit');
+        $byLabel = [];
+        foreach ($db->all('SELECT r.label, r.is_adult, r.warning_text, s.slug, s.is_restricted FROM ratings r JOIN stories s ON s.rating_id = r.id') as $row) {
+            $byLabel[$row['label']] = $row;
+        }
+        for ($bits = 0; $bits <= 7; $bits++) {
+            $row = $byLabel['Rate ' . $bits];
+            $this->assertSame($bits & 2 ? 1 : 0, (int) $row['is_adult'], "bit $bits must set the age gate exactly");
+            $this->assertSame($bits & 4 ? 1 : 0, (int) $row['is_restricted'], "bit $bits must set the member gate exactly");
+            $this->assertSame($bits % 2 === 1 ? 'warn ' . $bits : '', (string) $row['warning_text'], 'warning text stays display content, verbatim');
+        }
+        $this->assertSame(0, (int) $byLabel['Rate 1']['is_adult'], 'bit 1 alone is never an age gate');
+        $this->assertStringContainsString('warning acknowledgment gates not migrated: 4', $out);
+        // an unresolved legacy rid falls back to Unrated and stays public
+        $this->assertSame(0, (int) $db->one("SELECT is_restricted FROM stories WHERE slug = 'legacy-tale'")['is_restricted']);
+
+        $restricted = (string) $byLabel['Rate 4']['slug'];
+        $this->assertSame('bit-4-tale', $restricted);
+        $adult = (string) $byLabel['Rate 2']['slug'];
+        $public = (string) $byLabel['Rate 0']['slug'];
+
+        // every anonymous surface denies the member-only story
+        $guest = new \Kip\Testing\TestClient(new \Kip\App($this->config()));
+        $res = $guest->get('/story/view/' . $restricted);
+        $this->assertSame(404, $res->status);
+        $this->assertStringNotContainsString('Matrix chapter text 4', $res->body);
+        $this->assertSame(404, $guest->get('/story/read/' . $restricted . '/1')->status);
+        $browse = $guest->get('/browse/recent')->body;
+        $this->assertStringNotContainsString('Bit 4 Tale', $browse, '/browse leaked a restricted title');
+        $this->assertStringContainsString('Bit 0 Tale', $browse, 'public stories still list');
+        $this->assertStringNotContainsString('bit-4-tale', $guest->get('/search', ['q' => 'Bit 4 Tale'])->body, '/search leaked a restricted story');
+        $this->assertStringNotContainsString('Bit 4 Tale', $guest->get('/feed')->body, '/feed leaked a restricted title');
+        $this->assertSame(404, $guest->get('/story/download/' . $restricted . '/epub')->status, 'the public export is denied');
+        // the generated sitemap omits the restricted URL and lists the public one
+        $pub = $this->roots[0] . '/sitemap-public';
+        \App\Seo\Sitemap::writeAll($db, $pub, 'https://archive.example', $this->config());
+        $all = '';
+        foreach (glob($pub . '/sitemap*.xml') ?: [] as $f) { $all .= (string) file_get_contents($f); }
+        $this->assertStringContainsString('/story/view/' . $public, $all, 'the sitemap still lists public stories');
+        $this->assertStringNotContainsString($restricted, $all, 'the sitemap leaked the restricted story URL');
+        // no public cache artifact for it, and the layer serves nothing
+        $cache = new \App\StaticCache\Cache($this->cacheDir);
+        $req = new \Kip\Http\Request('GET', '/story/view/' . $restricted, [], [], []);
+        $this->assertNull($cache->serve($req));
+        $this->assertFileDoesNotExist($this->cacheDir . '/story/view/' . $restricted . '/index.html');
+        // a member reads the same story
+        $member = (new \Kip\Testing\TestClient(new \Kip\App($this->config())))->actingAs(1);
+        $res = $member->get('/story/view/' . $restricted);
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('Registered readers only', $res->body);
+
+        // bit 2 alone reaches the age gate; the consent cookie opens it
+        $gate = $guest->get('/story/read/' . $adult . '/1');
+        $this->assertSame(200, $gate->status);
+        $this->assertStringContainsString('Content warning', $gate->body, 'the age gate engaged');
+        $this->assertStringNotContainsString('Matrix chapter text 2', $gate->body);
+        $consented = new \Kip\Testing\TestClient(new \Kip\App($this->config()));
+        $consented->cookie(\App\AgeGate::COOKIE, '1');
+        $open = $consented->get('/story/read/' . $adult . '/1');
+        $this->assertSame(200, $open->status);
+        $this->assertStringNotContainsString('Content warning', $open->body, 'the consent cookie opens the age gate');
+        $this->assertStringContainsString('Matrix chapter text 2', $open->body);
+
+        // operator edits survive recommit: the conflict is reported, never
+        // cleared; bit 2 repairs safety-increasingly
+        $db->query("UPDATE ratings SET is_adult = 1 WHERE label = 'Rate 0'");
+        $db->query("UPDATE ratings SET is_adult = 0 WHERE label = 'Rate 6'");
+        $again = $this->import($b, 'commit');
+        $this->assertStringContainsString('dropped existing adult gate retained for operator review: 1', $again);
+        $this->assertSame(1, (int) $db->one("SELECT is_adult FROM ratings WHERE label = 'Rate 0'")['is_adult'], 'the operator gate survives');
+        $this->assertSame(1, (int) $db->one("SELECT is_adult FROM ratings WHERE label = 'Rate 6'")['is_adult'], 'bit 2 repairs safety-increasingly');
+        $this->assertSame(9, (int) $db->one('SELECT COUNT(*) c FROM ratings')['c'], 'no duplicate ratings');
+        $this->assertSame(9, (int) $db->one('SELECT COUNT(*) c FROM stories')['c'], 'no duplicate stories');
+        $still = [];
+        foreach ($db->all('SELECT r.label, r.is_adult, s.is_restricted FROM ratings r JOIN stories s ON s.rating_id = r.id') as $row) {
+            $still[$row['label']] = $row;
+        }
+        for ($bits = 0; $bits <= 7; $bits++) {
+            $this->assertSame($bits & 4 ? 1 : 0, (int) $still['Rate ' . $bits]['is_restricted'], "bit $bits restriction persists on recommit");
+            $expected = $bits === 0 ? 1 : ($bits & 2 ? 1 : 0); // Rate 0 keeps the operator's edit
+            $this->assertSame($expected, (int) $still['Rate ' . $bits]['is_adult'], "bit $bits age flag persists on recommit");
+        }
+    }
+
+    /** One malformed ratingwarning value rejects the bundle before commit and
+     *  the whole transaction rolls back: zero ratings, stories, map rows. */
+    public function test_bad_rating_flag_rolls_back(): void
+    {
+        $this->migrate();
+        $b = $this->bundle(function (\EfictionInstall $fx): void {
+            $p = $fx->prefix;
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_ratings (rid, rating, ratingwarning, warningtext) VALUES (30, 'Bad', '8', '')");
+        });
+        try {
+            $this->import($b, 'commit');
+            $this->fail('ratingwarning 8 must reject the bundle');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('invalid eFiction ratingwarning', $e->getMessage());
+        }
+        $db = $this->db();
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM ratings')['c']);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
+    }
+
+    /** Repairing a formerly public story must not leave its old cached public
+     *  chapter in the layer: the post-commit purge+rebuild drops it and the
+     *  monotonic restriction update flips the mapped story. */
+    public function test_restricted_reimport_purges_the_old_public_cache(): void
+    {
+        $this->migrate();
+        $first = $this->bundle(function (\EfictionInstall $fx, string $root): void {
+            $p = $fx->prefix;
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_ratings (rid, rating, ratingwarning, warningtext) VALUES (20, 'Open', '0', '')");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_stories (sid, title, summary, catid, classes, rid, date, updated, uid, validated, completed, wordcount, count) VALUES (300, 'Stale Cache Tale', 'stale', '0', '0', '20', '2011-01-01 00:00:00', '2012-01-01 00:00:00', 1, '1', '0', 5, 0)");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_chapters (chapid, title, inorder, storytext, validated, wordcount, sid, uid) VALUES (300, 'Stale Ch', 1, NULL, '1', 5, 300, 1)");
+            file_put_contents($root . '/src/stories/1/300.txt', 'The once public chapter.');
+        });
+        $this->import($first, 'commit');
+        $file = $this->cacheDir . '/story/view/stale-cache-tale/index.html';
+        $this->assertFileExists($file, 'the first (public) import built the page into the layer');
+        $cache = new \App\StaticCache\Cache($this->cacheDir);
+        $req = new \Kip\Http\Request('GET', '/story/view/stale-cache-tale', [], [], []);
+        $this->assertSame(200, $cache->serve($req)->status, 'a guest could read the cached chapter');
+
+        // the same legacy rows come back with bit 4 set on the rating
+        $second = $this->bundle(function (\EfictionInstall $fx, string $root): void {
+            $p = $fx->prefix;
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_ratings (rid, rating, ratingwarning, warningtext) VALUES (20, 'Open', '4', '')");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_stories (sid, title, summary, catid, classes, rid, date, updated, uid, validated, completed, wordcount, count) VALUES (300, 'Stale Cache Tale', 'stale', '0', '0', '20', '2011-01-01 00:00:00', '2012-01-01 00:00:00', 1, '1', '0', 5, 0)");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_chapters (chapid, title, inorder, storytext, validated, wordcount, sid, uid) VALUES (300, 'Stale Ch', 1, NULL, '1', 5, 300, 1)");
+            file_put_contents($root . '/src/stories/1/300.txt', 'The once public chapter.');
+        });
+        $this->import($second, 'commit');
+        $this->assertSame(1, (int) $this->db()->one("SELECT is_restricted FROM stories WHERE slug = 'stale-cache-tale'")['is_restricted'], 'the mapped story flips restricted monotonically');
+        $this->assertFileDoesNotExist($file, 'the purge+rebuild removed the old public chapter page');
+        $this->assertNull($cache->serve($req), 'the static layer no longer serves it');
+        $this->assertSame(404, (new \Kip\Testing\TestClient(new \Kip\App($this->config())))->get('/story/view/stale-cache-tale')->status);
+    }
+
+    /** A post-commit failure (the cache rebuild seam here) must surface the
+     *  ORIGINAL error, never a rollback artifact, and the committed data stays
+     *  committed: recovery is the runbook's job, not a silent second rollback. */
+    public function test_post_commit_failure_surfaces_the_original_error_and_keeps_data(): void
+    {
+        $this->migrate();
+        $b = $this->bundle();
+        $config = $this->config();
+        // App::boot rejects this rate_limit shape; the import itself never
+        // boots an App, so the throw lands exactly at the post-commit rebuild
+        $config['rate_limit'] = ['!!bad!!' => ['max' => 5, 'window' => 60]];
+        try {
+            (new Importer($this->db(), new \App\Import\BundleReader($b), 'commit', 'auto', false, $config))->run();
+            $this->fail('the post-commit build failure must surface');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('rate_limit', $e->getMessage(), 'the original error survives');
+        }
+        $db = $this->db();
+        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the transaction already committed');
+        $this->assertSame('committed', (string) $db->one('SELECT status FROM import_runs ORDER BY id DESC LIMIT 1')['status']);
+    }
+
     private function migrateFresh(): void
     {
         // rebuild the schema from scratch on the same throwaway path

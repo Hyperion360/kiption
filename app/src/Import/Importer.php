@@ -64,6 +64,12 @@ final class Importer
     private array $storyMeta = [];
     /** @var array<int, string[]> review created_at values per new story id */
     private array $reviewDates = [];
+    /** @var array<int, true> new ids of ratings whose legacy ratingwarning bit 4
+     *  (members only) is set; passStories consults it for new AND mapped stories */
+    private array $memberOnlyRatingIds = [];
+    /** source ratings carrying bit 1, the acknowledgment request Kiption cannot
+     *  represent: counted, reported, never silently promoted to a gate */
+    private int $unmigratedWarningGates = 0;
 
     public function run(): string
     {
@@ -105,7 +111,10 @@ final class Importer
             return $this->renderReport() . $this->verifyDiff($manifest)
                 . "snapshot: see pre-import-*.sqlite next to the bundle; restore = copy it over the DB\n";
         } catch (\Throwable $e) {
-            $this->db->rollBack();
+            // roll back only while the transaction is open: past the commit the
+            // damage is done and the ORIGINAL error must reach the operator
+            // (the runbook's recovery), not a second rollback exception
+            if ($this->db->transactionDepth() > 0) $this->db->rollBack();
             throw $e;
         }
     }
@@ -148,9 +157,11 @@ final class Importer
     /** Sub-pass 1: taxonomy. Categories (parentcatid -1 -> NULL, displayorder
      *  -> position, locked, leveldown dropped with count), classtypes/classes
      *  (order from ids), characters (catid FK via the category map), ratings
-     *  (ratingwarning '1' or non-empty warningtext -> is_adult 1). When the
-     *  bundle imports ZERO ratings, one 'Unrated' row is created so
-     *  stories.rating_id NOT NULL can always resolve (review finding 3). */
+     *  (ratingwarning parsed independently: bit 2 -> is_adult, bit 4 tracked
+     *  per rating id, bit 1 counted as unmigrated; warningtext stays display
+     *  content and NEVER infers a gate). When the bundle imports ZERO ratings,
+     *  one 'Unrated' row is created so stories.rating_id NOT NULL can always
+     *  resolve (review finding 3). */
     private function passTaxonomy(): void
     {
         $r = $this->report;
@@ -251,19 +262,33 @@ final class Importer
                 case 'fanfiction_ratings':
                     $this->bump($this->seen, 'fanfiction_ratings');
                     $lid = (string) $row['rid'];
+                    // parse BEFORE the map branch so a malformed value rejects
+                    // the bundle (and the transaction rolls back) even on resume
+                    $flags = EfictionMapper::ratingFlags((string) ($row['ratingwarning'] ?? '0'));
+                    if ($flags['warning']) ++$this->unmigratedWarningGates;
                     if (($id = $this->mappedId('fanfiction_ratings', $lid)) !== null) {
                         $r->alreadyMapped++; $this->bump($this->skipped, 'fanfiction_ratings');
                         $this->ratingMap[(int) $lid] = $id;
+                        if ($flags['members']) $this->memberOnlyRatingIds[$id] = true;
+                        // repair safety-increasingly only: bit 2 may RAISE an
+                        // operator-cleared gate, never lower one
+                        $current = $this->db->one('SELECT is_adult FROM ratings WHERE id = ?', [$id]);
+                        if ($current !== null && $flags['adult'] && (int) $current['is_adult'] === 0) {
+                            $this->db->query('UPDATE ratings SET is_adult = 1 WHERE id = ?', [$id]);
+                        } elseif ($current !== null && !$flags['adult'] && (int) $current['is_adult'] === 1) {
+                            $this->report->drop('existing adult gate retained for operator review');
+                        }
                         break;
                     }
+                    // warningtext is display content, never an age gate
                     $warning = trim((string) ($row['warningtext'] ?? ''));
                     $this->db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, ?, ?, ?)',
                         [mb_substr(trim((string) $row['rating']), 0, 255),
-                         (($row['ratingwarning'] ?? '0') === '1' || $warning !== '') ? 1 : 0,
-                         $warning, count($this->ratingMap)]);
+                         (int) $flags['adult'], $warning, count($this->ratingMap)]);
                     $id = (int) $this->db->lastInsertId();
                     $this->record('fanfiction_ratings', $lid, 'ratings', $id);
                     $this->ratingMap[(int) $lid] = $id;
+                    if ($flags['members']) $this->memberOnlyRatingIds[$id] = true;
                     $this->bump($this->counts, 'ratings');
                     $this->tick();
                     break;
@@ -272,6 +297,7 @@ final class Importer
         if ($this->tally($this->counts, 'ratings') === 0 && $this->tally($this->skipped, 'fanfiction_ratings') === 0) {
             $this->unratedId(); // empty taxonomy (nothing imported, nothing resumed): guarantee the fallback
         }
+        $this->notes[] = 'warning acknowledgment gates not migrated: ' . $this->unmigratedWarningGates;
     }
 
     /** The 'Unrated' fallback rating id, creating the row on demand: a story
@@ -381,7 +407,9 @@ final class Importer
      *  back to 'Unrated' when the CSV token resolves nothing (counted);
      *  created_fallback rows are re-dated after sub-pass 6; junction rows from
      *  the CSV-resolved arrays; page_stats baseline rows carry legacy_reads on
-     *  the import day (labeled in the report). */
+     *  the import day (labeled in the report). A story whose rating carries
+     *  legacy bit 4 (members only) lands is_restricted = 1, on the insert for
+     *  new stories and as a monotonic update for mapped ones. */
     private function passStories(): void
     {
         $r = $this->report;
@@ -395,6 +423,14 @@ final class Importer
             if (($id = $this->mappedId('fanfiction_stories', (string) $sid)) !== null) {
                 $r->alreadyMapped++; $this->bump($this->skipped, 'fanfiction_stories');
                 $this->storyMap[$sid] = $id;
+                // the resume repair path: a mapped story whose rating now (or
+                // still) carries bit 4 must arrive restricted; monotonic, so an
+                // operator's existing restriction is never lifted. mapStory runs
+                // against a throwaway Report: no duplicate counts on resume.
+                $mapped = EfictionMapper::mapStory($row, $ctx, new Report());
+                if (isset($this->memberOnlyRatingIds[(int) ($mapped['rating_label'] ?? 0)])) {
+                    $this->db->query('UPDATE stories SET is_restricted = 1 WHERE id = ? AND is_restricted = 0', [$id]);
+                }
                 // hydrate the meta so chapters added in a LATER run (a story
                 // imported by a previous run gaining a chapter) still inherit
                 // the story's dates instead of dying on chapters.created_at
@@ -414,10 +450,11 @@ final class Importer
                 fn (string $x): bool => $this->db->one('SELECT id FROM stories WHERE slug = ?', [$x]) !== null,
                 \App\Slug::make($s['title'], 'story'));
             $created = $s['created_at'] ?? (new \DateTimeImmutable('now'))->format(DATE_ATOM);
-            $this->db->query('INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, completed, featured, validated, round_robin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            $isRestricted = (int) isset($this->memberOnlyRatingIds[(int) $ratingId]);
+            $this->db->query('INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, completed, featured, validated, round_robin, created_at, updated_at, is_restricted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [$s['title'], $slug, $this->prose((string) $s['summary']), $this->prose((string) $s['notes']),
                  $authorId, $ratingId, $s['completed'], $s['featured'], $s['validated'], $s['round_robin'],
-                 $created, $s['updated_at']]);
+                 $created, $s['updated_at'], $isRestricted]);
             $id = (int) $this->db->lastInsertId();
             $this->record('fanfiction_stories', (string) $sid, 'stories', $id);
             $this->storyMap[$sid] = $id;
