@@ -62,16 +62,16 @@ final class StoryRepository
                     (SELECT json_group_array(json_object(\'id\', r.id, \'user_id\', r.user_id, \'penname\',
                             (SELECT penname FROM users ru WHERE ru.id = r.user_id), \'guest_name\', r.guest_name,
                             \'body\', r.body, \'rating\', r.rating, \'created_at\', r.created_at))
-                     FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL
+                     FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL AND r.chapter_id IS NULL
                            ORDER BY r.created_at DESC, r.id DESC LIMIT 50) r) AS reviews_blob,
                     (SELECT json_group_array(json_object(\'root_id\', r2.parent_id, \'id\', r2.id, \'user_id\', r2.user_id, \'penname\',
                             (SELECT penname FROM users ru2 WHERE ru2.id = r2.user_id), \'guest_name\', r2.guest_name,
                             \'body\', r2.body, \'created_at\', r2.created_at))
                      FROM (SELECT r2.* FROM reviews r2 WHERE r2.parent_id IN (
-                               SELECT r.id FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL
+                               SELECT r.id FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL AND r.chapter_id IS NULL
                                ORDER BY r.created_at DESC, r.id DESC LIMIT 50)
                            ORDER BY r2.created_at DESC, r2.id DESC LIMIT 200) r2) AS replies_blob,
-                    (SELECT COUNT(*) FROM reviews r3 WHERE r3.story_id = s.id AND r3.parent_id IS NULL) AS review_count,
+                    (SELECT COUNT(*) FROM reviews r3 WHERE r3.story_id = s.id AND r3.parent_id IS NULL AND r3.chapter_id IS NULL) AS review_count,
                     (SELECT su.support_url FROM users su WHERE su.id = s.author_id) AS support_url,
                     (SELECT json_group_array(json_object(\'s\', ser.slug, \'t\', ser.title))
                      FROM series_items si JOIN series ser ON ser.id = si.series_id
@@ -122,16 +122,16 @@ final class StoryRepository
                     (SELECT json_group_array(json_object(\'id\', r.id, \'user_id\', r.user_id, \'penname\',
                             (SELECT penname FROM users ru WHERE ru.id = r.user_id), \'guest_name\', r.guest_name,
                             \'body\', r.body, \'rating\', r.rating, \'created_at\', r.created_at))
-                     FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL
+                     FROM (SELECT r.* FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL AND r.chapter_id IS NULL
                            ORDER BY r.created_at DESC, r.id DESC LIMIT 50) r) AS reviews_blob,
                     (SELECT json_group_array(json_object(\'root_id\', r2.parent_id, \'id\', r2.id, \'user_id\', r2.user_id, \'penname\',
                             (SELECT penname FROM users ru2 WHERE ru2.id = r2.user_id), \'guest_name\', r2.guest_name,
                             \'body\', r2.body, \'created_at\', r2.created_at))
                      FROM (SELECT r2.* FROM reviews r2 WHERE r2.parent_id IN (
-                               SELECT r.id FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL
+                               SELECT r.id FROM reviews r WHERE r.story_id = s.id AND r.parent_id IS NULL AND r.chapter_id IS NULL
                                ORDER BY r.created_at DESC, r.id DESC LIMIT 50)
                            ORDER BY r2.created_at DESC, r2.id DESC LIMIT 200) r2) AS replies_blob,
-                    (SELECT COUNT(*) FROM reviews r3 WHERE r3.story_id = s.id AND r3.parent_id IS NULL) AS review_count,
+                    (SELECT COUNT(*) FROM reviews r3 WHERE r3.story_id = s.id AND r3.parent_id IS NULL AND r3.chapter_id IS NULL) AS review_count,
                     (SELECT su.support_url FROM users su WHERE su.id = s.author_id) AS support_url,
                     (SELECT json_group_array(json_object(\'s\', ser.slug, \'t\', ser.title))
                      FROM series_items si JOIN series ser ON ser.id = si.series_id
@@ -209,7 +209,7 @@ final class StoryRepository
                     (SELECT json_group_array(json_object(\'position\', ch3.position, \'title\', ch3.title, \'word_count\', ch3.word_count))
                      FROM (SELECT position, title, word_count FROM chapters WHERE story_id = s.id AND validated = 1
                            ORDER BY position) ch3) AS chapters_blob,
-                    (SELECT COUNT(*) FROM reviews r4 WHERE r4.story_id = s.id AND r4.parent_id IS NULL) AS review_count' . $progressCols . $bookmarksCols . '
+                    (SELECT COUNT(*) FROM reviews r4 WHERE r4.story_id = s.id AND r4.parent_id IS NULL AND r4.chapter_id IS NULL) AS review_count' . $progressCols . $bookmarksCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id
