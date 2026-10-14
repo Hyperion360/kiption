@@ -612,4 +612,118 @@ final class SharedHostReleaseTest extends TestCase
         [$code, $out] = $this->sh($home, $kip . ' version');
         $this->assertSame(0, $code, $out);
     }
+
+    // --------------------------------------- Task 6: production gate + docs
+
+    /**
+     * A production build (no --development marker) passes the production
+     * checker, carries every stable entry point this release owns, and loses
+     * that property the moment a stable file is missing. Once the release
+     * owner tags v<version>, the tag must point at the manifest Git SHA.
+     */
+    public function test_production_release_gate(): void
+    {
+        $repo = dirname(__DIR__);
+        $sha = trim((string) shell_exec('git -C ' . escapeshellarg($repo) . ' rev-parse HEAD'));
+        $home = $this->tmptree('kiption-prod-');
+        $copy = $this->sourceCopy($home);
+        $install = $home . '/kiption-install.zip';
+        $upgrade = $home . '/kiption-upgrade.zip';
+        [$code, $out] = $this->build($copy, '--allow-dirty --version=0.0.0-local-test'
+            . ' --git-sha=' . $sha
+            . ' --output=' . escapeshellarg($install)
+            . ' --upgrade-output=' . escapeshellarg($upgrade));
+        $this->assertSame(0, $code, $out);
+
+        // No development marker anywhere; both manifests agree.
+        $id = trim(self::zipRead($install, 'site/current'));
+        $manifest = self::zipRead($install, 'site/releases/' . $id . '/RELEASE.json');
+        $this->assertStringNotContainsString('development_bundle', $manifest);
+        $this->assertSame($manifest, self::zipRead($upgrade, 'RELEASE.json'));
+
+        // Every stable entry point this release owns.
+        foreach ([
+            'site/current', 'site/bin/kip',
+            'site/public/index.php', 'site/public/setup.php', 'site/public/.htaccess',
+            'public_html/index.php', 'public_html/setup.php', 'public_html/.htaccess',
+        ] as $need) {
+            $this->assertArrayHasKey($need, self::zipEntries($install), "install ZIP lacks {$need}");
+        }
+
+        // The production checker passes both artifacts...
+        $check = 'PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH" %s scripts/check-release.php --zip=%s --upgrade-zip=%s';
+        [$c2, $o2] = $this->sh($copy, sprintf($check, escapeshellarg(PHP_BINARY), escapeshellarg($install), escapeshellarg($upgrade)));
+        $this->assertSame(0, $c2, $o2);
+        // ...and with the published digests pinned, a corrupted download fails.
+        $installDigest = hash('sha256', (string) file_get_contents($install));
+        $upgradeDigest = hash('sha256', (string) file_get_contents($upgrade));
+        [$c3, $o3] = $this->sh($copy, sprintf($check . ' --expected-install-digest=%s --expected-upgrade-digest=%s',
+            escapeshellarg(PHP_BINARY), escapeshellarg($install), escapeshellarg($upgrade), $installDigest, $upgradeDigest));
+        $this->assertSame(0, $c3, $o3);
+        [$c4] = $this->sh($copy, sprintf($check . ' --expected-install-digest=%s',
+            escapeshellarg(PHP_BINARY), escapeshellarg($install), escapeshellarg($upgrade), str_repeat('0', 64)));
+        $this->assertNotSame(0, $c4, 'a wrong published digest must fail');
+
+        // A missing stable file fails the production gate.
+        $tampered = $home . '/missing-setup.zip';
+        copy($install, $tampered);
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($tampered) === true);
+        $index = $zip->locateName('public_html/setup.php');
+        $this->assertNotFalse($index);
+        $zip->deleteIndex($index);
+        $zip->close();
+        @unlink($tampered . '.sha256');
+        [$c5, $o5] = $this->sh($copy, sprintf($check, escapeshellarg(PHP_BINARY), escapeshellarg($tampered), escapeshellarg($upgrade)));
+        $this->assertNotSame(0, $c5, 'a missing stable wrapper must fail: ' . $o5);
+
+        // Publication: the version tag, once cut, must point at the manifest SHA.
+        $tag = 'v0.0.0-local-test';
+        $tagSha = trim((string) shell_exec('git -C ' . escapeshellarg($repo)
+            . ' rev-parse --verify ' . escapeshellarg($tag . '^{commit}') . ' 2>/dev/null'));
+        if (preg_match('/^[0-9a-f]{40}$/', $tagSha) === 1) {
+            $this->assertSame($sha, $tagSha, "tag {$tag} must point at the manifest Git SHA");
+        }
+    }
+
+    /** The operator-facing docs state the exact requirements and limits. */
+    public function test_hosting_docs(): void
+    {
+        $repo = dirname(__DIR__);
+        $readme = (string) file_get_contents($repo . '/README.md');
+        $install = (string) file_get_contents($repo . '/INSTALL.md');
+        $matrix = (string) file_get_contents($repo . '/docs/hosting-matrix.md');
+
+        // The README routes shared-host readers to the install guide and the matrix.
+        $this->assertStringContainsString('INSTALL.md', $readme);
+        $this->assertStringContainsString('docs/hosting-matrix.md', $readme);
+
+        // The install guide: initial installation needs no Composer, Git, SSH, or VPS.
+        foreach (['setup.php', 'setup-token.txt', 'site/shared/', 'public_html',
+            'SHA-256', 'shasum -a 256', 'invite', '/settings', 'verify',
+            'PHP 8.3', 'pdo_sqlite', 'HTTPS', 'no Composer', 'no SSH', 'cron',
+            'site/bin/kip', 'not yet automated', 'maintenance'] as $needle) {
+            $this->assertStringContainsString($needle, $install, "INSTALL.md must mention {$needle}");
+        }
+        // The token is created on the host and never shipped or reused.
+        $this->assertStringContainsString('never', $install);
+        $this->assertStringContainsStringIgnoringCase('64', $install, 'the token length is stated');
+        // The guide test-email gate: registration opens only after delivery is confirmed.
+        $this->assertStringContainsString('test email', $install);
+        // Cron never points at a release-pinned path.
+        $this->assertStringNotContainsString('php site/releases/', $install);
+        // No universal-host claim anywhere.
+        $this->assertStringNotContainsStringIgnoringCase('any shared host', $install);
+        $this->assertStringNotContainsStringIgnoringCase('any shared host', $readme);
+        $this->assertStringNotContainsStringIgnoringCase('any shared host', $matrix);
+
+        // The hosting matrix names the support boundary plainly.
+        foreach (['PHP 8.3', 'pdo_sqlite', 'WAL', 'web root', 'HTTPS', 'cron', 'mail',
+            'local-fixture-validated', 'not supported', 'rewrite'] as $needle) {
+            $this->assertStringContainsString($needle, $matrix, "hosting matrix must mention {$needle}");
+        }
+        $this->assertStringContainsString('Apache 2.4', $matrix);
+        // No provider is claimed as validated.
+        $this->assertStringNotContainsStringIgnoringCase('validated on cPanel hosting', $matrix);
+    }
 }

@@ -158,8 +158,8 @@ function check_release_zip(string $zipPath, string $manifestSidecarSuffix, strin
     $manifest = null;
     $id = null;
     $required = $install
-        ? ['site/current', 'site/public/index.php', 'site/public/.htaccess', 'site/bin/kip',
-           'public_html/index.php', 'public_html/.htaccess']
+        ? ['site/current', 'site/public/index.php', 'site/public/setup.php', 'site/public/.htaccess', 'site/bin/kip',
+           'public_html/index.php', 'public_html/setup.php', 'public_html/.htaccess']
         : ['RELEASE.json', 'config.php', 'composer.json', 'composer.lock', 'bin/kip',
            'vendor/autoload.php', 'vendor/composer/installed.json', 'public/index.php', 'public/.htaccess'];
     $entries = [];
@@ -323,10 +323,11 @@ function check_release_payload(string $label, string $extractDir, string $id, st
         $failures[] = "{$label}: the release carries no app/migrations/*.php";
     }
 
-    // No absolute host paths in any text payload.
+    // No absolute build-host paths in any code or config payload. Markdown
+    // is exempt: operator docs carry example paths (/home/USER/...) by design.
     foreach ($actual as $rel => $unused) {
         $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['php', 'json', 'md', 'css', 'js', 'txt', 'html'], true) && $rel !== 'public/.htaccess' && !str_ends_with($rel, '/.htaccess')) {
+        if (!in_array($ext, ['php', 'json', 'css', 'js', 'txt', 'html'], true) && !str_ends_with($rel, '/.htaccess')) {
             continue;
         }
         $bytes = (string) @file_get_contents($prefix . $rel);
@@ -416,7 +417,7 @@ function check_release_main(array $args): int
         } elseif (str_starts_with($arg, '--upgrade-zip=')) {
             $o['upgrade_zip'] = substr($arg, 14);
         } elseif (str_starts_with($arg, '--expected-install-digest=')) {
-            $o['expected_install_digest'] = strtolower(substr($arg, 27));
+            $o['expected_install_digest'] = strtolower(substr($arg, 26));
         } elseif (str_starts_with($arg, '--expected-upgrade-digest=')) {
             $o['expected_upgrade_digest'] = strtolower(substr($arg, 26));
         } else {

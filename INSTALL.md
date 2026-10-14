@@ -10,6 +10,100 @@ Commands assume the repo lives at `/path/to/kiption` and that `php` is
 PHP 8.3 or newer. On macOS with Homebrew PHP, use
 `PATH="/opt/homebrew/bin:$PATH" php ...` if the default `php` is older.
 
+## Shared hosting: install from the release ZIP (no Composer, no SSH)
+
+This path is for a compatible shared host and needs only a file manager
+(or FTP), a browser, and the host's own tools: no Composer, no Git, no SSH,
+no database server. Before uploading, confirm the host against
+docs/hosting-matrix.md: PHP 8.3+ with `pdo_sqlite`, writable local storage
+where SQLite WAL works, a private directory outside the web root, HTTPS,
+and outbound mail. Kiption makes no universal-host claim: the matrix is
+the support boundary.
+
+**1. Download and verify the ZIP.** Take `kiption-install.zip` from the
+release page and check it before uploading, on a device you trust:
+
+    shasum -a 256 kiption-install.zip
+
+The printed digest must equal the whole-install-ZIP SHA-256 published with
+the release. A mismatch means a corrupted or altered download: do not
+upload it.
+
+**2. Upload one of the two layouts.**
+
+Configurable document root: upload the ZIP's `site/` directory above the
+web root and point the domain's document root at `site/public/`.
+
+Fixed `public_html` (the common cPanel shape): upload the ZIP's `site/`
+directory as a sibling of the existing `public_html`, then upload the ZIP's
+`public_html/` contents (index.php, setup.php, .htaccess, assets/) into
+the existing document root. Application code, the databases, and the setup
+token all stay in `site/`, which is never web-served.
+
+While setup is pending, every routed page returns a plain 503: the archive
+is closed until installation finishes. That is expected.
+
+**3. Create the setup token on the host.** Use the host's random-password
+generator (or any local generator) to make 32 random bytes, hex encoded:
+exactly 64 characters. Save them as `site/shared/setup-token.txt` inside
+the uploaded `site/` tree with private permissions (0600 where the file
+manager allows). The token is the only key that can claim the first admin:
+never reuse a token from a guide, never email it, never put it in a URL,
+and delete the file when setup completes (setup deletes it itself).
+
+**4. Run setup over HTTPS.** Open `https://your-domain/setup.php` and fill
+the form: paste the token into the token field (POST form only), enter the
+archive's real canonical HTTPS URL (`https://your-domain/`), choose SMTP or
+PHP `mail()`, enter the from address and SMTP credentials if used, and pick
+the admin email and password (8+ characters). Setup checks the host
+(PHP version, pdo_sqlite, a live SQLite WAL round trip, private-file
+placement), sends a test email to the admin address, writes the private
+deployment record, creates exactly one administrator, and closes itself
+forever: replaying the token does nothing afterward.
+
+**5. Confirm the test email, then open registration.** A successful send
+proves the transport, not the inbox. Confirm the test message actually
+arrived, sign in, open `/settings`, and switch registration from `invite`
+to `verify`. Until then the archive starts invite-only with no invite
+codes issued, so no public registration can happen. If the test email
+never arrived, keep invite mode and fix mail before issuing invitations.
+
+**6. Cron and housekeeping.** Schedule through the stable launcher, never a
+release-pinned path (it survives release switches):
+
+    php /home/USER/site/bin/kip release:due
+    php /home/USER/site/bin/kip backup
+
+Backups land in `site/shared/backups/`; download them off the host
+periodically. eFiction migration runs through the same launcher:
+`php site/bin/kip import:efiction <bundle.tar.gz> --commit` takes the
+exclusive run lease and puts the archive into maintenance itself; a failed
+or interrupted import leaves maintenance in place (see below). The
+`--dry-run` form runs without maintenance and is the safe first step.
+
+**Recovery.** If setup was interrupted after the admin was created (the
+token still exists, no completion), setup.php shows an owner-recovery form:
+sign in with the admin email and password to finalize. If a committed
+eFiction import failed, `site/shared/maintenance.lock` stays in place:
+resolve the cause, re-run the import through the launcher, and the launcher
+lifts maintenance only after a successful run. If a routine page dies, the
+check names in section 8 map to the setup page's host-check rows.
+
+**Upgrades are not yet automated for shared hosting in this release.** A
+new release means: back up (launcher `backup` command), download the new
+ZIP, verify its SHA-256, upload it into `site/releases/` beside the old
+one, and switch the plain-text `site/current` pointer to the new release's
+ID (the 64-character name of the new directory) while the archive is
+offline in maintenance (create `site/shared/maintenance.lock`, run
+`php site/bin/kip migrate` through the launcher, smoke-test
+`php site/bin/kip version` and one page, then remove the lock). Changing
+the stable files themselves (`site/bin/kip`, the public index/setup
+wrappers, `.htaccess`) is a maintenance-package procedure: replace them
+during maintenance from the new ZIP, smoke-test, and restore the previous
+files if anything fails. Keep the previous release directory until the new
+one is proven; rolling back is moving `site/current` back. Do not run raw
+`migrate` from a web endpoint; the CLI launcher is the only writer.
+
 ## 1. Requirements
 
 - PHP 8.3 or newer, with the `pdo_sqlite` extension (both are stock in
