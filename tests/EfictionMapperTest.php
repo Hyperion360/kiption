@@ -3,6 +3,7 @@ namespace App\Tests;
 use App\Import\EfictionMapper;
 use App\Import\Report;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 final class EfictionMapperTest extends TestCase
 {
@@ -120,6 +121,41 @@ final class EfictionMapperTest extends TestCase
         $this->assertSame('T', $n['title']);
         $this->assertSame('2010-06-01T00:00:00+00:00', $n['published_at']);
         $this->assertSame(1, $r->dropped['news author string (no column)'] ?? 0, 'the author STRING drops with a count');
+    }
+
+    public static function ratingFlagsProvider(): array
+    {
+        $cases = [];
+        for ($n = 0; $n <= 7; $n++) {
+            $cases["bits {$n}"] = [(string) $n, ['warning' => (bool) ($n & 1), 'adult' => (bool) ($n & 2), 'members' => (bool) ($n & 4)]];
+        }
+        return $cases;
+    }
+
+    #[DataProvider('ratingFlagsProvider')]
+    public function test_rating_flags_truth_table(string $raw, array $expected): void
+    {
+        $this->assertSame($expected, EfictionMapper::ratingFlags($raw));
+    }
+
+    public static function malformedRatingFlagsProvider(): array
+    {
+        return [
+            'empty' => [''],
+            'eight' => ['8'],
+            'negative' => ['-1'],
+            'leading zero' => ['01'],
+            'letter' => ['x'],
+            'injection' => ['1;DROP'],
+        ];
+    }
+
+    #[DataProvider('malformedRatingFlagsProvider')]
+    public function test_rejects_malformed_rating_flags(string $raw): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid eFiction ratingwarning');
+        EfictionMapper::ratingFlags($raw);
     }
 
     public function test_story_unresolvable_tokens_featured_and_characters(): void

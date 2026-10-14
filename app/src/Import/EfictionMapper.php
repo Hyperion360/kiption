@@ -9,6 +9,22 @@ final class EfictionMapper
 {
     private const RESPONSE_RX = '#(?:<br\s*/?>){2}\s*<i>\s*Author\'s Response\s*:?\s*(.*?)</i>\s*$#is';
 
+    /** One legacy ratingwarning value -> three independent gates. eFiction's
+     *  admin/ratings.php:53-55 defines bit 1 as an acknowledgment request,
+     *  bit 2 as the age-consent gate, bit 4 as members-only; viewstory.php
+     *  51-59 applies them. Bit 1 is NOT an age gate and must never be treated
+     *  as one (the Importer counts it as unsupported instead). Anything but a
+     *  single ASCII digit 0..7 rejects: the caller rolls the import back.
+     *  @return array{warning:bool,adult:bool,members:bool} */
+    public static function ratingFlags(string $raw): array
+    {
+        if (!preg_match('/^[0-7]$/D', $raw)) {
+            throw new \RuntimeException('invalid eFiction ratingwarning');
+        }
+        $n = (int) $raw;
+        return ['warning' => (bool) ($n & 1), 'adult' => (bool) ($n & 2), 'members' => (bool) ($n & 4)];
+    }
+
     public static function mapUser(?array $a, ?array $p, array $takenPennames, string $takenEmails, Report $r): ?array
     {
         if ($a === null) return null;
