@@ -346,9 +346,26 @@ final class ImporterTest extends TestCase
             $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (3, 'ghost_link', 'Ghost', 'viewpage.php?page=ghost', '0', 0)");
             // a message no pagelink references (eFiction's welcome mail text)
             $fx->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_title, message_text) VALUES (2, 'welcome', '', 'Hello member.')");
+            // link_access 1 and 2 land as HIDDEN nav links; the open 'About'
+            // link (link_access 0) is the control
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_title, message_text) VALUES (3, 'membersnote', 'Members Note', 'Members only note.')");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (4, 'membersnote_link', 'Members Note', 'viewpage.php?page=membersnote', '0', 1)");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_title, message_text) VALUES (4, 'board', 'Board', 'Board text.')");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (5, 'board_link', 'Board', 'viewpage.php?page=board', '0', 2)");
+            // a restricted legacy link whose (label, url) an operator row
+            // already occupies: reported as a cutover blocker, never touched
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_title, message_text) VALUES (5, 'private', 'Private', 'Private page body.')");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (6, 'private_link', 'Private', 'viewpage.php?page=private', '0', 1)");
         });
-        $out = $this->import($b, 'commit');
         $db = $this->db();
+        $db->query("INSERT INTO nav_links (label, url, position, is_hidden) VALUES ('Private', '/page/view/private', 99, 0)");
+        $operatorRowId = (int) $db->lastInsertId();
+
+        // dry-run writes nothing
+        $this->import($b, 'dry-run');
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM nav_links')['c'], 'dry-run leaves no nav rows');
+
+        $out = $this->import($b, 'commit');
         // the custpage lands as a page carrying the messages row's BODY (and
         // the body renders, markdown-at-rest), not just the slug existing
         $page = $db->one("SELECT title, body FROM pages WHERE slug = 'about'");
@@ -364,15 +381,32 @@ final class ImporterTest extends TestCase
         $this->assertNull($db->one("SELECT * FROM nav_links WHERE label = 'Recs'"), 'the internal-only guard drops external urls');
         $this->assertStringContainsString('REJECT pagelink url external/custom: 1', $out);
         $this->assertStringContainsString('REJECT message without pagelink: 1', $out);
-        // the nav artifact rebuilt during the commit, ordered by position
+        // link_access 1 and 2 import HIDDEN; the open control stays visible
+        $this->assertSame(0, (int) $db->one("SELECT is_hidden FROM nav_links WHERE label = 'About'")['is_hidden']);
+        $this->assertSame(1, (int) $db->one("SELECT is_hidden FROM nav_links WHERE label = 'Members Note'")['is_hidden']);
+        $this->assertSame(1, (int) $db->one("SELECT is_hidden FROM nav_links WHERE label = 'Board'")['is_hidden']);
+        $this->assertStringContainsString('restricted navigation links hidden: 2', $out);
+        // the operator row stays visible and is reported for manual review
+        $this->assertSame(0, (int) $db->one("SELECT is_hidden FROM nav_links WHERE id = {$operatorRowId}")['is_hidden'], 'the importer never hides a row it does not own');
+        $this->assertStringContainsString('restricted nav collision: row ' . $operatorRowId . ' /page/view/private', $out);
+        $this->assertStringContainsString('cutover blockers: 1', $out);
+        $this->assertStringNotContainsString('Private page body.', $out, 'the report never quotes private page text');
+        // the nav artifact rebuilt during the commit excludes the hidden labels
         $this->assertFileExists($this->navFile());
         $this->assertSame(
-            [['label' => 'About', 'url' => '/page/view/about'], ['label' => 'Ghost', 'url' => '/page/view/ghost']],
+            [['label' => 'About', 'url' => '/page/view/about'], ['label' => 'Ghost', 'url' => '/page/view/ghost'], ['label' => 'Private', 'url' => '/page/view/private']],
             \App\NavLinks::all($this->navFile())
         );
+        // direct page URLs keep the existing public behavior: eFiction's
+        // link_access never protected them either, and this plan does not
+        // pretend otherwise
+        $guest = new \Kip\Testing\TestClient(new \Kip\App($this->config()));
+        $res = $guest->get('/page/view/members-note');
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('Members only note.', $res->body);
         // verification mentions pages/nav_links and reconciles
-        $this->assertStringContainsString('fanfiction_messages        manifest 2, imported 1, rejected 1, skipped 0', $out);
-        $this->assertStringContainsString('fanfiction_pagelinks       manifest 3, imported 2, rejected 1, skipped 0', $out);
+        $this->assertStringContainsString('fanfiction_messages        manifest 5, imported 4, rejected 1, skipped 0', $out);
+        $this->assertStringContainsString('fanfiction_pagelinks       manifest 6, imported 4, rejected 1, skipped 1', $out);
         // NO import_map rows: pages are slug-PK'd and new_id is INTEGER
         $this->assertSame(0, (int) $db->one("SELECT COUNT(*) c FROM import_map WHERE legacy_table IN ('fanfiction_messages', 'fanfiction_pagelinks')")['c']);
         // the old drop stubs are gone
@@ -381,10 +415,47 @@ final class ImporterTest extends TestCase
         // idempotent re-run: no duplicates, first body wins, outcomes skip
         $again = $this->import($b, 'commit');
         $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM nav_links WHERE label = 'About'")['c']);
+        $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM nav_links WHERE label = 'Members Note'")['c']);
         $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM pages WHERE slug = 'about'")['c']);
         $this->assertSame('Welcome to the archive.', $db->one("SELECT body FROM pages WHERE slug = 'about'")['body'], 'first body wins');
-        $this->assertStringContainsString('fanfiction_pagelinks       manifest 3, imported 0, rejected 1, skipped 2', $again);
-        $this->assertStringContainsString('fanfiction_messages        manifest 2, imported 0, rejected 1, skipped 1', $again);
+        $this->assertSame(1, (int) $db->one("SELECT is_hidden FROM nav_links WHERE label = 'Members Note'")['is_hidden'], 'the hidden flag persists');
+        $this->assertStringContainsString('cutover blockers: 1', $again, 'the unresolved blocker keeps blocking');
+        $this->assertStringContainsString('fanfiction_pagelinks       manifest 6, imported 0, rejected 1, skipped 5', $again);
+        $this->assertStringContainsString('fanfiction_messages        manifest 5, imported 0, rejected 1, skipped 4', $again);
+    }
+
+    /** A visible nav row left by an OLDER import (before link_access was
+     *  honored) blocks cutover on a restricted re-import, and the blocker
+     *  clears only after the owner hides or removes the row. */
+    public function test_restricted_nav_cutover_blockers_clear_after_resolution(): void
+    {
+        $this->migrate();
+        $legacyRows = function (int $access): \Closure {
+            return function (\EfictionInstall $fx) use ($access): void {
+                $p = $fx->prefix;
+                $fx->pdo->exec("INSERT INTO {$p}fanfiction_messages (message_id, message_name, message_title, message_text) VALUES (3, 'rules', 'Rules', 'The rules text.')");
+                $fx->pdo->exec("INSERT INTO {$p}fanfiction_pagelinks (link_id, link_name, link_text, link_url, link_target, link_access) VALUES (4, 'rules_link', 'Rules', 'viewpage.php?page=rules', '0', {$access})");
+            };
+        };
+        // run A: the link is open, so the nav row lands visible
+        $this->import($this->bundle($legacyRows(0)), 'commit');
+        $db = $this->db();
+        $rowId = (int) $db->one("SELECT id FROM nav_links WHERE label = 'Rules'")['id'];
+        $this->assertSame(0, (int) $db->one("SELECT is_hidden FROM nav_links WHERE id = {$rowId}")['is_hidden']);
+
+        // run B: the same legacy rows return restricted; the visible row the
+        // older import left is a cutover blocker with its id and local url
+        $out = $this->import($this->bundle($legacyRows(2)), 'commit');
+        $this->assertStringContainsString('restricted nav collision: row ' . $rowId . ' /page/view/rules', $out);
+        $this->assertStringContainsString('cutover blockers: 1', $out);
+        $this->assertSame(0, (int) $db->one("SELECT is_hidden FROM nav_links WHERE id = {$rowId}")['is_hidden']);
+
+        // the owner hides the row and navigation rebuilds; the recheck is clean
+        $db->query('UPDATE nav_links SET is_hidden = 1 WHERE id = ?', [$rowId]);
+        \App\NavLinks::rebuild($db, $this->navFile());
+        $out2 = $this->import($this->bundle($legacyRows(2)), 'commit');
+        $this->assertStringContainsString('cutover blockers: 0', $out2);
+        $this->assertSame([['label' => 'About', 'url' => '/page/view/about']], \App\NavLinks::all($this->navFile()), 'the hidden rules link left the artifact');
     }
 
     public function test_rider_collision_keeps_verifydiff_honest(): void

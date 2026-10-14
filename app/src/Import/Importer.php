@@ -809,19 +809,29 @@ final class Importer
      *  '/page/view/' + slug, position = link_id, eFiction's only ordering)
      *  plus one page (slug from the label, body from the messages row, the
      *  label as a '(imported page)' placeholder body when the message row is
-     *  missing, counted). pages INSERT OR IGNORE (slug PK, first body wins)
-     *  and nav_links INSERT..SELECT WHERE NOT EXISTS (label, url) make
-     *  re-runs idempotent WITHOUT import_map rows (new_id is INTEGER; pages
-     *  are slug-PK'd, documented): a re-run simply no-ops both inserts. The
-     *  constructed url satisfies the nav's internal-only guard by
-     *  construction (Slug::make emits [a-z0-9-]), so external/custom
-     *  link_url values cannot map and reject with a count; unreferenced
-     *  messages (eFiction's welcome/copyright mail texts) reject too. The
-     *  nav artifact rebuilds post-pass when any link imported (see run). */
+     *  missing, counted). link_access 1 or 2 (members/mods-only menus in
+     *  eFiction) lands the nav link is_hidden = 1 and counts in the report:
+     *  the nav hides it, the page body stays public exactly as in eFiction,
+     *  whose link_access never guarded direct page URLs. A restricted link
+     *  whose (label, url) an existing VISIBLE row already occupies cannot be
+     *  hidden by this importer (no provenance over a row it did not write):
+     *  it is reported as a cutover blocker with the row id and local URL, and
+     *  clears only when the owner hides or removes the row. pages INSERT OR
+     *  IGNORE (slug PK, first body wins) and nav_links INSERT..SELECT WHERE
+     *  NOT EXISTS (label, url) make re-runs idempotent WITHOUT import_map
+     *  rows (new_id is INTEGER; pages are slug-PK'd, documented): a re-run
+     *  simply no-ops both inserts. The constructed url satisfies the nav's
+     *  internal-only guard by construction (Slug::make emits [a-z0-9-]), so
+     *  external/custom link_url values cannot map and reject with a count;
+     *  unreferenced messages (eFiction's welcome/copyright mail texts) reject
+     *  too. The nav artifact rebuilds post-pass when any link imported (see
+     *  run). */
     private function mapCustpages(array $pagelinks, array $messages): void
     {
         $r = $this->report;
         $counted = []; // message_names whose outcome is tallied exactly once
+        $hiddenNavCount = 0;
+        $cutoverBlockers = 0;
         // The rider tables ALWAYS read their imported count from the
         // per-legacy-row tally (see verifyDiff). Initialize the keys to 0 up
         // front so a run where no row imports (every page collided with
@@ -861,16 +871,28 @@ final class Importer
                 $counted[$m[1]] = true;
             }
             if ($page->rowCount() === 1) { $this->bump($this->counts, 'pages'); $this->tick(); }
+            $hidden = in_array((int) ($row['link_access'] ?? 0), [1, 2], true) ? 1 : 0;
             $nav = $this->db->query(
-                'INSERT INTO nav_links (label, url, position) SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM nav_links WHERE label = ? AND url = ?)',
-                [$label, $url, (int) ($row['link_id'] ?? 0), $label, $url]);
+                'INSERT INTO nav_links (label, url, position, is_hidden) SELECT ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM nav_links WHERE label = ? AND url = ?)',
+                [$label, $url, (int) ($row['link_id'] ?? 0), $hidden, $label, $url]);
             if ($nav->rowCount() === 1) {
                 $this->bump($this->counts, 'nav_links');
                 $this->bump($this->riderImported, 'fanfiction_pagelinks');
                 $this->navImported++;
+                if ($hidden === 1) ++$hiddenNavCount;
                 $this->tick();
             } else {
                 $this->bump($this->skipped, 'fanfiction_pagelinks');
+                if ($hidden === 1) {
+                    // no provenance over an existing (label, url): a VISIBLE
+                    // row is a cutover blocker for the owner to resolve; a
+                    // row this importer hid earlier is a silent no-op
+                    $existing = $this->db->one('SELECT id FROM nav_links WHERE label = ? AND url = ? AND is_hidden = 0 LIMIT 1', [$label, $url]);
+                    if ($existing !== null) {
+                        $this->notes[] = 'restricted nav collision: row ' . (int) $existing['id'] . ' ' . $url;
+                        ++$cutoverBlockers;
+                    }
+                }
             }
         }
         foreach (array_keys($messages) as $name) {
@@ -880,6 +902,8 @@ final class Importer
                 $this->bump($this->rejected, 'fanfiction_messages');
             }
         }
+        $this->notes[] = 'restricted navigation links hidden: ' . $hiddenNavCount;
+        $this->notes[] = 'cutover blockers: ' . $cutoverBlockers;
     }
 
     /** Recomputed row counts per table vs the manifest's legacy counts minus
