@@ -105,6 +105,10 @@ final class WranglingController
                 $this->db->rollBack();
                 throw $e;
             }
+            // A merged tag can sit on any story page: the purge is coarse
+            // (purgeAll), and lazy re-caching absorbs the cost. Merges are
+            // rare admin actions.
+            $this->staticCache()->purgeAll();
             return Response::redirect('/wrangling');
         }
         if ($synonymId !== 0 && $synonym === null) return new Response('Page not found', 404);
@@ -119,6 +123,7 @@ final class WranglingController
         $tag = $this->db->one('SELECT id, canonical_id FROM tags WHERE id = ?', [(int) $id]);
         if ($tag === null) return new Response('Page not found', 404);
         $this->db->query('UPDATE tags SET canonical_id = NULL WHERE id = ?', [(int) $id]);
+        $this->staticCache()->purgeAll(); // the tag's label just changed on every page it sits on
         return Response::redirect('/wrangling');
     }
 
@@ -174,6 +179,14 @@ final class WranglingController
     {
         $me = (int) ($this->session->get('user_id') ?? 0);
         return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
+    }
+
+    /** The StoryController idiom: config-injected dir when present, the
+     *  tree's public/cache otherwise, so tests pin purges without ever
+     *  writing into the real dir. */
+    private function staticCache(): \App\StaticCache\Cache
+    {
+        return \App\StaticCache\Cache::configured($this->app);
     }
 
     private function head(): \App\Seo\Head

@@ -2,6 +2,7 @@
 namespace App\Features\Wrangling\Tests;
 use Kip\App;
 use Kip\Database;
+use Kip\Http\{Request, Response};
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
@@ -320,6 +321,46 @@ final class WranglingTest extends TestCase
         $this->assertSame(302, $admin->postWithToken('/wrangling/merge', ['synonym_id' => $syn, 'canonical_id' => $fantasy])->status);
         $this->assertSame(0, $this->storyTagCount($syn));
         $this->assertSame($fantasy, (int) $db->one('SELECT canonical_id FROM tags WHERE id = ?', [$syn])['canonical_id']);
+    }
+
+    /** A merge can touch any story carrying either tag, so the purge is
+     *  coarse: purgeAll drops every cached page (the story-save path purges
+     *  surgically; a merge cannot know its blast radius cheaply). The test
+     *  pre-seeds a real cache file the way the static cache names them
+     *  (tests/StaticCacheTest's fileFor idiom) against the config-injected
+     *  dir, then merges and unmerges and confirms the file is gone. */
+    public function test_a_merge_and_an_unmerge_purge_the_static_cache(): void
+    {
+        $cacheDir = sys_get_temp_dir() . '/kiption-wrap-cache-' . uniqid();
+        mkdir($cacheDir, 0777, true);
+        $cache = new \App\StaticCache\Cache($cacheDir);
+        $req = new Request('GET', '/story/view/the-rabbit-hole', [], [], []);
+        $cache->maybeStore($req, new Response('cached-bytes', 200));
+        $cachedFile = $cache->fileFor('/story/view/the-rabbit-hole');
+        $this->assertFileExists($cachedFile, 'the pre-merge file sits in the cache');
+        $fantasy = $this->tagId('Fantasy');
+        $syn = $this->insertTag($this->typeId('genre'), 'Fantasyish');
+        $this->db->query('INSERT INTO story_tags (story_id, tag_id) VALUES ((SELECT id FROM stories WHERE slug = ?), ?)', ['the-rabbit-hole', $syn]);
+        $app = new App([
+            'app_dir' => dirname(__DIR__, 4) . '/app',
+            'env' => 'prod',
+            'views' => dirname(__DIR__, 4) . '/app/views',
+            'db' => ['dsn' => 'sqlite:' . $this->path],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+            'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-wrap-upl'],
+            'static_cache' => ['dir' => $cacheDir],
+            'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+        ]);
+        $admin = (new TestClient($app))->actingAs($this->adminId());
+        $this->assertSame(302, $admin->postWithToken('/wrangling/merge', ['synonym_id' => $syn, 'canonical_id' => $fantasy])->status);
+        $this->assertFileDoesNotExist($cachedFile, 'the merge purged the cached story page');
+        // unmerge clears the retirement and purges too
+        $cache->maybeStore($req, new Response('cached-bytes', 200));
+        $this->assertFileExists($cachedFile);
+        $this->assertSame(302, $admin->postWithToken('/wrangling/unmerge/' . $syn)->status);
+        $this->assertFileDoesNotExist($cachedFile, 'the unmerge purged the cached story page');
+        exec('rm -rf ' . escapeshellarg($cacheDir));
     }
 
     /** Moderators are not wranglers: the SQL admin gate (role = 'admin') 403s

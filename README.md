@@ -703,12 +703,10 @@ stay moved: a story tagged only with the synonym ended up tagged with
 the canonical, which is what a merge is for. Unmerge is for mistakes
 caught early, not a time machine.
 
-One operator note: a merge rewrites `story_tags` but does not purge
-cached story pages, so a guest can keep seeing the synonym label until
-the cache layer refreshes. Run `php bin/kip pages:build` after a
-wrangling session to rebuild the static layer on the spot. The
-`wrangling` flag gates the surface, index, merge form, and both
-POSTs: off answers 404.
+A merge or unmerge purges the static page cache (a merged tag can sit
+on any story page, so the purge drops every cached file and the next
+anonymous visit re-caches lazily). The `wrangling` flag gates the
+surface, index, merge form, and both POSTs: off answers 404.
 
 ## Reading retention
 
