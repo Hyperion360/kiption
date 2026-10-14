@@ -834,6 +834,71 @@ final class SetupTest extends TestCase
         $this->assertSame('Lax', $params['samesite']);
     }
 
+    /** The gate's defensive paths: corrupt state, vanished files, contention. */
+    public function test_setup_gate_defensive_paths(): void
+    {
+        $home = $this->tmptree('kiption-gate-');
+        $data = $home . '/shared';
+        mkdir($data, 0775, true);
+        $config = $this->setupConfig($data);
+
+        // A corrupt database is "no admin", never a crash.
+        file_put_contents($data . '/data.sqlite', 'garbage, not a database');
+        $this->assertFalse(\App\Setup\SetupGate::hasAdmin($config));
+        $this->assertFalse(Install::hasAdmin($config));
+
+        // pending() is the file-only 503 predicate.
+        $token = $this->freshToken($config);
+        $this->assertTrue(\App\Setup\SetupGate::pending($config));
+        file_put_contents($data . '/setup-complete.lock', "done\n");
+        $this->assertFalse(\App\Setup\SetupGate::pending($config));
+        unlink($data . '/setup-complete.lock');
+
+        // authorize refuses a valid-shaped token with no file behind it, and
+        // refuses even a real token once a completion marker exists.
+        unlink($this->tokenPath($config));
+        $this->assertFalse(\App\Setup\SetupGate::authorize($config, $token));
+        file_put_contents($this->tokenPath($config), $token . "\n");
+        file_put_contents($data . '/setup-complete.lock', "done\n");
+        $this->assertFalse(\App\Setup\SetupGate::authorize($config, $token));
+        unlink($data . '/setup-complete.lock');
+
+        // The lock: an unwritable home, contention, and recovery.
+        $this->assertNull(\App\Setup\SetupGate::acquireLock(['data_dir' => $home . '/nowhere']));
+        $handle = fopen($data . '/setup.lock', 'c');
+        $this->assertTrue(flock($handle, LOCK_EX | LOCK_NB));
+        $this->assertNull(\App\Setup\SetupGate::acquireLock($config), 'the OS lock excludes a second mutation');
+        flock($handle, LOCK_UN);
+        fclose($handle);
+        $lock = \App\Setup\SetupGate::acquireLock($config);
+        $this->assertNotNull($lock);
+        flock($lock, LOCK_UN);
+        fclose($lock);
+
+        // Completion cannot half-land: an unwritable home refuses the marker.
+        chmod($data, 0555);
+        try {
+            \App\Setup\SetupGate::complete($config);
+            $this->fail('complete must refuse an unwritable home');
+        } catch (\RuntimeException) {
+        }
+        // A failure count cannot be recorded without the file either.
+        \App\Setup\SetupGate::recordFailure($config);
+        $this->assertSame(0, \App\Setup\SetupGate::failures($config));
+        chmod($data, 0775);
+
+        // A corrupt attempts file reads as an empty window.
+        file_put_contents($data . '/setup-attempts', 'not json');
+        $this->assertSame(0, \App\Setup\SetupGate::failures($config));
+
+        // Preflight's HTTPS posture: a real https URL passes without seams.
+        $public = $home . '/public';
+        mkdir($public, 0775, true);
+        $r = Preflight::run($this->config($data, ['base_url' => 'https://archive.example.com']), $public);
+        $byName = array_column($r['checks'], null, 'name');
+        $this->assertTrue($byName['https']['ok']);
+    }
+
     public function test_setup_state_serves_a_generic_503_from_the_front_controller(): void
     {
         $home = $this->tmptree('kiption-503gate-');

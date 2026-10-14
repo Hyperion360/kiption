@@ -142,7 +142,7 @@ final class SetupGate
     {
         $marker = self::path($config, self::COMPLETE);
         $tmp = $marker . '.' . bin2hex(random_bytes(4)) . '.tmp';
-        if (file_put_contents($tmp, 'setup complete ' . date('c') . "\n") === false) {
+        if (@file_put_contents($tmp, 'setup complete ' . date('c') . "\n") === false) {
             throw new \RuntimeException('cannot write the completion marker');
         }
         chmod($tmp, 0600);
