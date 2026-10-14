@@ -25,15 +25,34 @@ declare(strict_types=1);
 
 // Dev-server passthrough (php -S router mode): real files serve directly, exactly as
 // the production .htaccess RewriteCond !-f does. Dead code under Apache/FPM.
+// The docroot is the stable wrapper's directory (KIPTION_PUBLIC_DIR) when the
+// split layout defines it, this directory otherwise. The passthrough emits the
+// file itself: a `return false` here cannot cross the stable wrapper's require
+// boundary, which is the top-level router the dev server consults.
 if (PHP_SAPI === 'cli-server') {
+    $docroot = rtrim(defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : __DIR__, '/');
     $p = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
-    $real = realpath(__DIR__ . $p);
-    if ($real !== false && str_starts_with($real, __DIR__ . '/') && is_file($real)) return false;
+    $real = realpath($docroot . $p);
+    if ($real !== false && str_starts_with($real, $docroot . '/') && is_file($real)) {
+        $type = ['css' => 'text/css', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
+            'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'js' => 'text/javascript',
+            'png' => 'image/png', 'svg' => 'image/svg+xml', 'woff2' => 'font/woff2',
+        ][strtolower(pathinfo($real, PATHINFO_EXTENSION))] ?? 'application/octet-stream';
+        header('Content-Type: ' . $type);
+        header('Content-Length: ' . (string) filesize($real));
+        readfile($real);
+        exit;
+    }
 }
 
-require __DIR__ . '/../vendor/autoload.php';
+// The release root: a stable wrapper (site/public/index.php or
+// public_html/index.php) resolves site/current and defines KIPTION_ROOT as
+// the active release; a flat checkout is its own root.
+$root = defined('KIPTION_ROOT') ? KIPTION_ROOT : dirname(__DIR__);
 
-$config = require __DIR__ . '/../config.php';
+require $root . '/vendor/autoload.php';
+
+$config = require $root . '/config.php';
 $config['views'] = $config['app_dir'] . '/views';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // every view's strings render through the pack layer
 

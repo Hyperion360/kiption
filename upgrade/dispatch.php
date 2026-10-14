@@ -73,6 +73,11 @@ if (!is_string($root) || !str_starts_with($root, $releases . '/') || !is_file($r
     $fail('the active Kiption release is missing; see INSTALL.md');
 }
 
+// The same seams the web wrappers define: the dispatched command boots the
+// release's code against the shared private tree.
+define('KIPTION_ROOT', $root);
+define('KIPTION_SHARED_DIR', $shared);
+
 // The lease. Existence of run.lock is never the lock; the OS lock is.
 if (!is_dir($shared) && !@mkdir($shared, 0775, true)) {
     $fail('cannot create the shared data directory');

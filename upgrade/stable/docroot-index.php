@@ -17,7 +17,7 @@ $fail = static function (): never {
     exit;
 };
 
-$site = __DIR__ . '/site';
+$site = dirname(__DIR__) . '/site'; // site/ is uploaded as a sibling of public_html/
 $id = trim((string) @file_get_contents($site . '/current'));
 if (preg_match('/^[0-9a-f]{64}$/', $id) !== 1) {
     $fail();

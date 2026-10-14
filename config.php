@@ -1,9 +1,19 @@
 <?php
+// Deployment seams (shared-host split layout): a stable web/CLI wrapper
+// defines KIPTION_SHARED_DIR and KIPTION_PUBLIC_DIR, and the browser setup
+// writes a private deployment.php into the shared data directory. Flat
+// development defines neither and ships no deployment file, so every default
+// below resolves exactly as it always has.
+$dataDir = defined('KIPTION_SHARED_DIR') ? KIPTION_SHARED_DIR : __DIR__ . '/app';
+$deploymentFile = $dataDir . '/deployment.php';
+$deployment = is_file($deploymentFile) ? (require $deploymentFile) : [];
+$publicDir = defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : ($deployment['public_dir'] ?? __DIR__ . '/public');
 return [
     'env'     => getenv('KIP_ENV') ?: 'prod', // prod default, D4 info-disclosure rule
-    'db'      => ['dsn' => getenv('KIP_DB_DSN') ?: 'sqlite:' . __DIR__ . '/app/data.sqlite'], // KIP_DB_DSN: tests/CLI point bin/kip at a throwaway DB
-    'log_db'  => ['dsn' => 'sqlite:' . __DIR__ . '/app/logs.sqlite', 'retention_days' => 30],
-    'cache_db' => ['dsn' => getenv('KIP_CACHE_DB_DSN') ?: 'sqlite:' . __DIR__ . '/app/cache.sqlite', 'ttl_seconds' => 3600], // KIP_CACHE_DB_DSN: tests/CLI point kip cache:clear at a throwaway file
+    'data_dir' => $dataDir, // the private writable tree: databases, backups, nav, setup state (release layout: site/shared; flat layout: app/)
+    'db'      => ['dsn' => getenv('KIP_DB_DSN') ?: 'sqlite:' . $dataDir . '/data.sqlite'], // KIP_DB_DSN: tests/CLI point bin/kip at a throwaway DB
+    'log_db'  => ['dsn' => 'sqlite:' . $dataDir . '/logs.sqlite', 'retention_days' => 30],
+    'cache_db' => ['dsn' => getenv('KIP_CACHE_DB_DSN') ?: 'sqlite:' . $dataDir . '/cache.sqlite', 'ttl_seconds' => 3600], // KIP_CACHE_DB_DSN: tests/CLI point kip cache:clear at a throwaway file
     'rate_limit' => [   // per first URL segment, fixed window, non-GET/HEAD only; table rate_limits (migration 025)
         'auth'      => ['max' => 10, 'window' => 60],  // login/register/remind
         'reader'    => ['max' => 30, 'window' => 60],  // settings, bookmarks, and infinite-scroll progress (one POST per newly reached chapter; a 429 is retried on a later activation)
@@ -45,10 +55,10 @@ return [
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),
     'admin'   => ['enabled' => true],   // /admin CRUD panel, gate: users.is_admin = 1
-    'uploads' => ['dir' => __DIR__ . '/public/uploads', 'max_bytes' => 2097152,
+    'uploads' => ['dir' => $publicDir . '/uploads', 'max_bytes' => 2097152,
                   'ext' => ['png', 'jpg', 'jpeg', 'webp', 'gif']],
-    'base_url' => getenv('KIP_BASE_URL') ?: 'http://localhost:8080',   // absolute links in emails
-    'mail'     => ['transport' => 'log', 'log_path' => __DIR__ . '/app/mail.log', 'from' => 'noreply@localhost'],
+    'base_url' => getenv('KIP_BASE_URL') ?: ($deployment['base_url'] ?? 'http://localhost:8080'),   // absolute links in emails; setup records the canonical HTTPS URL in deployment.php
+    'mail'     => $deployment['mail'] ?? ['transport' => 'log', 'log_path' => $dataDir . '/mail.log', 'from' => 'noreply@localhost'],
     'site_name' => 'Kiption',
     'adult_rta' => '',   // site-wide RTA label (the RTA-5042 declaration, e.g. 'RTA-5042-1996-1400-1577-RTA'); empty = off. The /settings board's adult_rta row overrides
     'ui_lang' => getenv('KIP_UI_LANG') ?: 'en', // UI language pack (App\Lang, app/lang/{code}.php); KIP_UI_LANG overrides
@@ -57,15 +67,15 @@ return [
     'powered_by_url' => getenv('KIP_POWERED_BY_URL') ?: 'https://kiption.cloud',
     'feeds_full_text' => (bool) getenv('KIP_FEEDS_FULL_TEXT') ?: false, // Atom entries carry the first chapter in <content type="html">
     'ai_crawlers' => getenv('KIP_AI_CRAWLERS') === false || (bool) getenv('KIP_AI_CRAWLERS'), // robots.txt stance; KIP_AI_CRAWLERS=0 disallows GPTBot & co
-    'registration_mode' => 'verify',   // open | verify | approval | invite
+    'registration_mode' => $deployment['registration_mode'] ?? 'verify',   // open | verify | approval | invite; a browser install starts invite-only
     'validation_required' => true,     // false: authors self-publish
     'features' => ['news' => true, 'comments' => true, 'contact' => true, 'stats' => true, 'lists' => true, 'search' => true, 'toplists' => true, 'exports' => true, 'feeds' => true, 'directory' => true, 'digest' => true, 'analytics' => true, 'challenges' => true, 'releases' => true, 'roundrobin' => true, 'pms' => true, 'mute' => true, 'wrangling' => true, 'peruserlang' => true, 'perusertheme' => true], // flag deploy defaults; feature_flags DB rows are the runtime surface
-    'maintenance' => is_file(__DIR__ . '/app/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'),
+    'maintenance' => is_file($dataDir . '/maintenance.lock') || (bool) getenv('KIP_MAINTENANCE'), // the committed-import marker lives with the data, shared across releases
     'maintenance_allow' => [],
-    'static_cache' => ['enabled' => true, 'dir' => getenv('KIP_STATIC_CACHE_DIR') ?: __DIR__ . '/public/cache'], // KIP_STATIC_CACHE_DIR: tests/imports point pages:build at a throwaway dir
-    'public_dir' => __DIR__ . '/public', // web-served root: sitemap/robots regeneration target (never derived from the cache dir, env-free like app_dir)
-    'nav_file' => getenv('KIP_NAV_FILE') ?: __DIR__ . '/app/nav.json', // KIP_NAV_FILE: tests/imports point the nav artifact at a throwaway path
-    'backups' => ['dir' => getenv('KIP_BACKUP_DIR') ?: __DIR__ . '/app/backups', 'keep_days' => 14], // KIP_BACKUP_DIR: tests/CLI point kip backup at a throwaway dir
+    'static_cache' => ['enabled' => true, 'dir' => getenv('KIP_STATIC_CACHE_DIR') ?: $publicDir . '/cache'], // KIP_STATIC_CACHE_DIR: tests/imports point pages:build at a throwaway dir
+    'public_dir' => $publicDir, // web-served root: sitemap/robots regeneration target (never derived from the cache dir, env-free like app_dir)
+    'nav_file' => getenv('KIP_NAV_FILE') ?: $dataDir . '/nav.json', // KIP_NAV_FILE: tests/imports point the nav artifact at a throwaway path
+    'backups' => ['dir' => getenv('KIP_BACKUP_DIR') ?: $dataDir . '/backups', 'keep_days' => 14], // KIP_BACKUP_DIR: tests/CLI point kip backup at a throwaway dir
     'cdn' => ['enabled' => false, 'zone_id' => '', 'api_token' => '', 'purge_host' => ''],   // optional CDN purge (Cloudflare-compatible purge_cache endpoint), default-off; purge_host is the host prefix purged on every cache-purging write. Leave empty on a plain install: nothing changes until all four keys are set
     'items_per_page' => 20,
     'skin' => 'default',   // operator skin: app/skins/{name}/views overrides the app views when not 'default'; the /settings board writes this key

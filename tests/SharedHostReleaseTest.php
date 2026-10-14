@@ -60,7 +60,7 @@ final class SharedHostReleaseTest extends TestCase
             }
             $s = $src . '/' . $e;
             if (is_link($s)) {
-                throw new RuntimeException("symlink in source: {$s}");
+                throw new \RuntimeException("symlink in source: {$s}");
             }
             is_dir($s) ? self::rrcopy($s, $dst . '/' . $e, $exclude) : copy($s, $dst . '/' . $e);
         }
@@ -312,7 +312,178 @@ final class SharedHostReleaseTest extends TestCase
         $this->assertSame($expected, $meta['git_sha'], 'the builder records the source Git SHA itself');
     }
 
-    // ---------------------------------------------- stable CLI dispatching
+    // ---------------------------------------------- fixed public_html layout
+
+    /**
+     * The fixed-docroot layout: the host's public_html is the only web-served
+     * tree; the private site/ tree (releases, shared data, pointer, stable
+     * entry points) sits beside it. The web roots must never carry
+     * application code, the config, the databases, or backups; the front
+     * controller must serve the anonymous home and the assets through the
+     * stable wrapper; and CLI work through the stable launcher must write
+     * public artifacts into public_html while SQLite stays in site/shared.
+     */
+    public function test_fixed_public_html_layout(): void
+    {
+        $repo = dirname(__DIR__);
+        $sha = trim((string) shell_exec('git -C ' . escapeshellarg($repo) . ' rev-parse HEAD'));
+
+        $home = $this->tmptree('kiption-split-');
+        $copy = $this->sourceCopy($home);
+        $install = $home . '/kiption-install.zip';
+        [$code, $out] = $this->build($copy, '--development --allow-dirty --version=0.1.1-test'
+            . ' --git-sha=' . $sha
+            . ' --output=' . escapeshellarg($install));
+        $this->assertSame(0, $code, $out);
+
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($install) === true);
+        $this->assertTrue($zip->extractTo($home));
+        $zip->close();
+        $this->assertDirectoryExists($home . '/site/releases');
+        $this->assertFileExists($home . '/site/current');
+        $this->assertFileExists($home . '/public_html/index.php');
+
+        // No HTTP-reachable tree carries private files.
+        foreach (['public_html', 'site/public'] as $web) {
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($home . '/' . $web, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_PATHNAME)
+            );
+            foreach ($it as $path) {
+                $rel = ltrim(substr((string) $path, strlen($home . '/' . $web)), '/');
+                $this->assertDoesNotMatchRegularExpression(
+                    '#(^|/)(config\.php|vendor|app|backups)(/|$)|\.sqlite(-wal|-shm)?$|\.log$#',
+                    $rel,
+                    "private file reachable under {$web}: {$rel}"
+                );
+            }
+        }
+
+        // A private deployment record: setup's product, pointing the app at
+        // the real docroot over the private tree.
+        $port = $this->freePort(8095);
+        file_put_contents($home . '/site/shared/deployment.php', "<?php\nreturn [\n"
+            . "    'public_dir' => " . var_export($home . '/public_html', true) . ",\n"
+            . "    'base_url' => 'http://127.0.0.1:' . " . var_export((string) $port, true) . ",\n"
+            . "    'mail' => ['transport' => 'log', 'log_path' => __DIR__ . '/mail.log', 'from' => 'noreply@localhost'],\n"
+            . "    'registration_mode' => 'invite',\n"
+            . "];\n");
+
+        $kip = 'PATH="/opt/homebrew/bin:/usr/bin:/bin" ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($home . '/site/bin/kip');
+        [$mCode, $mOut] = $this->sh($home, $kip . ' migrate');
+        $this->assertSame(0, $mCode, $mOut);
+        $this->assertFileExists($home . '/site/shared/data.sqlite', 'the content database lives in the private tree');
+        foreach (glob($home . '/site/releases/*/*/*.sqlite') ?: [] as $stray) {
+            $this->fail("database inside the release tree: {$stray}");
+        }
+
+        // The served layout, through the stable wrapper as the webserver would.
+        $server = $this->startServer($port, $home . '/public_html', $home . '/public_html/index.php');
+        try {
+            $this->assertSame(200, $this->httpStatus($port, '/'), 'anonymous home must render');
+            $this->assertSame(200, $this->httpStatus($port, '/assets/app.js'), 'assets must serve from the docroot');
+            $this->assertSame(
+                sha1_file($home . '/public_html/assets/app.js'),
+                sha1((string) $this->httpBody($port, '/assets/app.js')),
+                'the served asset is the docroot copy'
+            );
+            // The host-matrix negatives, approximated over the dev server:
+            // private names are not present, so they route to 404s.
+            foreach (['/config.php', '/vendor/autoload.php', '/.git/config', '/app/data.sqlite'] as $private) {
+                $this->assertSame(404, $this->httpStatus($port, $private), "{$private} must not serve");
+            }
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+
+        // CLI work lands public artifacts in public_html, data in site/shared.
+        [$pCode, $pOut] = $this->sh($home, $kip . ' pages:build');
+        $this->assertSame(0, $pCode, $pOut);
+        $cached = glob($home . '/public_html/cache/**/*.html', GLOB_BRACE) ?: glob($home . '/public_html/cache/*.html') ?: [];
+        $all = $cached;
+        foreach (glob($home . '/public_html/cache/*', GLOB_ONLYDIR) ?: [] as $sub) {
+            $all = [...$all, ...glob($sub . '/*.html') ?: []];
+        }
+        $this->assertNotEmpty($all, 'pages:build must write the static cache into public_html');
+        $this->assertFileExists($home . '/site/shared/data.sqlite');
+    }
+
+    /** The stable web entry returns a generic 503 when the private root is gone, printing no path. */
+    public function test_missing_shared_root_returns_503(): void
+    {
+        $home = $this->tmptree('kiption-503-');
+        mkdir($home . '/public_html');
+        copy(dirname(__DIR__) . '/upgrade/stable/docroot-index.php', $home . '/public_html/index.php');
+        $port = $this->freePort(8096);
+        $server = $this->startServer($port, $home . '/public_html', $home . '/public_html/index.php');
+        try {
+            $body = $this->httpBody($port, '/');
+            $this->assertSame(503, $this->httpStatus($port, '/'));
+            $this->assertStringNotContainsString('/', explode("\n", $body)[0], 'no filesystem path in the refusal');
+            $this->assertStringNotContainsString($home, $body);
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
+    }
+
+    // --------------------------------------------------------------- helpers
+
+    private function freePort(int $start): int
+    {
+        for ($port = $start; $port < $start + 8; $port++) {
+            $sock = @fsockopen('127.0.0.1', $port, timeout: 0.2);
+            if ($sock === false) {
+                return $port;
+            }
+            fclose($sock);
+        }
+        $this->fail('no free port in the ad-hoc range');
+    }
+
+    /** @return resource the proc_open handle of the built-in server */
+    private function startServer(int $port, string $docroot, string $router): mixed
+    {
+        $handle = proc_open(
+            [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $docroot, $router],
+            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+            $pipes
+        );
+        $this->assertIsResource($handle, 'dev server failed to start');
+        for ($i = 0; $i < 50; $i++) {
+            if (@fsockopen('127.0.0.1', $port, timeout: 0.2) !== false) {
+                return $handle;
+            }
+            usleep(100000);
+        }
+        proc_terminate($handle);
+        $this->fail('dev server never came up');
+    }
+
+    private function httpStatus(int $port, string $path): int
+    {
+        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
+        $body = @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
+        if ($body === false) {
+            return 0;
+        }
+        $code = 0;
+        foreach ($http_response_header ?? [] as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
+                $code = (int) $m[1];
+            }
+        }
+        return $code;
+    }
+
+    private function httpBody(int $port, string $path): string|false
+    {
+        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
+        return @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
+    }
+
+    // ------------------------------------------------------- stable CLI dispatching
 
     /**
      * Stub releases prove the stable site/bin/kip wrapper resolves
