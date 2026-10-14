@@ -708,6 +708,35 @@ final class ImporterTest extends TestCase
         $this->assertSame('committed', (string) $db->one('SELECT status FROM import_runs ORDER BY id DESC LIMIT 1')['status']);
     }
 
+    /** Task 5: the operator checklist runs on the report, so the report must
+     *  NAME every dropped custom profile field and count the dropped series
+     *  challenges, without ever echoing the stored (possibly private) values.
+     *  Dry-run stays read-only so the preflight is safe on a live database. */
+    public function test_report_counts_unmapped_fields_without_values(): void
+    {
+        $this->migrate();
+        $b = $this->bundle(function (\EfictionInstall $fx): void {
+            $p = $fx->prefix;
+            // a non-bio profile field carrying a distinctive private value
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_authorfields (field_id, field_name) VALUES (2, 'birthday')");
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_authorinfo (uid, field_id, info) VALUES (1, 2, 'private-birthday-1970-01-01')");
+            // a nonempty series challenges CSV
+            $fx->pdo->exec("INSERT INTO {$p}fanfiction_series (seriesid, title, summary, uid, isopen, challenges) VALUES (9, 'Challenge Series', 'cs', 1, 2, '12,34')");
+        });
+        $db = $this->db();
+        $dry = $this->import($b, 'dry-run');
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'dry-run persists nothing');
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM series')['c'], 'dry-run persists nothing');
+        $this->assertStringContainsString('dropped authorinfo field birthday: 1', $dry, 'the report names the dropped field');
+        $this->assertStringContainsString('dropped series challenges CSV: 1', $dry);
+        $this->assertStringNotContainsString('private-birthday-1970-01-01', $dry, 'the report never echoes stored field values');
+        $this->assertStringNotContainsString('12,34', $dry, 'the report never echoes challenge lists');
+        $out = $this->import($b, 'commit');
+        $this->assertStringContainsString('dropped authorinfo field birthday: 1', $out);
+        $this->assertStringContainsString('dropped series challenges CSV: 1', $out);
+        $this->assertStringNotContainsString('private-birthday-1970-01-01', $out);
+    }
+
     private function migrateFresh(): void
     {
         // rebuild the schema from scratch on the same throwaway path

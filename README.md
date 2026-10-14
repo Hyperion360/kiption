@@ -965,14 +965,22 @@ exporter page's self-delete button (or delete by hand) to remove both
 `efiction-export.php` and `export-token.php` from the old webroot.
 
 4. On the new archive (after `php bin/kip migrate`), dry-run the
-   import and read the report it prints:
+   import and save the report it prints:
    `php bin/kip import:efiction kiption-export.tar.gz --dry-run`.
    Nothing is written; the counts are real. Read it end to end:
    per-table counts, rejects with reasons, dropped features, missing
    chapter files, and extracted author responses. Chapters
    whose files are missing from the bundle reject by default; pass
    `--allow-missing-text` to import visible placeholder chapters
-   instead.
+   instead. Then read the fidelity lines and decide with the archive's
+   owner: `warning acknowledgment gates not migrated: N` counts legacy
+   ratings whose warning bits asked for plain acknowledgment, a gate
+   Kiption does not have (inspect each rating's bits 0..7 with the owner
+   so nothing arrives more public than it lived); confirm member-only
+   stories are hidden from guests (a bit-4 story answers 404 logged out
+   and reads fine logged in); and require `cutover blockers: 0` before
+   you change public links, unless the owner records an explicit
+   exception for each visible restricted link.
 5. If the report counts substituted characters (the samples section
    lists the affected text), the charset heuristic guessed wrong: pass
    `--encoding=latin1` (or `--encoding=utf8`) and repeat the dry run
@@ -987,20 +995,38 @@ exporter page's self-delete button (or delete by hand) to remove both
    versus imported counts, and wordcount drift), writes the legacy
    301 map, and runs pages:build so the static cache comes up warm.
    An interrupted or partially failed commit can simply be re-run:
-   already-imported rows are recognized and skipped.
+   already-imported rows are recognized and skipped. Repairing a live
+   site: put maintenance mode on first (`touch app/maintenance.lock`)
+   and keep it on through the commit and the cache rebuild, so no guest
+   reads a cached page the import is about to restrict. On a scratch or
+   offline copy, no maintenance window is needed.
 7. Cutover checklist: spot-check story, profile, and series pages
    against the old archive (titles, chapter text, author notes,
    reviews); log in once with an old eFiction password (it works, is
    immediately rehashed the modern way, clears the legacy hash, and
-   the member gets a short heads-up email); test one legacy link such
-   as `viewstory.php?sid=<a real id>` and confirm the 301; swap DNS
-   or the docroot to the new install; decommission the old install
-   once you are confident, and delete the bundle (it is a password
-   file for as long as it exists).
+   the member gets a short heads-up email); test old URL samples such
+   as `viewstory.php?sid=<a real id>`, `viewuser.php?uid=`,
+   `viewseries.php?seriesid=`, `browse.php?catid=`,
+   `browse.php?id=<id>&type=categories`, `reviews.php?type=ST&item=<id>`,
+   and `viewpage.php?page=<name>`, each as a logged-out GET, and confirm
+   the 301; then commit the import, walk a few pages as a guest and as a
+   member, and confirm restricted stories 404 for the guest and read for
+   the member. Swap DNS or the docroot to the new install; decommission
+   the old install once you are confident, and delete the bundle (it is
+   a password file for as long as it exists). Keep the bundle in private
+   storage until that final delete: custom profile fields beyond bio and
+   series challenge values are counted in the report, never migrated,
+   and their only surviving copy is the bundle itself.
 
-Rollback: put the site in maintenance mode, copy the
-`pre-import-*.sqlite` snapshot over the database file, run
-`php bin/kip pages:prune`, and lift maintenance.
+Rollback: keep maintenance mode on, copy the `pre-import-*.sqlite`
+snapshot over the database file, run `php bin/kip pages:prune` and
+`php bin/kip pages:build`, then verify guest denial (open a formerly
+public page logged out and confirm it serves the restored data) before
+lifting maintenance (`rm app/maintenance.lock`). A failed import command
+is not a rollback: a nonzero exit says the run stopped, not that the
+database and cache came out clean. Leave the maintenance marker up until
+either the snapshot restore or a cache purge and rebuild has finished
+and the guest check passes.
 
 What lands where: authors become members with pennames, bios, and
 notification preferences (validated authors keep direct publishing;
@@ -1010,24 +1036,59 @@ stories, chapters, series and their items, coauthors, reviews (with
 author response blocks split out), favorites, news, the old
 moderation log, and custom pages all import. Chapter and note HTML is
 converted to the markdown subset and word counts are recomputed.
+
+Rating semantics: eFiction packs each rating's warning bits into one
+`ratingwarning` number (bit 1 acknowledgment request, bit 2 age
+consent, bit 4 members only). The import reads the bits independently.
+Bit 2 becomes the age gate (`ratings.is_adult`), so a bit-2 story asks
+for the age confirmation; the warning text stays display content and
+never turns a rating into an adult one by itself. Bit 4 becomes
+`stories.is_restricted`, so every story carrying that rating arrives
+members-only: 404 for guests on every surface (page, read, browse,
+search, feed, sitemap, epub download, static cache), readable for
+members. Bit 1 has no Kiption equivalent and is never promoted to a
+gate; the report counts it (`warning acknowledgment gates not
+migrated: N`) so the owner can decide what to do about those ratings.
+Anything but a single digit 0..7 in `ratingwarning` rejects the bundle
+before commit. Re-imports repair only upward: a bit-2 rating can raise
+`is_adult` that an operator cleared, never lower one an operator set;
+a conflicting operator edit is reported, not overwritten.
+
 Custom pages (eFiction custpages) land as markdown pages and their
 menu links as nav links, with the nav rebuilt on commit; re-running
-the import never duplicates either. Note that eFiction menu links
-could be marked members-only (their `link_access` flag), and Kiption
-pages are public, so every custpage link imports visible: after the
-import, review the nav at `/nav` and hide anything that was meant to
-stay off the public menu. Dropped features are
+the import never duplicates either. A menu link flagged members-only
+or mods-only (`link_access` 1 or 2) imports hidden: it stays off the
+public nav while its page remains public, exactly as in eFiction,
+whose `link_access` never guarded the direct page URL either. A
+restricted link whose label and URL an existing visible nav row
+already occupies is left alone (the importer has no provenance over a
+row it did not write) and reported as a `cutover blocker` with the
+row's id and local URL; hide or remove the row, rebuild the nav, and
+re-run the import until the report reads `cutover blockers: 0`, or
+record an explicit owner exception for that link. Dropped features are
 counted in the report rather than silently lost: custom profile
 fields beyond bio, news author name strings, series challenges, and
 the old install's mail texts (Kiption ships its own editable template
-set instead). Legacy URL redirects (301, GET requests only) cover
+set instead); the report names fields and counts values but never
+prints the stored values.
+
+Legacy URL redirects (301, GET requests only) cover
 `viewstory.php?sid=`, `viewuser.php?uid=`, `viewseries.php?seriesid=`,
-`browse.php?catid=`, and `reviews.php?type=ST&item=` (also `type=SE`
-for series); `browse.php` links that use `id=` and `type=categories`
-instead of `catid=` do not redirect, and old `viewpage.php?page=`
-custpage URLs 404 rather than redirect (the pages live at
-`/page/view/{slug}` now; a redirect rider is a recorded future
-option).
+`browse.php?catid=`, `browse.php?id=<id>&type=categories` (either
+parameter order), `reviews.php?type=ST&item=` (also `type=SE` for
+series), and `viewpage.php?page=<name>` for imported custpages.
+Unmapped, POST, array-parameter, and deleted-target URLs fall through
+to the app's honest 404; a redirect is only ever issued to a mapped
+local target, never to a string from the request.
+
+Hosting: the import runs anywhere Kiption itself runs, which per
+INSTALL.md means PHP 8.3+ with `pdo_sqlite`, Composer and git for the
+install, writable storage for the database, uploads, and cache, and a
+web server (Apache or nginx with PHP-FPM) that routes to `index.php`.
+A small VPS is the documented shape; the documentation does not claim
+managed hosts without those requirements. If you would rather run
+none of it, Kiption Cloud performs the eFiction migration on paid
+tiers.
 
 Admin roles: the importer upgrades members listed in the old
 install's admins setting, which the exporter only began including
