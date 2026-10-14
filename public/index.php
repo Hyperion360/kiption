@@ -103,6 +103,10 @@ $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 // point picks up DB values with zero downstream edits. Guarded: an unmigrated
 // database keeps the config-file values instead of fataling the first page.
 $config = \App\Settings::apply($config);
+// The RTA seam: the operator's site-wide adult label (config 'adult_rta',
+// the settings board's row overrides it). Set once at boot, zero queries;
+// a page-level withRating() call still wins inside Head.
+\App\Seo\Head::siteRating((string) ($config['adult_rta'] ?? ''));
 // The footer seam: layout templates read it statically (no config in view
 // scope). It inits from the MERGED config, after the settings overlay: the
 // board's powered_by row must govern the footer on the very next render.

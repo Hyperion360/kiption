@@ -324,6 +324,14 @@ Profiles carry h-card and chapter reads carry h-entry microformats. Empty
 category listings are `noindex` and never cached. Crawlers are kept off
 faceted query-string permutations via `robots.txt`.
 
+Site-wide maturity label: the `adult_rta` setting (config.php, or the
+settings board's row) emits the RTA-5042 declaration
+(`RTA-5042-1996-1400-1577-RTA`) as a `rating` meta on every page that does
+not already set its own. It ships off: set the exact string
+`RTA-5042-1996-1400-1577-RTA` only when your archive's adult share
+justifies a site-wide label; an age-gated story's `rating: adult` meta
+always wins over the site default, and one rating meta renders per page.
+
 ### Feeds
 
 The site feed is Atom at `/feed` with an RSS2 alias at `/rss`, plus

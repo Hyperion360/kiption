@@ -5,6 +5,13 @@ use PHPUnit\Framework\TestCase;
 
 final class HeadTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        // The Features::reset() discipline: the site rating is a process-wide
+        // boot seam, so no later test inherits one that a test set here.
+        Head::resetSiteRating();
+    }
+
     public function test_canonical_is_absolute_via_base_url(): void
     {
         $h = Head::make(siteName: 'S', baseUrl: 'https://archive.example')->withCanonical('/story/view/x');
@@ -83,5 +90,44 @@ final class HeadTest extends TestCase
         // the clone treatment: the original head keeps the site-level card
         $this->assertContains(['property' => 'og:image', 'content' => '/assets/site.png'], $h->ogTags());
         $this->assertSame('/assets/site.png', $h->ogImage);
+    }
+
+    /** The operator's site-wide adult label (config 'adult_rta'): a page that
+     *  sets no rating of its own carries the site default. */
+    public function test_site_rating_fills_pages_without_their_own(): void
+    {
+        Head::siteRating('RTA-5042-1996-1400-1577-RTA');
+        $tags = Head::make('S')->withTitle('t')->metaTags();
+        $names = array_column($tags, 'name');
+        $this->assertContains('rating', $names);
+        $this->assertSame('RTA-5042-1996-1400-1577-RTA', $tags[array_search('rating', $names)]['content']);
+    }
+
+    /** One rating meta maximum per page: a per-page withRating() call wins
+     *  and the site default never doubles it. */
+    public function test_per_page_rating_wins_over_the_site_default(): void
+    {
+        Head::siteRating('RTA-5042-1996-1400-1577-RTA');
+        $tags = Head::make('S')->withRating('adult')->metaTags();
+        $ratings = array_values(array_filter($tags, fn ($t) => $t['name'] === 'rating'));
+        $this->assertCount(1, $ratings);
+        $this->assertSame('adult', $ratings[0]['content']);
+    }
+
+    /** Static RTA off (the shipped default): no rating meta anywhere. */
+    public function test_no_site_rating_by_default(): void
+    {
+        $names = array_column(Head::make('S')->metaTags(), 'name');
+        $this->assertNotContains('rating', $names);
+    }
+
+    /** An empty string clears the site label (the settings board writes ''
+     *  to switch it off; the boot seam must not emit an empty meta). */
+    public function test_empty_site_rating_is_off(): void
+    {
+        Head::siteRating('RTA-5042-1996-1400-1577-RTA');
+        Head::siteRating('');
+        $names = array_column(Head::make('S')->metaTags(), 'name');
+        $this->assertNotContains('rating', $names);
     }
 }

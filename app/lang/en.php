@@ -753,6 +753,8 @@ return [
     'settings.powered_by_note' => 'Saving takes effect immediately and clears the page caches.',
     'settings.skin' => 'Skin (site-wide look)',
     'settings.skin_note' => 'Skins override templates under app/skins and are documented in SKINS.md. Saving clears the page caches, then rebuilds happen on first visit (or run pages:build).',
+    'settings.adult_rta' => 'Site-wide RTA label (off when empty)',
+    'settings.adult_rta_note' => 'Emits the RTA-5042 declaration as a rating meta on every page. Leave empty unless your archive warrants a site-wide adult label; an age-gated story always keeps its own rating meta.',
     'settings.save' => 'Save settings',
 
     // The site-wide admin analytics dashboard (/analytics).

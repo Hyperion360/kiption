@@ -55,6 +55,7 @@ final class SettingsController
             'items_per_page' => (string) ($this->request->post['items_per_page'] ?? '20'),
             'powered_by' => (string) ($this->request->post['powered_by'] ?? '0'),
             'skin' => (string) ($this->request->post['skin'] ?? \App\Skins::DEFAULT),
+            'adult_rta' => (string) ($this->request->post['adult_rta'] ?? ''),
         ];
         $invalid = [];
         foreach ($submitted as $k => $v) {
@@ -79,6 +80,7 @@ final class SettingsController
             'items_per_page' => (string) ($all['items_per_page'] ?? $this->app->config('items_per_page', 20)),
             'powered_by' => (string) ($all['powered_by'] ?? $bool($this->app->config('powered_by'))),
             'skin' => (string) ($all['skin'] ?? $this->app->config('skin', \App\Skins::DEFAULT)),
+            'adult_rta' => (string) ($all['adult_rta'] ?? $this->app->config('adult_rta', '')),
         ];
     }
 

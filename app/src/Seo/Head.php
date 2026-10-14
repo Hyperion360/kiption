@@ -3,6 +3,11 @@ namespace App\Seo;
 
 final class Head
 {
+    /** The operator's site-wide adult label (config 'adult_rta'; the
+     *  RTA-5042 declaration). Set once at boot; a page-level withRating()
+     *  still wins. Static: zero queries, no constructor change. */
+    private static ?string $siteRating = null;
+
     private ?string $rating = null;
 
     private function __construct(
@@ -23,6 +28,18 @@ final class Head
     public static function make(string $siteName, string $ogImage = '', string $baseUrl = ''): self
     {
         return new self($siteName, $ogImage, $baseUrl, false, null, null, '/', null, null, [], null, false);
+    }
+
+    /** The boot seam: the front controller sets this right after the settings
+     *  overlay. An empty string clears it (the label is off by default). */
+    public static function siteRating(string $rating): void
+    {
+        self::$siteRating = $rating === '' ? null : $rating;
+    }
+
+    public static function resetSiteRating(): void
+    {
+        self::$siteRating = null;
     }
 
     public function withTitle(?string $title): self
@@ -119,8 +136,11 @@ final class Head
     public function metaTags(): array
     {
         $tags = [['name' => 'description', 'content' => $this->description()]];
-        if ($this->rating !== null) {
-            $tags[] = ['name' => 'rating', 'content' => $this->rating];
+        // One rating meta maximum per page: a per-page withRating() call wins;
+        // the site-wide default fills only when the page sets none.
+        $rating = $this->rating ?? self::$siteRating;
+        if ($rating !== null) {
+            $tags[] = ['name' => 'rating', 'content' => $rating];
         }
         if ($this->noindex) {
             $tags[] = ['name' => 'robots', 'content' => 'noindex'];

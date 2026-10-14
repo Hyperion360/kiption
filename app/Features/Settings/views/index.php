@@ -28,5 +28,9 @@
     </select>
   </label>
   <p class="chapter-meta"><?= \App\Lang::t('settings.skin_note') ?></p>
+  <label><?= \App\Lang::t('settings.adult_rta') ?>
+    <input name="adult_rta" maxlength="60" value="<?= $this->e($current['adult_rta']) ?>" placeholder="RTA-5042-1996-1400-1577-RTA">
+  </label>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.adult_rta_note') ?></p>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save') ?></button>
 </form>

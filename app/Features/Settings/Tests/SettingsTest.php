@@ -53,10 +53,13 @@ final class SettingsTest extends TestCase
         $this->assertSame(302, $admin->postWithToken('/settings/save', [
             'site_name' => 'Renamed Archive', 'registration_mode' => 'invite',
             'validation_required' => '0', 'items_per_page' => '50', 'powered_by' => '0',
+            'adult_rta' => 'RTA-5042-1996-1400-1577-RTA',
         ])->status);
         // Rows landed for every key the board writes (skin included: an
         // absent field defaults to 'default', never 'leave unchanged').
-        $this->assertSame(6, (int) $this->db()->one('SELECT COUNT(*) c FROM settings')['c']);
+        $this->assertSame(7, (int) $this->db()->one('SELECT COUNT(*) c FROM settings')['c']);
+        $this->assertSame('RTA-5042-1996-1400-1577-RTA',
+            (string) $this->db()->one('SELECT value FROM settings WHERE key = ?', ['adult_rta'])['value']);
         // A FRESH client (the entrypoint seam: init then apply) sees the new
         // values on read points that never learned settings exist: the layout
         // reads site_name, AuthController reads registration_mode.
@@ -169,6 +172,7 @@ final class SettingsTest extends TestCase
             ['items_per_page', '0'], ['items_per_page', '101'], ['items_per_page', 'ten'],
             ['skin', str_repeat('x', 61)], // skin rides the skin kind: [a-z0-9-], 1-30 chars
             ['skin', 'Big Skin'], ['skin', '../views'],
+            ['adult_rta', str_repeat('x', 61)], // the label kind: empty or 1-60 chars
         ];
         foreach ($bad as [$key, $value]) {
             try {
@@ -179,6 +183,11 @@ final class SettingsTest extends TestCase
             }
         }
         $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) c FROM settings')['c'], 'no rejected value landed');
+        // The label kind's off state is a legal write (unlike string keys,
+        // which refuse ''): flipping the RTA label back off stores ''.
+        \App\Features::init($this->db(), []);
+        \App\Settings::put('adult_rta', '');
+        $this->assertSame('', (string) $this->db()->one('SELECT value FROM settings WHERE key = ?', ['adult_rta'])['value']);
     }
 
     public function test_save_rejects_out_of_range_values_with_422(): void

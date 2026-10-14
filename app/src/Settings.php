@@ -11,7 +11,8 @@ namespace App;
 final class Settings
 {
     public const KEYS = ['site_name' => 'string', 'registration_mode' => 'oneof:open,verify,approval,invite',
-        'validation_required' => 'bool', 'items_per_page' => 'int:1,100', 'powered_by' => 'bool', 'skin' => 'skin'];
+        'validation_required' => 'bool', 'items_per_page' => 'int:1,100', 'powered_by' => 'bool', 'skin' => 'skin',
+        'adult_rta' => 'label'];
     // powered_by: the board stores the row today; the override activates the
     // moment the app-prep footer lane ships the config key (overrides() skips
     // keys the config lacks, so the row waits harmlessly until then).
@@ -58,6 +59,11 @@ final class Settings
         switch ($kind) {
             case 'string':
                 if ($value === '' || mb_strlen($value) > 60) throw new \InvalidArgumentException("{$key}: 1-60 characters");
+                break;
+            case 'label':
+                // A label the operator can switch off: empty is a legal value
+                // (adult_rta's off state), 1-60 characters otherwise.
+                if ($value !== '' && mb_strlen($value) > 60) throw new \InvalidArgumentException("{$key}: empty, or 1-60 characters");
                 break;
             case 'skin':
                 if (!preg_match('/^[a-z0-9-]{1,30}$/', $value)) throw new \InvalidArgumentException('skin: letters, digits, dashes only');

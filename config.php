@@ -50,6 +50,7 @@ return [
     'base_url' => getenv('KIP_BASE_URL') ?: 'http://localhost:8080',   // absolute links in emails
     'mail'     => ['transport' => 'log', 'log_path' => __DIR__ . '/app/mail.log', 'from' => 'noreply@localhost'],
     'site_name' => 'Kiption',
+    'adult_rta' => '',   // site-wide RTA label (the RTA-5042 declaration, e.g. 'RTA-5042-1996-1400-1577-RTA'); empty = off. The /settings board's adult_rta row overrides
     'ui_lang' => getenv('KIP_UI_LANG') ?: 'en', // UI language pack (App\Lang, app/lang/{code}.php); KIP_UI_LANG overrides
     'og_image' => '',   // absolute or root-relative path; renders og:image/twitter cards when set
     'powered_by' => true,   // footer attribution; the /settings board's powered_by row (or this key set false) opts out
