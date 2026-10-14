@@ -28,10 +28,11 @@ away from it:
   age-gated ratings map to Kiption's restriction flags on import.
 - **PHP 8.3 native.** No warnings, no fatals, no compatibility shims.
 
-Still running eFiction and not ready to move? Hyperion360 maintains a
-PHP 8.3 compatibility fork so existing archives keep running while you
-decide. Migrate to Kiption whenever you are ready; the importer is the
-same team.
+Still running eFiction and not ready to move?
+[Hyperion360/efiction](https://github.com/Hyperion360/efiction) is a
+maintained PHP 8.3 compatibility fork (GPL, provenance verified against
+upstream) so existing archives keep running while you decide. Migrate to
+Kiption whenever you are ready; the importer is the same team.
 
 ## Coming from Wattpad
 

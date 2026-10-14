@@ -956,6 +956,11 @@ Moving an archive off a live eFiction 3.5.5 install is a two-stage
 runbook: export a bundle from the old install, then import it here.
 Steps 1-3 run on the old install, steps 4-7 on the new one.
 
+Not ready to move? [Hyperion360/efiction](https://github.com/Hyperion360/efiction)
+is a maintained PHP 8.3 compatibility fork of eFiction 3.5.5 (GPL, provenance
+verified against upstream) that keeps existing archives running while you
+decide. The importer below is the same team's migration path off it.
+
 1. On the new archive, run `php bin/kip import:token`. It prints a
    one-time token plus the exact one-line contents for a file named
    `export-token.php`.
