@@ -412,6 +412,12 @@ final class ImporterTest extends TestCase
         // the old drop stubs are gone
         $this->assertStringNotContainsString('dropped pagelinks', $out);
         $this->assertStringNotContainsString('dropped messages', $out);
+        // every imported page writes its viewpage.php?page={name} 301 mapping
+        foreach (['about' => 'about', 'ghost' => 'ghost', 'membersnote' => 'members-note', 'board' => 'board', 'private' => 'private'] as $name => $slug) {
+            $row = $db->one('SELECT page_slug FROM legacy_page_urls WHERE legacy_name = ?', [$name]);
+            $this->assertNotNull($row, "legacy name {$name} must map to its page");
+            $this->assertSame($slug, $row['page_slug']);
+        }
         // idempotent re-run: no duplicates, first body wins, outcomes skip
         $again = $this->import($b, 'commit');
         $this->assertSame(1, (int) $db->one("SELECT COUNT(*) c FROM nav_links WHERE label = 'About'")['c']);
@@ -422,6 +428,8 @@ final class ImporterTest extends TestCase
         $this->assertStringContainsString('cutover blockers: 1', $again, 'the unresolved blocker keeps blocking');
         $this->assertStringContainsString('fanfiction_pagelinks       manifest 6, imported 0, rejected 1, skipped 5', $again);
         $this->assertStringContainsString('fanfiction_messages        manifest 5, imported 0, rejected 1, skipped 4', $again);
+        // the page mapping re-import produces no duplicates either
+        $this->assertSame(5, (int) $db->one('SELECT COUNT(*) c FROM legacy_page_urls')['c'], 'one mapping per legacy page name');
     }
 
     /** A visible nav row left by an OLDER import (before link_access was
@@ -484,6 +492,12 @@ final class ImporterTest extends TestCase
         // count borrowed from the pages insert tally, no MISMATCH
         $this->assertStringContainsString('fanfiction_messages        manifest 1, imported 0, rejected 0, skipped 1', $out);
         $this->assertStringNotContainsString('MISMATCH', $out);
+        // the collided page is an unproven target: no viewpage mapping may
+        // point at the operator's slug, and the collision is reported for
+        // review (the second label's own NEW page still maps to its own slug)
+        $this->assertNull($db->one("SELECT * FROM legacy_page_urls WHERE legacy_name = 'about' AND page_slug = 'about'"), 'an operator page collision never maps');
+        $this->assertSame('about-us', (string) $db->one("SELECT page_slug FROM legacy_page_urls WHERE legacy_name = 'about' AND page_slug = 'about-us'")['page_slug']);
+        $this->assertStringContainsString('dropped custom page slug collision requires review: 1', $out);
     }
 
     public function test_mixed_options_refuse_in_process(): void

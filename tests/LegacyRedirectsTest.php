@@ -64,6 +64,43 @@ final class LegacyRedirectsTest extends TestCase
         $this->assertNull($l->lookup(new Request('GET', '/viewstory.php', ['sid' => '42'], [], []), $this->db));
     }
 
+    /** The two new shapes: browse.php's id=/type=categories category variant
+     *  (canonicalized, order-free) and viewpage.php?page={message_name} via
+     *  the imported legacy_page_urls table. GET only, scalar params only,
+     *  mapped local targets only. */
+    public function test_new_shapes_are_mapped_only_for_get_and_known_entities(): void
+    {
+        $this->db->query("INSERT INTO import_map (legacy_table, legacy_id, new_table, new_id, run_id) VALUES ('fanfiction_categories', '1', 'categories', (SELECT id FROM categories WHERE slug = 'general'), 1)");
+        (new LegacyRedirects())->writeForImport($this->db);
+        $l = new LegacyRedirects();
+        $get = fn (string $path, array $get): \Kip\Http\Request => new \Kip\Http\Request('GET', $path, $get, [], []);
+        // the category variant resolves like its catid twin, in either order
+        $this->assertSame('/browse/category/general', $l->lookup($get('/browse.php', ['id' => '1', 'type' => 'categories']), $this->db));
+        $this->assertSame('/browse/category/general', $l->lookup($get('/browse.php', ['type' => 'categories', 'id' => '1']), $this->db), 'parameter order never matters');
+        $this->assertSame('/browse/category/general', $l->lookup($get('/browse.php', ['catid' => '1']), $this->db), 'the catid shape keeps working');
+        // negatives: wrong type, unknown id, arrays, junk
+        $this->assertNull($l->lookup($get('/browse.php', ['id' => '1', 'type' => 'stories']), $this->db), 'only type=categories maps');
+        $this->assertNull($l->lookup($get('/browse.php', ['id' => '999', 'type' => 'categories']), $this->db));
+        $this->assertNull($l->lookup($get('/browse.php', ['id' => ['1'], 'type' => 'categories']), $this->db));
+        $this->assertNull($l->lookup($get('/browse.php', ['id' => '1', 'type' => ['categories']]), $this->db));
+        // the viewpage shape resolves through the imported page mapping only
+        // (the seeder already owns the 'about' slug, so the mapping proves the
+        // join rather than echoing the name)
+        $this->db->query("INSERT INTO pages (slug, title, body) VALUES ('imported-about', 'About', 'Hello.')");
+        $this->db->query("INSERT INTO legacy_page_urls (legacy_name, page_slug) VALUES ('about', 'imported-about')");
+        $this->assertSame('/page/view/imported-about', $l->lookup($get('/viewpage.php', ['page' => 'about']), $this->db));
+        // POST never redirects
+        $this->assertNull($l->lookup(new \Kip\Http\Request('POST', '/viewpage.php', ['page' => 'about'], [], []), $this->db), 'only GET consults the map');
+        // unknown, deleted, hostile, wrong-shape names all fall through
+        $this->assertNull($l->lookup($get('/viewpage.php', ['page' => 'no_such_page']), $this->db));
+        $this->db->query("DELETE FROM pages WHERE slug = 'imported-about'");
+        $this->assertNull($l->lookup($get('/viewpage.php', ['page' => 'about']), $this->db), 'a deleted page is an honest 404');
+        foreach (['About', 'ab', str_repeat('a', 31), 'about;DROP', 'ab-out'] as $bad) {
+            $this->assertNull($l->lookup($get('/viewpage.php', ['page' => $bad]), $this->db), "hostile name {$bad} never redirects");
+        }
+        $this->assertNull($l->lookup($get('/viewpage.php', ['page' => ['about']]), $this->db), 'array params hold no honest match');
+    }
+
     public function test_array_params_miss_quietly_without_php_warnings(): void
     {
         $l = new LegacyRedirects();

@@ -864,6 +864,17 @@ final class Importer
             }
             $page = $this->db->query('INSERT OR IGNORE INTO pages (slug, title, body) VALUES (?, ?, ?)',
                 [$slug, mb_substr($title, 0, 255), $body]);
+            // the viewpage.php?page={name} 301 mapping: written when THIS run
+            // inserted the page, or when an earlier run mapped the same legacy
+            // name to this same slug (idempotent re-import). An unproven page
+            // (an operator's page that merely shares the slug) is a collision:
+            // it stays unmapped until a human rules on it.
+            $prior = $this->db->one('SELECT page_slug FROM legacy_page_urls WHERE legacy_name = ?', [$m[1]]);
+            if ($page->rowCount() === 1 || ($prior !== null && $prior['page_slug'] === $slug)) {
+                $this->db->query('INSERT OR IGNORE INTO legacy_page_urls (legacy_name, page_slug) VALUES (?, ?)', [$m[1], $slug]);
+            } else {
+                $this->report->drop('custom page slug collision requires review');
+            }
             if ($msg !== null && !isset($counted[$m[1]])) {
                 // one outcome per message row, taken from its first pagelink
                 if ($page->rowCount() === 1) $this->bump($this->riderImported, 'fanfiction_messages');

@@ -35,7 +35,7 @@ final class SchemaTest extends TestCase
             'coauthors', 'chapters', 'series', 'series_items', 'reading_lists', 'reading_list_items', 'reviews', 'favorites',
             'news', 'news_comments', 'pages', 'mail_templates', 'page_stats',
             'login_attempts', 'password_resets', 'email_verifications', 'invites',
-            'import_map', 'import_runs', 'legacy_urls', 'legacy_log',
+            'import_map', 'import_runs', 'legacy_urls', 'legacy_log', 'legacy_page_urls',
             'notifications', 'story_kudos', 'follows', 'reading_history', 'reports',
             'contact_log', 'nav_links', 'feature_flags',
             'challenges', 'challenge_prompts', 'challenge_items',
