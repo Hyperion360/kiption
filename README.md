@@ -1,12 +1,21 @@
 # Kiption
 
-Self-hosted fiction archive built on [Kip](https://github.com/Hyperion360/kip),
-the batteries-included, zero-dependency PHP framework. Working title; the
-product name is not final.
+A self-hosted fiction archive for original fiction and fanfiction.
+PHP 8.3 and SQLite. No JavaScript frameworks, no runtime dependencies
+beyond the [Kip](https://github.com/Hyperion360/kip) framework, no build
+step. Runs on shared hosting.
 
-Status: feature-complete through milestone 14 (reading, authoring,
-moderation, search, imports, engagement, and the reader experience); the
-README below is the tour.
+Kiption is a modern eFiction alternative: eFiction 3.5 has been
+unmaintained since 2018 and breaks on current PHP. Kiption covers the
+eFiction feature set, imports an eFiction archive with one command
+(HTML converted to markdown, legacy passwords keep working, old URLs
+301 to their new addresses), and serves anonymous pages from a static
+cache on a one-query-per-page budget.
+
+If you are coming from Wattpad, Royal Road, Archive of Our Own, or
+WebNovel and want an archive you host and control, read
+[Why Kiption](docs/guides/value-props.md). Hosted flagship:
+https://kiption.com (launching); self-hosting is free forever.
 
 ## Requirements
 

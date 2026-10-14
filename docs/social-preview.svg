@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#14120f"/>
+  <rect x="64" y="64" width="1152" height="512" fill="none" stroke="#c9a45c" stroke-width="3"/>
+  <text x="640" y="268" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="128" fill="#f5efe4">Kiption</text>
+  <text x="640" y="352" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-style="italic" fill="#c9a45c">a self-hosted fiction archive</text>
+  <text x="640" y="470" text-anchor="middle" font-family="Menlo, monospace" font-size="30" fill="#8f8778">PHP 8.3 &#183; SQLite &#183; zero JavaScript &#183; your server</text>
+</svg>

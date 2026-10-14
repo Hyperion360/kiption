@@ -1,0 +1,115 @@
+# Why Kiption
+
+Every claim below maps to a shipped, tested feature. Nothing here is a
+roadmap item. Where a complaint on another platform has no Kiption answer
+yet, it says so.
+
+## The short version
+
+Your archive is one SQLite file on a server you control. There are no ads,
+no paid unlocks, and no landlord. You can export any story as EPUB or HTML,
+import an entire eFiction archive in one command, and back the whole site
+up with `bin/kip backup`.
+
+## Coming from eFiction
+
+eFiction 3.5 has been unmaintained since 2018 and throws fatal errors on
+current PHP. Kiption covers its feature set and fixes what drove people
+away from it:
+
+- **One-command migration.** `bin/kip import:efiction` takes an eFiction
+  export bundle and brings over stories, chapters, members, categories,
+  tags, series, and challenges. HTML becomes markdown on the way in.
+- **Old links keep working.** Legacy eFiction URLs 301 to their Kiption
+  addresses, so search engine rankings and bookmarks survive the move.
+- **Members keep their passwords.** Legacy password hashes rehash on the
+  first login after import; nobody resets anything.
+- **Adult content arrives correctly gated.** eFiction's member-only and
+  age-gated ratings map to Kiption's restriction flags on import.
+- **PHP 8.3 native.** No warnings, no fatals, no compatibility shims.
+
+Still running eFiction and not ready to move? Hyperion360 maintains a
+PHP 8.3 compatibility fork so existing archives keep running while you
+decide. Migrate to Kiption whenever you are ready; the importer is the
+same team.
+
+## Coming from Wattpad
+
+- **No ads mid-story.** There is no ad system in the codebase at all.
+- **No coin paywalls.** Monetization on Kiption is the author's own support
+  link (Patreon, Ko-fi) on their profile and stories. The platform never
+  sits between an author and their reader's money.
+- **Your works are never the platform's to lose.** Authors export any story
+  as EPUB or HTML at any time. The operator backs up the whole archive as
+  one SQLite file. A takedown dispute cannot delete your archive.
+- **Reading that respects the text.** Reader typography controls (size,
+  typeface, spacing, width, light and dark), infinite scroll or chapter
+  units, keyboard navigation, and a whole-work view for printing.
+
+## Coming from Royal Road
+
+- **Rankings are not a black box.** Trending is a documented seven-day
+  window over kudos, favorites, and reviews, and the top-rated list
+  requires at least three reviews before a story can rank on it, which
+  keeps a single drive-by from ranking anything.
+- **Guest reviews carry accountability.** A guest can review with a name,
+  one review per IP per story per day, enforced atomically in the
+  database rather than by a form the impatient can double-submit.
+- **Curate your own feed.** Mute any author and their stories stop
+  appearing in your listings, silently and reversibly.
+- **Authors see their numbers.** The analytics dashboard covers reads,
+  kudos, favorites, follows, and review counts per story.
+- **Serial publishing tools.** Scheduled chapter releases with follower
+  notification fan-out, drafts behind a validation queue, coauthors, and
+  series with confirmed membership.
+- **Readers can subscribe their way.** Per-author RSS and Atom feeds, plus
+  per-chapter email or daily digest for followers.
+
+## Coming from Archive of Our Own
+
+- **You are not in a registration queue.** The operator picks the
+  registration mode: open, email-verified, approval, or invite.
+- **The site is fast.** Anonymous pages are served from a static cache.
+  Search runs on SQLite FTS5 with median response in single-digit
+  milliseconds. Every page renders in one database query, enforced by an
+  automated test.
+- **Reading progress is remembered.** Kiption tracks your position across
+  chapters and shows story-span progress; AO3 has no equivalent.
+- **Reading lists keep their order.** Your lists, your sequence.
+- **Notifications are granular.** Follow an author and choose inbox,
+  email, or digest per subscription.
+- **Kudos, bookmarks with private notes, tag wrangling with synonym
+  merges, restricted works, challenges with prompts, gift metadata, and
+  threaded reviews are all here.**
+
+## Coming from WebNovel
+
+- **No coins, no locked chapters.** Everything an author publishes is
+  readable by everyone the author allows.
+- **Stolen-content handling starts with control.** On a self-hosted
+  archive the operator knows their community, the validation queue screens
+  new work, and reports go to a human who answers for the decision.
+
+## Coming from Substack-style serials
+
+- **Chapters reach followers without a newsletter fee.** Email on publish,
+  daily digest, or RSS and Atom feeds.
+- **The list is yours.** The subscriber relationship lives in your
+  database, not a platform's.
+
+## What Kiption deliberately does not build
+
+- In-app payments, coins, or paid chapter unlocks. Monetization is a
+  support link, never a toll booth.
+- Per-paragraph inline comments. Chapter-level threads and reviews only.
+- Image and video hosting beyond covers and avatars.
+- Social feeds, clubs, and activity streams.
+
+## The fine print
+
+Self-hosting is free forever under the MIT license; this repository is
+the whole product. The hosted flagship at kiption.com runs the same code
+and bans works whose primary purpose is sexual gratification; romance,
+including mature romance behind the content gate, is welcome. What an
+archive accepts is always the operator's call, and the seeded
+content-policy page is theirs to edit.
