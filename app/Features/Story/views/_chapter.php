@@ -59,6 +59,8 @@
         <button type="submit"><?= \App\Lang::t('story.leave_kudos') ?></button>
       </form>
       <a href="/story/view/<?= $this->e($story['slug']) ?>#reviews"><?= $this->e(\App\Lang::t('reader.review_link')) ?> · <?= (int) ($story['review_count'] ?? 0) ?></a>
+      <?php /* count-free by design: the cached guest unit's bytes stay story-data-only */ ?>
+      <a href="/review/chapter/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>"><?= $this->e(\App\Lang::t('reader.comment_on_chapter')) ?></a>
     </div>
     <?php if ($next !== null):
         $unitNextTitle = ($titles[(int) $next] ?? '') !== '' ? $titles[(int) $next] : \App\Lang::t('story.chapter_n', ['n' => (int) $next]); ?>

@@ -211,4 +211,17 @@ final class ChapterReviewTest extends TestCase
         $missing = $this->client()->post('/review/addchapter/cctest/9', ['body' => 'Hi.', 'guest_name' => 'G1']);
         $this->assertSame(404, $missing->status, $missing->body);
     }
+
+    public function test_reader_fragment_carries_the_count_free_chapter_link(): void
+    {
+        $this->seedStory('cctest');
+        $body = $this->client($this->fanId)->get('/story/fragment/cctest/1')->body;
+        // the anchor exists with exactly the label inside it: no live count
+        // rides the cached guest unit's bytes
+        $label = \App\Lang::t('reader.comment_on_chapter');
+        $this->assertStringContainsString('href="/review/chapter/cctest/1">' . $label . '</a>', $body,
+            'the chapter unit links its comment thread');
+        $this->assertDoesNotMatchRegularExpression('#href="/review/chapter/cctest/1">[^<]*[0-9]#', $body,
+            'no count is baked into the cached unit');
+    }
 }
