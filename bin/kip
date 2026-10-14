@@ -8,30 +8,14 @@ $config = \App\Settings::apply($config); // operator settings overlay the config
 \App\Attribution::init($config); // the footer seam, from the MERGED config (the index.php order: after the settings overlay, so pages:build renders the board's powered_by row)
 $config['views_override'] = \App\Skins::overrideDir($config); // the skins seam: CLI renders (pages:build above all) use the operator skin, and Builder::build() propagates the key into its own App
 
-// Feature folders (Kip guide ch. 3): migrations live in the app directory AND in
-// every app/Features/<Name>/migrations. Discovered LAZILY, only in the migration
-// commands, so a broken Features layout never breaks logs/backup/help. scandir()
-// over the Features directory, never glob() (it reads app_dir as pattern text,
-// so a metacharacter path silently lists nothing). Anything that EXISTS under a
-// feature is passed through: Migrator::files() fails loudly on a migrations
-// path that is not a readable directory, instead of quietly skipping it.
+// Feature folders (Kip guide ch. 3): the migration inventory lives in
+// App\Setup\Install (one service for the CLI and the browser setup, so the
+// web path can never discover a different feature tree). Still discovered
+// LAZILY, only in the migration commands, so a broken Features layout never
+// breaks logs/backup/help; Install::migrationDirs fails loudly on a partial
+// inventory instead of quietly skipping it.
 $migration_dirs = static function () use ($config): array {
-    $dirs = [$config['app_dir'] . '/migrations'];
-    // Honor the same override App.php reads for feature resolution, so the CLI
-    // and the web app can never discover different feature trees (adversarial
-    // review 2026-09-28).
-    $features_dir = $config['features_dir'] ?? $config['app_dir'] . '/Features';
-    if (!is_dir($features_dir) && !is_link($features_dir) && !file_exists($features_dir)) return $dirs;
-    $entries = scandir($features_dir);
-    if ($entries === false) {
-        throw new RuntimeException("Cannot list {$features_dir}: refusing to migrate a partial inventory as a complete batch.");
-    }
-    foreach ($entries as $entry) {
-        if ($entry[0] === '.') continue;
-        $m = $features_dir . '/' . $entry . '/migrations';
-        if (is_dir($m) || is_link($m) || file_exists($m)) $dirs[] = $m;
-    }
-    return $dirs;
+    return \App\Setup\Install::migrationDirs($config);
 };
 
 // The nav-links tail db:seed and db:blank share: both install the starter
@@ -56,11 +40,11 @@ $seedNav = function () use ($config) {
 };
 
 match ($argv[1] ?? 'help') {
-    'migrate' => (function () use ($config, $migration_dirs) {
+    'migrate' => (function () use ($config) {
         $db = new Kip\Database($config['db']['dsn']);
         $log = new Kip\RequestLog(new Kip\Database($config['log_db']['dsn']), $config['log_db']['retention_days'] ?? 30);
         $log->pruneToRetention();
-        $ran = (new Kip\Migrations\Migrator($db, $migration_dirs()))->migrate();
+        $ran = \App\Setup\Install::migrate($config);
         echo $ran ? 'Ran: ' . implode(', ', $ran) . "\n" : "Nothing to migrate.\n";
     })(),
     'rollback' => (function () use ($config, $migration_dirs) { // review 4A
@@ -99,28 +83,18 @@ match ($argv[1] ?? 'help') {
             exit(1);
         }
         $db = new Kip\Database($config['db']['dsn']);
-        $store = [];
-        $auth = new Kip\Auth($db, new Kip\Session($store));
         try {
-            $auth->register($email, $password);
+            // The shared trusted-account primitive (App\Setup\Install): the
+            // register, the born-verified/approved gates, and the admin
+            // promotion ride one transaction, so a mid-flight failure never
+            // leaves a ghost account behind.
+            \App\Setup\Install::registerTrusted($db, $email, $password, $isAdmin);
         } catch (\PDOException $e) {
             if (str_contains($e->getMessage(), 'UNIQUE')) {
                 fwrite(STDERR, "A user with email {$email} already exists.\n");
                 exit(1);
             }
             throw $e;
-        }
-        // Phase-5 login gates: an admin-created account is trusted by construction,
-        // so it is born verified and approved (no email token exists for it).
-        $db->query('UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?),
-                    approved_at = COALESCE(approved_at, ?) WHERE email = ?', [date('c'), date('c'), $email]);
-        if ($isAdmin) {
-            try {
-                $db->query('UPDATE users SET is_admin = 1, role = \'admin\' WHERE email = ?', [$email]);
-            } catch (\PDOException) {
-                fwrite(STDERR, "User created, but users.is_admin is missing, run the add_users_is_admin migration first.\n");
-                exit(1);
-            }
         }
         echo "User {$email} created" . ($isAdmin ? ' (admin)' : '') . ".\n";
     })(),
@@ -217,16 +191,20 @@ match ($argv[1] ?? 'help') {
         echo "Seeded demo archive (2 stories, 4 chapters, ratings ladder, one category, five-link starter nav).\n";
     })(),
     // The fresh-install path: taxonomy and nav, never demo content (an
-    // empty but usable archive instead of demo stories).
-    'db:blank' => (function () use ($config, $seedNav) {
+    // empty but usable archive instead of demo stories). The same
+    // Install::blank the browser setup runs.
+    'db:blank' => (function () use ($config) {
         $db = new Kip\Database($config['db']['dsn']);
         try {
-            \App\Seeder::bootstrap($db);
+            \App\Setup\Install::blank($db, $config);
         } catch (\RuntimeException $e) {
             fwrite(STDERR, $e->getMessage() . "\n");
             exit(1);
         }
-        $seedNav();
+        if ($config['static_cache']['enabled'] ?? false) {
+            \App\StaticCache\Builder::prune($config['static_cache']['dir'], $config['app_dir']);
+            echo "Static page cache and framework page cache purged.\n";
+        }
         echo "Bootstrap data written (ratings ladder, starter tags, one category, five-link nav; no demo content).\n";
     })(),
     // Demo content for manual testing (App\Demo): rides on top of the db:seed
