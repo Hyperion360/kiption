@@ -33,7 +33,11 @@ final class Doctor
                 'run: php bin/kip migrate'),
         ];
         foreach ([
-            'data dir' => $env['app_dir'],
+            // The data seam: the release layout separates immutable source
+            // (app_dir) from the private writable tree (data_dir), so doctor
+            // judges the data directory and never asks to write into a
+            // release. Flat installs define neither seam differently.
+            'data dir' => $env['data_dir'] ?? $env['app_dir'],
             'static cache' => $c['static_cache']['dir'] ?? '',
             'uploads' => $c['uploads']['dir'] ?? '',
             'backups' => $c['backups']['dir'] ?? '',

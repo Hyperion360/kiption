@@ -283,7 +283,16 @@ function build_release_main(array $args, string $sourceRoot): int
     file_put_contents($stage . '/RELEASE.json', $manifest);
 
     // Stable entry sources (never in the release root, never in the upgrade ZIP).
+    // upgrade/*.php at the repo root is the stable upgrade engine, installed
+    // as site/upgrade/; dispatch.php is the CLI launcher and installs as
+    // site/bin/kip instead. The stable wrappers map one-to-one onto the two
+    // web roots.
     $stable = dirname(__DIR__) . '/upgrade';
+    $engineFiles = array_map('basename', array_filter(glob($stable . '/*.php') ?: [], 'is_file'));
+    $engineFiles = array_values(array_diff($engineFiles, ['dispatch.php']));
+    if ($engineFiles === []) {
+        build_release_fail('missing stable engine sources: upgrade/*.php');
+    }
     foreach (['dispatch.php', 'stable/public-index.php', 'stable/docroot-index.php',
         'stable/public-setup.php', 'stable/docroot-setup.php'] as $src) {
         if (!is_file($stable . '/' . $src)) {
@@ -319,6 +328,12 @@ function build_release_main(array $args, string $sourceRoot): int
         mkdir($tree . '/site/bin', 0775, true);
         copy($stable . '/dispatch.php', $tree . '/site/bin/kip');
         @chmod($tree . '/site/bin/kip', 0755);
+        // The stable upgrade engine sits beside the releases it coordinates,
+        // outside every web root and outside site/releases/.
+        mkdir($tree . '/site/upgrade', 0775, true);
+        foreach ($engineFiles as $name) {
+            copy($stable . '/' . $name, $tree . '/site/upgrade/' . $name);
+        }
         if (!is_dir(dirname($o['output']))) {
             mkdir(dirname($o['output']), 0775, true) || build_release_fail('cannot create the output directory');
         }

@@ -262,12 +262,16 @@ final class SharedHostReleaseTest extends TestCase
         // No development clutter, databases, secrets, or symlinks anywhere.
         // Vendor packages legitimately ship their own tests/docs/changelogs;
         // the release-root allowlist (asserted by the checker) pins ours.
+        // site/upgrade/ is the sanctioned stable engine: flat PHP files only.
         $forbidden = '/\.sqlite(-wal|-shm)?$|\.log$|phpunit\.xml|setup-token|deployment\.php|DBMAP\.md|SKINS\.md|TODOS\.md/';
         $devClutter = '/(^|\/)(\.git|tests|scripts|docs|changelog\.d)(\/|$)|(^|\/)upgrade(\/|$)/';
         foreach ([$entries, $upEntries] as $set) {
             foreach (array_keys($set) as $name) {
                 $this->assertDoesNotMatchRegularExpression($forbidden, $name, "forbidden entry {$name}");
-                if (preg_match('#(^|/)vendor/#', $name) !== 1) {
+                if (str_starts_with($name, 'site/upgrade/')) {
+                    $this->assertMatchesRegularExpression('/^site\/upgrade\/[A-Za-z0-9._-]+\.php$/', $name,
+                        "the stable engine is flat PHP only: {$name}");
+                } elseif (preg_match('#(^|/)vendor/#', $name) !== 1) {
                     $this->assertDoesNotMatchRegularExpression($devClutter, $name, "forbidden entry {$name}");
                 }
             }

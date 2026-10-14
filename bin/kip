@@ -115,6 +115,7 @@ match ($argv[1] ?? 'help') {
         }
         $env = [
             'app_dir' => (string) $config['app_dir'],
+            'data_dir' => (string) ($config['data_dir'] ?? ''), // the shared writable tree: doctor judges it, never the release's immutable app source
             'public_dir' => (string) $config['public_dir'],
             'config' => [
                 'base_url' => (string) ($config['base_url'] ?? ''),

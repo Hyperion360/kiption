@@ -31,6 +31,14 @@ function check_release_fail_out(string $message): void
 }
 
 /**
+ * The stable upgrade engine, carried as site/upgrade/<file> in every install
+ * ZIP (the builder copies upgrade/*.php). A production artifact missing any
+ * of these cannot be upgraded by the stable coordinator, so the gate refuses
+ * it. Extended as the engine grows.
+ */
+const CHECK_RELEASE_ENGINE_FILES = ['ReleasePointer.php'];
+
+/**
  * @param array{zip?:string,upgrade_zip?:string,development?:bool,expected_install_digest?:string,expected_upgrade_digest?:string} $o
  * @return array{ok:bool,failures:list<string>,development:bool,id:?string}
  */
@@ -158,8 +166,10 @@ function check_release_zip(string $zipPath, string $manifestSidecarSuffix, strin
     $manifest = null;
     $id = null;
     $required = $install
-        ? ['site/current', 'site/public/index.php', 'site/public/setup.php', 'site/public/.htaccess', 'site/bin/kip',
-           'public_html/index.php', 'public_html/setup.php', 'public_html/.htaccess']
+        ? ['site/current', 'site/bin/kip',
+           'site/public/index.php', 'site/public/setup.php', 'site/public/.htaccess',
+           'public_html/index.php', 'public_html/setup.php', 'public_html/.htaccess',
+           ...array_map(static fn (string $f): string => 'site/upgrade/' . $f, CHECK_RELEASE_ENGINE_FILES)]
         : ['RELEASE.json', 'config.php', 'composer.json', 'composer.lock', 'bin/kip',
            'vendor/autoload.php', 'vendor/composer/installed.json', 'public/index.php', 'public/.htaccess'];
     $entries = [];
@@ -175,11 +185,21 @@ function check_release_zip(string $zipPath, string $manifestSidecarSuffix, strin
             && (($attr >> 16) & 0xF000) === 0xA000) {
             $failures[] = "{$label}: entry {$name} is a symlink";
         }
-        if (preg_match('/\.sqlite(-wal|-shm)?$|\.log$|phpunit\.xml$|setup-token|deployment\.php|setup-complete\.lock|(^|\/)(\.git|tests|scripts|docs|changelog\.d|upgrade)(\/|$)|^app\/Features\/[^\/]+\/Tests(\/|$)|DBMAP\.md|SKINS\.md|TODOS\.md/', $name)
-            // vendor packages may legitimately ship their own tests; the
-            // allowlist below still pins the release root.
+        if (preg_match('/\.sqlite(-wal|-shm)?$|\.log$|phpunit\.xml$|setup-token|deployment\.php|setup-complete\.lock|(^|\/)(\.git|tests|scripts|docs|changelog\.d)(\/|$)|^app\/Features\/[^\/]+\/Tests(\/|$)|DBMAP\.md|SKINS\.md|TODOS\.md/', $name)
+            // vendor packages may legitimately ship their own tests/docs/changelogs;
+            // the allowlist below still pins the release root.
             && !str_starts_with($name, 'vendor/') && !str_contains($name, '/vendor/')) {
             $failures[] = "{$label}: forbidden entry {$name}";
+        }
+        // site/upgrade/ is the one sanctioned "upgrade" path (the stable
+        // engine); an upgrade directory anywhere else, including inside the
+        // release payload, is development clutter that must never ship.
+        if (preg_match('/(^|\/)upgrade(\/|$)/', $name) && !str_starts_with($name, 'site/upgrade/')) {
+            $failures[] = "{$label}: forbidden entry {$name}";
+        }
+        // The engine is flat, plain PHP files: no nested trees, no data.
+        if (str_starts_with($name, 'site/upgrade/') && preg_match('/^site\/upgrade\/[A-Za-z0-9._-]+\.php$/', $name) !== 1) {
+            $failures[] = "{$label}: the stable engine carries flat PHP files only: {$name}";
         }
     }
     foreach ($required as $need) {
