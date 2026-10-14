@@ -33,6 +33,15 @@ final class Seeder
             $db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$contentTypeId, 'Maritime']);
             $db->query('INSERT INTO categories (name, slug, description) VALUES (?, ?, ?)',
                 ['General', 'general', 'Stories that fit nowhere finer.']);
+            // The content policy rides BOTH install paths (bootstrap is the one
+            // shared implementation): a fresh archive opens with its stance on
+            // the page instead of an empty room. OR IGNORE on the slug PK: force
+            // mode does not clear pages, so an operator's edits survive a reseed
+            // untouched (the same reasoning as run()'s about page below).
+            $db->query("INSERT OR IGNORE INTO pages (slug, title, body) VALUES ('content-policy', 'Content policy', ?)",
+                ['This archive hosts original fiction and fanfiction for a general readership.
+
+No works whose primary purpose is sexual gratification. Romance is welcome, including mature romance behind the content gate, but material written to arouse is out of scope for this archive and will be removed through the validation queue and reports.']);
         } catch (\Throwable $e) {
             $db->rollBack();
             throw $e;

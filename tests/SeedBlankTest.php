@@ -52,6 +52,42 @@ final class SeedBlankTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    /** The launch content-policy clause ships in the blank-install seed
+     *  (Seeder::bootstrap), so a fresh archive opens with its stance on the
+     *  page instead of an empty room. The clause separates romance (welcome,
+     *  mature included behind the gate) from gratification-focused erotica
+     *  (out of scope, removed through the validation queue and reports). */
+    public function test_blank_seeds_the_content_policy_page(): void
+    {
+        $this->kip('migrate');
+        $this->kip('db:blank');
+        $clause = "This archive hosts original fiction and fanfiction for a general readership.\n\n"
+            . 'No works whose primary purpose is sexual gratification. Romance is welcome, '
+            . 'including mature romance behind the content gate, but material written to arouse '
+            . 'is out of scope for this archive and will be removed through the validation queue and reports.';
+        // markdown at rest: the stored body is the plain clause, never pre-rendered HTML
+        $pdo = new \PDO('sqlite:' . $this->db, null, null, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
+        $row = $pdo->query("SELECT title, body FROM pages WHERE slug = 'content-policy'")->fetch(\PDO::FETCH_ASSOC);
+        self::assertNotFalse($row, 'the blank seed carries the content-policy page');
+        self::assertSame($clause, $row['body'], 'the clause verbatim, markdown at rest');
+        // and it renders on the page route
+        $app = new \Kip\App([
+            'app_dir' => dirname(__DIR__) . '/app',
+            'env' => 'prod',
+            'views' => dirname(__DIR__) . '/app/views',
+            'db' => ['dsn' => 'sqlite:' . $this->db],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+            'uploads' => ['dir' => $this->dir . '/uploads'],
+            'static_cache' => ['dir' => $this->dir . '/cache'],
+            'nav_file' => $this->dir . '/nav.json',
+            'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+        ]);
+        $res = (new \Kip\Testing\TestClient($app))->get('/page/view/content-policy');
+        self::assertSame(200, $res->status);
+        self::assertStringContainsString('Content policy', $res->body);
+        self::assertStringContainsString('primary purpose is sexual gratification', $res->body);
+    }
+
     protected function tearDown(): void
     {
         foreach (glob($this->dir . '/*') ?: [] as $f) {

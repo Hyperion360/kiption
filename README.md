@@ -23,6 +23,11 @@ four commands below are the whole install. If you would rather not run a
 server at all, Kiption Cloud hosts archives for you, including eFiction
 migration on paid tiers; see https://kiption.cloud.
 
+The app ships no content policy: what an archive accepts is the operator's
+call, and the seeded content-policy page is theirs to edit. The hosted
+flagship bans works whose primary purpose is sexual gratification; romance,
+including mature romance behind the content gate, stays welcome there.
+
 ## Run it
 
     composer install
