@@ -391,15 +391,21 @@ final class Importer
             $this->tick();
         }
         $this->seen['fanfiction_authorprefs'] = count($prefs);
-        $upgraded = 0;
+        $promoted = [];
         foreach (preg_split('/[,;]/', $adminsCsv) ?: [] as $part) {
             $aid = (int) trim($part);
             if ($aid > 0 && isset($this->userMap[$aid])) {
                 $this->db->query("UPDATE users SET role = 'admin', is_admin = 1 WHERE id = ?", [$this->userMap[$aid]]);
-                $upgraded++;
+                $promoted[] = $this->userMap[$aid];
             }
         }
-        $this->notes[] = "admins upgraded from the manifest CSV: {$upgraded}";
+        // The operator signs a security decision here: name every account the
+        // bundle's manifest promoted, not a count (a count cannot be audited).
+        $this->notes[] = "admins upgraded from the manifest CSV: " . count($promoted);
+        foreach ($promoted as $i => $uid) {
+            $row = $this->db->one('SELECT penname, email FROM users WHERE id = ?', [$uid]);
+            $this->notes[] = sprintf('  promoted admin #%d: %s (%s), from manifest uid %d', $i + 1, $row['penname'], $row['email'], array_keys($this->userMap, $uid, true)[0] ?? 0);
+        }
         $this->notes[] = 'author lock states: eFiction 3.5.5 authors carry no lock column (no-op)';
     }
 
