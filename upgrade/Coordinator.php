@@ -158,7 +158,7 @@ final class Coordinator
                     $record['state'] = Journal::BACKED_UP;
                     $journal->write($record);
                 } catch (\Throwable $e) {
-                    return self::fail(503, 'The upgrade stopped during the backup; nothing switched and the site is in maintenance: fix the cause and activate again, or recover. (' . $e->getMessage() . ')');
+                    return self::fail(503, self::reported('upgrade backup', $e, 'The upgrade stopped during the backup; nothing switched and the site is in maintenance: fix the cause and activate again, or recover.'));
                 }
             }
 
@@ -199,7 +199,7 @@ final class Coordinator
                 } catch (\Throwable) {
                     // the state on disk already tells the truth
                 }
-                return self::fail(503, 'The upgrade failed before completion and the site is in maintenance; recovery restores the matching snapshot [' . get_class($e) . ': ' . $e->getMessage() . ']');
+                return self::fail(503, self::reported('upgrade switch', $e, 'The upgrade failed before completion and the site is in maintenance; recovery restores the matching snapshot.'));
             }
             return ['ok' => true, 'status' => 200, 'message' => 'The new release is switched on; continue migrates the database.'];
         } finally {
@@ -215,6 +215,17 @@ final class Coordinator
      * the off-host download, and the verified loose set drives recovery.
      * @return array<string,mixed>
      */
+    /** Failure detail (driver messages can carry filesystem paths) goes to the
+     *  error log under a random event id; the operator-facing response carries
+     *  the authored sentence and that id, matching the controller's contract
+     *  that no path or raw exception text is ever rendered. */
+    private static function reported(string $stage, \Throwable $e, string $authored): string
+    {
+        $eventId = bin2hex(random_bytes(4));
+        error_log("[upgrade {$stage} event {$eventId}] " . get_class($e) . ': ' . $e->getMessage());
+        return $authored . ' (event ' . $eventId . ')';
+    }
+
     private static function snapshot(array $env, array $record): array
     {
         $shared = (string) ($env['shared_dir'] ?? '');
@@ -475,7 +486,7 @@ final class Coordinator
                 $journal->clear();
                 return ['ok' => true, 'status' => 200, 'message' => 'The previous release was restored; the site is live again.'];
             } catch (\Throwable $e) {
-                return self::fail(503, 'Recovery did not finish; the site stays in maintenance and recovery can be run again (' . $e->getMessage() . ')');
+                return self::fail(503, self::reported('upgrade recovery', $e, 'Recovery did not finish; the site stays in maintenance and recovery can be run again.'));
             }
         } finally {
             flock($lease, LOCK_UN);
