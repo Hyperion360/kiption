@@ -16,9 +16,9 @@ eFiction feature set, imports an eFiction archive with one command
 301 to their new addresses), and serves anonymous pages from a static
 cache on a one-query-per-page budget.
 
-If you are coming from Wattpad, Royal Road, Archive of Our Own, or
-WebNovel and want an archive you host and control, read
-[Why Kiption](docs/guides/value-props.md). Hosted flagship:
+If you are coming from Wattpad, Royal Road, Fanfiction.net, Archive of
+Our Own, WebNovel, or Substack and want an archive you host and
+control, read [Why Kiption](docs/guides/value-props.md). Hosted flagship:
 https://kiption.com (launching); self-hosting is free forever.
 
 ## Requirements
@@ -530,6 +530,11 @@ event lands in the notification inbox at `/notifications`. Counts on
 cached pages snapshot at fill time; per-reader state renders only on
 the dynamic (cookie-carrying) path, so the static layer never serves
 personal variants.
+
+Coming from Substack: the audience is yours. Followers pick site
+inbox, immediate email, or digest per author, and story, author, and
+category feeds ship RSS (`/rss`, `/feed/author/{slug}`), so reach is
+the archive's own member list rather than an algorithm's feed.
 
 ## Reviews and moderation
 
