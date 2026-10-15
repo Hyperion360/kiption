@@ -64,7 +64,7 @@ return [
     'ui_lang' => getenv('KIP_UI_LANG') ?: 'en', // UI language pack (App\Lang, app/lang/{code}.php); KIP_UI_LANG overrides
     'og_image' => '',   // absolute or root-relative path; renders og:image/twitter cards when set
     'powered_by' => true,   // footer attribution; the /settings board's powered_by row (or this key set false) opts out
-    'powered_by_url' => getenv('KIP_POWERED_BY_URL') ?: 'https://kiption.cloud',
+    'powered_by_url' => getenv('KIP_POWERED_BY_URL') ?: 'https://cloud.kiption.com',
     'feeds_full_text' => (bool) getenv('KIP_FEEDS_FULL_TEXT') ?: false, // Atom entries carry the first chapter in <content type="html">
     'ai_crawlers' => getenv('KIP_AI_CRAWLERS') === false || (bool) getenv('KIP_AI_CRAWLERS'), // robots.txt stance; KIP_AI_CRAWLERS=0 disallows GPTBot & co
     'registration_mode' => $deployment['registration_mode'] ?? 'verify',   // open | verify | approval | invite; a browser install starts invite-only

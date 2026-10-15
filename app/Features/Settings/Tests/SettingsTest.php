@@ -244,7 +244,7 @@ final class SettingsTest extends TestCase
         \App\Settings::put('powered_by', '0');
         // The entrypoint order, mirrored: apply overlays the row, THEN the
         // footer seam consumes the merged config.
-        $config = \App\Settings::apply($this->config() + ['powered_by' => true, 'powered_by_url' => 'https://kiption.cloud']);
+        $config = \App\Settings::apply($this->config() + ['powered_by' => true, 'powered_by_url' => 'https://cloud.kiption.com']);
         \App\Attribution::init($config);
         $html = (new \Kip\View($this->config()['views']))
             ->render('layout', ['content' => '', 'navFile' => '', 'title' => 'Seam']);

@@ -52,7 +52,7 @@ root, HTTPS, cron, and working mail; see docs/hosting-matrix.md for the
 full matrix, the measured browser-upgrade boundary, and the unsupported
 list. If you would rather not run a server at all, Kiption Cloud hosts
 archives for you, including eFiction migration on paid tiers; see
-https://kiption.cloud.
+https://cloud.kiption.com.
 
 The app ships no content policy: what an archive accepts is the operator's
 call, and the seeded content-policy page is theirs to edit. The hosted

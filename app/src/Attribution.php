@@ -6,20 +6,20 @@ namespace App;
  * once with the config at bootstrap, static reads everywhere else, because
  * layout templates have no config access and every render path, web or
  * CLI, shares the static). Uninitialized reads the default: attribution
- * ON, product site https://kiption.cloud, exactly what an entrypoint that
+ * ON, product site https://cloud.kiption.com, exactly what an entrypoint that
  * somehow skips init rendered before the switch existed.
  */
 final class Attribution
 {
     private static bool $on = true;
-    private static string $url = 'https://kiption.cloud';
+    private static string $url = 'https://cloud.kiption.com';
 
     /** Capture the footer keys from the boot config; re-init re-reads. */
     public static function init(array $config): void
     {
         self::$on = (bool) ($config['powered_by'] ?? true);
-        $url = $config['powered_by_url'] ?? 'https://kiption.cloud';
-        self::$url = is_string($url) && $url !== '' ? $url : 'https://kiption.cloud';
+        $url = $config['powered_by_url'] ?? 'https://cloud.kiption.com';
+        self::$url = is_string($url) && $url !== '' ? $url : 'https://cloud.kiption.com';
     }
 
     /** Drop captured state back to the default-on pair; the tearDown of
@@ -27,7 +27,7 @@ final class Attribution
     public static function reset(): void
     {
         self::$on = true;
-        self::$url = 'https://kiption.cloud';
+        self::$url = 'https://cloud.kiption.com';
     }
 
     /** Is the attribution footer on? Default true: one config line,

@@ -46,7 +46,7 @@ final class LayoutShellTest extends TestCase
             'app_dir' => dirname(__DIR__) . '/app',
             'views' => dirname(__DIR__) . '/app/views',
             'powered_by' => true,
-            'powered_by_url' => 'https://kiption.cloud',
+            'powered_by_url' => 'https://cloud.kiption.com',
         ], $configOverrides);
         \App\Attribution::init($config);
         $featuresDir = $config['features_dir']
@@ -379,7 +379,7 @@ final class LayoutShellTest extends TestCase
     {
         $on = $this->renderLayout(['powered_by' => true]);
         $this->assertStringContainsString('Powered by Kiption', $on);
-        $this->assertStringContainsString('href="https://kiption.cloud"', $on);
+        $this->assertStringContainsString('href="https://cloud.kiption.com"', $on);
         $off = $this->renderLayout(['powered_by' => false]);
         $this->assertStringNotContainsString('Powered by Kiption', $off);
     }
