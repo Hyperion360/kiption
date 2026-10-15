@@ -19,3 +19,6 @@ CLAUDE.md
 daily-qa-reports/
 qa-full-reports/
 docs/superpowers/
+app/run.lock
+app/setup-attempts
+app/upgrade/
