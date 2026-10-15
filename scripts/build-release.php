@@ -268,7 +268,13 @@ function build_release_main(array $args, string $sourceRoot): int
         if (!is_dir($sourceRoot . '/' . $dir)) {
             build_release_fail("missing required source directory: {$dir}");
         }
-        build_release_copy($sourceRoot . '/' . $dir, $stage . '/' . $dir);
+        // rel carries the directory prefix so RELEASE_EXCLUDED_PATHS (which
+        // name paths from the release root, e.g. app/backups/) match this
+        // app-rooted copy the same way they match the install-tree copy;
+        // without it, runtime strays (nav.json, backups/) sail into the
+        // stage, the manifest, and the upgrade ZIP while the install tree
+        // excludes them: three artifacts disagreeing about one payload.
+        build_release_copy($sourceRoot . '/' . $dir, $stage . '/' . $dir, $dir . '/');
     }
     foreach (['config.php', 'composer.json', 'composer.lock', 'README.md', 'INSTALL.md', 'LICENSE'] as $file) {
         if (!is_file($sourceRoot . '/' . $file)) {
