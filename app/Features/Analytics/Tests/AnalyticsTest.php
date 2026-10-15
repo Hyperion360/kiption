@@ -217,7 +217,14 @@ final class AnalyticsTest extends TestCase
         $contentQueries = 0;
         $gateRuns = 0;
         $db->onQuery(function (string $sql) use (&$contentQueries, &$gateRuns): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            // Auth-session validation (kernel #[Auth] AND requireAdmin's
+            // epoch re-check run the identical statement), excluded by rule.
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return;
+            // The 2026-10-15 review moved the authorization decision to
+            // Adminness::requireAdmin; its authority row is gate machinery
+            // under the same exclusion, matched exactly so a runaway query
+            // cannot hide behind the prefix.
+            if ($sql === 'SELECT id, penname, role, is_admin FROM users WHERE id = ?') return;
             if (str_contains($sql, 'is_admin')) { $gateRuns++; return; } // the one-row totals+gate driver, the gate statement (excluded by rule, asserted exact below)
             $contentQueries++;
         });
