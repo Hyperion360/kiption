@@ -345,4 +345,389 @@ final class WebUpgradeTest extends TestCase
         $this->assertStringContainsString($home . '/shared', (string) $byName['writable data dir']['summary'],
             'the data-dir check reports the shared tree');
     }
+
+    // ------------------------------------------- Task 2: staged verification
+
+    /**
+     * A production-shaped release fixture: plain files whose bytes the
+     * manifest pins, exactly the tree an owner extracts from the release-root
+     * upgrade ZIP. Staged PHP deliberately throws if anything ever executes
+     * it: verification reads bytes and hashes, never code.
+     */
+    private function writeFixtureTree(string $tree, string $version): void
+    {
+        foreach (['app/migrations', 'vendor/composer', 'public', 'bin'] as $dir) {
+            mkdir($tree . '/' . $dir, 0775, true);
+        }
+        file_put_contents($tree . '/config.php', "<?php\nreturn [];\n");
+        file_put_contents($tree . '/composer.json', "{\"require\":{\"php\":\"^8.3\"}}\n");
+        file_put_contents($tree . '/composer.lock', "{\"packages\":[]}\n");
+        file_put_contents($tree . '/vendor/autoload.php', "<?php // fixture autoloader\n");
+        file_put_contents($tree . '/vendor/composer/installed.json', "{\"packages\":[]}\n");
+        file_put_contents($tree . '/app/migrations/900_fixture.php', "<?php throw new \\Exception('staged code must never execute');\n");
+        file_put_contents($tree . '/public/index.php', "<?php throw new \\Exception('staged code must never execute');\n");
+        file_put_contents($tree . '/bin/kip', "#!/usr/bin/env php\n<?php exit(97); // must never execute\n");
+        // A per-tree nonce: two fixtures never share a digest, so renames
+        // never collide across test cases.
+        file_put_contents($tree . '/BUILD_NONCE', bin2hex(random_bytes(16)) . "\n");
+    }
+
+    /** @return array{0:string,1:string} manifest bytes, id (sha256 of the bytes) */
+    private function fixtureManifest(string $tree, string $version, array $extra = []): array
+    {
+        $files = [];
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($tree, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_PATHNAME)
+        );
+        foreach ($it as $path) {
+            $rel = ltrim(substr((string) $path, strlen($tree)), '/');
+            if ($rel === 'RELEASE.json') {
+                continue;
+            }
+            $files[$rel] = hash_file('sha256', (string) $path);
+        }
+        ksort($files);
+        $payload = ['version' => $version, 'git_sha' => str_repeat('3', 40),
+            'lock_hash' => hash('sha256', "{\"packages\":[]}\n"), 'php_version' => PHP_VERSION,
+            'upgrade_protocol' => 1, 'files' => $files, ...$extra];
+        $bytes = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+        return [$bytes, hash('sha256', $bytes)];
+    }
+
+    /** Writes a complete staged release named after its own digest. */
+    private function stageFixture(string $siteRoot, string $version, array $extra = []): array
+    {
+        $tree = $this->tmptree('kiption-wu-fixture-');
+        $this->writeFixtureTree($tree, $version);
+        [$manifest, $id] = $this->fixtureManifest($tree, $version, $extra);
+        file_put_contents($tree . '/RELEASE.json', $manifest);
+        $stage = $siteRoot . '/releases/' . $id;
+        self::rrmdir($stage);
+        rename($tree, $stage);
+        array_pop($this->tmpDirs); // the fixture tree moved into the home tree
+        return [$stage, $manifest, $id];
+    }
+
+    /** Installs an active release fixture and points the site at it. */
+    private function activeFixture(string $siteRoot, string $version): string
+    {
+        [, , $id] = $this->stageFixture($siteRoot, $version);
+        file_put_contents($siteRoot . '/current', $id . "\n");
+        return $id;
+    }
+
+    /** Three tiny live SQLite databases under site/shared. */
+    private function liveDbs(string $siteRoot): array
+    {
+        $dbs = [];
+        foreach (['data', 'logs', 'cache'] as $label) {
+            $file = $siteRoot . '/shared/' . $label . '.sqlite';
+            $pdo = new \PDO('sqlite:' . $file);
+            $pdo->exec('CREATE TABLE IF NOT EXISTS probe (v TEXT)');
+            $pdo->exec("INSERT INTO probe (v) VALUES ('live')");
+            $dbs[$label] = 'sqlite:' . $file;
+        }
+        return $dbs;
+    }
+
+    private function verifier(string $siteRoot, string $activeId, array $options = []): \Upgrade\ReleaseVerifier
+    {
+        return new \Upgrade\ReleaseVerifier(
+            $siteRoot,
+            (string) file_get_contents($siteRoot . '/releases/' . $activeId . '/RELEASE.json'),
+            $this->liveDbs($siteRoot),
+            $siteRoot . '/../public_html',
+            $options,
+        );
+    }
+
+    /**
+     * A staged release passes only with the exact published RELEASE.json
+     * digest; every listed file must match, nothing unlisted may ride along,
+     * the tree must resolve without symlinks or traversal, and the release
+     * must be a protocol-compatible, newer, PHP-compatible release. The
+     * verifier reads bytes only: staged code that would explode on execution
+     * verifies fine, and the live site is untouched by a failed run.
+     */
+    public function test_staged_release_verification(): void
+    {
+        require_once dirname(__DIR__) . '/upgrade/ReleasePointer.php';
+        require_once dirname(__DIR__) . '/upgrade/ReleaseVerifier.php';
+        $home = $this->tmptree('kiption-wu-verify-');
+        $site = $home . '/site';
+        mkdir($site . '/releases', 0775, true);
+        mkdir($site . '/shared', 0775, true);
+        mkdir($home . '/public_html', 0775, true);
+        $activeId = $this->activeFixture($site, '1.0.0');
+        $this->liveDbs($site);
+        [$stage, , $id] = $this->stageFixture($site, '1.1.0');
+
+        // Happy path: the published digest verifies the whole tree.
+        $r = $this->verifier($site, $activeId)->verify($stage, $id, rehearse: true);
+        $this->assertSame([], $r['failures'], json_encode($r['failures'], JSON_PRETTY_PRINT));
+        $this->assertTrue($r['ok']);
+        $this->assertSame($id, $r['id']);
+        $this->assertSame('1.1.0', $r['version']);
+        $this->assertArrayHasKey('data', $r['rehearsal'], 'the rehearsal records each database duration');
+        $this->assertGreaterThan(0.0, $r['rehearsal']['data']);
+
+        // The published digest is mandatory, exact, and hex-only.
+        foreach (['', str_repeat('0', 64), strtoupper($id), $id . '0', substr($id, 0, 63)] as $bad) {
+            $r = $this->verifier($site, $activeId)->verify($stage, $bad, rehearse: false);
+            $this->assertFalse($r['ok'], "digest " . var_export($bad, true) . " must not verify");
+        }
+
+        // A coherently altered tree (PHP file changed AND manifest rebuilt)
+        // still fails against the original published digest.
+        file_put_contents($stage . '/app/migrations/900_fixture.php', "<?php // altered\n");
+        [$remanifest, $reid] = $this->fixtureManifest($stage, '1.1.0');
+        file_put_contents($stage . '/RELEASE.json', $remanifest);
+        rename($stage, $site . '/releases/' . $reid);
+        $stage = $site . '/releases/' . $reid;
+        $r = $this->verifier($site, $activeId)->verify($stage, $id, rehearse: false);
+        $this->assertFalse($r['ok'], 'a coherently altered release must fail the independently entered digest');
+
+        // From here on: a fresh honest stage per case, one failure each.
+        $freshStage = function () use ($site, &$stage): string {
+            self::rrmdir($stage);
+            [$stage] = $this->stageFixture($site, '1.1.0');
+            return $stage;
+        };
+        $expectFail = function (string $what, array $options = []) use ($site, $activeId, &$stage, $freshStage): array {
+            $r = $this->verifier($site, $activeId, $options)->verify($stage, hash_file('sha256', $stage . '/RELEASE.json'), rehearse: false);
+            $this->assertFalse($r['ok'], "{$what} must not verify: " . json_encode($r['failures']));
+            return $r;
+        };
+
+        // An altered PHP file alone: the manifest pin catches it.
+        $freshStage();
+        file_put_contents($stage . '/config.php', "<?php // altered\n");
+        $expectFail('an altered file');
+
+        // An extra unlisted PHP file.
+        $freshStage();
+        file_put_contents($stage . '/public/shell.php', "<?php\n");
+        $expectFail('an extra PHP file');
+
+        // A symlink anywhere in the staged tree.
+        $freshStage();
+        unlink($stage . '/app/migrations/900_fixture.php');
+        @symlink('/etc/passwd', $stage . '/app/migrations/900_fixture.php');
+        $expectFail('a symlinked file');
+
+        // Traversal in the manifest.
+        $freshStage();
+        $manifest = (string) file_get_contents($stage . '/RELEASE.json');
+        $meta = json_decode($manifest, true, 512, JSON_THROW_ON_ERROR);
+        $meta['files']['../../../etc/passwd'] = str_repeat('0', 64);
+        $tampered = json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+        file_put_contents($stage . '/RELEASE.json', $tampered);
+        rename($stage, $site . '/releases/' . hash('sha256', $tampered));
+        $stage = $site . '/releases/' . hash('sha256', $tampered);
+        $expectFail('a traversal path');
+
+        // A missing framework autoloader (manifest rebuilt to match).
+        $freshStage();
+        unlink($stage . '/vendor/autoload.php');
+        [$m2, $i2] = $this->fixtureManifest($stage, '1.1.0');
+        file_put_contents($stage . '/RELEASE.json', $m2);
+        rename($stage, $site . '/releases/' . $i2);
+        $stage = $site . '/releases/' . $i2;
+        $expectFail('a missing framework autoloader');
+
+        // Wrong upgrade protocol.
+        $freshStage();
+        [$m3, $i3] = $this->fixtureManifest($stage, '1.1.0', ['upgrade_protocol' => 2]);
+        file_put_contents($stage . '/RELEASE.json', $m3);
+        rename($stage, $site . '/releases/' . $i3);
+        $stage = $site . '/releases/' . $i3;
+        $expectFail('a wrong upgrade protocol');
+
+        // Missing or malformed SemVer, a downgrade, and an equal version.
+        foreach ([null, 'one.point.o', '1.0.0', '0.9.0'] as $version) {
+            $freshStage();
+            $extra = $version === null ? ['version' => ''] : [];
+            [$m4, $i4] = $this->fixtureManifest($stage, (string) $version, $extra);
+            file_put_contents($stage . '/RELEASE.json', $m4);
+            rename($stage, $site . '/releases/' . $i4);
+            $stage = $site . '/releases/' . $i4;
+            $expectFail('version ' . var_export($version, true));
+        }
+
+        // A PHP requirement the host cannot meet.
+        $freshStage();
+        file_put_contents($stage . '/composer.json', "{\"require\":{\"php\":\"^9.0\"}}\n");
+        [$m5, $i5] = $this->fixtureManifest($stage, '1.1.0');
+        file_put_contents($stage . '/RELEASE.json', $m5);
+        rename($stage, $site . '/releases/' . $i5);
+        $stage = $site . '/releases/' . $i5;
+        $expectFail('an unmeetable PHP requirement');
+
+        // A development bundle can never be an upgrade target.
+        $freshStage();
+        [$m6, $i6] = $this->fixtureManifest($stage, '1.1.0', ['development_bundle' => true]);
+        file_put_contents($stage . '/RELEASE.json', $m6);
+        rename($stage, $site . '/releases/' . $i6);
+        $stage = $site . '/releases/' . $i6;
+        $expectFail('a development bundle');
+
+        // The staging directory must be named for the digest it carries.
+        $freshStage();
+        $id = hash_file('sha256', $stage . '/RELEASE.json');
+        rename($stage, $site . '/releases/' . str_repeat('f', 64));
+        $r = $this->verifier($site, $activeId)->verify($site . '/releases/' . str_repeat('f', 64), (string) $id, rehearse: false);
+        $this->assertFalse($r['ok'], 'a misnamed staging directory must not verify');
+        $stage = $site . '/releases/' . str_repeat('f', 64);
+
+        // Disk seams: no free space anywhere, and a peak that fits the
+        // databases but not the asset swap.
+        $freshStage();
+        $expectFail('a full disk', ['free_of' => static fn (string $p): float|false => 0.0]);
+        $dbBytes = 0.0;
+        foreach (['data', 'logs', 'cache'] as $label) {
+            $dbBytes += (float) filesize($site . '/shared/' . $label . '.sqlite');
+        }
+        $margin = 64.0 * 1024 * 1024;
+        $tight = static fn (string $p): float|false => str_contains($p, 'shared')
+            ? 3 * $dbBytes + $margin - 1.0
+            : 1.0 * 1024 * 1024 * 1024;
+        $expectFail('a peak short of the safety margin', ['free_of' => $tight]);
+
+        // Locking and rename semantics on the real filesystems; an injected
+        // cross-device rename or dead lock fails the host.
+        $freshStage();
+        $expectFail('a broken lock surface', ['fault' => ['flock']]);
+        $freshStage();
+        $expectFail('a non-atomic public tree', ['fault' => ['rename']]);
+        $freshStage();
+        $expectFail('a cross-device asset move', ['fault' => ['cross_device']]);
+
+        // The rehearsal fails closed to the CLI path when one request cannot
+        // finish it, and a failed verification changes nothing on the site.
+        $freshStage();
+        $before = (string) file_get_contents($site . '/current');
+        $r = $this->verifier($site, $activeId, ['time_budget' => 0.0])->verify($stage, (string) hash_file('sha256', $stage . '/RELEASE.json'), rehearse: true);
+        $this->assertFalse($r['ok'], 'a zero-time rehearsal budget must fail closed');
+        $this->assertStringContainsString('CLI', implode(' ', $r['failures']));
+        $this->assertSame($before, (string) file_get_contents($site . '/current'), 'the pointer is untouched');
+        $this->assertFileDoesNotExist($site . '/shared/maintenance.lock');
+        $this->assertFileDoesNotExist($site . '/shared/upgrade/journal.json');
+
+        // No throwaway rehearsal files survive a run.
+        $leftovers = array_values(array_diff(scandir($site . '/shared/upgrade') ?: [], ['.', '..']));
+        $this->assertSame([], $leftovers, 'the verifier cleans its probes: ' . implode(', ', $leftovers));
+    }
+
+    /** Rebuilds an archive minus one entry and refreshes its whole-file sidecar. */
+    private function repackZipWithout(string $zipPath, string $entry): void
+    {
+        $dir = $this->tmptree('kiption-wu-repack-');
+        $zip = new ZipArchive();
+        self::assertTrue($zip->open($zipPath) === true);
+        self::assertTrue($zip->extractTo($dir));
+        $zip->close();
+        @unlink($dir . '/' . $entry);
+        $paths = [];
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_PATHNAME)
+        );
+        foreach ($it as $path) {
+            $paths[] = ltrim(substr((string) $path, strlen($dir)), '/');
+        }
+        sort($paths, SORT_STRING);
+        $out = $zipPath . '.repacked';
+        $zip = new ZipArchive();
+        self::assertTrue($zip->open($out, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true);
+        foreach ($paths as $rel) {
+            self::assertTrue($zip->addFile($dir . '/' . $rel, $rel));
+        }
+        self::assertTrue($zip->close());
+        rename($out, $zipPath);
+        file_put_contents($zipPath . '.sha256', hash_file('sha256', $zipPath) . "\n");
+    }
+
+    /**
+     * The production checker gates the stable engine on the verifier: the
+     * builder carries upgrade/ReleaseVerifier.php into site/upgrade/ of every
+     * install ZIP, the production check passes the complete pair, and an
+     * install ZIP stripped of the verifier (sidecar refreshed, so the checksum
+     * is not the failure under test) cannot pass the production gate.
+     */
+    public function test_production_gate_requires_the_stable_verifier(): void
+    {
+        $home = $this->tmptree('kiption-wu-gate-');
+        $copy = $this->sourceCopy($home);
+        $sha = trim((string) shell_exec('git -C ' . escapeshellarg(dirname(__DIR__)) . ' rev-parse HEAD'));
+        $install = $home . '/install.zip';
+        $upgrade = $home . '/upgrade.zip';
+        [$code, $out] = $this->build($copy, "--allow-dirty --version=1.2.0-gate --git-sha={$sha}"
+            . ' --output=' . escapeshellarg($install) . ' --upgrade-output=' . escapeshellarg($upgrade));
+        $this->assertSame(0, $code, $out);
+
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($install) === true);
+        $this->assertNotFalse($zip->locateName('site/upgrade/ReleaseVerifier.php'),
+            'the builder carries the verifier in the stable engine');
+        $zip->close();
+
+        $check = 'PATH="/opt/homebrew/bin:/usr/bin:/bin:$PATH" %s scripts/check-release.php --zip=%s --upgrade-zip=%s';
+        [$c, $o] = $this->sh($copy, sprintf($check, escapeshellarg(PHP_BINARY),
+            escapeshellarg($install), escapeshellarg($upgrade)));
+        $this->assertSame(0, $c, 'the complete production pair passes: ' . $o);
+
+        $this->repackZipWithout($install, 'site/upgrade/ReleaseVerifier.php');
+        [$c2, $o2] = $this->sh($copy, sprintf($check, escapeshellarg(PHP_BINARY),
+            escapeshellarg($install), escapeshellarg($upgrade)));
+        $this->assertNotSame(0, $c2, 'a production install ZIP without the verifier must not pass');
+        $this->assertStringContainsString('site/upgrade/ReleaseVerifier.php', $o2, $o2);
+    }
+
+    /**
+     * A stage that is really an extracted install ZIP (a nested site/ tree)
+     * is refused outright, and the final builder output end to end: an
+     * early-development bundle is rejected as a target, while its payload
+     * layout itself hashes cleanly against its own manifest bytes.
+     */
+    public function test_staged_release_rejects_nested_and_builder_output(): void
+    {
+        require_once dirname(__DIR__) . '/upgrade/ReleasePointer.php';
+        require_once dirname(__DIR__) . '/upgrade/ReleaseVerifier.php';
+        $home = $this->tmptree('kiption-wu-nested-');
+        $site = $home . '/site';
+        mkdir($site . '/releases', 0775, true);
+        mkdir($site . '/shared', 0775, true);
+        mkdir($home . '/public_html', 0775, true);
+        $activeId = $this->activeFixture($site, '1.0.0');
+        $this->liveDbs($site);
+
+        // An install ZIP extracted INTO a release directory leaves a nested
+        // site/ tree; that is never a valid stage.
+        $nested = $site . '/releases/' . str_repeat('d', 64);
+        mkdir($nested . '/site/releases', 0775, true);
+        file_put_contents($nested . '/site/current', "whatever\n");
+        $r = $this->verifier($site, $activeId)->verify($nested, str_repeat('d', 64), rehearse: false);
+        $this->assertFalse($r['ok'], 'a nested site/ tree must not verify');
+
+        // The final builder output end to end: extract the release-root
+        // upgrade ZIP into site/releases/<id>/ and verify against the active
+        // fixture. The development marker must reject it as a target even
+        // though every byte hashes.
+        $copy = $this->sourceCopy($home);
+        $sha = trim((string) shell_exec('git -C ' . escapeshellarg(dirname(__DIR__)) . ' rev-parse HEAD'));
+        $upgrade = $home . '/upgrade.zip';
+        [$code, $out] = $this->build($copy, "--development --allow-dirty --version=9.9.9-test"
+            . " --git-sha={$sha} --upgrade-output=" . escapeshellarg($upgrade));
+        $this->assertSame(0, $code, $out);
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($upgrade) === true);
+        $builderId = trim((string) file_get_contents($upgrade . '.manifest.sha256'));
+        mkdir($site . '/releases/' . $builderId, 0775, true);
+        $this->assertTrue($zip->extractTo($site . '/releases/' . $builderId));
+        $zip->close();
+        $stage = $site . '/releases/' . $builderId;
+        $this->assertFileExists($stage . '/RELEASE.json');
+        $r = $this->verifier($site, $activeId)->verify($stage, $builderId, rehearse: false);
+        $this->assertFalse($r['ok'], 'a development bundle must be rejected end to end');
+        $this->assertStringContainsString('development', implode(' ', $r['failures']));
+    }
 }
