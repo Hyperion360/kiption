@@ -199,7 +199,7 @@ final class Coordinator
                 } catch (\Throwable) {
                     // the state on disk already tells the truth
                 }
-                return self::fail(503, 'The upgrade failed before completion and the site is in maintenance; recovery restores the matching snapshot');
+                return self::fail(503, 'The upgrade failed before completion and the site is in maintenance; recovery restores the matching snapshot [' . get_class($e) . ': ' . $e->getMessage() . ']');
             }
             return ['ok' => true, 'status' => 200, 'message' => 'The new release is switched on; continue migrates the database.'];
         } finally {
@@ -223,7 +223,7 @@ final class Coordinator
         if (!class_exists(\Kip\Backup::class)) {
             require_once $sourceRoot . '/vendor/autoload.php';
         }
-        $stamp = date('Ymd-Hisv');
+        $stamp = date('Ymd-His') . '-' . bin2hex(random_bytes(4));
         $produced = (new \Kip\Backup([
             'data' => 'sqlite:' . $shared . '/data.sqlite',
             'logs' => 'sqlite:' . $shared . '/logs.sqlite',
@@ -276,7 +276,7 @@ final class Coordinator
     /** The rollback copy of the current public asset tree. */
     private static function saveAssets(array $env, array $record, string $shared): string
     {
-        $stamp = (string) ($record['backup']['stamp'] ?? date('Ymd-Hisv'));
+        $stamp = (string) ($record['backup']['stamp'] ?? date('Ymd-His') . '-' . bin2hex(random_bytes(4)));
         $saved = $shared . '/upgrade/assets-' . $stamp;
         $current = UpgradeController::publicDir($env) . '/assets';
         if (!is_dir($saved) && !@mkdir($saved, 0775, true) && !is_dir($saved)) {
@@ -307,7 +307,7 @@ final class Coordinator
      */
     private static function stageAssets(string $targetRoot, array $record, string $shared): string
     {
-        $stamp = (string) ($record['backup']['stamp'] ?? date('Ymd-Hisv'));
+        $stamp = (string) ($record['backup']['stamp'] ?? date('Ymd-His') . '-' . bin2hex(random_bytes(4)));
         $stage = $shared . '/upgrade/stage-' . $stamp;
         $source = $targetRoot . '/public/assets';
         if (!is_dir($stage) && !@mkdir($stage, 0775, true) && !is_dir($stage)) {
@@ -402,6 +402,7 @@ final class Coordinator
                 }
                 self::fault($faults, 'complete');
                 UpgradeController::clearUpgradeMaintenance($shared);
+                self::cleanup($shared, $record);
                 $journal->clear();
                 return ['ok' => true, 'status' => 200, 'message' => 'The upgrade completed; the site is live on the new release.'];
             } catch (\Throwable $e) {

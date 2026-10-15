@@ -314,6 +314,18 @@ final class WebUpgradeTest extends TestCase
             $this->fail('switch must refuse an id with no release directory');
         } catch (\InvalidArgumentException) {
         }
+
+        // An unwritable site directory fails the write, never the pointer.
+        chmod($site, 0555);
+        try {
+            \Upgrade\ReleasePointer::switch($site, str_repeat('a', 64));
+            $this->fail('switch must fail closed on an unwritable pointer directory');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('cannot write the release pointer', $e->getMessage());
+        }
+        chmod($site, 0775);
+        $this->assertSame(str_repeat('a', 64) . "\n", (string) file_get_contents($site . '/current'),
+            'the failed switch left the pointer untouched');
     }
 
     /** Doctor's data-dir verdict follows the explicit data_dir seam. */
@@ -698,6 +710,7 @@ final class WebUpgradeTest extends TestCase
         require_once dirname(__DIR__) . '/upgrade/ReleaseVerifier.php';
         require_once dirname(__DIR__) . '/upgrade/Journal.php';
         require_once dirname(__DIR__) . '/upgrade/Restore.php';
+        require_once dirname(__DIR__) . '/upgrade/Coordinator.php';
         require_once dirname(__DIR__) . '/upgrade/UpgradeController.php';
     }
 
@@ -1787,5 +1800,159 @@ final class WebUpgradeTest extends TestCase
         [$code, $out] = $this->sh($h['home'], 'PATH="/opt/homebrew/bin:/usr/bin:/bin" ' . escapeshellarg(PHP_BINARY)
             . ' ' . escapeshellarg($site . '/upgrade/cli.php') . ' status');
         $this->assertSame(0, $code, 'the rolled-back engine still boots: ' . $out);
+    }
+
+    /**
+     * The resume discipline at every journaled state, and the CLI
+     * controller's command surface in-process: activate on a switched
+     * journal is an idempotent no-op that names continue; continue at
+     * complete finishes idempotently and clears only the upgrade's own
+     * maintenance marker; recover with nothing recorded succeeds; a held
+     * exclusive lease refuses; foreign maintenance (a committed import's
+     * marker) refuses activate; and the CLI records no browser capability.
+     */
+    public function test_upgrade_engine_resume_paths(): void
+    {
+        $this->upgradeEngine();
+        $h = $this->upgradeHome('kiption-wu-resume-');
+        $journal = new \Upgrade\Journal($h['site'] . '/shared');
+        $env = $this->upgradeEnv($h, ['lease_wait' => 0]);
+        $maintenance = $h['site'] . '/shared/maintenance.lock';
+        $journalFile = $h['site'] . '/shared/upgrade/journal.json';
+
+        // The CLI controller in-process: status and flag hygiene.
+        $this->assertSame(0, \Upgrade\UpgradeController::runCli(['status'], $env));
+        $this->assertSame(1, \Upgrade\UpgradeController::runCli(['prepare', '--nope'], $env));
+        $this->assertSame(1, \Upgrade\UpgradeController::runCli(['banana'], $env));
+
+        // A CLI prepare records the journal without a browser capability.
+        [, , $idB] = $this->stageFixture($h['site'], '1.1.0', migration: $this->probeMigration());
+        $this->assertSame(0, \Upgrade\UpgradeController::runCli(['prepare', '--digest=' . $idB], $env));
+        $record = $journal->read();
+        $this->assertSame('prepared', $record['state']);
+        $this->assertArrayNotHasKey('capability_hash', $record, 'the CLI mints no browser capability');
+        $this->assertSame(1, \Upgrade\UpgradeController::runCli(['prepare', '--digest=' . $idB], $env),
+            'a recorded upgrade refuses a second prepare');
+        $this->assertSame(0, \Upgrade\UpgradeController::runCli(['status'], $env));
+
+        // A malformed recovery token refuses before anything is read.
+        try {
+            $journal->rotateWithRecoveryToken('banana');
+            $this->fail('a malformed recovery token must refuse');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('malformed', $e->getMessage());
+        }
+
+        // Web prepare refuses while a foreign maintenance marker stands.
+        file_put_contents($maintenance, 'import:efiction ' . date('c'));
+        $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $r = $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, (string) $session['upgrade_csrf'], $idB),
+            ['HTTP_ORIGIN' => 'http://127.0.0.1:' . $h['port']]);
+        $this->assertSame(409, $r['status'], 'prepare refuses under foreign maintenance: ' . $r['body']);
+        $this->assertFileExists($maintenance);
+
+        // A held exclusive lease refuses the transition machinery.
+        $lock = fopen($h['site'] . '/shared/run.lock', 'c');
+        flock($lock, LOCK_EX | LOCK_NB);
+        $this->assertSame(1, \Upgrade\Coordinator::cli('recover', $env), 'a held lease refuses');
+        flock($lock, LOCK_UN);
+        fclose($lock);
+
+        // Foreign maintenance (a committed import's marker) refuses activate.
+        file_put_contents($maintenance, 'import:efiction ' . date('c'));
+        $this->assertSame(1, \Upgrade\Coordinator::cli('activate', $env), 'an import marker refuses activate');
+        $this->assertFileExists($maintenance, 'a foreign marker is never lifted by the upgrade engine');
+        @unlink($maintenance);
+
+        // Activate on a switched journal: idempotent, names continue.
+        $journal->write(array_merge($record, ['state' => \Upgrade\Journal::SWITCHED]));
+        $this->assertSame(0, \Upgrade\Coordinator::cli('activate', $env));
+
+        // Continue at complete: idempotent finish, upgrade-tagged maintenance
+        // cleared, journal cleared.
+        $journal->write(array_merge($record, ['state' => \Upgrade\Journal::COMPLETE]));
+        file_put_contents($maintenance, 'upgrade continue ' . date('c'));
+        $this->assertSame(0, \Upgrade\Coordinator::cli('continue', $env));
+        $this->assertFileDoesNotExist($maintenance);
+        $this->assertFileDoesNotExist($journalFile);
+
+        // Recover with nothing recorded: success, nothing to do.
+        $this->assertSame(0, \Upgrade\Coordinator::cli('recover', $env));
+    }
+
+    /**
+     * The restore helper stands alone (no release classes), so its refusal
+     * edges are unit-testable: a snapshot that fails its hash check refuses,
+     * stale WAL sidecars are removed on the way back, a lost saved-asset
+     * tree with the public tree present is the already-restored state, a
+     * failed saved-tree rename is compensated, and the ledger check accepts
+     * only migrations the restored release carries.
+     */
+    public function test_restore_edges(): void
+    {
+        $this->upgradeEngine();
+        $home = $this->tmptree('kiption-wu-restore-');
+        $shared = $home . '/site/shared';
+        $public = $home . '/public_html';
+        mkdir($shared . '/upgrade/snapshot-x', 0775, true);
+        mkdir($public . '/assets/css', 0775, true);
+        foreach (['data', 'logs', 'cache'] as $label) {
+            file_put_contents($shared . '/upgrade/snapshot-x/' . $label . '.sqlite', "snapshot-{$label}\n");
+            file_put_contents($shared . '/' . $label . '.sqlite', "live-{$label}\n");
+            file_put_contents($shared . '/' . $label . '.sqlite-wal', 'stale');
+        }
+        file_put_contents($public . '/assets/css/site.css', 'old');
+        $saved = $shared . '/upgrade/assets-x';
+        mkdir($saved . '/css', 0775, true);
+        file_put_contents($saved . '/css/site.css', 'saved');
+
+        $backup = ['dir' => $shared . '/upgrade/snapshot-x', 'sha256' => [
+            'data' => hash('sha256', "snapshot-data\n"),
+            'logs' => hash('sha256', "snapshot-logs\n"),
+            'cache' => hash('sha256', "snapshot-cache\n"),
+        ]];
+        \Upgrade\Restore::databases($backup, $shared);
+        foreach (['data', 'logs', 'cache'] as $label) {
+            $this->assertStringEqualsFile($shared . '/' . $label . '.sqlite', "snapshot-{$label}\n");
+            $this->assertFileDoesNotExist($shared . '/' . $label . '.sqlite-wal', 'stale sidecars do not survive a restore');
+        }
+
+        // A tampered snapshot refuses before anything moves.
+        $bad = $backup;
+        $bad['sha256']['logs'] = str_repeat('0', 64);
+        try {
+            \Upgrade\Restore::databases($bad, $shared);
+            $this->fail('a tampered snapshot must refuse');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('hash check', $e->getMessage());
+        }
+        $this->assertStringEqualsFile($shared . '/logs.sqlite', "snapshot-logs\n", 'a refused restore moved nothing');
+
+        // The saved tree lands; a second call without it is the done state.
+        \Upgrade\Restore::assets($saved, $public);
+        $this->assertStringEqualsFile($public . '/assets/css/site.css', 'saved');
+        \Upgrade\Restore::assets($saved, $public);
+        $this->assertStringEqualsFile($public . '/assets/css/site.css', 'saved');
+
+        // Neither tree present at all: a real refusal.
+        try {
+            \Upgrade\Restore::assets($shared . '/upgrade/missing', $public . '2');
+            $this->fail('a missing saved tree with no public tree must refuse');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('saved asset tree is missing', $e->getMessage());
+        }
+
+        // The ledger check: applied names must all be carried by the release.
+        $ledgerDb = $shared . '/ledger.sqlite';
+        $pdo = new \PDO('sqlite:' . $ledgerDb);
+        $pdo->exec('CREATE TABLE _migrations (name TEXT PRIMARY KEY, batch INTEGER, run_at TEXT)');
+        $pdo->exec("INSERT INTO _migrations VALUES ('001_a', 1, 'x')");
+        $migrations = $home . '/release/app/migrations';
+        mkdir($migrations, 0775, true);
+        file_put_contents($migrations . '/001_a.php', '<?php');
+        $this->assertTrue(\Upgrade\Restore::ledgerMatches($ledgerDb, [$migrations]));
+        $pdo->exec("INSERT INTO _migrations VALUES ('999_ghost', 2, 'x')");
+        $this->assertFalse(\Upgrade\Restore::ledgerMatches($ledgerDb, [$migrations]),
+            'an applied migration the restored release does not carry is a refusal');
     }
 }
