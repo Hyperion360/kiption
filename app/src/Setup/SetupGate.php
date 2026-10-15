@@ -22,10 +22,13 @@ final class SetupGate
     private const WINDOW_SECONDS = 600;
     private const WINDOW_MAX = 10;
 
-    /** @return array<string,string> session_start() cookie options for the setup endpoint */
+    /** @return array<string,string|bool> session_start() cookie options for the setup endpoint.
+     *  The keys are the session option names (cookie_*), not ini-style names:
+     *  session_start() silently ignores unknown keys, so the wrong spelling
+     *  would ship an unflagged, non-Secure, non-HttpOnly session cookie. */
     public static function sessionCookieParams(): array
     {
-        return ['secure' => true, 'httponly' => true, 'samesite' => 'Lax'];
+        return ['cookie_secure' => true, 'cookie_httponly' => true, 'cookie_samesite' => 'Lax'];
     }
 
     private static function dataDir(array $config): string

@@ -177,7 +177,7 @@ match ($argv[1] ?? 'help') {
             'logs'  => $config['log_db']['dsn'] ?? null,
             'cache' => $config['cache_db']['dsn'] ?? null,
         ]), $config['backups']['dir'] ?? $config['app_dir'] . '/backups',
-            (int) ($config['backups']['keep_days'] ?? 14)))->run((new DateTimeImmutable())->format('Ymd-Hisv')); // milliseconds (date('v') alone is always 000), so same-second runs never overwrite
+            (int) ($config['backups']['keep_days'] ?? 14)))->run((new DateTimeImmutable())->format('Ymd-His') . '-' . bin2hex(random_bytes(2))); // random suffix: date('v') is unreliable across platforms (observed always-000), so same-second runs could still overwrite
         echo "Backup written: {$result}\n";
     })(),
     'db:seed' => (function () use ($config, $argv, $seedNav) {

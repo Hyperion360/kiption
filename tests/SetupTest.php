@@ -829,9 +829,14 @@ final class SetupTest extends TestCase
     public function test_browser_setup_session_cookie_params(): void
     {
         $params = \App\Setup\SetupGate::sessionCookieParams();
-        $this->assertTrue($params['secure']);
-        $this->assertTrue($params['httponly']);
-        $this->assertSame('Lax', $params['samesite']);
+        // The session option spellings, not ini names: session_start() ignores
+        // unknown keys, so 'secure'/'httponly' would silently drop the flags.
+        $this->assertTrue($params['cookie_secure']);
+        $this->assertTrue($params['cookie_httponly']);
+        $this->assertSame('Lax', $params['cookie_samesite']);
+        $this->assertArrayNotHasKey('secure', $params);
+        $this->assertArrayNotHasKey('httponly', $params);
+        $this->assertArrayNotHasKey('samesite', $params);
     }
 
     /** The gate's defensive paths: corrupt state, vanished files, contention. */
