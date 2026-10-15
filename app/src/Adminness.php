@@ -42,14 +42,21 @@ final class Adminness
         return $row;
     }
 
-    /** Fail-closed admin gate for POST actions: an admin row with a live
-     *  session epoch, or a 403 Response. Same shape and doctrine as
-     *  requireModerator: the epoch is validated here, once, so every admin
-     *  surface is safe by construction instead of by copy-paste discipline
-     *  (the twelve controllers that carried the raw COUNT idiom were the
-     *  drift proof; HomeController's render-time isAdmin flag keeps its own
-     *  check because Viewer::id has already re-validated the epoch there and
-     *  the page's query budget pins it to that one users read). */
+    /** Fail-closed admin gate: an admin row with a live session epoch, or a
+     *  403 Response. Same shape and doctrine as requireModerator: the epoch
+     *  is validated here, once, so every admin surface (render and write
+     *  actions alike) is safe by construction instead of by copy-paste
+     *  discipline (the controllers that carried the raw COUNT idiom were
+     *  the drift proof; HomeController's render-time isAdmin flag keeps its
+     *  own check because Viewer::id has already re-validated the epoch there
+     *  and the page's query budget pins it to that one users read). A
+     *  non-int session id fails closed by design (Auth writes ints; the
+     *  kernel tolerates integer-shaped strings elsewhere, this gate does
+     *  not need to), and a broken users table is a silent 403, matching
+     *  requireModerator's pentest-reviewed shape. On #[Auth] routes the
+     *  kernel has already validated the epoch; the gate re-validates so it
+     *  stands alone for future unattributed callers (one extra PK read on
+     *  admin surfaces only). */
     public static function requireAdmin(Database $db, Session $session): array|Response
     {
         $id = $session->get('user_id');

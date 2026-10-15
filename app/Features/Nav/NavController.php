@@ -8,8 +8,8 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 /** Admin management of the dynamic nav. Every successful write rebuilds the
  *  JSON artifact the layout reads, so a link goes live (or drops out) on the
  *  next request; the artifact, never the table, is what pages render. Admin-
- *  only by the SQL role check (the SeriesRepository viewerIsAdmin idiom): the
- *  nav is site-wide chrome, not moderator territory. */
+ *  only by Adminness::requireAdmin (epoch-checked): the nav is site-wide
+ *  chrome, not moderator territory. */
 final class NavController
 {
     public function __construct(
@@ -22,21 +22,24 @@ final class NavController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         return $this->form(null);
     }
 
     #[AuthAttr]
     public function new(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         return $this->form(null);
     }
 
     #[AuthAttr]
     public function edit(string $id): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $row = $this->find($id);
         if ($row === null) return new Response('Page not found', 404);
         return $this->form($row);
@@ -45,7 +48,8 @@ final class NavController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         [$label, $url, $error] = $this->input();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $this->db->query('INSERT INTO nav_links (label, url, position, is_hidden) VALUES (?,?,?,?)',
@@ -57,7 +61,8 @@ final class NavController
     #[AuthAttr] #[Post]
     public function update(string $id): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $row = $this->find($id);
         if ($row === null) return new Response('Page not found', 404);
         [$label, $url, $error] = $this->input();
@@ -71,7 +76,8 @@ final class NavController
     #[AuthAttr] #[Post]
     public function delete(string $id): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         if ($this->db->query('DELETE FROM nav_links WHERE id = ?', [(int) $id])->rowCount() === 0) {
             return new Response('Page not found', 404);
         }

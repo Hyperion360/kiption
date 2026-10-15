@@ -26,7 +26,8 @@ final class WranglingController
     public function index(): Response|string
     {
         if (($r = \App\Features::guard('wrangling')) !== null) return $r;
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $groups = [];
         foreach ($this->rows() as $row) {
             $groups[$row['type_name']][] = $row;
@@ -52,7 +53,8 @@ final class WranglingController
     public function merge(): Response|string
     {
         if (($r = \App\Features::guard('wrangling')) !== null) return $r;
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $synonymId = (int) ($this->request->post['synonym_id'] ?? $this->request->get['synonym'] ?? 0);
         $rows = $this->rows();
         $synonym = null;
@@ -120,7 +122,8 @@ final class WranglingController
     public function unmerge(string $id): Response
     {
         if (($r = \App\Features::guard('wrangling')) !== null) return $r;
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $tag = $this->db->one('SELECT id, canonical_id FROM tags WHERE id = ?', [(int) $id]);
         if ($tag === null) return new Response('Page not found', 404);
         $this->db->query('UPDATE tags SET canonical_id = NULL WHERE id = ?', [(int) $id]);

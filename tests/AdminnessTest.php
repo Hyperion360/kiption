@@ -107,6 +107,37 @@ final class AdminnessTest extends TestCase
         $this->assertSame(403, $res->status);
     }
 
+    public function test_admin_gate_rejects_a_non_integer_session_id(): void
+    {
+        // Fail-closed by design: Auth writes ints, and a tampered or legacy
+        // string id must never reach the role query.
+        $store = [];
+        $session = new Session($store);
+        $session->set('user_id', '5');
+        $session->set('pwd_epoch', 'whatever');
+        $res = Adminness::requireAdmin($this->db, $session);
+        $this->assertInstanceOf(Response::class, $res);
+        $this->assertSame(403, $res->status);
+    }
+
+    public function test_admin_gate_own_catch_fires_when_only_the_role_select_breaks(): void
+    {
+        // The broken-table test above exits at sessionValid's internal catch.
+        // This one keeps the epoch SELECT green and breaks only the gate's
+        // own row SELECT, so requireAdmin's own PDOException arm is the 403.
+        $store = [];
+        $session = new Session($store);
+        $demo = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$demo])['password_hash'];
+        Adminness::setRole($this->db, $demo, 'admin');
+        $session->set('user_id', $demo);
+        $session->set('pwd_epoch', substr($hash, 0, 12));
+        $this->db->query('ALTER TABLE users RENAME COLUMN penname TO penname_old');
+        $res = Adminness::requireAdmin($this->db, $session);
+        $this->assertInstanceOf(Response::class, $res);
+        $this->assertSame(403, $res->status);
+    }
+
     public function test_moderator_gate_survives_a_broken_users_table(): void
     {
         // The PDOException arm: any database failure is a 403, never a 500

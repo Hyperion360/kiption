@@ -22,7 +22,8 @@ final class ImagesController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $inUse = $this->inUseNames();
         $files = [];
         $total = 0;
@@ -54,7 +55,8 @@ final class ImagesController
     #[AuthAttr] #[Post]
     public function upload(): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $file = $this->request->file('file');
         if ($file === null) {
             return new Response('Upload rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
@@ -73,7 +75,8 @@ final class ImagesController
     #[AuthAttr] #[Post]
     public function delete(): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $name = (string) ($this->request->post['name'] ?? '');
         if ($name === '' || strpbrk($name, "/\\") !== false || $name !== basename($name)) {
             return new Response('Invalid file name.', 422);

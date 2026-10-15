@@ -29,7 +29,8 @@ final class AdminmembersController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         [$perPage, $offset] = $this->paginate();
         $q = trim((string) ($this->request->get['q'] ?? ''));
         // COALESCE keeps penname-less accounts on the unfiltered roster (an
@@ -64,7 +65,8 @@ final class AdminmembersController
     #[AuthAttr] #[Post]
     public function role(string $id, string $role): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         if (!in_array($role, Adminness::ROLES, true)) return new Response('Unknown role.', 422);
         if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return new Response('Page not found', 404);
         if ($this->db->one('SELECT id FROM users WHERE id = ?', [(int) $id]) === null) {

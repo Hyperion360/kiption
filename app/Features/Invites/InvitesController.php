@@ -22,7 +22,8 @@ final class InvitesController
 
     public function index(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $title = \App\Lang::t('invites.heading');
         return $this->view->render('invites/index', [
             'title' => $title,
@@ -41,7 +42,8 @@ final class InvitesController
     #[Post]
     public function create(): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         for ($i = 0; $i < 3; $i++) {
             $code = bin2hex(random_bytes(8));
             // The UNIQUE-safe idiom this codebase already uses (the wrangling
@@ -59,7 +61,8 @@ final class InvitesController
     #[Post]
     public function revoke(string $id): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         // The delete only reaches unused codes: a consumed code is part of
         // the audit trail (who invited whom), so revoke is a no-op for it.
         $this->db->query('DELETE FROM invites WHERE id = ? AND used_by IS NULL', [(int) $id]);

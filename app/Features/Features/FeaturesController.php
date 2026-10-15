@@ -6,9 +6,9 @@ use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
 /** The admin feature-flag board (/features): one row per inventory key, one
- *  POST to flip it. Flags are site-wide operator surface, so the gate is the
- *  SQL admin check (the Adminstories idiom): moderators keep the queues and
- *  get 403 here. The surface itself is never flaggable (the recorded
+ *  POST to flip it. Flags are site-wide operator surface, so the gate is
+ *  Adminness::requireAdmin: moderators keep the queues and get 403 here.
+ *  The surface itself is never flaggable (the recorded
  *  never-list). Every successful toggle purges the whole static layer, clears
  *  the framework page cache and refreshes the sitemap: a hidden link must not
  *  outlive its flag in any cache or segment. */
@@ -22,7 +22,8 @@ final class FeaturesController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $title = \App\Lang::t('features.heading');
         return $this->view->render('features/index', [
             'title' => $title,
@@ -48,7 +49,8 @@ final class FeaturesController
     #[AuthAttr] #[Post]
     public function toggle(string $key): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         try {
             Features::toggle($key, !Features::on($key));
         } catch (\InvalidArgumentException) {

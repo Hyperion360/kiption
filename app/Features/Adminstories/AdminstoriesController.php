@@ -29,7 +29,8 @@ final class AdminstoriesController
     #[AuthAttr] #[Post]
     public function reassign(string $slug): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
         if ($story === null) return new Response('Page not found', 404);
         $penname = trim($this->request->postStr('penname'));
@@ -69,7 +70,8 @@ final class AdminstoriesController
     #[AuthAttr] #[Post]
     public function featured(string $slug): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
         if ($story === null) return new Response('Page not found', 404);
         $this->db->query('UPDATE stories SET featured = 1 - featured WHERE id = ?', [(int) $story['id']]);

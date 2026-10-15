@@ -22,7 +22,8 @@ final class SettingsController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $title = \App\Lang::t('settings.heading');
         return $this->view->render('settings/index', [
             'title' => $title,
@@ -48,7 +49,8 @@ final class SettingsController
     #[AuthAttr] #[Post]
     public function save(): Response
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $submitted = [
             'site_name' => (string) ($this->request->post['site_name'] ?? ''),
             'registration_mode' => (string) ($this->request->post['registration_mode'] ?? ''),

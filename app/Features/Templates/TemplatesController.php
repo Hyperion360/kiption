@@ -9,9 +9,9 @@ use Kip\Routing\{Auth as AuthAttr, Post};
  *  Templates::get. Opening a list or edit page seeds the default rows
  *  (INSERT OR IGNORE, idempotent) so the surface always has something to
  *  edit; a saved override swaps subject and body at every later send while
- *  the fallthrough keeps unedited names byte-identical. Admin-only by the
- *  SQL role check (the NavController idiom): these mails are the archive's
- *  site-wide voice, not moderator territory. */
+ *  the fallthrough keeps unedited names byte-identical. Admin-only by
+ *  Adminness::requireAdmin: these mails are the archive's site-wide voice,
+ *  not moderator territory. */
 final class TemplatesController
 {
     public function __construct(
@@ -22,7 +22,8 @@ final class TemplatesController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         Templates::seedDefaults($this->db);
         return $this->view->render('templates/index', [
             'title' => \App\Lang::t('templates.heading'),
@@ -39,7 +40,8 @@ final class TemplatesController
     #[AuthAttr]
     public function edit(string $name): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         Templates::seedDefaults($this->db); // deep links to a known name work on a fresh database
         $row = $this->find($name);
         if ($row === null) return new Response('Page not found', 404);
@@ -49,7 +51,8 @@ final class TemplatesController
     #[AuthAttr] #[Post]
     public function update(string $name): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $row = $this->find($name);
         if ($row === null) return new Response('Page not found', 404);
         $subject = trim($this->request->postStr('subject'));

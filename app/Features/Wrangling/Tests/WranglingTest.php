@@ -86,14 +86,22 @@ final class WranglingTest extends TestCase
      *  without the password-epoch check, so a session stolen before an admin
      *  rotated their password could still run the data-destructive merge.
      *  Rotate the admin's hash after actingAs: the session's epoch no longer
-     *  matches, and every wrangling action must draw 403. */
-    public function test_stale_epoch_admin_session_is_revoked_everywhere(): void
+     *  matches, and every gated action must draw 403. Wrangling and invites
+     *  are the two surfaces with no #[Auth] attribute, so requireAdmin's own
+     *  epoch check is their ONLY defense; the kernel-backed surfaces are
+     *  pinned by the AdminnessTest unit gate plus their member/admin tests. */
+    public function test_stale_epoch_admin_session_is_revoked_on_the_unattributed_gates(): void
     {
         $client = $this->client($this->adminRowId); // the session predates the rotation
         $this->db->query("UPDATE users SET password_hash = ? WHERE id = ?",
             [password_hash('rotated-pass-9', PASSWORD_DEFAULT), $this->adminRowId]);
         $this->assertSame(403, $client->get('/wrangling')->status);
         $this->assertSame(403, $client->get('/wrangling/merge')->status);
+        // The invites gate: a revoked session must not mint or even list.
+        $this->assertSame(403, $client->get('/invites')->status);
+        $this->assertSame(403, $client->postWithToken('/invites/create')->status);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM invites')['c'],
+            'nothing minted on a revoked session');
     }
 
     /** Seeded tags resolve by name; test-created tags capture their id. */

@@ -8,9 +8,8 @@ use Kip\Routing\{Auth as AuthAttr, Post};
  *  them. The reader surface is a budget-1, anonymous-cacheable page at
  *  /page/view/{slug}: one SELECT, 404 on miss or junk slug. The slug is the
  *  primary key and is immutable after create, so a page's URL (and its cache
- *  file) can never move out from under a link. Admin-only by the SQL role
- *  check (the NavController idiom): pages are site chrome, not moderator
- *  territory. */
+ *  file) can never move out from under a link. Admin-only by
+ *  Adminness::requireAdmin: pages are site chrome, not moderator territory. */
 final class PageController
 {
     public function __construct(
@@ -45,14 +44,16 @@ final class PageController
     #[AuthAttr]
     public function new(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         return $this->form(null);
     }
 
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         [$slug, $title, $body, $error] = $this->createInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $this->db->query('INSERT INTO pages (slug, title, body) VALUES (?, ?, ?)', [$slug, $title, $body]);
@@ -62,7 +63,8 @@ final class PageController
     #[AuthAttr]
     public function edit(string $slug): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $row = $this->find($slug);
         if ($row === null) return new Response('Page not found', 404);
         return $this->form($row);
@@ -71,7 +73,8 @@ final class PageController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $row = $this->find($slug);
         if ($row === null) return new Response('Page not found', 404);
         [$title, $body, $error] = $this->titleBody(); // the posted slug is ignored: immutable after create

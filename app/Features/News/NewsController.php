@@ -100,7 +100,8 @@ final class NewsController
     public function new(): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         return $this->form(null);
     }
 
@@ -108,7 +109,8 @@ final class NewsController
     public function create(): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         [$title, $body, $error] = $this->titleBody();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $this->db->query('INSERT INTO news (author_id, title, body) VALUES (?, ?, ?)',
@@ -122,7 +124,8 @@ final class NewsController
     public function edit(string $id): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
         $row = (new NewsRepository($this->db))->find((int) $id);
         if ($row === null) return new Response('Page not found', 404);
@@ -133,7 +136,8 @@ final class NewsController
     public function update(string $id): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
         $row = (new NewsRepository($this->db))->find((int) $id);
         if ($row === null) return new Response('Page not found', 404);

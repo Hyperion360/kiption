@@ -1,18 +1,21 @@
 <?php // app/Features/Analytics/AnalyticsController.php
 namespace App\Features\Analytics;
+use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\Auth as AuthAttr;
 
 /** The site-wide admin analytics dashboard (/analytics): reads ONLY
  *  already-collected aggregates (page_stats rollups, story_kudos, favorites,
  *  users) - no new collection, nothing member-identifying, the recorded
- *  privacy stance. The one-query law carries a documented admin-surface
+ *  privacy stance. Adminness::requireAdmin is the gate (epoch-checked, the
+ *  same choke point as every other admin surface). The one-query law carries
+ *  a documented admin-surface
  *  exception here (the browse-at-2 precedent): SIX content queries, the
- *  four 30-day day-series, the top-10 list, and the authors leaderboard. The seven totals AND the
- *  admin gate ride ONE one-row driver that runs FIRST (findings 4 and 5,
+ *  four 30-day day-series, the top-10 list, and the authors leaderboard. The seven totals ride ONE one-row driver that runs FIRST (findings 4 and 5,
  *  the queue '0gate' precedent): FROM (SELECT 1) x guarantees the row a
- *  list-shaped fold would drop on an empty window, and the folded is_admin
- *  scalar draws the 403 before any series or list statement executes.
+ *  list-shaped fold would drop on an empty window; the folded is_admin
+ *  scalar stays as the display flag and a belt-and-suspenders backstop
+ *  behind the gate.
  *  Zero JS (the stats-page precedent), noindex meta plus the X-Robots-Tag
  *  belt, so the dashboard never fills the static layer. */
 final class AnalyticsController
@@ -26,6 +29,8 @@ final class AnalyticsController
     public function index(): Response|string
     {
         if (($r = \App\Features::guard('analytics')) !== null) return $r;
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
         $driver = $this->db->one(
             "SELECT (SELECT COUNT(*) FROM users WHERE id = ? AND role = 'admin') is_admin,
                     (SELECT COUNT(*) FROM stories) stories,
@@ -109,7 +114,7 @@ final class AnalyticsController
             'favoritesByDay' => $favoritesByDay, 'membersByDay' => $membersByDay,
             'top' => $top, 'authors' => $authors,
             'loggedIn' => true,
-            'isAdmin' => true, // the driver's is_admin already proved it
+            'isAdmin' => true, // requireAdmin proved it; the folded scalar backstops
         ]);
         return (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex');
     }
