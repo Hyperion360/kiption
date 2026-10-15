@@ -1,8 +1,9 @@
 # TODOS
 
-Everything left between here and, and after, launch, in one list. Decisions
-that cost money stay with the owner (the standing no-spend rule); everything
-else is coordinator-executable and says so.
+Everything left on the public app's side of launch, in one list. The hosted
+runway (server, DNS, mail, the go-live gates) is operational work and lives in
+the private operations repo's TODOS.md; nothing on the public side blocks on
+it except the items noted. Decisions that cost money stay with the owner.
 
 ## Owner actions (30 seconds to 30 minutes each; nothing else blocks on these except where noted)
 
@@ -13,52 +14,17 @@ else is coordinator-executable and says so.
       `https://github.com/Hyperion360/kip` as `hyperion360/kip` and
       `https://github.com/Hyperion360/kipsaas` as `hyperion360/kipsaas`.
       Free; enables `composer require` installs and a second search surface.
-- [ ] Pick the outbound email provider for the hosted flagship: Brevo free
-      tier (recommended: $0, 300 emails/day, SPF/DKIM at the registrar) or
-      Amazon SES (~$0.10 per 1,000, needs an AWS account). This gates
-      `registration_mode` leaving `invite` on kiption.com.
 - [ ] Post the fan-wiki blurbs (draft exists in the 2026-10-15 coordinator
       summary) to the eFiction community wikis' download/version pages.
 - [ ] Awesome-selfhosted PR: DRAFTED 2026-10-15 (entry text, section fit,
       and the pre-submission checklist, including waiting for the
-      kiption.com demo link, live in
+      demo link, live in
       MVC-Lite docs/superpowers/research/2026-10-15-awesome-selfhosted-draft.md);
       submitting runs under the owner's account so it stays owner-gated.
-- [ ] Launch posts (Hacker News, Reddit r/fanfiction / r/selfhosted, Product
-      Hunt): owner fires, coordinator drafts on request.
-- [ ] Stripe go-live decision (after the erotica policy, preconditions are
-      met): live keys, webhook endpoint, kipsaas billing loop. 2.9% + 30c
-      per charge, no monthly fee.
-- [ ] Reserved-instance decision after one month of stable VM load (~30%
-      off the B2als_v3).
-
-## Hosted go-live: kiption.com on Azure (launch plan Track C; scripted in
-docs/superpowers/plans/2026-10-14-kiption-launch.md)
-
-- [ ] C1: confirm B2als_v3 + disk + static IP pricing in the Azure
-      calculator (stop above $30/mo total and fall back to B2ats_v3 + swap),
-      then provision (az commands are in the plan), lock SSH to the
-      operator IP, record the run-command recovery path.
-- [ ] C2: nginx + PHP 8.3-FPM on Ubuntu 24.04 (exact package list in the
-      plan; no nginx cache fast path by design).
-- [ ] C4: DNS A `@` and CNAME `www` at the registrar, certbot TLS, forced
-      HTTPS.
-- [ ] C6: email provider setup BEFORE the setup wizard (the wizard refuses
-      to complete without a proven test send); Brevo/SES DNS records.
-- [ ] C3: install from the B2 release ZIP at `/var/www/site` (site/public
-      docroot, site/bin/kip CLI), setup wizard over an SSH tunnel,
-      `doctor --json` green, `db:blank`, admin account. This is the real
-      off-host validation of the ZIP.
-- [ ] C5: cron (release:due every 5 min, digest daily, backup nightly,
-      logs:prune weekly) + the logrotate stanza.
-- [ ] C7: flagship content: policy page live, validation queue ON (the
-      erotica-line enforcement gate), moderator account ready, starter
-      shelf seeded, landing page published.
-- [ ] C8: UptimeRobot monitors, off-VM backup copies (Azure Blob, lifecycle
-      30 days), restore drill covering DB + uploads + config.
-- [ ] C9: the go-live checklist (doctor over HTTPS, anonymous curl has no
-      Set-Cookie, cron log clean, test email received, pentest closed).
-      Registration leaves `invite` only after C6's test email lands.
+- [ ] Launch posts (Hacker News, Reddit r/fanfiction / r/selfhosted,
+      Product Hunt): owner fires once the hosted flagship is live (a demo
+      link beats a bare repo in every one of those communities);
+      coordinator drafts on request.
 
 ## eFiction fork: the remaining decision and steps
 
@@ -91,8 +57,8 @@ docs/superpowers/plans/2026-10-14-kiption-launch.md)
       the 2026-10-07 branch, also unreleased) until the owner tags and
       pushes a post-0.5.0 kip release, then runs composer update here.
       The kip CI workflow decision stays parked (recurring-cost rule).
-- [ ] README screenshot pass once kiption.com is live: a hero shot of the
-      reader is the one discovery gap the star-research flagged.
+- [ ] README screenshot pass once the hosted flagship is live: a hero shot
+      of the reader is the one discovery gap the star-research flagged.
 
 ## Ongoing discovery (marketing and SEO cadence)
 
@@ -114,6 +80,11 @@ docs/superpowers/plans/2026-10-14-kiption-launch.md)
 
 ## Closed (kept for the record)
 
+- [x] The hosted-go-live checklist (the C1-C9 track, the email provider
+      pick, the Stripe go-live gate, and the reserved-instance decision)
+      moved 2026-10-15 to the private operations repo's TODOS.md, where the
+      runbook it references lives; this public file keeps the app and the
+      marketing surface only.
 - [x] Admin gate centralized 2026-10-15 (commit 3914387): the new
       `Adminness::requireAdmin($db, $session)` mirrors requireModerator
       (sessionValid epoch check first, then the role row, fail-closed 403 on
@@ -122,7 +93,7 @@ docs/superpowers/plans/2026-10-14-kiption-launch.md)
       epoch check are safe by construction now instead of by #[Auth]
       discipline. HomeController keeps its render-time isAdmin flag: it is
       not a POST gate, Viewer::id has already re-validated the epoch there,
-      and the home page's query budget pins its one users read. 1076 tests
+      and the home page's budget pins its one users read. 1076 tests
       / 8975 assertions green; two new Adminness tests pin the gate (wrong
       role, stale epoch, broken users table).
 - [x] Consolidated `/cso --code` run finished 2026-10-15 over the three
