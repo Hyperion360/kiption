@@ -382,7 +382,7 @@ function setup_page(string $title, string $bodyHtml): string
 
 if (!defined('KIPTION_SETUP_LIBRARY_ONLY')) {
     // Direct execution: the stable wrapper or the webserver reached this file.
-    $sessionStarted = session_start([...SetupGate::sessionCookieParams(), 'cookie_path' => '/']);
+    $sessionStarted = session_start([...SetupGate::sessionCookieParams(), 'cookie_path' => '/', 'use_strict_mode' => true]);
     $session = $sessionStarted ? $_SESSION : [];
     $config = require $setupRoot . '/config.php';
     $result = setup_handle($_SERVER, $_POST, $_COOKIE, $config, $session);

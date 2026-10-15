@@ -25,7 +25,7 @@ if (!is_file($controller)) {
 }
 require_once $controller;
 
-session_start(['cookie_secure' => true, 'cookie_httponly' => true, 'cookie_samesite' => 'Lax', 'cookie_path' => '/']);
+session_start(['cookie_secure' => true, 'cookie_httponly' => true, 'cookie_samesite' => 'Lax', 'cookie_path' => '/', 'use_strict_mode' => true]); // the app's own starter sets strict mode; a planted session id must not be adopted here
 $shared = defined('KIPTION_SHARED_DIR') ? KIPTION_SHARED_DIR : $siteRoot . '/app';
 $active = \Upgrade\ReleasePointer::active($siteRoot);
 $root = defined('KIPTION_ROOT') ? KIPTION_ROOT : $siteRoot;
