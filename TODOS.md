@@ -75,7 +75,7 @@ docs/superpowers/plans/2026-10-14-kiption-launch.md)
 - [ ] Either way: watch the fork's CI weekly (green on PHP 8.3/8.4 x
       MySQL/MariaDB), cut a tag when compatibility fixes accumulate.
       Checked 2026-10-15: latest runs green on main (compatibility branch
-      merged; three provisioning-failure runs earlier the same day were
+      merged; three failing CI setup runs earlier the same day were
       fixed forward). The weekly cadence is manual: no recurring automation
       was created (recurring-cost rule; ask if wanted).
 
