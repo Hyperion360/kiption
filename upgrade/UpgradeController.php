@@ -95,8 +95,9 @@ final class UpgradeController
             // operator business: a visitor with neither a prepare capability
             // nor a signed-in session gets a static sign-in line, never a
             // journal-derived body.
-            $hasCapability = is_string($session['upgrade_capability'] ?? null);
-            if (!$hasCapability && !isset($session['user_id'])) {
+            if (!is_string($session['upgrade_capability'] ?? null)) {
+                // The capability is the only status key: a mere session (any
+                // member) learns nothing about upgrades in progress.
                 return $page('<p>Operator sign-in required. This endpoint configures nothing and reveals nothing until an authenticated prepare has run.</p>');
             }
             $journal = new Journal($shared, ['now' => $now]);

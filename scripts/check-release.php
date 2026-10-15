@@ -256,6 +256,14 @@ function check_release_zip(string $zipPath, string $manifestSidecarSuffix, strin
     }
 
     // Extract for layout, equality, and lint checks; clean up in the caller.
+    // A recorded hygiene failure (unsafe path, symlink entry) skips the
+    // extraction: hostile members are never written to disk (pentest T6).
+    $unsafe = (bool) array_filter($failures, fn (string $f) => str_contains($f, 'unsafe') || str_contains($f, 'symlink'));
+    $extract = null;
+    if ($unsafe) {
+        $zip->close();
+        return [$failures, $manifest, $id, null];
+    }
     $extract = sys_get_temp_dir() . '/kiption-check-' . bin2hex(random_bytes(6));
     if (!$zip->extractTo($extract)) {
         $failures[] = "{$label}: archive failed to extract";

@@ -105,6 +105,9 @@ final class ReleaseVerifier
                 }
                 if (!is_array($meta['files'] ?? null) || $meta['files'] === []) {
                     $failures[] = 'the manifest lists no files';
+                } elseif (count($meta['files']) > 100000) {
+                    $failures[] = 'the manifest lists implausibly many files';
+                    $meta['files'] = null;
                 }
                 if (!isset($meta['files']['vendor/autoload.php'])) {
                     $failures[] = 'the manifest has no framework autoloader';

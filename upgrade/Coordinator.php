@@ -128,6 +128,11 @@ final class Coordinator
             if ($record === null) {
                 return self::fail(409, 'No upgrade is recorded; run prepare first');
             }
+            // Pentest T6 finding: a request killed between a work step and its
+            // journal write leaves an orphaned snapshot/assets/stage dir that
+            // no record names and only manual rm removed. Under the lease,
+            // sweep every stamp the surviving journal does not reference.
+            self::sweepOrphanedWork($env, $record);
             $state = (string) $record['state'];
             if ($state === Journal::SWITCHED) {
                 return ['ok' => true, 'status' => 200, 'message' => 'The release is already switched; continue migrates it.'];
@@ -219,6 +224,30 @@ final class Coordinator
      *  error log under a random event id; the operator-facing response carries
      *  the authored sentence and that id, matching the controller's contract
      *  that no path or raw exception text is ever rendered. */
+    /** Removes shared/upgrade/{snapshot,assets,stage}-* directories the
+     *  surviving journal record does not name: a request killed between a work
+     *  step and its journal write otherwise leaks roughly 3x the database size
+     *  per attempt (the pentest T6 disk-exhaustion finding). Runs under the
+     *  exclusive lease inside activate. */
+    private static function sweepOrphanedWork(array $env, array $record): void
+    {
+        $shared = (string) ($env['shared_dir'] ?? '');
+        if ($shared === '') return;
+        $backupStamp = (string) ($record['backup']['stamp'] ?? '');
+        $named = array_filter([
+            $backupStamp === '' ? '' : $shared . '/upgrade/snapshot-' . $backupStamp,
+            (string) ($record['assets_saved_dir'] ?? ''),
+            (string) ($record['assets_stage_dir'] ?? ''),
+        ], fn (string $dir) => $dir !== '');
+        foreach (['snapshot-', 'assets-', 'stage-'] as $prefix) {
+            foreach (glob($shared . '/upgrade/' . $prefix . '*') ?: [] as $dir) {
+                if (in_array($dir, $named, true)) continue;
+                if (!is_dir($dir)) continue;
+                self::rrmdir($dir);
+            }
+        }
+    }
+
     private static function reported(string $stage, \Throwable $e, string $authored): string
     {
         $eventId = bin2hex(random_bytes(4));
