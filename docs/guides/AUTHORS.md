@@ -6,6 +6,13 @@ hold a body of work together. Reader-facing features are covered in
 [READERS.md](READERS.md); moderation in
 [MODERATORS.md](MODERATORS.md).
 
+Coming from Wattpad, WebNovel, Royal Road, FanFiction.net, or Substack:
+everything you publish here exports as EPUB or HTML at any time, scheduled
+releases fan out to your followers' inboxes, and the platform takes no fee
+and holds no rights to your text. [SWITCHING.md](SWITCHING.md) covers
+bringing an existing body of work over;
+[value-props.md](value-props.md) is the platform-by-platform comparison.
+
 ## Account levels
 
 Every account carries one of four roles, in rising order of trust:

@@ -101,9 +101,13 @@ serve` runs in dev mode, so observe maintenance mode with a plain
 
 ## Guides
 
-Three audience guides live in `docs/guides/` and cover the non-operator
-surfaces end to end:
+Five audience documents live in `docs/guides/`:
 
+- [value-props.md](docs/guides/value-props.md): why Kiption, platform by
+  platform, every claim mapped to shipped code.
+- [SWITCHING.md](docs/guides/SWITCHING.md): bringing an existing archive
+  from eFiction, AO3, Wattpad, FanFiction.net, or Substack, with an honest
+  account of what transfers and what starts at zero.
 - [AUTHORS.md](docs/guides/AUTHORS.md): account levels, the submission
   flow, scheduled releases, the markdown subset, coauthors, series,
   challenges, and exports.

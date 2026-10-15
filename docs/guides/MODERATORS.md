@@ -5,6 +5,10 @@ sits between moderator and admin work. Author-facing material is in
 [AUTHORS.md](AUTHORS.md); the operator (admin) levers live in the
 README's "Operating the archive" and "Feature flags" sections.
 
+Moderation here is local: the queue, the reports, and the content policy
+belong to this archive's team, not to a platform's trust-and-safety
+queue. Every decision below names the human who makes it.
+
 ## Who moderates
 
 The `moderator` and `admin` roles. Everything below answers 403 for

@@ -3,6 +3,11 @@
 How to read comfortably, keep your place, and keep up with authors you
 like. Authoring is covered in [AUTHORS.md](AUTHORS.md).
 
+There are no ads and no algorithmic feed deciding what you see, your
+position is remembered across chapters, and any story downloads as EPUB.
+[value-props.md](value-props.md) compares this archive with the platforms
+you may be leaving.
+
 ## Themes
 
 Four themes: paper, sepia, night, and auto.

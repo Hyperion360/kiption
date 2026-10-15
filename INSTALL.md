@@ -14,7 +14,9 @@ PHP 8.3 or newer. On macOS with Homebrew PHP, use
 
 This path is for a compatible shared host and needs only a file manager
 (or FTP), a browser, and the host's own tools: no Composer, no Git, no SSH,
-no database server. Before uploading, confirm the host against
+no database server. The plan that hosted an eFiction 3.5 archive usually
+qualifies once its PHP selector is set to 8.3. Before uploading, confirm
+the host against
 docs/hosting-matrix.md: PHP 8.3+ with `pdo_sqlite`, writable local storage
 where SQLite WAL works, a private directory outside the web root, HTTPS,
 and outbound mail. Kiption makes no universal-host claim: the matrix is
