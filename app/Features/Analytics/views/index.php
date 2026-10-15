@@ -87,4 +87,15 @@
 <?php endforeach; ?>
   </ol>
 <?php endif; ?>
+
+  <h2><?= \App\Lang::t('analytics.top_authors') ?></h2>
+<?php if ($authors === []): ?>
+  <p class="chapter-meta"><?= \App\Lang::t('analytics.empty') ?></p>
+<?php else: ?>
+  <ol>
+<?php foreach ($authors as $a): ?>
+    <li><?= $this->e($a['penname']) ?> <span class="meta"><?= \App\Lang::t('analytics.author_reads', ['n' => $a['count']]) ?></span></li>
+<?php endforeach; ?>
+  </ol>
+<?php endif; ?>
 </section>

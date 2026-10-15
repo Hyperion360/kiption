@@ -779,6 +779,8 @@ return [
     'analytics.new_members' => 'New members',
     'analytics.top_stories' => 'Top stories (last 30 days)',
     'analytics.top_count' => '{n} reads + kudos',
+    'analytics.top_authors' => 'Authors by 30-day reads',
+    'analytics.author_reads' => '{n} reads in 30 days',
     'analytics.empty' => 'No data in this window yet.',
 
     // The maintenance page (rendered standalone, without the layout).

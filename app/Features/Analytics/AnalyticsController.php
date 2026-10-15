@@ -7,8 +7,8 @@ use Kip\Routing\Auth as AuthAttr;
  *  already-collected aggregates (page_stats rollups, story_kudos, favorites,
  *  users) - no new collection, nothing member-identifying, the recorded
  *  privacy stance. The one-query law carries a documented admin-surface
- *  exception here (the browse-at-2 precedent): FIVE content queries, the
- *  four 30-day day-series plus the top-10 list. The seven totals AND the
+ *  exception here (the browse-at-2 precedent): SIX content queries, the
+ *  four 30-day day-series, the top-10 list, and the authors leaderboard. The seven totals AND the
  *  admin gate ride ONE one-row driver that runs FIRST (findings 4 and 5,
  *  the queue '0gate' precedent): FROM (SELECT 1) x guarantees the row a
  *  list-shaped fold would drop on an empty window, and the folded is_admin
@@ -82,6 +82,20 @@ final class AnalyticsController
              ORDER BY x.c DESC, x.story_id") as $r) {
             $top[] = ['slug' => (string) $r['slug'], 'title' => (string) $r['title'], 'count' => (int) $r['c']];
         }
+        // Authors by 30-day reads (the Stage 2 evidence-gate number): rollup
+        // rows only, same double-count rule as the series above. Restricted
+        // stories COUNT here: the number measures reader demand and names no
+        // titles (the top-stories list gates them for guest visibility).
+        $authors = [];
+        foreach ($this->db->all(
+            "SELECT u.id, u.penname, COALESCE(SUM(p.reads), 0) c
+             FROM page_stats p
+             JOIN stories s ON s.id = p.story_id AND s.validated = 1 AND s.deleted_at IS NULL
+             JOIN users u ON u.id = s.author_id
+             WHERE p.chapter_id = 0 AND p.day >= date('now', '-30 days')
+             GROUP BY u.id ORDER BY c DESC, u.id LIMIT 10") as $r) {
+            $authors[] = ['penname' => (string) $r['penname'], 'count' => (int) $r['c']];
+        }
         $title = \App\Lang::t('analytics.heading');
         $rendered = $this->view->render('analytics/index', [
             'title' => $title,
@@ -93,7 +107,7 @@ final class AnalyticsController
             'totals' => $totals,
             'readsByDay' => $readsByDay, 'kudosByDay' => $kudosByDay,
             'favoritesByDay' => $favoritesByDay, 'membersByDay' => $membersByDay,
-            'top' => $top,
+            'top' => $top, 'authors' => $authors,
             'loggedIn' => true,
             'isAdmin' => true, // the driver's is_admin already proved it
         ]);
