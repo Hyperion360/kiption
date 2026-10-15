@@ -91,6 +91,14 @@ final class UpgradeController
             if (!isset($session['upgrade_csrf'])) {
                 $session['upgrade_csrf'] = bin2hex(random_bytes(32));
             }
+            // Upgrade state (prepared/switched/rollback, target version) is
+            // operator business: a visitor with neither a prepare capability
+            // nor a signed-in session gets a static sign-in line, never a
+            // journal-derived body.
+            $hasCapability = is_string($session['upgrade_capability'] ?? null);
+            if (!$hasCapability && !isset($session['user_id'])) {
+                return $page('<p>Operator sign-in required. This endpoint configures nothing and reveals nothing until an authenticated prepare has run.</p>');
+            }
             $journal = new Journal($shared, ['now' => $now]);
             return $page(self::statusBody($journal, $session));
         }
