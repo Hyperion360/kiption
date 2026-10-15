@@ -34,14 +34,19 @@ if (PHP_SAPI === 'cli-server') {
     $p = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
     $real = realpath($docroot . $p);
     if ($real !== false && str_starts_with($real, $docroot . '/') && is_file($real)) {
+        // Assets only. A passthrough of anything else would hand out .php
+        // source (setup.php, upgrade.php) on the cli-server: unknown
+        // extensions fall through to the application like any other route.
         $type = ['css' => 'text/css', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
             'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'js' => 'text/javascript',
             'png' => 'image/png', 'svg' => 'image/svg+xml', 'woff2' => 'font/woff2',
-        ][strtolower(pathinfo($real, PATHINFO_EXTENSION))] ?? 'application/octet-stream';
-        header('Content-Type: ' . $type);
-        header('Content-Length: ' . (string) filesize($real));
-        readfile($real);
-        exit;
+        ][strtolower(pathinfo($real, PATHINFO_EXTENSION))] ?? null;
+        if ($type !== null) {
+            header('Content-Type: ' . $type);
+            header('Content-Length: ' . (string) filesize($real));
+            readfile($real);
+            exit;
+        }
     }
 }
 
