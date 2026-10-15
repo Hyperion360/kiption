@@ -143,10 +143,10 @@ final class WebUpgradeTest extends TestCase
     }
 
     /** @return resource */
-    private function startServer(int $port, string $docroot, string $router): mixed
+    private function startServer(int $port, string $docroot, string $router, array $phpArgs = []): mixed
     {
         $handle = proc_open(
-            [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $docroot, $router],
+            [PHP_BINARY, ...$phpArgs, '-S', '127.0.0.1:' . $port, '-t', $docroot, $router],
             [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
             $pipes
         );
@@ -682,6 +682,344 @@ final class WebUpgradeTest extends TestCase
         $this->assertStringContainsString('site/upgrade/ReleaseVerifier.php', $o2, $o2);
     }
 
+    // --------------------------------------- Task 3: authorization and lease
+
+    /** Loads the stable engine classes once for in-process controller calls. */
+    private function upgradeEngine(): void
+    {
+        require_once dirname(__DIR__) . '/upgrade/ReleasePointer.php';
+        require_once dirname(__DIR__) . '/upgrade/ReleaseVerifier.php';
+        require_once dirname(__DIR__) . '/upgrade/Journal.php';
+        require_once dirname(__DIR__) . '/upgrade/UpgradeController.php';
+    }
+
+    /**
+     * An installed release home ready for upgrade work: deployment record,
+     * migrated databases, one admin and one member, and a verified-shaped
+     * staged release. The admin credential exists only inside this fixture.
+     *
+     * @return array{home:string,site:string,active:string,stage:string,target:string,port:int,
+     *     admin_id:int,admin_epoch:string,member_id:int,member_epoch:string,password:string}
+     */
+    private function upgradeHome(string $prefix): array
+    {
+        [$home, $active] = $this->hostHome($prefix);
+        $site = $home . '/site';
+        $port = $this->freePort(8095);
+        $this->deployment($home, $port);
+        $kip = $this->kip($home);
+        [$mCode, $mOut] = $this->sh($home, $kip . ' migrate');
+        $this->assertSame(0, $mCode, $mOut);
+        $password = 'upgrade-pass-1';
+        [$aCode, $aOut] = $this->sh($home, $kip . ' user:create admin@kiption.test ' . escapeshellarg($password) . ' --admin');
+        $this->assertSame(0, $aCode, $aOut);
+        [$rCode, $rOut] = $this->sh($home, $kip . ' user:create reader@kiption.test ' . escapeshellarg('reader-pass-1'));
+        $this->assertSame(0, $rCode, $rOut);
+        $pdo = new \PDO('sqlite:' . $site . '/shared/data.sqlite');
+        $admin = $pdo->query("SELECT id, password_hash FROM users WHERE email = 'admin@kiption.test'")->fetch(\PDO::FETCH_ASSOC);
+        $member = $pdo->query("SELECT id, password_hash FROM users WHERE email = 'reader@kiption.test'")->fetch(\PDO::FETCH_ASSOC);
+        $this->assertNotFalse($admin, 'the fixture admin exists');
+        $this->assertNotFalse($member, 'the fixture member exists');
+        [$stage, , $target] = $this->stageFixture($site, '1.1.0');
+        return ['home' => $home, 'site' => $site, 'active' => $active, 'stage' => $stage, 'target' => $target,
+            'port' => $port, 'admin_id' => (int) $admin['id'], 'admin_epoch' => substr((string) $admin['password_hash'], 0, 12),
+            'member_id' => (int) $member['id'], 'member_epoch' => substr((string) $member['password_hash'], 0, 12),
+            'password' => $password];
+    }
+
+    /** @return array<string,mixed> */
+    private function upgradeSession(int $userId, string $epoch): array
+    {
+        return ['user_id' => $userId, 'pwd_epoch' => $epoch, 'upgrade_csrf' => bin2hex(random_bytes(32))];
+    }
+
+    /** The controller env a stable wrapper would build for this fixture home. */
+    private function upgradeEnv(array $h, array $overrides = []): array
+    {
+        return array_merge([
+            'site_root' => $h['site'],
+            'shared_dir' => $h['site'] . '/shared',
+            'source_root' => $h['site'] . '/releases/' . $h['active'],
+            'public_dir' => $h['home'] . '/public_html',
+        ], $overrides);
+    }
+
+    /** One in-process controller round trip; $session travels by reference. */
+    private function upgradeCall(array $h, string $method, array &$session, array $post = [], array $overrides = []): array
+    {
+        $server = array_merge(['REQUEST_METHOD' => $method, 'REMOTE_ADDR' => '127.0.0.1'], $overrides);
+        return \Upgrade\UpgradeController::handleWeb($server, $post, $session, $this->upgradeEnv($h, $overrides));
+    }
+
+    private function preparePost(array $h, string $csrf, string $digest): array
+    {
+        return ['command' => 'prepare', 'csrf' => $csrf, 'expected_sha256' => $digest,
+            'upgrade_password' => $h['password'],
+            'Origin-less' => 'the Origin header rides the server array, not the POST body'];
+    }
+
+    /**
+     * The upgrade endpoint is an administrative code-deployment boundary:
+     * every denial path (anonymous, non-admin, stale epoch, wrong password,
+     * missing CSRF, foreign Origin, plain HTTP, absent/malformed digest, and
+     * GET) leaves the journal, the pointer, and the databases untouched; a
+     * valid admin prepare records a capability HASH and the prepared journal
+     * and never a raw credential; the exclusive run.lock lease serializes
+     * prepare against any site work; an expired capability fails until a
+     * file-manager recovery token rotates it once; and no journal or
+     * response ever carries a credential.
+     */
+    public function test_upgrade_auth_and_lease(): void
+    {
+        $this->upgradeEngine();
+        $h = $this->upgradeHome('kiption-wu-auth-');
+        $journalFile = $h['site'] . '/shared/upgrade/journal.json';
+        $pointer = (string) file_get_contents($h['site'] . '/current');
+        $dbHash = hash_file('sha256', $h['site'] . '/shared/data.sqlite');
+        $origin = 'http://127.0.0.1:' . $h['port'];
+        $fixedNow = 1000; // the failure-rate window never expires mid-parade
+
+        $anon = [];
+        $member = $this->upgradeSession($h['member_id'], $h['member_epoch']);
+        $admin = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $stale = $this->upgradeSession($h['admin_id'], 'X' . substr($h['admin_epoch'], 1));
+
+        $assertUntouched = function () use ($h, $journalFile, $pointer, $dbHash): void {
+            $this->assertFileDoesNotExist($journalFile);
+            $this->assertSame($pointer, (string) file_get_contents($h['site'] . '/current'), 'the pointer never moved');
+            $this->assertSame($dbHash, hash_file('sha256', $h['site'] . '/shared/data.sqlite'), 'the content database never changed');
+        };
+
+        // GET renders status and mutates nothing on the site.
+        $r = $this->upgradeCall($h, 'GET', $anon);
+        $this->assertSame(200, $r['status']);
+        $this->assertFileDoesNotExist($journalFile, 'a GET never writes the journal');
+
+        // The denial parade: none of these may advance anything.
+        $bads = [
+            'anonymous prepare' => [$anon, ['command' => 'prepare', 'csrf' => '', 'expected_sha256' => $h['target'], 'upgrade_password' => 'x'], []],
+            'non-admin prepare' => [$member, $this->preparePost($h, (string) $member['upgrade_csrf'], $h['target']), ['HTTP_ORIGIN' => $origin]],
+            'stale epoch' => [$stale, $this->preparePost($h, (string) $stale['upgrade_csrf'], $h['target']), ['HTTP_ORIGIN' => $origin]],
+            'missing csrf' => [$admin, ['command' => 'prepare', 'expected_sha256' => $h['target'], 'upgrade_password' => $h['password']], ['HTTP_ORIGIN' => $origin]],
+            'foreign origin' => [$admin, $this->preparePost($h, (string) $admin['upgrade_csrf'], $h['target']), ['HTTP_ORIGIN' => 'http://evil.example']],
+            'plain http' => [$admin, $this->preparePost($h, (string) $admin['upgrade_csrf'], $h['target']),
+                ['HTTP_ORIGIN' => $origin, 'REMOTE_ADDR' => '203.0.113.7']],
+        ];
+        $fixedEnv = ['now' => $fixedNow];
+        foreach ($bads as $what => [$session, $post, $server]) {
+            @unlink($h['site'] . '/shared/upgrade/failures'); // each denial mechanism, not the cap, is under test here
+            $r = $this->upgradeCall($h, 'POST', $session, $post, $server + $fixedEnv);
+            $this->assertSame(403, $r['status'], "{$what} must be refused: " . $r['body']);
+            $assertUntouched();
+        }
+        // The wrong password rides the same refusal as the unknown user.
+        @unlink($h['site'] . '/shared/upgrade/failures');
+        $wrongPassword = $admin;
+        $wrongPassword['upgrade_csrf'] = $admin['upgrade_csrf'];
+        $r = $this->upgradeCall($h, 'POST', $wrongPassword,
+            ['command' => 'prepare', 'csrf' => (string) $admin['upgrade_csrf'], 'expected_sha256' => $h['target'],
+                'upgrade_password' => 'not-the-password'], ['HTTP_ORIGIN' => $origin, 'now' => $fixedNow]);
+        $this->assertSame(403, $r['status'], 'a wrong password must be refused');
+        $assertUntouched();
+
+        // The digest is mandatory, exact, and lowercase hex; a well-formed
+        // digest with no staged release is a verifier refusal, not a crash.
+        foreach (['', str_repeat('A', 64), substr($h['target'], 0, 63), str_repeat('0', 64)] as $bad) {
+            @unlink($h['site'] . '/shared/upgrade/failures');
+            $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+            $r = $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, (string) $session['upgrade_csrf'], $bad),
+                ['HTTP_ORIGIN' => $origin, 'now' => $fixedNow]);
+            $this->assertSame(400, $r['status'], 'digest ' . var_export($bad, true) . ' must be refused');
+            $assertUntouched();
+        }
+
+        // Five recorded failures cap the endpoint; the window then expires.
+        for ($i = 0; $i < 5; $i++) {
+            $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+            $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, 'wrong', $h['target']),
+                ['HTTP_ORIGIN' => $origin, 'now' => $fixedNow]);
+        }
+        $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $r = $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, (string) $session['upgrade_csrf'], $h['target']),
+            ['HTTP_ORIGIN' => $origin, 'now' => $fixedNow]);
+        $this->assertSame(429, $r['status'], 'the failure cap refuses further attempts');
+        // The window expires: the cap no longer fronts the checks (a wrong
+        // token is back to its own 403, not the cap's 429).
+        @unlink($h['site'] . '/shared/upgrade/failures');
+        $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $r = $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, 'wrong', $h['target']),
+            ['HTTP_ORIGIN' => $origin, 'now' => $fixedNow + 601]);
+        $this->assertSame(403, $r['status'], 'the window expires');
+        @unlink($h['site'] . '/shared/upgrade/failures');
+
+        // The exclusive lease: a held shared lease (any web request or cron
+        // job) blocks prepare, and nothing is written on the timeout.
+        $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $lock = fopen($h['site'] . '/shared/run.lock', 'c');
+        flock($lock, LOCK_SH);
+        $r = $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, (string) $session['upgrade_csrf'], $h['target']),
+            ['HTTP_ORIGIN' => $origin, 'lease_wait' => 0.2]);
+        $this->assertSame(409, $r['status'], 'a held shared lease blocks prepare');
+        $assertUntouched();
+        flock($lock, LOCK_UN);
+        fclose($lock);
+
+        // The valid admin prepare: journal + capability hash, never the raw.
+        $r = $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, (string) $session['upgrade_csrf'], $h['target']),
+            ['HTTP_ORIGIN' => $origin]);
+        $this->assertSame(200, $r['status'], 'a valid admin prepare advances: ' . $r['body']);
+        $journal = json_decode((string) file_get_contents($journalFile), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('prepared', $journal['state']);
+        $this->assertSame($h['active'], $journal['source_id']);
+        $this->assertSame($h['target'], $journal['target_id']);
+        $this->assertSame('1.1.0', $journal['target_version']);
+        $capability = (string) $session['upgrade_capability'];
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $capability);
+        $this->assertSame(hash('sha256', $capability), $journal['capability_hash'], 'only the capability hash is recorded');
+        $bytes = (string) file_get_contents($journalFile);
+        $this->assertStringNotContainsString($capability, $bytes, 'the raw capability never lands in the journal');
+        $this->assertStringNotContainsString($h['password'], $bytes, 'no password lands in the journal');
+        $this->assertStringNotContainsString($capability, $r['body'], 'the capability never renders');
+        $this->assertStringNotContainsString($h['password'], $r['body'], 'no password renders');
+        $this->assertSame($pointer, (string) file_get_contents($h['site'] . '/current'));
+
+        // A second prepare is refused while one is recorded.
+        $again = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $r = $this->upgradeCall($h, 'POST', $again, $this->preparePost($h, (string) $again['upgrade_csrf'], $h['target']),
+            ['HTTP_ORIGIN' => $origin]);
+        $this->assertSame(409, $r['status'], 'an upgrade is already recorded');
+
+        // An expired capability fails closed; the journal survives.
+        $writer = new \Upgrade\Journal($h['site'] . '/shared');
+        $writer->write(array_merge((array) $journal, ['capability_expires' => 1]));
+        $r = $this->upgradeCall($h, 'POST', $session, ['command' => 'activate', 'csrf' => (string) $session['upgrade_csrf']],
+            ['HTTP_ORIGIN' => $origin]);
+        $this->assertSame(403, $r['status'], 'an expired capability is refused');
+        $this->assertFileExists($journalFile, 'a refused transition leaves the journal');
+
+        // The recovery bridge: a wrong token is refused and the file stays;
+        // the right one is consumed once, rotates the capability, and, at
+        // the prepared state, cancels the recorded upgrade (nothing was
+        // ever switched). This path never queries the users table.
+        $tokenFile = $h['site'] . '/shared/upgrade/recovery-token';
+        $token = bin2hex(random_bytes(32));
+        file_put_contents($tokenFile, $token . "\n");
+        $fresh = [];
+        $this->upgradeCall($h, 'GET', $fresh); // mint the csrf a fresh session carries
+        $r = $this->upgradeCall($h, 'POST', $fresh,
+            ['command' => 'recover', 'csrf' => (string) $fresh['upgrade_csrf'], 'recovery_token' => bin2hex(random_bytes(32))],
+            ['HTTP_ORIGIN' => $origin]);
+        $this->assertSame(403, $r['status'], 'a wrong recovery token is refused');
+        $this->assertFileExists($tokenFile, 'a wrong token is never consumed');
+        $r = $this->upgradeCall($h, 'POST', $fresh,
+            ['command' => 'recover', 'csrf' => (string) $fresh['upgrade_csrf'], 'recovery_token' => $token],
+            ['HTTP_ORIGIN' => $origin]);
+        $this->assertSame(200, $r['status'], 'the recovery token rotates and recovers: ' . $r['body']);
+        $this->assertFileDoesNotExist($tokenFile, 'the recovery token is consumed once');
+        $this->assertFileDoesNotExist($journalFile, 'a prepared upgrade that was never switched cancels cleanly');
+
+        // An authorized transition is not an authorization failure: at this
+        // commit the transition engine itself is the missing piece, and the
+        // journal survives it untouched.
+        [$stage2, , $target2] = $this->stageFixture($h['site'], '1.2.0');
+        $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, (string) $session['upgrade_csrf'], $target2),
+            ['HTTP_ORIGIN' => $origin]);
+        $this->assertFileExists($journalFile);
+        $r = $this->upgradeCall($h, 'POST', $session, ['command' => 'activate', 'csrf' => (string) $session['upgrade_csrf']],
+            ['HTTP_ORIGIN' => $origin]);
+        $this->assertNotSame(403, $r['status'], 'a valid capability authorizes the transition');
+        $this->assertNotSame(403, $this->upgradeCall($h, 'POST', $session,
+            ['command' => 'continue', 'csrf' => (string) $session['upgrade_csrf']], ['HTTP_ORIGIN' => $origin])['status'],
+            'a valid capability authorizes continue');
+        $this->assertFileExists($journalFile, 'an unauthorized-by-engine transition still leaves the journal');
+        unlink($journalFile);
+    }
+
+    /**
+     * The private CLI shares the browser's verifier, lease, and journal with
+     * filesystem ownership as its only authority: it refuses the web SAPI
+     * (the guard, unit-checked; the engine directory is outside every web
+     * root), unknown commands, malformed and missing digests; it prepares
+     * from local files with no HTTP session; it cannot race a browser
+     * command (the exclusive lease serializes them); and recovery at the
+     * prepared state works without the browser, users table, or any
+     * credential.
+     */
+    public function test_upgrade_private_cli(): void
+    {
+        $this->upgradeEngine();
+        $this->assertSame('the private upgrade CLI runs on the command line only',
+            \Upgrade\UpgradeController::cliGuard('fpm-fcgi'));
+        $this->assertSame('the private upgrade CLI runs on the command line only',
+            \Upgrade\UpgradeController::cliGuard('cli-server'));
+        $this->assertNull(\Upgrade\UpgradeController::cliGuard('cli'));
+
+        $h = $this->upgradeHome('kiption-wu-cli-');
+        $cli = 'PATH="/opt/homebrew/bin:/usr/bin:/bin" ' . escapeshellarg(PHP_BINARY) . ' '
+            . escapeshellarg($h['site'] . '/upgrade/cli.php');
+        $journalFile = $h['site'] . '/shared/upgrade/journal.json';
+
+        // Unknown command and flag hygiene.
+        [$code, $out] = $this->sh($h['home'], $cli . ' frobnicate');
+        $this->assertNotSame(0, $code, 'an unknown command is refused');
+        $this->assertStringContainsString('usage:', strtolower($out));
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare --extra');
+        $this->assertNotSame(0, $code, 'an unknown flag is refused');
+
+        // The published digest is mandatory and exact.
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare');
+        $this->assertNotSame(0, $code, 'prepare without a digest is refused');
+        $this->assertFileDoesNotExist($journalFile);
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare --digest=banana');
+        $this->assertNotSame(0, $code, 'a malformed digest is refused');
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare --digest=' . str_repeat('0', 64));
+        $this->assertNotSame(0, $code, 'a digest with no staged release fails verification');
+        $this->assertFileDoesNotExist($journalFile);
+
+        // Prepare from local files: no session, no password, no capability.
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare --digest=' . $h['target']);
+        $this->assertSame(0, $code, $out);
+        $journal = json_decode((string) file_get_contents($journalFile), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('prepared', $journal['state']);
+        $this->assertSame($h['active'], $journal['source_id']);
+        $this->assertSame($h['target'], $journal['target_id']);
+        $this->assertArrayNotHasKey('capability_hash', $journal, 'the CLI mints no browser capability');
+
+        // A browser-prepare is refused while the CLI upgrade is recorded.
+        $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $r = $this->upgradeCall($h, 'POST', $session,
+            $this->preparePost($h, (string) $session['upgrade_csrf'], $h['target']),
+            ['HTTP_ORIGIN' => 'http://127.0.0.1:' . $h['port']]);
+        $this->assertSame(409, $r['status'], 'the CLI-recorded upgrade blocks a browser prepare');
+
+        // Browser and CLI cannot race: a held exclusive lease refuses the CLI.
+        $lock = fopen($h['site'] . '/shared/run.lock', 'c');
+        flock($lock, LOCK_EX | LOCK_NB);
+        [$code, $out] = $this->sh($h['home'], $cli . ' status');
+        $this->assertSame(0, $code, 'status is read-only and lock-free: ' . $out);
+        $this->assertStringContainsString('prepared', $out);
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare --digest=' . $h['target']);
+        $this->assertNotSame(0, $code, 'a held exclusive lease refuses the CLI');
+        flock($lock, LOCK_UN);
+        fclose($lock);
+
+        // Recovery without the browser: break the users table the way a
+        // partial migration would, then recover the prepared upgrade. No
+        // users query, no credential, journal cleared.
+        $users = $h['site'] . '/shared/data.sqlite';
+        $pdo = new \PDO('sqlite:' . $users);
+        $pdo->exec('ALTER TABLE users RENAME TO users_half_migrated');
+        [$code, $out] = $this->sh($h['home'], $cli . ' recover');
+        $this->assertSame(0, $code, 'CLI recovery works without browser auth: ' . $out);
+        $this->assertFileDoesNotExist($journalFile, 'the prepared upgrade is cleared');
+        $this->assertStringContainsString('cleared', $out);
+        $pdo->exec('ALTER TABLE users_half_migrated RENAME TO users');
+        [$code, $out] = $this->sh($h['home'], $cli . ' status');
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('no upgrade is recorded', $out);
+    }
+
     /**
      * A stage that is really an extracted install ZIP (a nested site/ tree)
      * is refused outright, and the final builder output end to end: an
@@ -729,5 +1067,126 @@ final class WebUpgradeTest extends TestCase
         $r = $this->verifier($site, $activeId)->verify($stage, $builderId, rehearse: false);
         $this->assertFalse($r['ok'], 'a development bundle must be rejected end to end');
         $this->assertStringContainsString('development', implode(' ', $r['failures']));
+    }
+
+    // ------------------------------------------ Task 3: web smoke and lease
+
+    /**
+     * The abuse smoke against a real server, plus the front controller's
+     * lease discipline: the stable web-root wrapper answers /upgrade.php;
+     * GET renders status for anyone but writes nothing; POST prepare needs
+     * an admin session, the re-entered password, a valid CSRF token, and the
+     * published digest; the front controller holds a SHARED run.lock lease
+     * through the whole request (it waits out an exclusive holder); and
+     * maintenance returns 503 before the static cache serves anything.
+     */
+    public function test_upgrade_web_smoke_and_index_lease(): void
+    {
+        $h = $this->upgradeHome('kiption-wu-smoke-');
+        $origin = 'http://127.0.0.1:' . $h['port'];
+        $journalFile = $h['site'] . '/shared/upgrade/journal.json';
+
+        // Sessions live in a fixture save path; the dev server and the
+        // seeder subprocess share it.
+        $sessions = $h['home'] . '/sessions';
+        mkdir($sessions, 0775, true);
+        $seedSession = static function (string $id, array $data) use ($sessions): void {
+            $code = 'session_id(' . var_export($id, true) . '); session_start(); $_SESSION = '
+                . var_export($data, true) . '; session_write_close();';
+            exec(escapeshellarg(PHP_BINARY) . ' -d session.save_path=' . escapeshellarg($sessions)
+                . ' -r ' . escapeshellarg($code));
+        };
+        $adminId = 'upgradeadminsession';
+        $memberId = 'upgrademembersession';
+        $adminCsrf = bin2hex(random_bytes(32));
+        $seedSession($adminId, ['user_id' => $h['admin_id'], 'pwd_epoch' => $h['admin_epoch'], 'upgrade_csrf' => $adminCsrf]);
+        $seedSession($memberId, ['user_id' => $h['member_id'], 'pwd_epoch' => $h['member_epoch'], 'upgrade_csrf' => bin2hex(random_bytes(32))]);
+
+        // A router that executes real .php files: the built-in server's
+        // default static fallback would download the wrapper's source.
+        $router = $h['home'] . '/upgrade-router.php';
+        file_put_contents($router, "<?php\n"
+            . "\$p = parse_url(\$_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';\n"
+            . "\$real = realpath(\$_SERVER['DOCUMENT_ROOT'] . \$p);\n"
+            . "if (\$real !== false && str_starts_with(\$real, \$_SERVER['DOCUMENT_ROOT']) && is_file(\$real) && str_ends_with(\$real, '.php')) {\n"
+            . "    chdir(dirname(\$real));\n"
+            . "    require \$real;\n"
+            . "    exit;\n"
+            . "}\n"
+            . "return false;\n");
+        $server = $this->startServer($h['port'], $h['home'] . '/public_html', $router,
+            ['-d', 'session.save_path=' . $sessions]);
+        try {
+            $cookie = static fn (string $id): string => 'Cookie: PHPSESSID=' . $id;
+            $post = static fn (array $fields): string => http_build_query($fields);
+
+            // Anonymous GET: the status page, no journal.
+            [$code, $body] = $this->http($h['port'], 'GET', '/upgrade.php');
+            $this->assertSame(200, $code, (string) $body);
+            $this->assertFileDoesNotExist($journalFile, 'a GET never writes the journal');
+
+            // Anonymous POST: refused.
+            [$code, $body] = $this->http($h['port'], 'POST', '/upgrade.php',
+                ['Content-Type: application/x-www-form-urlencoded'], $post(['command' => 'prepare']));
+            $this->assertSame(403, $code, 'an anonymous prepare is refused');
+            $this->assertFileDoesNotExist($journalFile);
+
+            // Non-admin session: refused with its own CSRF.
+            [$code, $body] = $this->http($h['port'], 'POST', '/upgrade.php',
+                [$cookie($memberId), 'Content-Type: application/x-www-form-urlencoded', 'Origin: ' . $origin],
+                $post(['command' => 'prepare', 'expected_sha256' => $h['target'], 'upgrade_password' => 'reader-pass-1']));
+            $this->assertSame(403, $code, 'a non-admin prepare is refused');
+            $this->assertFileDoesNotExist($journalFile);
+
+            // Admin, invalid CSRF: refused.
+            [$code, $body] = $this->http($h['port'], 'POST', '/upgrade.php',
+                [$cookie($adminId), 'Content-Type: application/x-www-form-urlencoded', 'Origin: ' . $origin],
+                $post(['command' => 'prepare', 'csrf' => 'wrong', 'expected_sha256' => $h['target'],
+                    'upgrade_password' => $h['password']]));
+            $this->assertSame(403, $code, 'an invalid CSRF token is refused');
+            $this->assertFileDoesNotExist($journalFile);
+
+            // Admin, everything right: the journal records prepared.
+            [$code, $body] = $this->http($h['port'], 'POST', '/upgrade.php',
+                [$cookie($adminId), 'Content-Type: application/x-www-form-urlencoded', 'Origin: ' . $origin],
+                $post(['command' => 'prepare', 'csrf' => $adminCsrf, 'expected_sha256' => $h['target'],
+                    'upgrade_password' => $h['password']]));
+            $this->assertSame(200, $code, 'only the admin with the password advances: ' . $body);
+            $journal = json_decode((string) file_get_contents($journalFile), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame('prepared', $journal['state']);
+            $this->assertStringNotContainsString($h['password'], (string) $body, 'no credential renders');
+            unlink($journalFile);
+
+            // The front controller holds a shared lease for the whole
+            // request: an exclusive holder makes the next request wait.
+            $holder = proc_open(
+                [PHP_BINARY, '-r', '$h = fopen($argv[1], "c"); flock($h, LOCK_EX); sleep(1);',
+                    $h['site'] . '/shared/run.lock'],
+                [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes
+            );
+            usleep(200000); // let the holder take the lease
+            $started = microtime(true);
+            [$code] = $this->http($h['port'], 'GET', '/');
+            $elapsed = microtime(true) - $started;
+            $this->assertSame(200, $code, 'the request completes once the exclusive holder finishes');
+            $this->assertGreaterThan(0.7, $elapsed, 'the request waited out the exclusive lease');
+            proc_terminate($holder);
+            proc_close($holder);
+
+            // Maintenance beats the cache: a warm cache serves 503 under the
+            // marker and the site returns when it is lifted.
+            $this->assertSame(200, $this->http($h['port'], 'GET', '/')[0], 'the home page serves');
+            [$code, $cached] = $this->http($h['port'], 'GET', '/');
+            $this->assertSame(200, $code, 'the cached home page serves');
+            touch($h['site'] . '/shared/maintenance.lock');
+            [$code, $body] = $this->http($h['port'], 'GET', '/');
+            $this->assertSame(503, $code, 'maintenance is a 503 before the static cache');
+            $this->assertNotSame($cached, $body, 'the cached home page does not leak through');
+            unlink($h['site'] . '/shared/maintenance.lock');
+            $this->assertSame(200, $this->http($h['port'], 'GET', '/')[0], 'lifting maintenance restores service');
+        } finally {
+            proc_terminate($server);
+            proc_close($server);
+        }
     }
 }

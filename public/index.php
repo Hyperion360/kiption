@@ -65,6 +65,22 @@ if (\App\Setup\SetupGate::pending($config)) {
     exit("Kiption is being installed. Try again soon.\n");
 }
 
+// The shared lease (upgrade discipline): every normal web request holds a
+// SHARED flock on run.lock for its whole life, INCLUDING the deferred work
+// after the response, so an upgrade's exclusive transition waits out all
+// in-flight requests, and the maintenance check below reads a marker that
+// is only ever written while the exclusive lease itself is held (so a
+// request that got the lease necessarily reads the marker). Released by a
+// shutdown function, which covers every exit path below. Zero queries; the
+// anonymous cached path gains only one fopen/flock pair.
+$runLock = @fopen(($config['data_dir'] ?? dirname(__DIR__) . '/app') . '/run.lock', 'c');
+if ($runLock !== false && flock($runLock, LOCK_SH)) {
+    register_shutdown_function(static function () use ($runLock): void {
+        flock($runLock, LOCK_UN);
+        fclose($runLock);
+    });
+}
+
 $config['views'] = $config['app_dir'] . '/views';
 \App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // every view's strings render through the pack layer
 

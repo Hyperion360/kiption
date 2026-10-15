@@ -295,6 +295,14 @@ final class ReleaseVerifier
         foreach ($this->dbs as $label => $dsn) {
             $file = $this->sqliteFile((string) $dsn);
             if ($file === null || !is_file($file)) {
+                // The cache database is disposable by contract (the
+                // cache:clear arm unlinks it): a missing one is an empty
+                // one, contributing no snapshot bytes and nothing to
+                // rehearse. The content and log databases are not
+                // disposable.
+                if ($label === 'cache') {
+                    continue;
+                }
                 $failures[] = "the live {$label} database is missing; recovery comes first";
                 continue;
             }

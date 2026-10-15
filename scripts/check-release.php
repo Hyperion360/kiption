@@ -36,7 +36,7 @@ function check_release_fail_out(string $message): void
  * of these cannot be upgraded by the stable coordinator, so the gate refuses
  * it. Extended as the engine grows.
  */
-const CHECK_RELEASE_ENGINE_FILES = ['ReleasePointer.php', 'ReleaseVerifier.php'];
+const CHECK_RELEASE_ENGINE_FILES = ['ReleasePointer.php', 'ReleaseVerifier.php', 'Journal.php', 'UpgradeController.php', 'cli.php'];
 
 /**
  * @param array{zip?:string,upgrade_zip?:string,development?:bool,expected_install_digest?:string,expected_upgrade_digest?:string} $o
@@ -167,8 +167,8 @@ function check_release_zip(string $zipPath, string $manifestSidecarSuffix, strin
     $id = null;
     $required = $install
         ? ['site/current', 'site/bin/kip',
-           'site/public/index.php', 'site/public/setup.php', 'site/public/.htaccess',
-           'public_html/index.php', 'public_html/setup.php', 'public_html/.htaccess',
+           'site/public/index.php', 'site/public/setup.php', 'site/public/upgrade.php', 'site/public/.htaccess',
+           'public_html/index.php', 'public_html/setup.php', 'public_html/upgrade.php', 'public_html/.htaccess',
            ...array_map(static fn (string $f): string => 'site/upgrade/' . $f, CHECK_RELEASE_ENGINE_FILES)]
         : ['RELEASE.json', 'config.php', 'composer.json', 'composer.lock', 'bin/kip',
            'vendor/autoload.php', 'vendor/composer/installed.json', 'public/index.php', 'public/.htaccess'];
