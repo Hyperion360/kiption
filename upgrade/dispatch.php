@@ -109,6 +109,14 @@ if ($importCommit && !@file_put_contents($maintenance, 'import:efiction ' . date
     $fail('cannot set the maintenance marker');
 }
 
+// Re-check under the lease: the early check read the marker before an upgrade
+// transition could acquire the lock, raise maintenance, and release.
+if (is_file($maintenance) && !in_array($cmd, ['import:efiction', 'version', 'help'], true)) {
+    flock($lockHandle, LOCK_UN);
+    fclose($lockHandle);
+    $fail('Kiption entered maintenance while this command waited; see INSTALL.md for the recovery path');
+}
+
 require $root . '/bin/kip';
 // Reaching this line means the versioned command returned success. bin/kip
 // exits on its own for every failure path, so maintenance is lifted only
