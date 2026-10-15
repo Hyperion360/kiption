@@ -174,10 +174,15 @@ final class WranglingController
         return $this->view->render('wrangling/merge', $data);
     }
 
-    /** The SQL admin gate (role = 'admin' iff is_admin = 1 makes one check enough). */
+    /** The SQL admin gate (role = 'admin' iff is_admin = 1 makes one check enough),
+     *  behind the password-epoch check: a session held across an admin's password
+     *  rotation must not run the data-destructive merge (the pentest variant-loop
+     *  finding; same repair as the invites gate). */
     private function admin(): bool
     {
         $me = (int) ($this->session->get('user_id') ?? 0);
+        if ($me === 0) return false;
+        if (!(new \Kip\Auth($this->db, $this->session))->sessionValid()) return false;
         return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 

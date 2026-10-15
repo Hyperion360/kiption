@@ -82,6 +82,20 @@ final class WranglingTest extends TestCase
         return $as === null ? $client : $client->actingAs($as);
     }
 
+    /** The pentest variant-loop finding: admin() read the session user_id
+     *  without the password-epoch check, so a session stolen before an admin
+     *  rotated their password could still run the data-destructive merge.
+     *  Rotate the admin's hash after actingAs: the session's epoch no longer
+     *  matches, and every wrangling action must draw 403. */
+    public function test_stale_epoch_admin_session_is_revoked_everywhere(): void
+    {
+        $client = $this->client($this->adminRowId); // the session predates the rotation
+        $this->db->query("UPDATE users SET password_hash = ? WHERE id = ?",
+            [password_hash('rotated-pass-9', PASSWORD_DEFAULT), $this->adminRowId]);
+        $this->assertSame(403, $client->get('/wrangling')->status);
+        $this->assertSame(403, $client->get('/wrangling/merge')->status);
+    }
+
     /** Seeded tags resolve by name; test-created tags capture their id. */
     private function tagId(string $name): int
     {

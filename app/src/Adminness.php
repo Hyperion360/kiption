@@ -22,11 +22,15 @@ final class Adminness
         $db->query('UPDATE users SET role = ?, is_admin = ? WHERE id = ?', [$role, $role === 'admin' ? 1 : 0, $userId]);
     }
 
-    /** Fail-closed moderator gate for POST actions: moderator-or-admin row, or a 403 Response. */
+    /** Fail-closed moderator gate for POST actions: moderator-or-admin row, or a 403 Response.
+     *  The password epoch is validated here, once, so every current and future
+     *  moderator surface is safe by construction instead of by attribute
+     *  discipline (the pentest variant-loop finding). */
     public static function requireModerator(Database $db, Session $session): array|Response
     {
         $id = $session->get('user_id');
         if (!is_int($id)) return new Response('Forbidden', 403);
+        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response('Forbidden', 403);
         try {
             $row = $db->one('SELECT id, penname, role, is_admin FROM users WHERE id = ?', [$id]);
         } catch (\PDOException) {

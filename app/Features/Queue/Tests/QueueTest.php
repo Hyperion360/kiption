@@ -51,6 +51,26 @@ final class QueueTest extends TestCase
         ])))->actingAs($userId);
     }
 
+    /** The moderator choke point (Adminness::requireModerator) must validate
+     *  the password epoch: a session held across a password rotation draws
+     *  403, not moderator authority. */
+    public function test_stale_epoch_moderator_session_is_revoked(): void
+    {
+        $moderator = (int) $this->db->one("SELECT id FROM users WHERE role = 'moderator' LIMIT 1")['id'];
+        if ($moderator === 0) {
+            $this->markTestSkipped('no seeded moderator');
+        }
+        $client = $this->clientAs($moderator); // the session predates the rotation
+        $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?',
+            [password_hash('rotated-mod-7', PASSWORD_DEFAULT), $moderator]);
+        // /queue carries #[AuthAttr]: the kernel gate runs first and redirects a
+        // stale-epoch session to login (302). The security property is 'no 200':
+        // a rotated-away session never sees moderator authority, whether the
+        // kernel gate or Adminness::requireModerator (the choke-point fix for
+        // future unattributed callers) stops it.
+        $this->assertNotEquals(200, $client->get('/queue')->status);
+    }
+
     public function test_member_cannot_see_queue(): void
     {
         $res = $this->clientAs($this->memberId)->get('/queue');
