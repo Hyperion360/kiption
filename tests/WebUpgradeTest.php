@@ -53,7 +53,9 @@ final class WebUpgradeTest extends TestCase
     /** PHP-only recursive copy; skips nothing silently: callers name exclusions. */
     private static function rrcopy(string $src, string $dst, array $exclude = []): void
     {
-        mkdir($dst, 0775, true);
+        if (!is_dir($dst)) {
+            mkdir($dst, 0775, true);
+        }
         foreach (scandir($src) ?: [] as $e) {
             if ($e === '.' || $e === '..' || in_array($e, $exclude, true)) {
                 continue;
@@ -695,6 +697,7 @@ final class WebUpgradeTest extends TestCase
         require_once dirname(__DIR__) . '/upgrade/ReleasePointer.php';
         require_once dirname(__DIR__) . '/upgrade/ReleaseVerifier.php';
         require_once dirname(__DIR__) . '/upgrade/Journal.php';
+        require_once dirname(__DIR__) . '/upgrade/Restore.php';
         require_once dirname(__DIR__) . '/upgrade/UpgradeController.php';
     }
 
@@ -1500,5 +1503,289 @@ final class WebUpgradeTest extends TestCase
         [$code, $out] = $this->sh($h['home'], $cli . ' recover');
         $this->assertSame(0, $code, $out);
         $this->assertStringContainsString('nothing to recover', $out);
+    }
+
+    // -------------------------------------------------- Task 5: the runbook
+
+    /**
+     * The runbook says exactly what the code does, and never teaches the
+     * dangerous shortcut: the owner verifies the whole upgrade ZIP against
+     * the official page, stages the release-root ZIP (never the install
+     * ZIP), drives /upgrade.php over HTTPS with the pasted digest and the
+     * re-entered admin password, waits for a complete or rolled-back
+     * result, and takes the backup off the host; the PHP CLI path shares
+     * the same verifier, lease, snapshots, pointer, journal, and recovery;
+     * scheduled commands ride the stable launcher across the cutover; and
+     * the stable engine is replaced only by the maintenance procedure,
+     * never in place.
+     */
+    public function test_upgrade_docs(): void
+    {
+        // Docs assertions match across re-wrapped lines: whitespace folds.
+        $fold = static fn (string $doc): string => (string) preg_replace('/\s+/', ' ', $doc);
+        $install = $fold((string) file_get_contents(dirname(__DIR__) . '/INSTALL.md'));
+        $readme = $fold((string) file_get_contents(dirname(__DIR__) . '/README.md'));
+        $matrix = $fold((string) file_get_contents(dirname(__DIR__) . '/docs/hosting-matrix.md'));
+
+        // Staging: two digests, the right ZIP, the right shape.
+        $this->assertStringContainsString('whole-upgrade-ZIP SHA-256 published with the release', $install);
+        $this->assertStringContainsString('separately published `RELEASE.json` SHA-256', $install);
+        $this->assertStringContainsString('release-root upgrade ZIP', $install);
+        $this->assertStringContainsString('not the install ZIP', $install);
+        $this->assertStringContainsString('`RELEASE.json` sits directly inside the staging directory', $install);
+
+        // The browser runbook, in order.
+        foreach ([
+            '`/upgrade.php` over HTTPS',
+            'paste that digest',
+            're-enter your admin password',
+            'verified target and the backup size',
+            'a complete or rolled-back result',
+            'download the new backup off the host',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $install, "the runbook must say: {$needle}");
+        }
+
+        // The never-overwrite warnings, every one of them.
+        foreach (['`site/shared`', '`site/current`', '`public_html/uploads`'] as $needle) {
+            $this->assertStringContainsString($needle, $install, "the runbook must warn about {$needle}");
+        }
+
+        // The CLI path shares the machinery; the browser timeout names it.
+        $this->assertStringContainsString('`php site/upgrade/cli.php prepare|activate|continue|recover`', $install);
+        $this->assertStringContainsString('same verifier, lease, snapshots, pointer, journal, and recovery', $install);
+        $this->assertStringContainsString('the PHP CLI upgrade path', $install);
+
+        // Scheduled commands ride the stable launcher across the cutover.
+        $this->assertStringContainsString('resolve the active release, including after an upgrade switches it', $install);
+
+        // The stable engine is never replaced in place; the maintenance
+        // procedure renames the old engine aside and can put it back.
+        $this->assertStringContainsString('overwrite `site/upgrade` in place', $install);
+        $this->assertStringContainsString('`site/upgrade.previous`', $install);
+        $this->assertStringContainsString('quiet period', $install);
+
+        // The old hand-edit-the-pointer paragraph is gone for good.
+        $this->assertStringNotContainsString('switch the plain-text `site/current` pointer', $install);
+
+        // The README points shared-host owners at the runbook and the
+        // matrix, without a universal-host claim.
+        $this->assertStringContainsString('docs/hosting-matrix.md', $readme);
+        $this->assertStringContainsString('INSTALL.md', $readme);
+        $this->assertStringContainsString('upgrade in the browser', $readme);
+
+        // The matrix states the measured browser-upgrade boundary and the
+        // hard filesystem requirements, and keeps the no-provider claim.
+        foreach ([
+            'to the PHP CLI upgrade path',
+            'does not honor `flock` or atomic rename',
+            'rehearsal',
+            'local-fixture-validated',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $matrix, "the matrix must say: {$needle}");
+        }
+    }
+
+    /**
+     * The stable-engine maintenance procedure, executed against a fixture
+     * exactly as the runbook documents it: the package carries a manifest
+     * with per-file SHA-256s and the upgrade protocol; verification is
+     * full (every file, nothing extra, protocol 1) and a corrupted staged
+     * file or an incompatible protocol refuses before anything moves; the
+     * quiet period is proven by taking the exclusive lease without
+     * waiting; the apply renames the whole old engine and launcher aside
+     * and installs the staged files and both wrapper sets under
+     * maintenance; the smoke test boots the new engine; and the rollback
+     * puts the previous set back with both docroot layouts' index.php,
+     * setup.php, upgrade.php, and .htaccess intact.
+     */
+    public function test_upgrade_engine_maintenance(): void
+    {
+        $this->upgradeEngine();
+        $h = $this->upgradeHome('kiption-wu-engine-');
+        $repo = dirname(__DIR__);
+        $site = $h['site'];
+
+        // The package, laid out exactly as the runbook defines it.
+        $package = $this->tmptree('kiption-wu-pkg-');
+        $map = [
+            'upgrade/ReleasePointer.php' => "{$repo}/upgrade/ReleasePointer.php",
+            'upgrade/ReleaseVerifier.php' => "{$repo}/upgrade/ReleaseVerifier.php",
+            'upgrade/Journal.php' => "{$repo}/upgrade/Journal.php",
+            'upgrade/UpgradeController.php' => "{$repo}/upgrade/UpgradeController.php",
+            'upgrade/Coordinator.php' => "{$repo}/upgrade/Coordinator.php",
+            'upgrade/Restore.php' => "{$repo}/upgrade/Restore.php",
+            'upgrade/cli.php' => "{$repo}/upgrade/cli.php",
+            'bin/kip' => "{$repo}/upgrade/dispatch.php",
+            'site-public/index.php' => "{$repo}/upgrade/stable/public-index.php",
+            'site-public/setup.php' => "{$repo}/upgrade/stable/public-setup.php",
+            'site-public/upgrade.php' => "{$repo}/upgrade/stable/public-upgrade.php",
+            'site-public/.htaccess' => "{$repo}/public/.htaccess",
+            'public_html/index.php' => "{$repo}/upgrade/stable/docroot-index.php",
+            'public_html/setup.php' => "{$repo}/upgrade/stable/docroot-setup.php",
+            'public_html/upgrade.php' => "{$repo}/upgrade/stable/docroot-upgrade.php",
+            'public_html/.htaccess' => "{$repo}/public/.htaccess",
+        ];
+        foreach ($map as $rel => $source) {
+            $to = $package . '/' . $rel;
+            if (!is_dir(dirname($to))) {
+                mkdir(dirname($to), 0775, true);
+            }
+            copy($source, $to);
+        }
+        // The staged engine differs from the installed one: a real engine
+        // release carries new bytes. Stamp the package's Journal so the
+        // apply provably changes the engine set.
+        file_put_contents($package . '/upgrade/Journal.php',
+            (string) file_get_contents($package . '/upgrade/Journal.php')
+            . "\n// maintenance package " . bin2hex(random_bytes(4)) . "\n");
+        $hashes = [];
+        foreach (array_keys($map) as $rel) {
+            $hashes[$rel] = (string) hash_file('sha256', $package . '/' . $rel);
+        }
+        $manifestFile = $package . '/MANIFEST.json';
+        file_put_contents($manifestFile, (string) json_encode(['upgrade_protocol' => 1, 'files' => $hashes],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+
+        // The state a failed maintenance must be able to restore exactly.
+        $installed = static function () use ($site, $h): array {
+            $state = [];
+            foreach (glob($site . '/upgrade/*.php') ?: [] as $f) {
+                $state['upgrade/' . basename((string) $f)] = hash_file('sha256', (string) $f);
+            }
+            $state['bin/kip'] = hash_file('sha256', $site . '/bin/kip');
+            foreach (['site/public' => $site . '/public', 'public_html' => $h['home'] . '/public_html'] as $label => $web) {
+                foreach (['index.php', 'setup.php', 'upgrade.php', '.htaccess'] as $wrapper) {
+                    $state["{$label}/{$wrapper}"] = hash_file('sha256', "{$web}/{$wrapper}");
+                }
+            }
+            return $state;
+        };
+        $before = $installed();
+
+        // The runbook's verification: manifest readable, protocol 1, every
+        // staged file exactly as pinned, nothing extra, nothing missing.
+        $verify = function (string $staged, int $protocol = 1) use ($site): ?string {
+            $manifest = json_decode((string) file_get_contents($staged . '/MANIFEST.json'), true);
+            if (!is_array($manifest) || ($manifest['upgrade_protocol'] ?? 0) !== $protocol) {
+                return 'the package manifest is unreadable or names an upgrade protocol this install does not run';
+            }
+            $pins = $manifest['files'] ?? [];
+            if (!is_array($pins) || $pins === []) {
+                return 'the package manifest pins no files';
+            }
+            foreach ($pins as $rel => $hash) {
+                if (!is_file($staged . '/' . $rel) || !hash_equals((string) $hash, (string) hash_file('sha256', $staged . '/' . $rel))) {
+                    return "a staged file does not match the package manifest: {$rel}";
+                }
+            }
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($staged, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_PATHNAME)
+            );
+            foreach ($it as $path) {
+                $rel = ltrim(substr((string) $path, strlen($staged)), '/');
+                if ($rel === 'MANIFEST.json') {
+                    continue;
+                }
+                if (!isset($pins[$rel])) {
+                    return "the package carries an unstaged file: {$rel}";
+                }
+            }
+            return null;
+        };
+
+        // The runbook's apply: quiet period, maintenance, rename the whole
+        // old engine and launcher aside, install the staged files and both
+        // wrapper sets, smoke the new engine, clear maintenance.
+        $apply = function (string $staged) use ($site, $h): ?string {
+            $lock = fopen($site . '/shared/run.lock', 'c');
+            if (!flock($lock, LOCK_EX | LOCK_NB)) {
+                fclose($lock);
+                return 'the quiet period is not established: work still holds the shared lease';
+            }
+            file_put_contents($site . '/shared/maintenance.lock', 'upgrade engine maintenance ' . date('c'));
+            try {
+                $stamp = date('Ymd-His');
+                rename($site . '/upgrade', "{$site}/upgrade.previous-{$stamp}");
+                rename($staged . '/upgrade', $site . '/upgrade');
+                rename($site . '/bin/kip', "{$site}/bin/kip.previous-{$stamp}");
+                copy($staged . '/bin/kip', $site . '/bin/kip');
+                chmod($site . '/bin/kip', 0755);
+                foreach (['site-public' => 'site/public', 'public_html' => 'public_html'] as $stagedDir => $live) {
+                    foreach (['index.php', 'setup.php', 'upgrade.php', '.htaccess'] as $wrapper) {
+                        copy("{$staged}/{$stagedDir}/{$wrapper}", $h['home'] . "/{$live}/{$wrapper}");
+                    }
+                }
+                // The smoke test: the new engine boots and answers status.
+                $status = 'PATH="/opt/homebrew/bin:/usr/bin:/bin" ' . escapeshellarg(PHP_BINARY) . ' '
+                    . escapeshellarg($site . '/upgrade/cli.php') . ' status';
+                exec('cd ' . escapeshellarg($h['home']) . ' && ' . $status . ' 2>&1', $out, $code);
+                if ($code !== 0) {
+                    return 'the installed engine failed its smoke test; restore the previous set';
+                }
+                return null;
+            } finally {
+                @unlink($site . '/shared/maintenance.lock');
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
+        };
+
+        // An incompatible protocol refuses before anything moves.
+        file_put_contents($manifestFile, (string) json_encode(['upgrade_protocol' => 2, 'files' => $hashes]) . "\n");
+        $this->assertNotNull($verify($package, 1), 'an incompatible protocol refuses');
+        file_put_contents($manifestFile, (string) json_encode(['upgrade_protocol' => 1, 'files' => $hashes],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+
+        // A quiet period that is not quiet refuses (a shared holder counts).
+        $holder = fopen($site . '/shared/run.lock', 'c');
+        flock($holder, LOCK_SH);
+        $staged = $this->tmptree('kiption-wu-stage-');
+        self::rrcopy($package, $staged);
+        $this->assertNotNull($apply($staged), 'a busy site is not quiet; the apply refuses');
+        $this->assertSame($before, $installed(), 'a refused apply moved nothing');
+        flock($holder, LOCK_UN);
+        fclose($holder);
+
+        // A corrupted staged file fails verification after the fact.
+        file_put_contents($staged . '/upgrade/Journal.php', "<?php // corrupted\n");
+        $this->assertNotNull($verify($staged), 'a corrupted staged file refuses');
+        $this->assertSame($before, $installed(), 'a failed verification moved nothing');
+
+        // The clean apply, then the smoke, then both layouts' wrappers carry
+        // the package bytes.
+        $staged = $this->tmptree('kiption-wu-stage-');
+        self::rrcopy($package, $staged);
+        $this->assertNull($verify($staged), 'an honest package verifies');
+        $this->assertNull($apply($staged), 'the clean apply succeeds');
+        foreach ($map as $rel => $source) {
+            $live = match (true) {
+                str_starts_with($rel, 'upgrade/') => $site . '/upgrade/' . substr($rel, 8),
+                $rel === 'bin/kip' => $site . '/bin/kip',
+                str_starts_with($rel, 'site-public/') => $h['home'] . '/site/public/' . substr($rel, 12),
+                default => $h['home'] . '/public_html/' . substr($rel, 12),
+            };
+            $this->assertFileExists($live, "{$rel} landed");
+            $this->assertSame(hash_file('sha256', $package . '/' . $rel), hash_file('sha256', $live),
+                "{$rel} carries the package bytes");
+        }
+        $this->assertNotSame($before, $installed(), 'the maintenance changed the engine set');
+        $this->assertNotEmpty(glob($site . '/upgrade.previous-*'), 'the previous engine is one rename away');
+        $this->assertFileDoesNotExist($site . '/shared/maintenance.lock', 'maintenance is cleared after success');
+
+        // The rollback: the previous set goes back, verified byte for byte.
+        $previous = glob($site . '/upgrade.previous-*')[0];
+        $launcherPrevious = glob($site . '/bin/kip.previous-*')[0];
+        rename($site . '/upgrade', $site . '/upgrade.replaced');
+        rename($previous, $site . '/upgrade');
+        rename($site . '/bin/kip', $site . '/bin/kip.replaced');
+        rename($launcherPrevious, $site . '/bin/kip');
+        chmod($site . '/bin/kip', 0755);
+        \Upgrade\Restore::rrmdir($site . '/upgrade.replaced');
+        @unlink($site . '/bin/kip.replaced');
+        $this->assertSame($before, $installed(), 'the rollback restores the previous engine set exactly');
+        [$code, $out] = $this->sh($h['home'], 'PATH="/opt/homebrew/bin:/usr/bin:/bin" ' . escapeshellarg(PHP_BINARY)
+            . ' ' . escapeshellarg($site . '/upgrade/cli.php') . ' status');
+        $this->assertSame(0, $code, 'the rolled-back engine still boots: ' . $out);
     }
 }

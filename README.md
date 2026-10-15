@@ -41,13 +41,18 @@ Self-hosting is free forever: this repository is the whole product, and the
 four commands below are the whole install on a server you control. On
 shared hosting without shell access, install from the release ZIP instead
 (INSTALL.md, "Shared hosting"): upload, create a setup token in your file
-manager, and finish in the browser. The support boundary is explicit:
-compatible shared hosting means PHP 8.3+, pdo_sqlite, local writable
-storage where SQLite WAL works, private files outside the web root, HTTPS,
-cron, and working mail; see docs/hosting-matrix.md for the full matrix and
-the unsupported list. If you would rather not run a server at all, Kiption
-Cloud hosts archives for you, including eFiction migration on paid tiers;
-see https://kiption.cloud.
+manager, and finish in the browser. Later releases upgrade in the browser
+the same way: stage the release-root upgrade ZIP through the file manager,
+open `/upgrade.php`, and let the endpoint verify, back up, switch, migrate,
+and restore itself if the migration fails; owners with shell access can
+run the same steps with `php site/upgrade/cli.php`. The support boundary
+is explicit: compatible shared hosting means PHP 8.3+, pdo_sqlite, local
+writable storage where SQLite WAL works, private files outside the web
+root, HTTPS, cron, and working mail; see docs/hosting-matrix.md for the
+full matrix, the measured browser-upgrade boundary, and the unsupported
+list. If you would rather not run a server at all, Kiption Cloud hosts
+archives for you, including eFiction migration on paid tiers; see
+https://kiption.cloud.
 
 The app ships no content policy: what an archive accepts is the operator's
 call, and the seeded content-policy page is theirs to edit. The hosted

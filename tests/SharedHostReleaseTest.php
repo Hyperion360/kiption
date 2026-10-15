@@ -706,7 +706,7 @@ final class SharedHostReleaseTest extends TestCase
         foreach (['setup.php', 'setup-token.txt', 'site/shared/', 'public_html',
             'SHA-256', 'shasum -a 256', 'invite', '/settings', 'verify',
             'PHP 8.3', 'pdo_sqlite', 'HTTPS', 'no Composer', 'no SSH', 'cron',
-            'site/bin/kip', 'not yet automated', 'maintenance'] as $needle) {
+            'site/bin/kip', 'upgrade in the browser', 'maintenance'] as $needle) {
             $this->assertStringContainsString($needle, $install, "INSTALL.md must mention {$needle}");
         }
         // The token is created on the host and never shipped or reused.

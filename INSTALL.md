@@ -89,20 +89,99 @@ resolve the cause, re-run the import through the launcher, and the launcher
 lifts maintenance only after a successful run. If a routine page dies, the
 check names in section 8 map to the setup page's host-check rows.
 
-**Upgrades are not yet automated for shared hosting in this release.** A
-new release means: back up (launcher `backup` command), download the new
-ZIP, verify its SHA-256, upload it into `site/releases/` beside the old
-one, and switch the plain-text `site/current` pointer to the new release's
-ID (the 64-character name of the new directory) while the archive is
-offline in maintenance (create `site/shared/maintenance.lock`, run
-`php site/bin/kip migrate` through the launcher, smoke-test
-`php site/bin/kip version` and one page, then remove the lock). Changing
-the stable files themselves (`site/bin/kip`, the public index/setup
-wrappers, `.htaccess`) is a maintenance-package procedure: replace them
-during maintenance from the new ZIP, smoke-test, and restore the previous
-files if anything fails. Keep the previous release directory until the new
-one is proven; rolling back is moving `site/current` back. Do not run raw
-`migrate` from a web endpoint; the CLI launcher is the only writer.
+**Upgrading a shared-host install.** A release can upgrade in the browser
+with no shell, no Composer, and no PHP CLI. The steps below are the whole
+procedure; docs/hosting-matrix.md states the measured boundary and what
+happens on a host that cannot meet it.
+
+**1. Download and verify the upgrade ZIP.** Take `kiption-upgrade.zip` from
+the release page and check it before uploading, on a device you trust:
+
+    shasum -a 256 kiption-upgrade.zip
+
+The printed digest must equal the whole-upgrade-ZIP SHA-256 published with
+the release. The release page also publishes a second digest for the same
+release: the separately published `RELEASE.json` SHA-256 (it is also the
+release ID, and it is what the upgrade form checks the staged tree
+against). Copy that value now; the upgrade form asks for it later.
+
+**2. Stage the release.** Extract the release-root upgrade ZIP into a new
+directory under `site/releases/` on the host, named exactly for the
+`RELEASE.json` digest you copied (the file manager can rename the extracted
+folder afterward). This is the release-root upgrade ZIP, not the install
+ZIP: the install ZIP carries a `site/` prefix and is only for first
+installs. When the extraction is done, confirm `RELEASE.json` sits directly
+inside the staging directory (`site/releases/<digest>/RELEASE.json`), not
+inside a nested folder. Do not touch anything else: never overwrite
+`site/shared`, never overwrite `site/current`, and never overwrite
+`public_html/uploads`. The releases directory holds only code; your data,
+your pointer, and your members' uploads live elsewhere on purpose.
+
+**3. Upgrade in the browser.** Open `/upgrade.php` over HTTPS, sign in is
+not enough: the form asks for the archive admin session, so sign in first
+if you are not, then paste that digest into the form and re-enter your
+admin password. The endpoint verifies the staged release against the
+digest before anything else happens: every file's hash, the release
+version, the PHP requirement, disk headroom for the backup and both asset
+trees, and (for the browser path) a timed rehearsal of the backup it will
+take. If verification refuses, read the reason; a rehearsal that cannot
+fit one request on your host names the PHP CLI upgrade path instead, and
+the site stays live and untouched. If it passes, the page shows the
+verified target and the backup size. Activate: the endpoint takes a full
+backup of all three databases, saves your current assets, swaps the new
+release in, and holds the archive in maintenance until the database
+migration finishes. Wait for a complete or rolled-back result; the page
+says which. A complete result puts the archive back on the new release. A
+rolled-back result means the migration failed and recovery restored the
+previous release, its assets, and its databases exactly; the staged release
+stays on the host for a retry after you understand the failure. Either
+way, download the new backup off the host before you consider the upgrade
+done; it is in `site/shared/backups/` and it is your off-host safety net.
+
+**4. If the session dies mid-upgrade.** The upgrade runs in short steps
+and stays recoverable at every one of them. If your login expires while
+the archive is in maintenance, do not point a URL at anything: create a
+file named `recovery-token` inside `site/shared/upgrade/` through the file
+manager, containing 64 random hex characters (the same way the setup token
+is made), open `/upgrade.php`, enter that token in the recovery form, and
+continue. The token is consumed once and deleted.
+
+**5. The PHP CLI path.** Owners with shell access can drive the same
+upgrade without a browser: `php site/upgrade/cli.php
+prepare|activate|continue|recover` (prepare takes `--digest=<the
+RELEASE.json digest>`). The CLI uses the same verifier, lease, snapshots,
+pointer, journal, and recovery as the browser, so a half-finished browser
+upgrade continues on the CLI and the other way around. The CLI skips the
+request-time rehearsal (a shell has no request limit) but verifies
+everything else. File access is the CLI's authority; it never asks for a
+password.
+
+**6. Cron after an upgrade.** Nothing to change: scheduled commands run
+through the stable launcher, and `php site/bin/kip ...` commands resolve
+the active release, including after an upgrade switches it. This is why
+section 6's crontab never names a release directory.
+
+**The stable engine itself is not upgraded this way.** The engine is
+`site/upgrade/`, the stable `site/bin/kip` launcher, and the web-root
+wrappers (`index.php`, `setup.php`, `upgrade.php`, `.htaccess` in both
+supported layouts). When a release ships a new stable engine, the release
+page publishes a separate maintenance package (a ZIP with its own
+whole-file SHA-256 and a `MANIFEST.json` naming every file's SHA-256 and
+the upgrade protocol). Never overwrite `site/upgrade` in place. The
+procedure: verify the package digest and its manifest (protocol 1, every
+file matching), put the archive into maintenance from the file manager or
+`php site/bin/kip`, and establish a quiet period: wait out the host's
+maximum request and cron duration, or confirm with the host that nothing
+is in flight. Then rename the entire `site/upgrade` directory to
+`site/upgrade.previous` and `site/bin/kip` to `site/bin/kip.previous`,
+copy the staged engine and launcher in, and copy the package's
+`site-public/` and `public_html/` wrapper sets over the two web roots.
+Smoke-test: `php site/upgrade/cli.php status` exits 0 and one page loads.
+Clear maintenance. If anything fails, restore: move `site/upgrade.previous`
+and `site/bin/kip.previous` back and put the previous wrapper files back;
+that is the whole rollback, and it needs no shell. A package whose
+manifest names an upgrade protocol this install does not run refuses
+verification; do not force it.
 
 ## 1. Requirements
 

@@ -51,6 +51,41 @@ validated as of this release. Validate a specific host against the required
 rows above before relying on it, and record the provider, PHP version, and
 any limitation here.
 
+## Browser upgrades: the measured boundary
+
+A release upgrade runs in the browser on a host that meets the required
+rows above, plus three upgrade-specific demands. The upgrade preflight
+measures all of them on the real host before anything changes:
+
+- **Room to snapshot.** The preflight demands free disk space for the
+  upgrade peak: one full copy of all three databases, a worst-case
+  uncompressed archive set, one restore-temp set, the staged release, both
+  public asset trees, and a 64 MiB safety margin. It refuses when the
+  space is not there, and the site stays live.
+- **Real locks and atomic renames.** The preflight probes `flock` and
+  rename on the actual data, release, and public filesystems, and refuses
+  a host where `flock` does not work or an atomic rename fails, or where
+  the public tree and the private data directory sit on different
+  filesystems. A host that does not honor `flock` or atomic rename cannot
+  run upgrades; contact the host or use a different one.
+- **One request must be able to finish the backup.** Before maintenance,
+  the browser path runs a timed rehearsal: it copies every database with
+  `VACUUM INTO`, integrity-checks the copies, and times the work against
+  the host's own request limit. A rehearsal that cannot fit one request
+  fails closed to the PHP CLI upgrade path, which has no request limit;
+  the site stays live and the staged release waits. There is no published
+  byte ceiling: the measured gate, not a size claim, is the boundary. On
+  the local fixture the rehearsal of a 10 MB database set took 0.03
+  seconds and a 100 MB set took 0.19 seconds (Apple Silicon, local APFS,
+  PHP 8.4); a shared host's slower disk narrows what fits, which is
+  exactly what the rehearsal measures.
+
+A host that fails any upgrade-specific demand stays fully supported for
+running the archive and for PHP CLI upgrades; it is only the browser
+upgrade that names the CLI path instead. These figures are
+local-fixture-validated measurements, not provider measurements: record a
+real host's numbers here as they are validated.
+
 ## Cron entry shape
 
 Schedule through the stable launcher, never a release-pinned path, so the
