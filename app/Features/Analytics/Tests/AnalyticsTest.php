@@ -225,6 +225,8 @@ final class AnalyticsTest extends TestCase
         $db->onQuery(fn () => null);
         $this->assertSame(200, $res->status);
         $this->assertSame(1, $gateRuns, 'the folded gate must run exactly one driver statement');
-        $this->assertLessThanOrEqual(5, $contentQueries, "/analytics ran {$contentQueries} content queries, the documented admin exception is 5");
+        // SIX since the authors leaderboard (the Stage 2 evidence gate): four
+        // day-series, the top-10 list, and the authors rollup.
+        $this->assertLessThanOrEqual(6, $contentQueries, "/analytics ran {$contentQueries} content queries, the documented admin exception is 6");
     }
 }
