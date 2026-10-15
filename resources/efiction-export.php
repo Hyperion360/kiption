@@ -139,7 +139,18 @@ final class EfictionExporter
         if ($selfdelete) {
             @unlink($hashFile);
             @unlink($selfFile ?? __FILE__); // finding 4: injected path so tests never unlink the repo file
-            return [self::page('Cleaned up', '<p>Exporter and token file deleted. You can close this page.</p>'), 200];
+            // The bundle is a password file (member emails + legacy hashes): a
+            // cleanup that left it web-served under out-<hex> would rely on a
+            // 48-bit directory name leaked by browser history and access logs.
+            // Remove every output directory this exporter produced, then the
+            // empty leftovers.
+            foreach (glob($installRoot . '/out-*', GLOB_ONLYDIR) ?: [] as $outDir) {
+                if (is_file($outDir . '/kiption-export.tar.gz') || is_file($outDir . '/manifest.json')) {
+                    foreach (glob($outDir . '/*') ?: [] as $f) { @unlink($f); }
+                    @rmdir($outDir);
+                }
+            }
+            return [self::page('Cleaned up', '<p>Exporter, token file, and any exported bundle directories were deleted. You can close this page.</p>'), 200];
         }
         $settings = dbquery('SELECT maintenance FROM ' . escapestring($settingsPrefix) . "fanfiction_settings WHERE sitekey = '" . escapestring(SITEKEY) . "'");
         $maintenance = (int) (dbassoc($settings)['maintenance'] ?? 0);
