@@ -60,7 +60,12 @@ final class AdminnessTest extends TestCase
         $this->assertInstanceOf(Response::class, Adminness::requireModerator($this->db, $session));
         $demo = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
         Adminness::setRole($this->db, $demo, 'moderator');
+        // The gate validates the password epoch (the pentest variant-loop fix):
+        // a session without a matching epoch is fail-closed even for a
+        // moderator row, so the session must carry the current hash's epoch.
+        $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$demo])['password_hash'];
         $session->set('user_id', $demo);
+        $session->set('pwd_epoch', substr($hash, 0, 12));
         $row = Adminness::requireModerator($this->db, $session);
         $this->assertIsArray($row);
         $this->assertSame('moderator', $row['role']);
