@@ -27,6 +27,8 @@ away from it:
 - **Adult content arrives correctly gated.** eFiction's member-only and
   age-gated ratings map to Kiption's restriction flags on import.
 - **PHP 8.3 native.** No warnings, no fatals, no compatibility shims.
+- **MIT, not GPL.** eFiction is GPL; Kiption is MIT. Extend it, fork it, or
+  build a service on it and no copyleft obligations follow you.
 
 Still running eFiction and not ready to move?
 [Hyperion360/efiction](https://github.com/Hyperion360/efiction) is a

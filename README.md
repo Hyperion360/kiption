@@ -1,5 +1,9 @@
 # Kiption
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![PHP 8.3+](https://img.shields.io/badge/PHP-8.3%2B-777bb4.svg)](README.md#requirements)
+![SQLite with WAL](https://img.shields.io/badge/storage-SQLite%20WAL-003b57.svg)
+
 A self-hosted fiction archive for original fiction and fanfiction.
 PHP 8.3 and SQLite. No JavaScript frameworks, no runtime dependencies
 beyond the [Kip](https://github.com/Hyperion360/kip) framework, no build
