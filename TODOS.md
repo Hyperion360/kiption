@@ -47,6 +47,15 @@ it except the items noted. Decisions that cost money stay with the owner.
 
 ## Engineering follow-ups (coordinator-executable, no owner input needed)
 
+- [ ] `import:epub` (proposed 2026-10-15, owner yes pending): a bulk
+      importer for EPUB files, the format every export path produces.
+      It makes the AO3 migration real through AO3's own official per-work
+      downloads (ToS-clean end to end; it realizes the shelved 2026-09-19
+      "Path D" importer design from the otwarchive clone spec), ingests
+      output from third-party export tools without this project shipping
+      a scraper, and gives authors a self-service migration from any
+      platform whose exporter they already use. Route through /write-plan
+      + /plan-eng-review before building.
 - [ ] Kip-side (route through the Kip repo's own plan process): Backup.php
       artifact modes are DONE on kip main (commit cd929db, 2026-10-15:
       0700 dir re-hardened every run, 0600 artifacts new and stale, checked

@@ -26,11 +26,12 @@ it is the reference implementation for migration dignity here.
 ## From Archive of Our Own
 
 AO3 downloads your own works: open the work, use its download button
-(EPUB, MOBI, PDF, or HTML). Re-upload through the author submission flow:
-create the story, paste or attach the chapters (markdown, cleaned from the
-download), re-enter the rating, warnings, categories, and fandom/tags
-through the archive's taxonomy, and upload the cover if you had art.
-Chapter comments, kudos, and bookmark histories do not transfer.
+(EPUB, MOBI, PDF, or HTML). That button is AO3's own feature, so nothing
+on this path touches its terms. Re-upload through the author submission
+flow: create the story, paste or attach the chapters (markdown, cleaned
+from the download), re-enter the rating, warnings, categories, and
+fandom/tags through the archive's taxonomy, and upload the cover if you
+had art. Chapter comments, kudos, and bookmark histories do not transfer.
 
 ## From Wattpad or FanFiction.net
 
@@ -42,6 +43,15 @@ author guide documents. Set the rating and warning gates to match what
 the old platform's content rating claimed. If the old account stays up,
 add a final chapter or profile note pointing readers at the new address;
 Kiption's own old-URL 301s only cover eFiction imports.
+
+You own your text on both platforms; what their terms restrict is
+automated access to their sites, which is why this archive ships no
+downloader for them. Established open-source export tools exist instead:
+[FanFicFare](https://github.com/jimmxinu/fanficfare) (a Calibre plugin
+and CLI whose site adapters include both catalogs) fetches stories under
+your own login and produces EPUB copies, which are worth having as the
+durable backup the platform never gave you. A tool like that runs under
+your account and its use is between you and the platform's terms.
 
 ## From Substack
 
