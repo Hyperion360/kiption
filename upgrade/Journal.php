@@ -21,10 +21,19 @@ final class Journal
 {
     public const CAPABILITY_TTL = 3600;
     public const PREPARED = 'prepared';
+    public const BACKED_UP = 'backed_up';
+    public const SWITCHED = 'switched';
+    public const MIGRATING = 'migrating';
+    public const ROLLBACK_PENDING = 'rollback_pending';
+    public const COMPLETE = 'complete';
+    public const ROLLED_BACK = 'rolled_back';
     public const FILE = 'upgrade/journal.json';
 
     /** @var list<string> states this engine can record */
-    private const STATES = [self::PREPARED];
+    private const STATES = [
+        self::PREPARED, self::BACKED_UP, self::SWITCHED, self::MIGRATING,
+        self::ROLLBACK_PENDING, self::COMPLETE, self::ROLLED_BACK,
+    ];
 
     /** @param array<string,mixed> $options */
     public function __construct(private string $sharedDir, private array $options = []) {}

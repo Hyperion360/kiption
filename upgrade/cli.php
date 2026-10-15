@@ -47,4 +47,6 @@ exit(\Upgrade\UpgradeController::runCli(array_slice($argv, 1), [
     'shared_dir' => $shared,
     'source_root' => $active !== null ? $site . '/releases/' . $active : '',
     'public_dir' => (string) (defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : ''),
+    // A committed upgrade never waits a lease out, like a committed import.
+    'lease_wait' => 0,
 ]));

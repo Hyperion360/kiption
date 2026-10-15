@@ -76,6 +76,7 @@ final class WebUpgradeTest extends TestCase
     private function sourceCopy(string $home): string
     {
         $copy = $home . '/src';
+        self::rrmdir($copy); // a fresh copy: an earlier build in this home must not leak into this one
         self::rrcopy(dirname(__DIR__), $copy, ['.git', 'vendor']);
         return $copy;
     }
@@ -352,11 +353,13 @@ final class WebUpgradeTest extends TestCase
      * A production-shaped release fixture: plain files whose bytes the
      * manifest pins, exactly the tree an owner extracts from the release-root
      * upgrade ZIP. Staged PHP deliberately throws if anything ever executes
-     * it: verification reads bytes and hashes, never code.
+     * it: verification reads bytes and hashes, never code. $migration
+     * replaces the throwing probe with a runnable migration for the
+     * state-machine tests.
      */
-    private function writeFixtureTree(string $tree, string $version): void
+    private function writeFixtureTree(string $tree, string $version, ?string $migration = null): void
     {
-        foreach (['app/migrations', 'vendor/composer', 'public', 'bin'] as $dir) {
+        foreach (['app/migrations', 'vendor/composer', 'public/assets', 'bin'] as $dir) {
             mkdir($tree . '/' . $dir, 0775, true);
         }
         file_put_contents($tree . '/config.php', "<?php\nreturn [];\n");
@@ -364,8 +367,10 @@ final class WebUpgradeTest extends TestCase
         file_put_contents($tree . '/composer.lock', "{\"packages\":[]}\n");
         file_put_contents($tree . '/vendor/autoload.php', "<?php // fixture autoloader\n");
         file_put_contents($tree . '/vendor/composer/installed.json', "{\"packages\":[]}\n");
-        file_put_contents($tree . '/app/migrations/900_fixture.php', "<?php throw new \\Exception('staged code must never execute');\n");
+        file_put_contents($tree . '/app/migrations/900_fixture.php', $migration
+            ?? "<?php throw new \\Exception('staged code must never execute');\n");
         file_put_contents($tree . '/public/index.php', "<?php throw new \\Exception('staged code must never execute');\n");
+        file_put_contents($tree . '/public/assets/style.css', "/* fixture target asset */\n");
         file_put_contents($tree . '/bin/kip', "#!/usr/bin/env php\n<?php exit(97); // must never execute\n");
         // A per-tree nonce: two fixtures never share a digest, so renames
         // never collide across test cases.
@@ -395,10 +400,10 @@ final class WebUpgradeTest extends TestCase
     }
 
     /** Writes a complete staged release named after its own digest. */
-    private function stageFixture(string $siteRoot, string $version, array $extra = []): array
+    private function stageFixture(string $siteRoot, string $version, array $extra = [], ?string $migration = null): array
     {
         $tree = $this->tmptree('kiption-wu-fixture-');
-        $this->writeFixtureTree($tree, $version);
+        $this->writeFixtureTree($tree, $version, $migration);
         [$manifest, $id] = $this->fixtureManifest($tree, $version, $extra);
         file_put_contents($tree . '/RELEASE.json', $manifest);
         $stage = $siteRoot . '/releases/' . $id;
@@ -1188,5 +1193,312 @@ final class WebUpgradeTest extends TestCase
             proc_terminate($server);
             proc_close($server);
         }
+    }
+
+    // -------------------------------------------- Task 4: the state machine
+
+    private const PROBE_TABLE = 'probe_upgrade';
+
+    /** The runnable migration the fixture target carries. */
+    private function probeMigration(): string
+    {
+        return "<?php // fixture target migration\n"
+            . "return new class extends \\Kip\\Migrations\\Migration {\n"
+            . "    public function up(\\Kip\\Database \$db): void { \$db->query('CREATE TABLE " . self::PROBE_TABLE . " (v TEXT)'); }\n"
+            . "    public function down(\\Kip\\Database \$db): void { \$db->query('DROP TABLE " . self::PROBE_TABLE . "'); }\n"
+            . "};\n";
+    }
+
+    /** The migration that fails mid-run, the way a broken release would. */
+    private function throwingMigration(): string
+    {
+        return "<?php // fixture target migration that fails\n"
+            . "return new class extends \\Kip\\Migrations\\Migration {\n"
+            . "    public function up(\\Kip\\Database \$db): void { throw new \\RuntimeException('injected migration failure'); }\n"
+            . "    public function down(\\Kip\\Database \$db): void {}\n"
+            . "};\n";
+    }
+
+    private function tableExists(string $dbFile, string $table): bool
+    {
+        $pdo = new \PDO('sqlite:' . $dbFile);
+        return $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = " . $pdo->quote($table))->fetch() !== false;
+    }
+
+    /** @return list<string> asset paths relative to the public assets tree */
+    private function assetFiles(string $publicDir): array
+    {
+        $root = $publicDir . '/assets';
+        if (!is_dir($root)) {
+            return [];
+        }
+        $files = [];
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_PATHNAME)
+        );
+        foreach ($it as $path) {
+            $files[] = ltrim(substr((string) $path, strlen($root)), '/');
+        }
+        sort($files, SORT_STRING);
+        return $files;
+    }
+
+    /**
+     * A REAL production-built release staged for upgrade, carrying one extra
+     * migration under its own ledger name. Built by the builder and
+     * extracted the way an owner does, so the CLI flows load a genuine
+     * vendor tree in a fresh process.
+     *
+     * @return array{0:string,1:string} stage directory, release id
+     */
+    private function stageRealRelease(array $h, string $version, ?string $migration, string $migrationName = '900_probe'): array
+    {
+        $copy = $this->sourceCopy($h['home']);
+        if ($migration !== null) {
+            file_put_contents($copy . '/app/migrations/' . $migrationName . '.php', $migration);
+        }
+        $sha = trim((string) shell_exec('git -C ' . escapeshellarg(dirname(__DIR__)) . ' rev-parse HEAD'));
+        $zipPath = $h['home'] . '/upgrade-real.zip';
+        [$code, $out] = $this->build($copy, "--allow-dirty --version={$version} --git-sha={$sha}"
+            . ' --upgrade-output=' . escapeshellarg($zipPath));
+        $this->assertSame(0, $code, $out);
+        $id = trim((string) file_get_contents($zipPath . '.manifest.sha256'));
+        mkdir($h['site'] . '/releases/' . $id, 0775, true);
+        $zip = new ZipArchive();
+        self::assertTrue($zip->open($zipPath) === true);
+        self::assertTrue($zip->extractTo($h['site'] . '/releases/' . $id));
+        $zip->close();
+        return [$h['site'] . '/releases/' . $id, $id];
+    }
+
+    /** Content state the upgrade must preserve across success and rollback. */
+    private function contentFingerprint(array $h): array
+    {
+        $pdo = new \PDO('sqlite:' . $h['site'] . '/shared/data.sqlite');
+        return [
+            'stories' => (int) $pdo->query('SELECT COUNT(*) c FROM stories')->fetch(\PDO::FETCH_ASSOC)['c'],
+            'users' => (int) $pdo->query('SELECT COUNT(*) c FROM users')->fetch(\PDO::FETCH_ASSOC)['c'],
+        ];
+    }
+
+    private function assertLoginSurvives(array $h, array $session): void
+    {
+        $auth = new \Kip\Auth(new \Kip\Database('sqlite:' . $h['site'] . '/shared/data.sqlite'), new \Kip\Session($session));
+        $this->assertTrue($auth->sessionValid(), 'the admin login survives the upgrade or rollback');
+    }
+
+    /**
+     * The browser state machine over the real coordinator: snapshot, switch,
+     * and migrate succeed end to end; every injected failure point (backup,
+     * the space between the two asset renames, the pointer switch, the first
+     * migration, and the migration set after it commits) preserves
+     * maintenance and is recovered to the matching code, asset, and database
+     * snapshot; retries at every persisted state are idempotent; and a
+     * browser rehearsal timeout leaves the site live and names the CLI path.
+     */
+    public function test_upgrade_state_machine(): void
+    {
+        $this->upgradeEngine();
+        $h = $this->upgradeHome('kiption-wu-machine-');
+        [$seedCode, $seedOut] = $this->sh($h['home'], $this->kip($h['home']) . ' db:seed');
+        $this->assertSame(0, $seedCode, $seedOut);
+        mkdir($h['home'] . '/public_html/uploads', 0775, true);
+        file_put_contents($h['home'] . '/public_html/uploads/probe.bin', 'upload-content');
+        // The framework page cache: created by the first served page.
+        (new \PDO('sqlite:' . $h['site'] . '/shared/cache.sqlite'))->exec('CREATE TABLE cache (k TEXT)');
+        $origin = 'http://127.0.0.1:' . $h['port'];
+        $pointerFile = $h['site'] . '/current';
+        $maintenance = $h['site'] . '/shared/maintenance.lock';
+        $journalFile = $h['site'] . '/shared/upgrade/journal.json';
+        $publicDir = $h['home'] . '/public_html';
+        $aAssets = $this->assetFiles($publicDir);
+        $this->assertNotEmpty($aAssets, 'the installed release ships assets');
+        $content = $this->contentFingerprint($h);
+        $this->assertGreaterThan(0, $content['stories'], 'seeded content exists');
+
+        $freshAdmin = fn (): array => $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $stageRunnable = fn (string $version): array => $this->stageFixture($h['site'], $version, migration: $this->probeMigration());
+        $prepare = function (string $id, array $overrides = []) use ($h, $origin): array {
+            $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+            $response = $this->upgradeCall($h, 'POST', $session,
+                $this->preparePost($h, (string) $session['upgrade_csrf'], $id), ['HTTP_ORIGIN' => $origin] + $overrides);
+            return [$session, $response]; // the call runs first: it stores the capability into $session
+        };
+        $post = function (array $session, string $command, array $overrides = []) use ($h, $origin): array {
+            return $this->upgradeCall($h, 'POST', $session,
+                ['command' => $command, 'csrf' => (string) $session['upgrade_csrf']], ['HTTP_ORIGIN' => $origin] + $overrides);
+        };
+        $journalState = fn (): ?string => json_decode((string) @file_get_contents($journalFile), true)['state'] ?? null;
+
+        // Cycle 1: the first migration fails; rollback restores everything.
+        [$stageB, , $idB] = $stageRunnable('1.1.0');
+        [$session, $r] = $prepare($idB);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $r = $post($session, 'activate');
+        $this->assertSame(303, $r['status'], 'activate hands back a 303 to the status page: ' . $r['body']);
+        $this->assertSame($idB, trim((string) file_get_contents($pointerFile)), 'the pointer switched');
+        $this->assertFileExists($maintenance);
+        $this->assertStringStartsWith('upgrade', (string) file_get_contents($maintenance), 'the upgrade owns this marker');
+        $this->assertSame('switched', $journalState());
+        $this->assertNotContains($aAssets[0], $this->assetFiles($publicDir), 'the old assets moved aside');
+        $this->assertContains('style.css', $this->assetFiles($publicDir), 'the target assets moved in');
+
+        $r = $post($session, 'continue', ['faults' => ['migrate1']]);
+        $this->assertSame(503, $r['status'], 'a failed migration stops the upgrade');
+        $this->assertSame('rollback_pending', $journalState());
+        $this->assertFileExists($maintenance, 'maintenance holds through the failure');
+        // A retry does not push a rollback-pending upgrade forward.
+        $r = $post($session, 'continue');
+        $this->assertSame(503, $r['status'], 'a rollback-pending upgrade is not resumable forward');
+
+        $r = $post($session, 'recover');
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertSame($h['active'], trim((string) file_get_contents($pointerFile)), 'the pointer is back on the source');
+        $this->assertSame($aAssets, $this->assetFiles($publicDir), 'the source assets are restored byte for byte');
+        $this->assertFalse($this->tableExists($h['site'] . '/shared/data.sqlite', self::PROBE_TABLE), 'the snapshot precedes the migration');
+        $this->assertFileDoesNotExist($maintenance, 'recovery clears maintenance as the final step');
+        $this->assertFileDoesNotExist($journalFile);
+        $this->assertSame($content, $this->contentFingerprint($h), 'content survives the rollback');
+        $this->assertLoginSurvives($h, $freshAdmin());
+        $this->assertStringEqualsFile($publicDir . '/uploads/probe.bin', 'upload-content', 'uploads are shared data, never replaced');
+
+        // Cycle 2: a crash right after the pointer switch; recovery unwinds it.
+        $this->stageFixture($h['site'], '1.1.0', migration: $this->probeMigration());
+        [$session, $r] = $prepare($idB);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $r = $post($session, 'activate', ['faults' => ['pointer']]);
+        $this->assertSame(503, $r['status'], 'a crash after the switch is a failure');
+        $this->assertSame('rollback_pending', $journalState());
+        $this->assertSame($idB, trim((string) file_get_contents($pointerFile)), 'the switch had landed');
+        $this->assertFileExists($maintenance);
+        $r = $post($session, 'recover');
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertSame($h['active'], trim((string) file_get_contents($pointerFile)));
+        $this->assertSame($aAssets, $this->assetFiles($publicDir));
+        $this->assertFileDoesNotExist($maintenance);
+        $this->assertFileDoesNotExist($journalFile);
+
+        // Cycle 3: a crash between the two asset renames; recovery still
+        // lands the saved tree even with the public tree missing.
+        [$session, $r] = $prepare($idB);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $r = $post($session, 'activate', ['faults' => ['assets_mid']]);
+        $this->assertSame(503, $r['status'], $r['body']);
+        $this->assertSame('rollback_pending', $journalState());
+        $this->assertSame([], $this->assetFiles($publicDir), 'the public tree is between renames');
+        $this->assertFileExists($maintenance);
+        $r = $post($session, 'recover');
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertSame($aAssets, $this->assetFiles($publicDir), 'the saved tree is back');
+        $this->assertFileDoesNotExist($maintenance);
+
+        // Cycle 4: a backup failure keeps the journal at prepared and the
+        // site in maintenance; recovery cancels cleanly.
+        [$session, $r] = $prepare($idB);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $r = $post($session, 'activate', ['faults' => ['backup']]);
+        $this->assertSame(503, $r['status'], $r['body']);
+        $this->assertSame('prepared', $journalState(), 'no pointer switch, no state advance');
+        $this->assertFileExists($maintenance);
+        $r = $post($session, 'recover');
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertFileDoesNotExist($maintenance, 'recovery clears only the upgrade marker');
+        $this->assertFileDoesNotExist($journalFile);
+
+        // Cycle 5: the clean run. The migration lands, caches clear, and the
+        // site comes back on the target with maintenance off.
+        [$session, $r] = $prepare($idB);
+        $this->assertSame(200, $r['status'], $r['body']);
+        $r = $post($session, 'activate');
+        $this->assertSame(303, $r['status']);
+        $r = $post($session, 'continue');
+        $this->assertSame(200, $r['status'], $r['body']);
+        $this->assertSame($idB, trim((string) file_get_contents($pointerFile)));
+        $this->assertTrue($this->tableExists($h['site'] . '/shared/data.sqlite', self::PROBE_TABLE), 'the target migration ran');
+        $this->assertFileDoesNotExist($maintenance);
+        $this->assertFileDoesNotExist($journalFile, 'a completed upgrade clears its journal');
+        $this->assertSame($content, $this->contentFingerprint($h), 'content survives the success');
+        $this->assertLoginSurvives($h, $freshAdmin());
+        $this->assertContains('style.css', $this->assetFiles($publicDir));
+        $this->assertFileExists($publicDir . '/cache', 'the static layer was rebuilt');
+
+        // A preflight rehearsal timeout fails closed to the CLI path with
+        // the site left completely alone.
+        [$stageC, , $idC] = $stageRunnable('1.2.0');
+        [, $r] = $prepare($idC, ['verify_options' => ['time_budget' => 0.0]]);
+        $this->assertSame(400, $r['status']);
+        $this->assertStringContainsString('CLI', $r['body'], 'the refusal names the CLI path');
+        $this->assertSame($idB, trim((string) file_get_contents($pointerFile)));
+        $this->assertFileDoesNotExist($maintenance);
+        $this->assertFileDoesNotExist($journalFile);
+        @unlink($stageC);
+    }
+
+    /**
+     * The same machine through the private CLI in separate processes: the
+     * CLI shares the browser journal and lock, a clean A-to-B upgrade
+     * succeeds, and a release whose migration fails mid-run forces the
+     * matching rollback, all without any browser session, password, or
+     * capability.
+     */
+    public function test_upgrade_cli_state_machine(): void
+    {
+        $this->upgradeEngine();
+        $h = $this->upgradeHome('kiption-wu-climachine-');
+        [$seedCode, $seedOut] = $this->sh($h['home'], $this->kip($h['home']) . ' db:seed');
+        $this->assertSame(0, $seedCode, $seedOut);
+        (new \PDO('sqlite:' . $h['site'] . '/shared/cache.sqlite'))->exec('CREATE TABLE cache (k TEXT)');
+        $pointerFile = $h['site'] . '/current';
+        $maintenance = $h['site'] . '/shared/maintenance.lock';
+        $journalFile = $h['site'] . '/shared/upgrade/journal.json';
+        $cli = 'PATH="/opt/homebrew/bin:/usr/bin:/bin" ' . escapeshellarg(PHP_BINARY) . ' '
+            . escapeshellarg($h['site'] . '/upgrade/cli.php');
+
+        // Clean success through four separate processes.
+        [, $idC] = $this->stageRealRelease($h, '0.3.0-upgrade', $this->probeMigration());
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare --digest=' . $idC);
+        $this->assertSame(0, $code, $out);
+        // The CLI journal is the browser journal: a browser prepare is refused.
+        $session = $this->upgradeSession($h['admin_id'], $h['admin_epoch']);
+        $r = $this->upgradeCall($h, 'POST', $session, $this->preparePost($h, (string) $session['upgrade_csrf'], $idC),
+            ['HTTP_ORIGIN' => 'http://127.0.0.1:' . $h['port']]);
+        $this->assertSame(409, $r['status'], 'the browser sees the CLI-recorded upgrade');
+
+        [$code, $out] = $this->sh($h['home'], $cli . ' activate');
+        $this->assertSame(0, $code, $out);
+        $this->assertSame($idC, trim((string) file_get_contents($pointerFile)));
+        $this->assertFileExists($maintenance);
+        $this->assertSame('switched', json_decode((string) file_get_contents($journalFile), true)['state']);
+        [$code, $out] = $this->sh($h['home'], $cli . ' continue');
+        $this->assertSame(0, $code, $out);
+        $this->assertTrue($this->tableExists($h['site'] . '/shared/data.sqlite', self::PROBE_TABLE));
+        $this->assertFileDoesNotExist($maintenance);
+        $this->assertFileDoesNotExist($journalFile);
+        $this->assertSame($this->contentFingerprint($h), $this->contentFingerprint($h), 'content intact');
+
+        // Forced rollback: the target's migration fails mid-run in its own
+        // process, and recovery lands back on the previous release.
+        [, $idE] = $this->stageRealRelease($h, '0.4.0-upgrade', $this->throwingMigration(), '901_fail');
+        [$code, $out] = $this->sh($h['home'], $cli . ' prepare --digest=' . $idE);
+        $this->assertSame(0, $code, $out);
+        [$code, $out] = $this->sh($h['home'], $cli . ' activate');
+        $this->assertSame(0, $code, $out);
+        $this->assertSame($idE, trim((string) file_get_contents($pointerFile)));
+        [$code, $out] = $this->sh($h['home'], $cli . ' continue');
+        $this->assertNotSame(0, $code, 'a failing migration refuses continue');
+        $this->assertStringContainsString('recover', $out);
+        $this->assertSame('rollback_pending', json_decode((string) file_get_contents($journalFile), true)['state']);
+        $this->assertFileExists($maintenance);
+        [$code, $out] = $this->sh($h['home'], $cli . ' recover');
+        $this->assertSame(0, $code, $out);
+        $this->assertSame($idC, trim((string) file_get_contents($pointerFile)), 'the pointer is back on the previous release');
+        $this->assertTrue($this->tableExists($h['site'] . '/shared/data.sqlite', self::PROBE_TABLE),
+            'the restored snapshot carries the previous release schema');
+        $this->assertFileDoesNotExist($maintenance);
+        $this->assertFileDoesNotExist($journalFile);
+        // A repeated recover is idempotent.
+        [$code, $out] = $this->sh($h['home'], $cli . ' recover');
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('nothing to recover', $out);
     }
 }

@@ -208,32 +208,10 @@ final class UpgradeController
         }
 
         if (in_array($command, ['activate', 'continue', 'recover'], true)) {
-            $lease = self::acquireLease($env);
-            if ($lease === null) {
-                fwrite(STDERR, "another Kiption command holds the run lock; a committed import never waits one out\n");
-                return 1;
-            }
-            try {
-                $record = $journal->read();
-                if ($command === 'recover') {
-                    if ($record === null) {
-                        echo "no upgrade is recorded; nothing to recover\n";
-                        return 0;
-                    }
-                    if ($record['state'] === Journal::PREPARED) {
-                        $journal->clear();
-                        echo "the prepared upgrade was cleared; nothing was ever switched\n";
-                        return 0;
-                    }
-                } elseif ($record === null) {
-                    fwrite(STDERR, "no upgrade is recorded; run prepare first\n");
-                    return 1;
-                }
-                return self::runCliCoordinator($command, $env);
-            } finally {
-                flock($lease, LOCK_UN);
-                fclose($lease);
-            }
+            // The coordinator takes the exclusive lease itself for the
+            // transition; leasing here too would nest the lock against
+            // this very process.
+            return self::runCliCoordinator($command, $env);
         }
 
         fwrite(STDERR, $usage);
@@ -321,15 +299,14 @@ final class UpgradeController
             self::recordFailure((string) ($env['shared_dir'] ?? ''), isset($env['now']) ? (int) $env['now'] : null);
             return $deny(403, 'Upgrade refused this request');
         }
-        return self::runWebCoordinator($command, $session, $env, $deny);
+        return self::runWebCoordinator($command, $session, $env);
     }
 
     /**
      * Recovery: the capability authorizes directly; without it, the
      * one-time recovery token rotates in a fresh capability (never a URL,
-     * always a file the owner places). At the prepared state nothing has
-     * switched, so an authorized recovery cancels the record; switched
-     * states belong to the coordinator's restore.
+     * always a file the owner places). The coordinator owns every recorded
+     * state: prepared cancels cleanly, and a switched upgrade restores.
      */
     private static function webRecover(array $post, array &$session, array $env, Journal $journal, callable $deny, callable $page): array
     {
@@ -338,18 +315,12 @@ final class UpgradeController
         if (!$authorized) {
             try {
                 $session['upgrade_capability'] = $journal->rotateWithRecoveryToken((string) ($post['recovery_token'] ?? ''));
-                $authorized = true;
             } catch (\RuntimeException) {
                 self::recordFailure((string) ($env['shared_dir'] ?? ''), isset($env['now']) ? (int) $env['now'] : null);
                 return $deny(403, 'Upgrade refused this request');
             }
         }
-        if ($journal->state() === Journal::PREPARED) {
-            $journal->clear();
-            unset($session['upgrade_capability']);
-            return $page(self::statusBody($journal, $session));
-        }
-        return self::runWebCoordinator('recover', $session, $env, $deny);
+        return self::runWebCoordinator('recover', $session, $env);
     }
 
     /**
@@ -357,11 +328,11 @@ final class UpgradeController
      * coordinator beside this controller; its absence is a clean refusal,
      * never a crash and never a partial state.
      */
-    private static function runWebCoordinator(string $command, array &$session, array $env, callable $deny): array
+    private static function runWebCoordinator(string $command, array &$session, array $env): array
     {
         $coordinator = __DIR__ . '/Coordinator.php';
         if (!is_file($coordinator)) {
-            return $deny(503, 'The upgrade engine on this install cannot run this step; reinstall the stable upgrade engine or use the PHP CLI path');
+            return self::plain(503, 'The upgrade engine on this install cannot run this step; reinstall the stable upgrade engine or use the PHP CLI path');
         }
         require_once $coordinator;
         return Coordinator::web($command, $session, $env);
@@ -397,7 +368,7 @@ final class UpgradeController
             'data' => 'sqlite:' . $shared . '/data.sqlite',
             'logs' => 'sqlite:' . $shared . '/logs.sqlite',
             'cache' => 'sqlite:' . $shared . '/cache.sqlite',
-        ], self::publicDir($env));
+        ], self::publicDir($env), (array) ($env['verify_options'] ?? []));
         $result = $verifier->verify($siteRoot . '/releases/' . $digest, $digest, $rehearse);
         return [$result['failures'], (string) $result['id'], (string) $result['version']];
     }
@@ -408,6 +379,65 @@ final class UpgradeController
         $source = (string) ($env['source_root'] ?? '');
         $id = basename($source);
         return $source !== '' && preg_match('/^[0-9a-f]{64}$/', $id) === 1 ? $id : null;
+    }
+
+    /** @return array{status:int, headers:list<string>, body:string} a plain-text response */
+    public static function plain(int $status, string $message): array
+    {
+        return [
+            'status' => $status,
+            'headers' => ['Content-Type: text/plain; charset=utf-8', 'Cache-Control: private, no-store'],
+            'body' => $message . "\n",
+        ];
+    }
+
+    /** @return array{status:int, headers:list<string>, body:string} an HTML page response */
+    public static function page(string $body): array
+    {
+        return ['status' => 200,
+            'headers' => ['Content-Type: text/html; charset=utf-8', 'Cache-Control: private, no-store',
+                'X-Frame-Options: DENY', 'Referrer-Policy: no-referrer'],
+            'body' => $body];
+    }
+
+    /** @return array{status:int, headers:list<string>, body:string} a same-origin 303 */
+    public static function redirect(string $location): array
+    {
+        return ['status' => 303, 'headers' => ['Location: ' . $location, 'Cache-Control: private, no-store'], 'body' => ''];
+    }
+
+    /**
+     * The exclusive run.lock lease one upgrade transition holds across its
+     * side effects; the coordinator acquires it through here so the wait
+     * rules live in one place.
+     *
+     * @return resource|null
+     */
+    public static function exclusiveLease(array $env)
+    {
+        return self::acquireLease($env);
+    }
+
+    /**
+     * The maintenance marker, tagged "upgrade" so a marker this engine
+     * wrote is distinguishable from a committed import's; recovery lifts
+     * only ours.
+     */
+    public static function writeMaintenance(string $sharedDir, string $note): void
+    {
+        if (@file_put_contents($sharedDir . '/maintenance.lock', 'upgrade ' . $note . ' ' . date('c')) === false) {
+            throw new \RuntimeException('cannot set the maintenance marker');
+        }
+    }
+
+    /** Lifts the marker only when this engine owns it; an import's stays. */
+    public static function clearUpgradeMaintenance(string $sharedDir): void
+    {
+        $file = $sharedDir . '/maintenance.lock';
+        $raw = @file_get_contents($file);
+        if ($raw === false || str_starts_with($raw, 'upgrade')) {
+            @unlink($file);
+        }
     }
 
     /** @return resource|null the exclusive lease, or null on timeout */
@@ -448,8 +478,12 @@ final class UpgradeController
         return (string) ($deployment['base_url'] ?? '');
     }
 
-    /** The public tree the asset probes and the disk peak need: env override, then the deployment record. */
-    private static function publicDir(array $env): string
+    /**
+     * The public tree the asset steps and the disk peak need: env override,
+     * then the deployment record. Public because the coordinator resolves
+     * it the same way (the CLI env carries no KIPTION_PUBLIC_DIR).
+     */
+    public static function publicDir(array $env): string
     {
         if (isset($env['public_dir']) && $env['public_dir'] !== '') {
             return (string) $env['public_dir'];
@@ -526,7 +560,7 @@ final class UpgradeController
     // ------------------------------------------------------------- rendering
 
     /** The status page: state, forms, and nothing that leaks a path or credential. */
-    private static function statusBody(Journal $journal, array $session): string
+    public static function statusBody(Journal $journal, array $session): string
     {
         $h = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES);
         $csrfField = '<input type="hidden" name="csrf" value="' . $h((string) ($session['upgrade_csrf'] ?? '')) . '">';

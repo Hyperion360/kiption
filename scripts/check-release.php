@@ -36,7 +36,7 @@ function check_release_fail_out(string $message): void
  * of these cannot be upgraded by the stable coordinator, so the gate refuses
  * it. Extended as the engine grows.
  */
-const CHECK_RELEASE_ENGINE_FILES = ['ReleasePointer.php', 'ReleaseVerifier.php', 'Journal.php', 'UpgradeController.php', 'cli.php'];
+const CHECK_RELEASE_ENGINE_FILES = ['ReleasePointer.php', 'ReleaseVerifier.php', 'Journal.php', 'UpgradeController.php', 'Coordinator.php', 'Restore.php', 'cli.php'];
 
 /**
  * @param array{zip?:string,upgrade_zip?:string,development?:bool,expected_install_digest?:string,expected_upgrade_digest?:string} $o
