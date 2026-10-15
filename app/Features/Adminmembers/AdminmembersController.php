@@ -6,8 +6,9 @@ use App\Adminness;
 
 /** Admin-only member roster with role-select forms. Roles are admin-only by
  *  design (moderators must not mint admins, finding 11), which is exactly why
- *  this surface uses the SQL admin gate instead of Adminness::requireModerator:
- *  the moderator tier keeps the queues, never the role enum. Every write goes
+ *  this surface is gated by Adminness::requireAdmin instead of
+ *  Adminness::requireModerator: the moderator tier keeps the queues, never the
+ *  role enum. Every write goes
  *  through Adminness::setRole exclusively (the iff invariant); the framework's
  *  generic /admin panel edits the users table raw, which is why operators are
  *  pointed here for roles.

@@ -7,8 +7,8 @@ use App\Repositories\AuthoringRepository;
 
 /** Admin-only story tools the generic panel cannot safely provide: author
  *  reassignment (a cascade the raw table edit would skip) and the featured
- *  flag the home page consumes. Both use the SQL admin gate, not
- *  Adminness::requireModerator: reassignment is admin-only per the operator
+ *  flag the home page consumes. Both are gated by Adminness::requireAdmin,
+ *  not Adminness::requireModerator: reassignment is admin-only per the operator
  *  framing (the coauthor-inclusive story gate is a different, weaker thing).
  *
  *  The class name is deliberately Adminstories (no inner capital): the router

@@ -4,12 +4,12 @@ use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Get, Post};
 
-/** The admin invite-code surface: list, mint, revoke-unused. The gate is the
- *  plain SQL admin check PLUS Auth::sessionValid: the epoch check revokes a
- *  session the admin has rotated away, which the raw user_id read would miss
- *  (the /adminmembers idiom carries #[Auth] for the same reason; this surface
- *  keeps the guest-is-403 doctrine instead of the login redirect, so the
- *  epoch check lives in the gate). No feature flag - invite administration is
+/** The admin invite-code surface: list, mint, revoke-unused. The gate is
+ *  Adminness::requireAdmin (epoch-checked): the epoch check revokes a
+ *  session the admin has rotated away, which a raw user_id read would miss.
+ *  This surface keeps the guest-is-403 doctrine instead of the login
+ *  redirect, so the epoch check lives in the gate rather than a #[Auth]
+ *  attribute. No feature flag - invite administration is
  *  not optional once registration_mode is invite). Codes are 16 hex chars,
  *  minted with random_bytes and retried on the UNIQUE collision. Consumption
  *  stays where it already lives: UserRepository::register. */
