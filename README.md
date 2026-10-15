@@ -326,7 +326,7 @@ device comfort setting, not an identity one), so a browser that ever
 customized it keeps bypassing the static cache until the cookie is
 cleared or reset to defaults. Every preference cookie (theme, reader,
 lang, toc, age_ok) is minted through one builder that appends `Secure`
-whenever the request arrived over HTTPS, mirroring the session cookie.
+whenever the request arrived over HTTPS, matching the session cookie.
 
 Bookmarks. Members bookmark the chapter they are reading from the
 reader's control bar; `bookmarks` keys on (user, story, chapter), so
