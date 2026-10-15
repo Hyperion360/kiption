@@ -3,8 +3,12 @@ namespace App\Features\Invites;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Get, Post};
 
-/** The admin invite-code surface: list, mint, revoke-unused. Plain SQL admin
- *  gate (the /adminmembers idiom; no feature flag - invite administration is
+/** The admin invite-code surface: list, mint, revoke-unused. The gate is the
+ *  plain SQL admin check PLUS Auth::sessionValid: the epoch check revokes a
+ *  session the admin has rotated away, which the raw user_id read would miss
+ *  (the /adminmembers idiom carries #[Auth] for the same reason; this surface
+ *  keeps the guest-is-403 doctrine instead of the login redirect, so the
+ *  epoch check lives in the gate). No feature flag - invite administration is
  *  not optional once registration_mode is invite). Codes are 16 hex chars,
  *  minted with random_bytes and retried on the UNIQUE collision. Consumption
  *  stays where it already lives: UserRepository::register. */
@@ -75,6 +79,12 @@ final class InvitesController
     private function admin(): bool
     {
         $me = (int) ($this->session->get('user_id') ?? 0);
+        if ($me === 0) return false;
+        // The epoch check first: a session carried over a password rotation
+        // must not authorize this surface even though the role row still says
+        // admin. App\Viewer's doctrine is the same order.
+        $auth = new \Kip\Auth($this->db, $this->session);
+        if (!$auth->sessionValid()) return false;
         return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
