@@ -343,7 +343,9 @@ match ($argv[1] ?? 'help') {
         echo "   token: {$token}\n";
         echo "3. Treat the downloaded bundle as a password file: it contains member email addresses\n";
         echo "   and legacy password hashes. Delete export-token.php and efiction-export.php when done\n";
-        echo "   (the exporter page has a self-delete button that removes both).\n";
+        echo "   (the exporter page has a self-delete button that removes both and the out-* bundle\n";
+        echo "   directory; bundles for archives beyond roughly 200k rows or 8 GiB unpacked are\n";
+        echo "   rejected by the importer as corrupt).\n";
     })(),
     'import:efiction' => (function () use ($config, $argv) {
         $bundle = $argv[2] ?? '';

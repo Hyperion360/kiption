@@ -165,7 +165,7 @@ final class Importer
     private function passTaxonomy(): void
     {
         $r = $this->report;
-        $takenTypeNames = [];
+        $takenTypeNames = []; // keyed by mb_strtolower
         foreach ($this->db->all('SELECT name FROM tag_types') as $t) { $takenTypeNames[] = (string) $t['name']; }
         foreach ($this->reader->rows() as $e) {
             $row = $e['row'];
@@ -204,8 +204,8 @@ final class Importer
                     }
                     $name = mb_substr(trim((string) $row['classtype_name']), 0, 255);
                     $base = $name;
-                    for ($n = 2; in_array($name, $takenTypeNames, true); $n++) { $name = $base . '-' . $n; }
-                    $takenTypeNames[] = $name;
+                    for ($n = 2; isset($takenTypeNames[mb_strtolower($name)]); $n++) { $name = $base . '-' . $n; }
+                    $takenTypeNames[mb_strtolower($name)] = true;
                     $this->db->query('INSERT INTO tag_types (name) VALUES (?)', [$name]);
                     $id = (int) $this->db->lastInsertId();
                     $this->record('fanfiction_classtypes', $lid, 'tag_types', $id);
@@ -347,11 +347,14 @@ final class Importer
         // probe-verified form) and is seeded from users already in the DB: a
         // fresh import honors pre-existing members, a resume honors the prior
         // run's rows.
+        // Both sets are keyed by their lowercase form: the uniquing loops run
+        // once per bundle row, and a linear scan per row is quadratic on
+        // large archives (the pentest T6 finding).
         $takenPennames = [];
-        $takenEmails = '';
+        $takenEmails = [];
         foreach ($this->db->all('SELECT penname, email FROM users') as $u) {
-            if ($u['penname'] !== null) $takenPennames[] = (string) $u['penname'];
-            $takenEmails .= '|' . strtolower((string) $u['email']) . '|';
+            if ($u['penname'] !== null) $takenPennames[mb_strtolower((string) $u['penname'])] = true;
+            $takenEmails[strtolower((string) $u['email'])] = true;
         }
         foreach ($authors as $a) {
             $this->bump($this->seen, 'fanfiction_authors');
@@ -378,8 +381,8 @@ final class Importer
             (new \App\Repositories\UserRepository($this->db))->backfillProfileSlug($id);
             $this->record('fanfiction_authors', (string) $uid, 'users', $id);
             $this->userMap[$uid] = $id;
-            $takenPennames[] = $u['penname'];
-            $takenEmails .= '|' . $u['email'] . '|';
+            $takenPennames[mb_strtolower($u['penname'])] = true;
+            $takenEmails[strtolower($u['email'])] = true;
             $this->bump($this->counts, 'users');
             $this->tick();
             $kp = EfictionMapper::mapPrefs($p);

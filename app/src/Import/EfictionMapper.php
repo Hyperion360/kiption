@@ -25,11 +25,11 @@ final class EfictionMapper
         return ['warning' => (bool) ($n & 1), 'adult' => (bool) ($n & 2), 'members' => (bool) ($n & 4)];
     }
 
-    public static function mapUser(?array $a, ?array $p, array $takenPennames, string $takenEmails, Report $r): ?array
+    public static function mapUser(?array $a, ?array $p, array $takenPennames, array $takenEmails, Report $r): ?array
     {
         if ($a === null) return null;
         $email = strtolower(trim((string) $a['email']));
-        if ($email === '' || str_contains($takenEmails, '|' . $email . '|')) {
+        if ($email === '' || isset($takenEmails[$email])) {
             $r->reject('email collision');
             return null;
         }
@@ -37,8 +37,9 @@ final class EfictionMapper
         $pen = preg_replace('/\s+/', ' ', $pen) ?? $pen;
         $base = $pen;
         $n = 2;
-        $lower = array_map('mb_strtolower', $takenPennames);
-        while (in_array(mb_strtolower($pen), $lower, true)) { $pen = $base . '-' . $n++; }
+        // $takenPennames is keyed by mb_strtolower: an isset probe keeps the
+        // per-row work constant (the pentest T6 quadratic finding).
+        while (isset($takenPennames[mb_strtolower($pen)])) { $pen = $base . '-' . $n++; }
         $validated = $p !== null && (int) $p['validated'] === 1;
         $role = $validated ? 'validated_author' : 'member';
         $zeroDate = ($a['date'] ?? '') === '0000-00-00 00:00:00' || empty($a['date']);
@@ -114,6 +115,13 @@ final class EfictionMapper
     {
         $body = (string) ($v['review'] ?? '');
         $response = null;
+        // The response regex is quadratic on bodies full of </i> that never
+        // satisfy its anchor (measured: 4x size, 16x time, clamped only by
+        // the backtrack limit). Reviews are bounded well below any real
+        // eFiction review length, so the scan runs on a bounded prefix.
+        if (strlen($body) > 65536) {
+            $body = substr($body, 0, 65536);
+        }
         if (preg_match(self::RESPONSE_RX, $body, $m)) {
             $response = trim($m[1]);
             $body = trim(preg_replace(self::RESPONSE_RX, '', $body) ?? $body);

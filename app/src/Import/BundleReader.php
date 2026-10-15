@@ -7,6 +7,14 @@ namespace App\Import;
  *  NOT this class's job (the 9b mapper owns it). */
 final class BundleReader
 {
+    /** Hostile-bundle bounds (the pentest T6 findings): a legacy export for a
+     *  large archive stays orders of magnitude under both. */
+    private const MAX_MEMBERS = 200000;
+    private const MAX_UNCOMPRESSED_BYTES = 8 * 1024 * 1024 * 1024; // 8 GiB
+    /** One archive row above this length is a decompression bomb, not data:
+     *  gzgets without a bound reads the whole member into memory. */
+    private const MAX_ROW_BYTES = 1 << 20;
+
     private string $dir;
     private ?array $manifestCache = null;
 
@@ -16,6 +24,20 @@ final class BundleReader
         $this->dir = sys_get_temp_dir() . '/kiption-read-' . bin2hex(random_bytes(6));
         try {
             $tar = new \PharData($this->bundlePath);
+            // Pre-scan before extracting (the pentest T6 tar-bomb finding): a
+            // hostile bundle must be rejected before it fills the temp
+            // filesystem, not after.
+            $count = 0;
+            $bytes = 0;
+            foreach (new \RecursiveIteratorIterator($tar) as $member) {
+                if (++$count > self::MAX_MEMBERS) {
+                    throw new \RuntimeException('bundle holds more than ' . self::MAX_MEMBERS . ' members');
+                }
+                $bytes += $member->getSize();
+                if ($bytes > self::MAX_UNCOMPRESSED_BYTES) {
+                    throw new \RuntimeException('bundle decompresses past ' . self::MAX_UNCOMPRESSED_BYTES . ' bytes');
+                }
+            }
             $tar->extractTo($this->dir, null, true);
             if (!is_file($this->dir . '/manifest.json') || !is_file($this->dir . '/archive.jsonl.gz')) {
                 throw new \RuntimeException('bundle is missing manifest.json or archive.jsonl.gz');
@@ -52,10 +74,16 @@ final class BundleReader
         $h = gzopen($this->dir . '/archive.jsonl.gz', 'rb');
         try {
             $n = 0;
-            while (($line = gzgets($h)) !== false) {
+            while (($line = gzgets($h, self::MAX_ROW_BYTES)) !== false) {
                 $line = trim($line);
                 if ($line === '') continue;
                 $n++;
+                // gzgets returns exactly the cap minus one bytes without the
+                // delimiter when a row is longer: a newline-free member is a
+                // decompression bomb, not data.
+                if (strlen($line) === self::MAX_ROW_BYTES - 1 && !str_ends_with($line, "\n")) {
+                    throw new \RuntimeException("corrupt archive row #{$n}: row exceeds " . self::MAX_ROW_BYTES . " bytes");
+                }
                 $obj = json_decode($line, true);
                 // a truncated or doctored archive must fail loudly but as a
                 // controlled error, not a TypeError deep in the generator

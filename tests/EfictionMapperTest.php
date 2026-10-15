@@ -31,13 +31,13 @@ final class EfictionMapperTest extends TestCase
     public function test_user_mapping_hash_roles_and_collisions(): void
     {
         $r = new Report();
-        $u1 = EfictionMapper::mapUser($this->row('fanfiction_authors', 'uid = 1'), $this->row('fanfiction_authorprefs', 'uid = 1'), [], '|1|', $r);
+        $u1 = EfictionMapper::mapUser($this->row('fanfiction_authors', 'uid = 1'), $this->row('fanfiction_authorprefs', 'uid = 1'), [], ['1' => true], $r);
         $this->assertSame('Legacy Author', $u1['penname']);
         $this->assertSame(md5('oldpassword'), $u1['legacy_md5']);
         $this->assertSame('validated_author', $u1['role']);
         $this->assertNotNull($u1['email_verified_at']);
         // ghost admin-created with zero date: unactivated member
-        $u2 = EfictionMapper::mapUser($this->row('fanfiction_authors', 'uid = 2'), null, [], '|1|', $r);
+        $u2 = EfictionMapper::mapUser($this->row('fanfiction_authors', 'uid = 2'), null, [], ['1' => true], $r);
         $this->assertSame('legacy author', $u2['penname'], 'trimmed only');
         $this->assertNull($u2['email_verified_at']);
         $this->assertSame('member', $u2['role']);
@@ -47,14 +47,14 @@ final class EfictionMapperTest extends TestCase
         // taken-emails context '|1|x@e.test|'; the one-char change below keeps the
         // context verbatim and also proves a PREFIX of a taken email does not
         // falsely collide, which is what the pipe delimiters are for)
-        $u3 = EfictionMapper::mapUser(['uid' => 3, 'penname' => 'LEGACY AUTHOR', 'email' => 'x@e.tes', 'password' => '0', 'admincreated' => '0', 'date' => '2020-01-01 00:00:00'], null, ['legacy author'], '|1|x@e.test|', $r);
+        $u3 = EfictionMapper::mapUser(['uid' => 3, 'penname' => 'LEGACY AUTHOR', 'email' => 'x@e.tes', 'password' => '0', 'admincreated' => '0', 'date' => '2020-01-01 00:00:00'], null, ['legacy author' => true], ['1' => true, 'x@e.test' => true], $r);
         $this->assertSame('LEGACY AUTHOR-2', $u3['penname']);
     }
 
     public function test_user_email_collision_rejects(): void
     {
         $r = new Report();
-        $out = EfictionMapper::mapUser(['uid' => 4, 'penname' => 'Other', 'email' => 'legacy@example.test', 'password' => '0', 'admincreated' => '0', 'date' => '2020-01-01 00:00:00'], null, [], '|legacy@example.test|', $r);
+        $out = EfictionMapper::mapUser(['uid' => 4, 'penname' => 'Other', 'email' => 'legacy@example.test', 'password' => '0', 'admincreated' => '0', 'date' => '2020-01-01 00:00:00'], null, [], ['legacy@example.test' => true], $r);
         $this->assertNull($out);
         $this->assertSame(1, $r->rejects['email collision'] ?? 0);
     }
