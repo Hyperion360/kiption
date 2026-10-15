@@ -2,6 +2,7 @@
 namespace App\Features\News;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
+use App\Adminness;
 use App\Repositories\NewsRepository;
 
 /** Archive news: an anonymous-cacheable index and item view (budget-1 each,
@@ -99,7 +100,7 @@ final class NewsController
     public function new(): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         return $this->form(null);
     }
 
@@ -107,7 +108,7 @@ final class NewsController
     public function create(): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         [$title, $body, $error] = $this->titleBody();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $this->db->query('INSERT INTO news (author_id, title, body) VALUES (?, ?, ?)',
@@ -121,7 +122,7 @@ final class NewsController
     public function edit(string $id): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
         $row = (new NewsRepository($this->db))->find((int) $id);
         if ($row === null) return new Response('Page not found', 404);
@@ -132,7 +133,7 @@ final class NewsController
     public function update(string $id): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
         $row = (new NewsRepository($this->db))->find((int) $id);
         if ($row === null) return new Response('Page not found', 404);
@@ -161,12 +162,6 @@ final class NewsController
     private function cache(): \App\StaticCache\Cache
     {
         return \App\StaticCache\Cache::configured($this->app);
-    }
-
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     /** $row null renders the create form; the edit row prefills and targets

@@ -1,5 +1,6 @@
 <?php // app/Features/Nav/NavController.php
 namespace App\Features\Nav;
+use App\Adminness;
 use App\NavLinks;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
@@ -21,21 +22,21 @@ final class NavController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         return $this->form(null);
     }
 
     #[AuthAttr]
     public function new(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         return $this->form(null);
     }
 
     #[AuthAttr]
     public function edit(string $id): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $row = $this->find($id);
         if ($row === null) return new Response('Page not found', 404);
         return $this->form($row);
@@ -44,7 +45,7 @@ final class NavController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         [$label, $url, $error] = $this->input();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $this->db->query('INSERT INTO nav_links (label, url, position, is_hidden) VALUES (?,?,?,?)',
@@ -56,7 +57,7 @@ final class NavController
     #[AuthAttr] #[Post]
     public function update(string $id): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $row = $this->find($id);
         if ($row === null) return new Response('Page not found', 404);
         [$label, $url, $error] = $this->input();
@@ -70,7 +71,7 @@ final class NavController
     #[AuthAttr] #[Post]
     public function delete(string $id): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         if ($this->db->query('DELETE FROM nav_links WHERE id = ?', [(int) $id])->rowCount() === 0) {
             return new Response('Page not found', 404);
         }
@@ -113,12 +114,6 @@ final class NavController
             'id' => (int) $row['id'], 'label' => (string) $row['label'], 'url' => (string) $row['url'],
             'position' => (int) $row['position'], 'is_hidden' => (int) $row['is_hidden'],
         ];
-    }
-
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     private function rebuild(): void

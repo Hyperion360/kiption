@@ -1,5 +1,6 @@
 <?php // app/Features/Settings/SettingsController.php
 namespace App\Features\Settings;
+use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
@@ -21,7 +22,7 @@ final class SettingsController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $title = \App\Lang::t('settings.heading');
         return $this->view->render('settings/index', [
             'title' => $title,
@@ -47,7 +48,7 @@ final class SettingsController
     #[AuthAttr] #[Post]
     public function save(): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $submitted = [
             'site_name' => (string) ($this->request->post['site_name'] ?? ''),
             'registration_mode' => (string) ($this->request->post['registration_mode'] ?? ''),
@@ -82,12 +83,6 @@ final class SettingsController
             'skin' => (string) ($all['skin'] ?? $this->app->config('skin', \App\Skins::DEFAULT)),
             'adult_rta' => (string) ($all['adult_rta'] ?? $this->app->config('adult_rta', '')),
         ];
-    }
-
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     /** The full purge set (the FeaturesController::purge precedent, verbatim):

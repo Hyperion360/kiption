@@ -1,5 +1,6 @@
 <?php // app/Features/Features/FeaturesController.php
 namespace App\Features\Features;
+use App\Adminness;
 use App\Features;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
@@ -21,7 +22,7 @@ final class FeaturesController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $title = \App\Lang::t('features.heading');
         return $this->view->render('features/index', [
             'title' => $title,
@@ -47,7 +48,7 @@ final class FeaturesController
     #[AuthAttr] #[Post]
     public function toggle(string $key): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         try {
             Features::toggle($key, !Features::on($key));
         } catch (\InvalidArgumentException) {
@@ -55,12 +56,6 @@ final class FeaturesController
         }
         $this->purge();
         return Response::redirect('/features');
-    }
-
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     /** The full purge set (findings 3c + 12): Builder::prune VERBATIM (the

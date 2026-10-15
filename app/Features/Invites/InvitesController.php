@@ -1,5 +1,6 @@
 <?php // app/Features/Invites/InvitesController.php
 namespace App\Features\Invites;
+use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Get, Post};
 
@@ -21,7 +22,7 @@ final class InvitesController
 
     public function index(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $title = \App\Lang::t('invites.heading');
         return $this->view->render('invites/index', [
             'title' => $title,
@@ -40,7 +41,7 @@ final class InvitesController
     #[Post]
     public function create(): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         for ($i = 0; $i < 3; $i++) {
             $code = bin2hex(random_bytes(8));
             // The UNIQUE-safe idiom this codebase already uses (the wrangling
@@ -58,7 +59,7 @@ final class InvitesController
     #[Post]
     public function revoke(string $id): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         // The delete only reaches unused codes: a consumed code is part of
         // the audit trail (who invited whom), so revoke is a no-op for it.
         $this->db->query('DELETE FROM invites WHERE id = ? AND used_by IS NULL', [(int) $id]);
@@ -74,18 +75,6 @@ final class InvitesController
              JOIN users c ON c.id = i.created_by
              LEFT JOIN users u ON u.id = i.used_by
              ORDER BY i.created_at DESC LIMIT 200');
-    }
-
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        if ($me === 0) return false;
-        // The epoch check first: a session carried over a password rotation
-        // must not authorize this surface even though the role row still says
-        // admin. App\Viewer's doctrine is the same order.
-        $auth = new \Kip\Auth($this->db, $this->session);
-        if (!$auth->sessionValid()) return false;
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     private function head(): \App\Seo\Head

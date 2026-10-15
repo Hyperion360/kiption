@@ -71,6 +71,42 @@ final class AdminnessTest extends TestCase
         $this->assertSame('moderator', $row['role']);
     }
 
+    public function test_admin_gate_fail_closed(): void
+    {
+        $store = [];
+        $session = new Session($store);
+        $this->assertInstanceOf(Response::class, Adminness::requireAdmin($this->db, $session));
+        $demo = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$demo])['password_hash'];
+        // A moderator row with a live epoch is still not an admin.
+        Adminness::setRole($this->db, $demo, 'moderator');
+        $session->set('user_id', $demo);
+        $session->set('pwd_epoch', substr($hash, 0, 12));
+        $this->assertInstanceOf(Response::class, Adminness::requireAdmin($this->db, $session));
+        // The epoch arm (the drift the raw COUNT idiom allowed): a session
+        // held across a password rotation draws 403 even though the row still
+        // says admin.
+        Adminness::setRole($this->db, $demo, 'admin');
+        $session->set('pwd_epoch', 'stale-epoch');
+        $this->assertInstanceOf(Response::class, Adminness::requireAdmin($this->db, $session));
+        $fresh = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$demo])['password_hash'];
+        $session->set('pwd_epoch', substr($fresh, 0, 12));
+        $row = Adminness::requireAdmin($this->db, $session);
+        $this->assertIsArray($row);
+        $this->assertSame('admin', $row['role']);
+    }
+
+    public function test_admin_gate_survives_a_broken_users_table(): void
+    {
+        $store = [];
+        $session = new Session($store);
+        $session->set('user_id', 1);
+        $this->db->query('DROP TABLE users');
+        $res = Adminness::requireAdmin($this->db, $session);
+        $this->assertInstanceOf(Response::class, $res);
+        $this->assertSame(403, $res->status);
+    }
+
     public function test_moderator_gate_survives_a_broken_users_table(): void
     {
         // The PDOException arm: any database failure is a 403, never a 500

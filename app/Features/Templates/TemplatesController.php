@@ -1,5 +1,6 @@
 <?php // app/Features/Templates/TemplatesController.php
 namespace App\Features\Templates;
+use App\Adminness;
 use App\Templates;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
@@ -21,7 +22,7 @@ final class TemplatesController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         Templates::seedDefaults($this->db);
         return $this->view->render('templates/index', [
             'title' => \App\Lang::t('templates.heading'),
@@ -38,7 +39,7 @@ final class TemplatesController
     #[AuthAttr]
     public function edit(string $name): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         Templates::seedDefaults($this->db); // deep links to a known name work on a fresh database
         $row = $this->find($name);
         if ($row === null) return new Response('Page not found', 404);
@@ -48,7 +49,7 @@ final class TemplatesController
     #[AuthAttr] #[Post]
     public function update(string $name): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $row = $this->find($name);
         if ($row === null) return new Response('Page not found', 404);
         $subject = trim($this->request->postStr('subject'));
@@ -68,12 +69,6 @@ final class TemplatesController
         return $row === null ? null : [
             'name' => (string) $row['name'], 'subject' => (string) $row['subject'], 'body' => (string) $row['body'],
         ];
-    }
-
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     private function form(string $name, string $subject, string $body, ?string $error): string

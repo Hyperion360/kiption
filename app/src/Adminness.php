@@ -41,4 +41,28 @@ final class Adminness
         }
         return $row;
     }
+
+    /** Fail-closed admin gate for POST actions: an admin row with a live
+     *  session epoch, or a 403 Response. Same shape and doctrine as
+     *  requireModerator: the epoch is validated here, once, so every admin
+     *  surface is safe by construction instead of by copy-paste discipline
+     *  (the twelve controllers that carried the raw COUNT idiom were the
+     *  drift proof; HomeController's render-time isAdmin flag keeps its own
+     *  check because Viewer::id has already re-validated the epoch there and
+     *  the page's query budget pins it to that one users read). */
+    public static function requireAdmin(Database $db, Session $session): array|Response
+    {
+        $id = $session->get('user_id');
+        if (!is_int($id)) return new Response('Forbidden', 403);
+        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response('Forbidden', 403);
+        try {
+            $row = $db->one('SELECT id, penname, role, is_admin FROM users WHERE id = ?', [$id]);
+        } catch (\PDOException) {
+            return new Response('Forbidden', 403);
+        }
+        if ($row === null || $row['role'] !== 'admin') {
+            return new Response('Forbidden', 403);
+        }
+        return $row;
+    }
 }

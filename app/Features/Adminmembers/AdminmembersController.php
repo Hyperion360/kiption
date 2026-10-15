@@ -29,7 +29,7 @@ final class AdminmembersController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         [$perPage, $offset] = $this->paginate();
         $q = trim((string) ($this->request->get['q'] ?? ''));
         // COALESCE keeps penname-less accounts on the unfiltered roster (an
@@ -64,7 +64,7 @@ final class AdminmembersController
     #[AuthAttr] #[Post]
     public function role(string $id, string $role): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         if (!in_array($role, Adminness::ROLES, true)) return new Response('Unknown role.', 422);
         if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return new Response('Page not found', 404);
         if ($this->db->one('SELECT id FROM users WHERE id = ?', [(int) $id]) === null) {
@@ -72,13 +72,6 @@ final class AdminmembersController
         }
         Adminness::setRole($this->db, (int) $id, $role); // the iff invariant lives there
         return Response::redirect('/adminmembers');
-    }
-
-    /** The SQL admin gate (role = 'admin' iff is_admin = 1 makes one check enough). */
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     private function head(): \App\Seo\Head

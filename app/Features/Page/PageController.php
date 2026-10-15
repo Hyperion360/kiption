@@ -1,5 +1,6 @@
 <?php // app/Features/Page/PageController.php
 namespace App\Features\Page;
+use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
@@ -44,14 +45,14 @@ final class PageController
     #[AuthAttr]
     public function new(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         return $this->form(null);
     }
 
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         [$slug, $title, $body, $error] = $this->createInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $this->db->query('INSERT INTO pages (slug, title, body) VALUES (?, ?, ?)', [$slug, $title, $body]);
@@ -61,7 +62,7 @@ final class PageController
     #[AuthAttr]
     public function edit(string $slug): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $row = $this->find($slug);
         if ($row === null) return new Response('Page not found', 404);
         return $this->form($row);
@@ -70,7 +71,7 @@ final class PageController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $row = $this->find($slug);
         if ($row === null) return new Response('Page not found', 404);
         [$title, $body, $error] = $this->titleBody(); // the posted slug is ignored: immutable after create
@@ -132,12 +133,6 @@ final class PageController
     private function cache(): \App\StaticCache\Cache
     {
         return \App\StaticCache\Cache::configured($this->app);
-    }
-
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     /** $row null renders the create form; the edit row prefills, targets

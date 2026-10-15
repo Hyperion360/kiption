@@ -1,5 +1,6 @@
 <?php // app/Features/Wrangling/WranglingController.php
 namespace App\Features\Wrangling;
+use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Get, Post};
 
@@ -25,7 +26,7 @@ final class WranglingController
     public function index(): Response|string
     {
         if (($r = \App\Features::guard('wrangling')) !== null) return $r;
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $groups = [];
         foreach ($this->rows() as $row) {
             $groups[$row['type_name']][] = $row;
@@ -51,7 +52,7 @@ final class WranglingController
     public function merge(): Response|string
     {
         if (($r = \App\Features::guard('wrangling')) !== null) return $r;
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $synonymId = (int) ($this->request->post['synonym_id'] ?? $this->request->get['synonym'] ?? 0);
         $rows = $this->rows();
         $synonym = null;
@@ -119,7 +120,7 @@ final class WranglingController
     public function unmerge(string $id): Response
     {
         if (($r = \App\Features::guard('wrangling')) !== null) return $r;
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $tag = $this->db->one('SELECT id, canonical_id FROM tags WHERE id = ?', [(int) $id]);
         if ($tag === null) return new Response('Page not found', 404);
         $this->db->query('UPDATE tags SET canonical_id = NULL WHERE id = ?', [(int) $id]);
@@ -172,18 +173,6 @@ final class WranglingController
         }
         ksort($data['allGroups']);
         return $this->view->render('wrangling/merge', $data);
-    }
-
-    /** The SQL admin gate (role = 'admin' iff is_admin = 1 makes one check enough),
-     *  behind the password-epoch check: a session held across an admin's password
-     *  rotation must not run the data-destructive merge (the pentest variant-loop
-     *  finding; same repair as the invites gate). */
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        if ($me === 0) return false;
-        if (!(new \Kip\Auth($this->db, $this->session))->sessionValid()) return false;
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     /** The StoryController idiom: config-injected dir when present, the

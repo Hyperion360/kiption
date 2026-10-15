@@ -2,6 +2,7 @@
 namespace App\Features\Adminstories;
 use Kip\{Database, Http\Request, Http\Response, Session};
 use Kip\Routing\{Auth as AuthAttr, Post};
+use App\Adminness;
 use App\Repositories\AuthoringRepository;
 
 /** Admin-only story tools the generic panel cannot safely provide: author
@@ -28,7 +29,7 @@ final class AdminstoriesController
     #[AuthAttr] #[Post]
     public function reassign(string $slug): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
         if ($story === null) return new Response('Page not found', 404);
         $penname = trim($this->request->postStr('penname'));
@@ -68,7 +69,7 @@ final class AdminstoriesController
     #[AuthAttr] #[Post]
     public function featured(string $slug): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
         if ($story === null) return new Response('Page not found', 404);
         $this->db->query('UPDATE stories SET featured = 1 - featured WHERE id = ?', [(int) $story['id']]);
@@ -77,12 +78,5 @@ final class AdminstoriesController
         (\App\StaticCache\Cache::configured($this->app))
             ->purgeStory($slug, [], $seriesSlugs, $authorSlug);
         return Response::redirect('/story/view/' . $slug);
-    }
-
-    /** The SQL admin gate (role = 'admin' iff is_admin = 1 makes one check enough). */
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 }

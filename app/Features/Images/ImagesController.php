@@ -1,5 +1,6 @@
 <?php // app/Features/Images/ImagesController.php
 namespace App\Features\Images;
+use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, Storage, UploadException, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
@@ -21,7 +22,7 @@ final class ImagesController
     #[AuthAttr]
     public function index(): Response|string
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $inUse = $this->inUseNames();
         $files = [];
         $total = 0;
@@ -53,7 +54,7 @@ final class ImagesController
     #[AuthAttr] #[Post]
     public function upload(): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $file = $this->request->file('file');
         if ($file === null) {
             return new Response('Upload rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
@@ -72,7 +73,7 @@ final class ImagesController
     #[AuthAttr] #[Post]
     public function delete(): Response
     {
-        if (!$this->admin()) return new Response('Forbidden', 403);
+        if (Adminness::requireAdmin($this->db, $this->session) instanceof Response) return new Response('Forbidden', 403);
         $name = (string) ($this->request->post['name'] ?? '');
         if ($name === '' || strpbrk($name, "/\\") !== false || $name !== basename($name)) {
             return new Response('Invalid file name.', 422);
@@ -112,13 +113,6 @@ final class ImagesController
         if ($bytes < 1024) return $bytes . ' B';
         if ($bytes < 1048576) return round($bytes / 1024, 1) . ' KiB';
         return round($bytes / 1048576, 1) . ' MiB';
-    }
-
-    /** The SQL admin gate (role = 'admin' iff is_admin = 1 makes one check enough). */
-    private function admin(): bool
-    {
-        $me = (int) ($this->session->get('user_id') ?? 0);
-        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [$me])['c'] === 1;
     }
 
     private function head(): \App\Seo\Head
