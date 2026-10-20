@@ -9,8 +9,9 @@ use Kip\Database;
  *  actual bytes accumulate across every read and re-enforce the archive
  *  total, so a lying central directory cannot spend reads it never
  *  declared. getFromIndex() returning false is an error, never an empty
- *  string. inspect() is pure reading (no DB); persistence lives in the
- *  import methods. */
+ *  string. inspect() is pure reading (no DB); importFile() is the
+ *  persistence half: one transaction per file, the epub_imports ledger row
+ *  written only on full commit, and a stored cover unlinked on rollback. */
 final class Epub
 {
     public const MAX_MEMBERS = 4096;
@@ -29,11 +30,22 @@ final class Epub
     /** actual bytes read since the last inspect(), the accumulated half of
      *  the archive cap */
     private int $actualTotal = 0;
+    /** the last importFile() report row, or null before the first call */
+    private ?array $lastReport = null;
 
     public function __construct(
         private Database $db,
         private string $uploadsDir,   // cover storage (import half)
+        private bool $coverStrict = false, // test seam: cover skips become throws
     ) {}
+
+    /** The last importFile() report row: file, status (imported, would
+     *  import, skipped, failed), title, chapters, words, storyId, notes.
+     *  The CLI prints one row per file. */
+    public function lastReport(): ?array
+    {
+        return $this->lastReport;
+    }
 
     /** Bounds pass: open the archive, walk the central directory once
      *  enforcing the member count, per-entry declared bytes, and the
@@ -191,11 +203,15 @@ final class Epub
     /** First dc:title, first dc:creator, dc:description stripped to plain
      *  text (tags off, entities decoded, whitespace collapsed, 1000 chars),
      *  dc:language lowercased. An absent field is an empty string; refusal
-     *  is not metadata's job. */
+     *  is not metadata's job. The collapse carries a non-u fallback: a /u
+     *  pattern returns null on invalid UTF-8, and the naive cast would
+     *  silently hand the import an empty summary. */
     private function readMetadata(\DOMDocument $doc): array
     {
         $summary = html_entity_decode(strip_tags($this->firstDc($doc, 'description')?->textContent ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $summary = trim((string) preg_replace('~\s+~u', ' ', $summary));
+        $collapsed = preg_replace('~\s+~u', ' ', $summary);
+        if ($collapsed === null) { $collapsed = (string) preg_replace('~\s+~', ' ', $summary); }
+        $summary = trim($collapsed);
         if (mb_strlen($summary) > 1000) { $summary = mb_substr($summary, 0, 1000); }
         return [
             'title' => $this->firstDc($doc, 'title')?->textContent ?? '',
@@ -278,5 +294,225 @@ final class Epub
             }
         }
         return null;
+    }
+
+    // ------------------------------------------------------------------
+    // The import half. One transaction per file: story, cover, chapters,
+    // the word-count SUM, then the ledger row; any throw rolls every row
+    // back AND unlinks the stored cover, so a refused file stays retryable
+    // and no upload orphans. The report row (lastReport) is always left
+    // behind for the CLI, including on failure.
+    // ------------------------------------------------------------------
+
+    /** Import one EPUB file. $authorId names the owning member (the CLI
+     *  resolves --author-id/--author to an id upstream); null falls back to
+     *  an exact case-insensitive penname match on the OPF's dc:creator, and
+     *  no match refuses. $commit = false is a dry run: everything is read,
+     *  converted and counted into the report, nothing is written. */
+    public function importFile(string $path, ?int $authorId, bool $commit): void
+    {
+        $meta = $this->inspect($path);
+        $row = [
+            'file' => $path,
+            'status' => $commit ? 'imported' : 'would import',
+            'title' => (string) $meta['title'],
+            'chapters' => 0,
+            'words' => 0,
+            'storyId' => null,
+            'notes' => [],
+        ];
+        try {
+            $digest = hash_file('sha256', $path);
+            if ($digest === false) {
+                throw new \RuntimeException("the file vanished before its digest was taken: {$path}");
+            }
+            // decision 8: the digest check runs first in commit mode, so a
+            // re-offered file skips before any author or content work
+            if ($commit && ($hit = $this->db->one('SELECT story_id FROM epub_imports WHERE sha256 = ?', [$digest])) !== null) {
+                $row['status'] = 'skipped';
+                $row['storyId'] = (int) $hit['story_id'];
+                $row['notes'][] = sprintf('skipped (already imported as story %d)', (int) $hit['story_id']);
+                $this->lastReport = $row;
+                return;
+            }
+            $authorId = $this->resolveAuthor($authorId, (string) $meta['creator']);
+            $imgCount = 0;
+            $converted = $this->convertChapters($meta['spine'], $imgCount);
+            if ($converted['chapters'] === []) {
+                throw new \RuntimeException('no readable chapters: every spine document converted to empty markdown');
+            }
+            foreach ($converted['skipped'] as $note) { $row['notes'][] = $note; }
+            if ($imgCount > 0) { $row['notes'][] = "<img> elements stripped: {$imgCount}"; }
+            $row['chapters'] = count($converted['chapters']);
+            $row['words'] = array_sum(array_column($converted['chapters'], 'words'));
+            if (!$commit) {
+                $this->lastReport = $row;
+                return;
+            }
+            $this->persist($meta, $authorId, $digest, $converted['chapters'], $row);
+        } catch (\Throwable $e) {
+            $row['status'] = 'failed';
+            $row['notes'][] = $e->getMessage();
+            $this->lastReport = $row;
+            throw $e;
+        }
+    }
+
+    /** The committed write path, one transaction (the Importer.php:463
+     *  story list plus language, the :536 chapter list with empty notes,
+     *  the :547 SUM update, then the ledger row). The cover stores INSIDE
+     *  the transaction and the catch unlinks it, so a rollback cannot
+     *  orphan an upload (finding 4). */
+    private function persist(array $meta, int $authorId, string $digest, array $chapters, array &$row): void
+    {
+        $title = (string) $meta['title'];
+        $slug = \App\Slug::unique(
+            fn (string $x): bool => $this->db->one('SELECT id FROM stories WHERE slug = ?', [$x]) !== null,
+            \App\Slug::make($title, 'story'));
+        $rating = $this->db->one('SELECT id FROM ratings ORDER BY position, id LIMIT 1');
+        if ($rating === null) {
+            throw new \RuntimeException('no ratings exist to assign: the taxonomy is missing, run the seeder first');
+        }
+        $now = (new \DateTimeImmutable('now'))->format(DATE_ATOM);
+        $this->db->begin();
+        $coverPath = null;
+        try {
+            // the cover stores first, inside the open transaction, so the
+            // story INSERT below can carry cover_path as a plain column
+            $coverPath = $this->storeCover($meta['cover'], $row);
+            $this->db->query('INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, completed, featured, validated, round_robin, created_at, updated_at, is_restricted, language, cover_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$title, $slug, (string) $meta['summary'], '', $authorId, (int) $rating['id'],
+                 0, 0, 1, 0, $now, $now, 0, $this->resolveLanguage((string) $meta['language']), $coverPath]);
+            $storyId = (int) $this->db->lastInsertId();
+            foreach ($chapters as $i => $ch) {
+                $this->db->query('INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$storyId, $i + 1, $ch['title'], '', $ch['md'], '', 1, $ch['words'], $now, $now]);
+            }
+            // story word_count is the sum of its chapters' recomputed counts
+            $this->db->query('UPDATE stories SET word_count = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE story_id = stories.id)');
+            $this->db->query('INSERT INTO epub_imports (sha256, story_id, imported_at) VALUES (?, ?, ?)', [$digest, $storyId, $now]);
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            if ($coverPath !== null) {
+                @unlink(rtrim($this->uploadsDir, '/') . '/' . basename($coverPath));
+            }
+            throw $e;
+        }
+        $row['status'] = 'imported';
+        $row['storyId'] = $storyId;
+        $this->lastReport = $row;
+    }
+
+    /** Decision 4: an explicit id must exist; null matches dc:creator
+     *  against penname exactly and case-insensitively (mb_strtolower, so
+     *  pennames outside ASCII still match). No user creation, ever. */
+    private function resolveAuthor(?int $authorId, string $creator): int
+    {
+        if ($authorId !== null) {
+            if ($this->db->one('SELECT id FROM users WHERE id = ?', [$authorId]) === null) {
+                throw new \RuntimeException(sprintf('no member carries author id %d: resolve --author-id against users first', $authorId));
+            }
+            return $authorId;
+        }
+        foreach ($this->db->all('SELECT id, penname FROM users') as $u) {
+            if (mb_strtolower((string) $u['penname']) === mb_strtolower($creator)) {
+                return (int) $u['id'];
+            }
+        }
+        throw new \RuntimeException(sprintf("no member matches the EPUB creator '%s': pass --author or --author-id", $creator));
+    }
+
+    /** Decision 5: dc:language rides the INSERT when it names an installed
+     *  language pack; anything else takes the app default (Lang's own
+     *  fallback, en). */
+    private function resolveLanguage(string $language): string
+    {
+        return in_array($language, \App\Lang::installed(), true) ? $language : 'en';
+    }
+
+    /** Decision 7: every spine document read, <img> elements stripped with
+     *  each removal counted, then HtmlToMarkdown. Title: first h1-h3 on the
+     *  raw document, tags off, 255 chars, else "Chapter N" at the position
+     *  the chapter lands on. Two scope trims keep prose clean: the document
+     *  converts from <body> onward (the head's <title> is chrome, not
+     *  prose), and the heading the title came from is removed (the shipped
+     *  converter renders unknown elements as bare text, which would glue
+     *  the title onto the first paragraph's first word). A chapter
+     *  converting to whitespace is skipped with a note; the caller refuses
+     *  when nothing survives. */
+    private function convertChapters(array $spine, int &$imgCount): array
+    {
+        $chapters = [];
+        $skipped = [];
+        foreach ($spine as $path) {
+            $idx = $this->entryIndex($path);
+            if ($idx === null) {
+                throw new \RuntimeException(sprintf("a spine href is missing from the archive: no entry provides '%s'", $path));
+            }
+            $n = count($chapters) + count($skipped) + 1;
+            $xhtml = $this->readEntry($idx);
+            $title = '';
+            if (preg_match('~<h[1-3][^>]*>(.*?)</h[1-3]>~is', $xhtml, $m)) {
+                $title = trim(strip_tags($m[1]));
+                $xhtml = (string) preg_replace('~<h[1-3][^>]*>.*?</h[1-3]>~is', '', $xhtml, 1);
+            }
+            if (preg_match('~<body[^>]*>(.*)</body>~is', $xhtml, $b)) {
+                $xhtml = $b[1];
+            }
+            $stripped = preg_replace('~<img\b[^>]*>~i', '', $xhtml, -1, $count);
+            $imgCount += $count;
+            $md = rtrim(HtmlToMarkdown::convert($stripped ?? ''));
+            if (trim($md) === '') {
+                $skipped[] = sprintf('chapter %d skipped: empty after conversion', $n);
+                continue;
+            }
+            if ($title === '') { $title = 'Chapter ' . (count($chapters) + 1); }
+            $chapters[] = ['title' => mb_substr($title, 0, 255), 'md' => $md, 'words' => \App\Markdown::wordCount($md)];
+        }
+        return ['chapters' => $chapters, 'skipped' => $skipped];
+    }
+
+    /** Decision 6: the resolved cover goes through Storage (2 MiB, image
+     *  extensions, copy mover) fed a $_FILES-shaped array from the extracted
+     *  temp file. No convention: clean, no cover. Oversize or non-image:
+     *  a note, or a throw under strict mode (test seam). The extracted temp
+     *  file always cleans up; the STORED file is the caller's rollback
+     *  problem, tracked via the returned path. */
+    private function storeCover(mixed $archivePath, array &$row): ?string
+    {
+        if ($archivePath === null) { return null; }
+        $archivePath = (string) $archivePath;
+        $skip = static function (string $reason) use (&$row, $archivePath): ?string {
+            $row['notes'][] = "cover skipped: {$reason}";
+            return null;
+        };
+        $idx = $this->entryIndex($archivePath);
+        if ($idx === null) {
+            $reason = sprintf("no entry provides '%s'", $archivePath);
+            if ($this->coverStrict) { throw new \RuntimeException($reason); }
+            return $skip($reason);
+        }
+        $bytes = $this->readEntry($idx);
+        $tmp = tempnam(sys_get_temp_dir(), 'kiption-epub-cover-');
+        if ($tmp === false) {
+            throw new \RuntimeException('could not create a temp file for the cover extract');
+        }
+        try {
+            if (file_put_contents($tmp, $bytes) === false) {
+                throw new \RuntimeException("could not write the cover extract for '{$archivePath}'");
+            }
+            try {
+                return (new \Kip\Storage($this->uploadsDir, 2 * 1024 * 1024, ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+                    static fn (string $t, string $d): bool => copy($t, $d) && unlink($t)))
+                    ->put(['name' => basename($archivePath), 'type' => 'application/octet-stream',
+                           'tmp_name' => $tmp, 'error' => \UPLOAD_ERR_OK, 'size' => strlen($bytes)]);
+            } catch (\Kip\UploadException $e) {
+                if ($this->coverStrict) { throw $e; }
+                return $skip($e->getMessage());
+            }
+        } finally {
+            @unlink($tmp); // the copy mover already unlinked it on success
+        }
     }
 }

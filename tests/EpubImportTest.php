@@ -14,6 +14,8 @@ final class EpubImportTest extends TestCase
     private string $uploads = '';
     private string $fixtures = '';
     private Database $db;
+    /** what the seeder left behind, so import assertions measure deltas */
+    private array $seeded = ['stories' => 0, 'chapters' => 0];
 
     protected function setUp(): void
     {
@@ -23,6 +25,10 @@ final class EpubImportTest extends TestCase
         \App\Seeder::run($this->db);
         $this->uploads = $this->tempDir('kiption-epub-upl-');
         $this->fixtures = $this->tempDir('kiption-epub-fx-');
+        $this->seeded = [
+            'stories' => (int) $this->db->one('SELECT COUNT(*) c FROM stories')['c'],
+            'chapters' => (int) $this->db->one('SELECT COUNT(*) c FROM chapters')['c'],
+        ];
     }
 
     protected function tearDown(): void
@@ -65,13 +71,13 @@ final class EpubImportTest extends TestCase
      *  absolute path. $entries maps archive entry names to string contents;
      *  $opts['files'] (entry name => disk path) adds entries from files on
      *  disk, which is how the sparse-file bomb fixtures reach the zip.
-     *  $opts['book'] merges a full generated book (bookEntries) in front of
-     *  the hand-written entries, which is how the structure tests reach a
-     *  real container and OPF without spelling out the XML every time. */
+     *  $opts['book'] merges a full generated book (bookEntries) UNDER the
+     *  hand-written entries (union: left wins), so a fixture can override a
+     *  generated chapter or the cover without regenerating the OPF. */
     private function makeEpub(string $name, array $entries, array $opts = []): string
     {
         if (isset($opts['book'])) {
-            $entries = $this->bookEntries($opts['book']) + $entries;
+            $entries = $entries + $this->bookEntries($opts['book']);
         }
         $path = $this->fixtures . '/' . $name;
         $zip = new \ZipArchive();
@@ -355,5 +361,274 @@ final class EpubImportTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/spine exceeds 512 chapters/');
         (new Epub($this->db, $this->uploads))->inspect($epub);
+    }
+
+    // ------------------------------------------------------------------
+    // Task 4: story persistence. importFile(path, authorId, commit) turns
+    // inspect() output into a story, chapters, a Storage cover, and an
+    // epub_imports ledger row, inside one transaction with rollback.
+    // ------------------------------------------------------------------
+
+    /** A member with a known penname via the ImporterTest user-INSERT idiom;
+     *  returns the id. */
+    private function member(string $penname): int
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)",
+            [$penname . '@e.test', password_hash('x1234567', PASSWORD_DEFAULT), $penname, date('c'), date('c')]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    /** A real 1x1 PNG: Storage's finfo check must see image/png for the
+     *  cover to store, so the fixture carries real magic bytes. */
+    private function png(): string
+    {
+        return (string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', true);
+    }
+
+    /** An importable book: dc:creator 'realauthor' (override with $book),
+     *  a cover by the default convention, N generated chapters. $over maps
+     *  archive entry names to replacement content; the flipped union makes
+     *  hand-written entries win over the generated ones. */
+    private function importBook(string $name, array $book = [], array $over = []): string
+    {
+        return $this->makeEpub($name, $over, ['book' => $book + ['creator' => 'realauthor']]);
+    }
+
+    /** The img-bearing ch2 override: one remote and one embedded image,
+     *  both stripped before conversion and counted into one note. */
+    private function imgChapter(): string
+    {
+        return '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>ch2</title></head>'
+            . '<body><h2>ch2</h2><p>Pictures <img src="https://x/y.png" alt="far"/> and <img src="images/pic.png"/> together.</p></body></html>';
+    }
+
+    private function counts(): array
+    {
+        return [
+            'stories' => (int) $this->db->one('SELECT COUNT(*) c FROM stories')['c'] - $this->seeded['stories'],
+            'chapters' => (int) $this->db->one('SELECT COUNT(*) c FROM chapters')['c'] - $this->seeded['chapters'],
+            'ledger' => (int) $this->db->one('SELECT COUNT(*) c FROM epub_imports')['c'],
+        ];
+    }
+
+    public function test_commit_import_persists_story_chapters_cover_and_ledger(): void
+    {
+        $authorId = $this->member('realauthor');
+        $epub = $this->importBook('import.epub', [], [
+            'OEBPS/cover.png' => $this->png(),
+            'OEBPS/Text/ch2.xhtml' => $this->imgChapter(),
+        ]);
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, true);
+        $rep = $importer->lastReport();
+        $this->assertSame('imported', $rep['status']);
+        $this->assertSame($epub, $rep['file']);
+        $this->assertSame('Stamped Title', $rep['title']);
+        $this->assertSame(3, $rep['chapters']);
+        $this->assertGreaterThan(0, $rep['words']);
+
+        $stories = $this->db->all('SELECT s.*, r.label rating_label FROM stories s JOIN ratings r ON r.id = s.rating_id WHERE s.author_id = ?', [$authorId]);
+        $this->assertCount(1, $stories, 'one import, one story');
+        $s = $stories[0];
+        $this->assertSame('Stamped Title', $s['title']);
+        $this->assertSame('stamped-title', $s['slug']);
+        $this->assertSame('A summary with bold & inline markup.', $s['summary'], 'the summary lands plain: tags off, entity decoded');
+        $this->assertSame(1, (int) $s['validated']);
+        $this->assertSame(0, (int) $s['is_restricted']);
+        $this->assertSame(0, (int) $s['completed']);
+        $this->assertSame('General', $s['rating_label'], 'the default rating is the seeded ladder top');
+        $this->assertSame('en', $s['language'], "dc:language 'EN' resolves through installed packs");
+        $this->assertSame($authorId, (int) $s['author_id'], 'dc:creator realauthor resolved to the member');
+        $this->assertStringStartsWith('/uploads/', (string) $s['cover_path']);
+        $this->assertFileIsReadable($this->uploads . '/' . basename((string) $s['cover_path']));
+
+        $chapters = $this->db->all('SELECT * FROM chapters WHERE story_id = ? ORDER BY position', [$s['id']]);
+        $this->assertCount(3, $chapters);
+        $this->assertSame(['ch1', 'ch2', 'ch3'], array_column($chapters, 'title'), 'titles come from each chapter h2');
+        $this->assertSame([1, 2, 3], array_map(static fn (array $c): int => (int) $c['position'], $chapters), 'spine order');
+        $this->assertSame('Prose for chapter 1.', rtrim($chapters[0]['content']));
+        $this->assertStringNotContainsString('img', $chapters[1]['content'], 'chapter images are stripped before conversion');
+        $this->assertStringNotContainsString('](', $chapters[1]['content']);
+        $this->assertSame('Pictures  and  together.', rtrim($chapters[1]['content']), 'the stripped elements leave their surrounding text only');
+        foreach ($chapters as $c) {
+            $this->assertSame(\App\Markdown::wordCount($c['content']), (int) $c['word_count']);
+        }
+        $sum = array_sum(array_map(static fn (array $c): int => (int) $c['word_count'], $chapters));
+        $this->assertSame($sum, (int) $s['word_count'], 'stories.word_count is the chapter SUM');
+        $this->assertSame($sum, $rep['words']);
+
+        $this->assertContains('<img> elements stripped: 2', $rep['notes'], 'remote and embedded images share one drop-and-count note');
+
+        $led = $this->db->one('SELECT * FROM epub_imports');
+        $this->assertSame(hash_file('sha256', $epub), $led['sha256']);
+        $this->assertSame((int) $s['id'], (int) $led['story_id']);
+
+        // idempotency: the same bytes again report skipped and write nothing
+        $importer->importFile($epub, null, true);
+        $rep2 = $importer->lastReport();
+        $this->assertSame('skipped', $rep2['status']);
+        $this->assertSame((int) $s['id'], $rep2['storyId']);
+        $this->assertContains('skipped (already imported as story ' . $s['id'] . ')', $rep2['notes']);
+        $this->assertSame(['stories' => 1, 'chapters' => 3, 'ledger' => 1], $this->counts(), 'a re-run writes nothing');
+    }
+
+    public function test_an_unknown_author_id_refuses_before_any_write(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('who.epub');
+        $importer = new Epub($this->db, $this->uploads);
+        try {
+            $importer->importFile($epub, 999999, true);
+            $this->fail('an unknown author id must refuse');
+        } catch (\RuntimeException $ex) {
+            $this->assertStringContainsString('no member carries author id 999999', $ex->getMessage());
+        }
+        $this->assertSame(['stories' => 0, 'chapters' => 0, 'ledger' => 0], $this->counts());
+        $this->assertSame('failed', $importer->lastReport()['status'], 'the refusal lands in the report for the CLI');
+    }
+
+    public function test_an_unmatched_creator_refuses_quoting_the_creator(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('ghost.epub', ['creator' => 'Ghost Writer']);
+        try {
+            (new Epub($this->db, $this->uploads))->importFile($epub, null, true);
+            $this->fail('an unmatched dc:creator must refuse');
+        } catch (\RuntimeException $ex) {
+            $this->assertStringContainsString("no member matches the EPUB creator 'Ghost Writer'", $ex->getMessage());
+        }
+        $this->assertSame(['stories' => 0, 'chapters' => 0, 'ledger' => 0], $this->counts());
+    }
+
+    public function test_a_penname_matches_case_insensitively(): void
+    {
+        $this->member('RealAuthor');
+        $epub = $this->importBook('case.epub');
+        (new Epub($this->db, $this->uploads))->importFile($epub, null, true);
+        $this->assertSame(1, $this->counts()['stories']);
+    }
+
+    public function test_dry_run_populates_the_report_and_writes_nothing(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('dry.epub', [], [
+            'OEBPS/cover.png' => $this->png(),
+            'OEBPS/Text/ch2.xhtml' => $this->imgChapter(),
+        ]);
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, false);
+        $rep = $importer->lastReport();
+        $this->assertSame('would import', $rep['status']);
+        $this->assertSame('Stamped Title', $rep['title']);
+        $this->assertSame(3, $rep['chapters']);
+        $this->assertGreaterThan(0, $rep['words']);
+        $this->assertContains('<img> elements stripped: 2', $rep['notes']);
+        $this->assertSame(['stories' => 0, 'chapters' => 0, 'ledger' => 0], $this->counts());
+        $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK), 'a dry run stores no cover either');
+    }
+
+    public function test_all_whitespace_chapters_refuse_without_a_ledger_row(): void
+    {
+        $this->member('realauthor');
+        $over = [];
+        foreach ([1, 2, 3] as $n) {
+            // a blank page still carries its heading; the heading becomes
+            // the title column, the whitespace body converts to nothing
+            $over['OEBPS/Text/ch' . $n . '.xhtml'] = '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>ch' . $n . '</title></head>'
+                . '<body><h2>ch' . $n . '</h2><p>   </p></body></html>';
+        }
+        $epub = $this->importBook('blank.epub', [], $over);
+        try {
+            (new Epub($this->db, $this->uploads))->importFile($epub, null, true);
+            $this->fail('zero surviving chapters must refuse');
+        } catch (\RuntimeException $ex) {
+            $this->assertStringContainsString('no readable chapters', $ex->getMessage());
+        }
+        $this->assertSame(['stories' => 0, 'chapters' => 0, 'ledger' => 0], $this->counts(), 'the refusal stays retryable: no ledger row');
+    }
+
+    public function test_a_rolled_back_import_leaves_no_cover_orphan(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('orphan.epub', [], ['OEBPS/cover.png' => $this->png()]);
+        $this->db->exec('DROP TABLE epub_imports'); // forced failure after the cover stored
+        $importer = new Epub($this->db, $this->uploads, true);
+        try {
+            $importer->importFile($epub, null, true);
+            $this->fail('the missing ledger table must abort the import');
+        } catch (\PDOException $ex) {
+            $this->assertStringContainsString('epub_imports', $ex->getMessage());
+        }
+        // the ledger table is gone by construction; measure the rest
+        $this->assertSame($this->seeded['stories'], (int) $this->db->one('SELECT COUNT(*) c FROM stories')['c'], 'the catch rolled the story back');
+        $this->assertSame($this->seeded['chapters'], (int) $this->db->one('SELECT COUNT(*) c FROM chapters')['c'], 'the catch rolled the chapters back');
+        $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK), 'the rollback unlinked the stored cover');
+        $this->assertSame('failed', $importer->lastReport()['status']);
+    }
+
+    public function test_a_language_outside_the_installed_packs_falls_back_to_en(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('fr.epub', ['language' => 'fr']);
+        (new Epub($this->db, $this->uploads))->importFile($epub, null, true);
+        $this->assertSame('en', $this->db->one("SELECT language FROM stories WHERE slug = 'stamped-title'")['language']);
+    }
+
+    public function test_a_second_story_with_the_same_title_uniques_the_slug(): void
+    {
+        $this->member('realauthor');
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($this->importBook('a.epub'), null, true);
+        $second = $this->importBook('b.epub', [], [
+            'OEBPS/Text/ch1.xhtml' => '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>ch1</title></head>'
+                . '<body><h2>ch1</h2><p>Different prose entirely.</p></body></html>',
+        ]);
+        $importer->importFile($second, null, true);
+        $slugs = array_column($this->db->all("SELECT slug FROM stories WHERE slug LIKE 'stamped-title%' ORDER BY id"), 'slug');
+        $this->assertSame(['stamped-title', 'stamped-title-2'], $slugs);
+    }
+
+    public function test_a_non_image_cover_skips_with_a_note(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('badcover.epub', [], ['OEBPS/cover.png' => 'plain text, not an image at all']);
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, true);
+        $rep = $importer->lastReport();
+        $this->assertSame('imported', $rep['status'], 'a bad cover never sinks the book');
+        $coverNotes = array_values(array_filter($rep['notes'], static fn (string $n): bool => str_starts_with($n, 'cover skipped: ')));
+        $this->assertCount(1, $coverNotes, 'the skip carries one note quoting the Storage reason');
+        $s = $this->db->one('SELECT cover_path FROM stories');
+        $this->assertNull($s['cover_path']);
+        $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK));
+    }
+
+    public function test_strict_mode_turns_a_cover_skip_into_a_throw(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('strict.epub', [], ['OEBPS/cover.png' => 'plain text, not an image at all']);
+        $importer = new Epub($this->db, $this->uploads, true);
+        try {
+            $importer->importFile($epub, null, true);
+            $this->fail('strict mode must turn the cover skip into a throw');
+        } catch (\Kip\UploadException $ex) {
+            $this->assertStringContainsString('does not match', $ex->getMessage());
+        }
+        $this->assertSame(['stories' => 0, 'chapters' => 0, 'ledger' => 0], $this->counts());
+        $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK));
+    }
+
+    /** Finding: the /u whitespace collapse returns null on invalid UTF-8 and
+     *  the old cast silently emptied the summary. loadXML refuses invalid
+     *  bytes on the wire, so the only way they reach the pipeline is a
+     *  fabricated DOM text node; readMetadata runs via reflection. */
+    public function test_a_summary_with_invalid_utf8_bytes_still_collapses(): void
+    {
+        $doc = new \DOMDocument();
+        $doc->loadXML('<package xmlns:dc="http://purl.org/dc/elements/1.1/"><metadata><dc:description/></metadata></package>');
+        $desc = $doc->getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', 'description')->item(0);
+        $desc->appendChild(new \DOMText("Caf\xe9 <b>&</b> cr\xe8me \xFF garbage"));
+        $meta = (new \ReflectionMethod(Epub::class, 'readMetadata'))->invoke(new Epub($this->db, $this->uploads), $doc);
+        $this->assertSame("Caf\xe9 & cr\xe8me \xFF garbage", $meta['summary'], 'invalid UTF-8 never empties the summary');
     }
 }
