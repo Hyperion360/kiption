@@ -429,7 +429,39 @@ final class CliTest extends TestCase
         $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'));
     }
 
+    /** Finding: glob($target . '/*.epub') treats the whole argument as a
+     *  pattern, so the reviewer's books[2024] directory matched its sibling
+     *  books2 and books4 instead of listing its own files. */
+    public function test_import_epub_directory_with_glob_metacharacters_imports_only_its_own_files(): void
+    {
+        $authorId = $this->importSetup();
+        $bracket = $this->fixturesDir() . '/books[2024]';
+        mkdir($bracket);
+        $this->epub('books[2024]/own.epub', 'Bracket Own');
+        mkdir($this->fixturesDir() . '/books2');
+        $this->epub('books2/two.epub', 'Sibling Two');
+        mkdir($this->fixturesDir() . '/books4');
+        $this->epub('books4/four.epub', 'Sibling Four');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($bracket) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Bracket Own \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertStringNotContainsString('Sibling Two', $out);
+        $this->assertStringNotContainsString('Sibling Four', $out);
+        $this->assertMatchesRegularExpression('/^1 imported, 0 skipped, 0 failed$/m', $out);
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
 
+    /** Finding: the case-sensitive *.epub pattern silently skipped .EPUB
+     *  files; the suffix test lowercases first. */
+    public function test_import_epub_directory_includes_uppercase_epub_files(): void
+    {
+        $authorId = $this->importSetup();
+        $this->epub('loud.EPUB', 'Loud Book');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Loud Book \(3 chapters, \d+ words\)$/m', $out, 'the suffix test folds case, so .EPUB imports');
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
 
     /** Finding: the digest check was commit-only, so a dry run promised
      *  "Would import" for a file commit would skip. The ledger lookup runs
@@ -453,4 +485,17 @@ final class CliTest extends TestCase
         $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'), 'the dry run writes no ledger row');
     }
 
+    /** Finding: a hostile dc:title must not emit control characters to the
+     *  operator's terminal; tab and newline are the ones XML parsing can
+     *  legally deliver, and the printed line stays one clean line. */
+    public function test_import_epub_strips_control_characters_from_reported_titles(): void
+    {
+        $authorId = $this->importSetup();
+        $epub = $this->epub('evil.epub', "Evil\tTitle\nSecond Line");
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertStringNotContainsString("\t", $out, 'control characters never reach the terminal');
+        $this->assertMatchesRegularExpression('/^Imported: EvilTitleSecond Line \(3 chapters, \d+ words\)$/m', $out,
+            'characters strip, nothing replaces them, and the line count never grows');
+    }
 }

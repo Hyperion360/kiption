@@ -8,6 +8,9 @@ return new class extends Kip\Migrations\Migration {
         // deleting a story lifts its ledger entry; imported_at records the
         // first import. Reversible: down() drops it.
         $db->query('CREATE TABLE epub_imports (sha256 TEXT PRIMARY KEY, story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE, imported_at TEXT NOT NULL)');
+        // house standard: every FK column carries the index its lookups use
+        // (story deletes cascade through it; story pages list their imports)
+        $db->query('CREATE INDEX idx_epub_imports_story ON epub_imports (story_id)');
     }
     public function down(Kip\Database $db): void
     {

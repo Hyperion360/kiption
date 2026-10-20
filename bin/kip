@@ -429,13 +429,26 @@ match ($argv[1] ?? 'help') {
                 exit(1);
             }
         }
-        $files = is_dir($target) ? array_values((array) glob($target . '/*.epub')) : [$target];
+        // finding 2: scandir, not glob, lists the target. glob treats its
+        // whole argument as a pattern, so a directory named books[2024]
+        // matches the sibling books2 and books4 instead of listing its own
+        // files, and the case-sensitive *.epub silently skips .EPUB
+        $files = [$target];
+        if (is_dir($target)) {
+            $files = array_map(
+                static fn (string $f): string => rtrim($target, '/') . '/' . $f,
+                array_values(array_filter(scandir($target) ?: [],
+                    static fn (string $f): bool => str_ends_with(strtolower($f), '.epub'))));
+        }
         sort($files);
         if ($files === []) {
             fwrite(STDERR, "No .epub files in {$target}\n");
             exit(1);
         }
         $importer = new \App\Import\Epub($db, (string) $config['uploads']['dir']);
+        // finding 6: a hostile dc:title or note must not steer the
+        // operator's terminal; control characters strip at print time
+        $clean = static fn (string $s): string => (string) preg_replace('/[\x00-\x1f]/', '', $s);
         $labels = ['imported' => 'Imported', 'would import' => 'Would import', 'skipped' => 'Skipped', 'would skip' => 'Would skip'];
         $counts = ['imported' => 0, 'would import' => 0, 'would skip' => 0, 'skipped' => 0, 'failed' => 0];
         foreach ($files as $file) {
@@ -450,11 +463,11 @@ match ($argv[1] ?? 'help') {
             $counts[$status] = ($counts[$status] ?? 0) + 1;
             if ($status === 'failed') {   // refusals print on STDERR
                 fwrite(STDERR, "Failed: {$file}\n");
-                foreach ($rep['notes'] ?? [] as $n) { fwrite(STDERR, "  {$n}\n"); }
+                foreach ($rep['notes'] ?? [] as $n) { fwrite(STDERR, '  ' . $clean((string) $n) . "\n"); }
                 continue;
             }
-            printf("%s: %s (%d chapters, %d words)\n", $labels[$status] ?? $status, (string) $rep['title'], (int) $rep['chapters'], (int) $rep['words']);
-            foreach ($rep['notes'] ?? [] as $n) { echo "  {$n}\n"; }
+            printf("%s: %s (%d chapters, %d words)\n", $labels[$status] ?? $status, $clean((string) $rep['title']), (int) $rep['chapters'], (int) $rep['words']);
+            foreach ($rep['notes'] ?? [] as $n) { echo '  ' . $clean((string) $n) . "\n"; }
         }
         printf("%d %s, %d skipped, %d failed\n",
             $mode === 'commit' ? $counts['imported'] : $counts['would import'],
