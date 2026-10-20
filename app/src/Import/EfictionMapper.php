@@ -44,13 +44,16 @@ final class EfictionMapper
         $role = $validated ? 'validated_author' : 'member';
         $zeroDate = ($a['date'] ?? '') === '0000-00-00 00:00:00' || empty($a['date']);
         $ghost = ($a['admincreated'] ?? '0') === '1' && $zeroDate;
-        if ((string) $a['password'] !== '0' && strlen((string) $a['password']) === 32) $r->passwordLegacy++;
+        if (self::isPasswordHashFormat((string) $a['password'])) $r->passwordBcrypt++;
+        elseif ((string) $a['password'] !== '0' && strlen((string) $a['password']) === 32) $r->passwordLegacy++;
+        elseif ((string) $a['password'] !== '0' && (string) $a['password'] !== '') $r->passwordOther++;
         return [
             'legacy_uid' => (int) $a['uid'],
             'penname' => $pen,
             'email' => $email,
             'bio' => (string) ($a['bio'] ?? ''),
             'legacy_md5' => ((string) $a['password'] !== '0' && strlen((string) $a['password']) === 32) ? (string) $a['password'] : null,
+            'legacy_bcrypt' => self::isPasswordHashFormat((string) $a['password']) ? (string) $a['password'] : null,
             'role' => $role,
             'email_verified_at' => $ghost ? null : self::iso($a['date'] ?? null),
             'approved_at' => $ghost ? null : self::iso($a['date'] ?? null),
@@ -167,6 +170,17 @@ final class EfictionMapper
             'body' => (string) ($n['story'] ?? ''),
             'published_at' => self::iso($n['time'] ?? null) ?? (new \DateTimeImmutable('now'))->format(DATE_ATOM),
         ];
+    }
+
+    /** The whole password_hash() family: bcrypt today ($2[aby]$, eFiction
+     *  3.5.7+), argon2i/argon2id if a future official release (or a future
+     *  PHP PASSWORD_DEFAULT) produces them. One detection for the census and
+     *  the carried value so the two can never drift. password_verify()
+     *  adjudicates any recognizable format and returns false for garbage, so
+     *  permissive detection costs nothing and closes the forward-compat gap. */
+    private static function isPasswordHashFormat(string $pw): bool
+    {
+        return preg_match('/^\$(?:2[aby]|argon2id?)\$/', $pw) === 1 && strlen($pw) <= 255;
     }
 
     /** @return string[] */

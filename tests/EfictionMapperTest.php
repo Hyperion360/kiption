@@ -123,6 +123,39 @@ final class EfictionMapperTest extends TestCase
         $this->assertSame(1, $r->dropped['news author string (no column)'] ?? 0, 'the author STRING drops with a count');
     }
 
+    public function test_bcrypt_password_maps_to_legacy_bcrypt_not_md5(): void
+    {
+        $r = new Report();
+        $bcrypt = password_hash('bcryptpassword', PASSWORD_BCRYPT);
+        $mapped = EfictionMapper::mapUser(['uid' => 9, 'penname' => 'Bcrypt User', 'email' => 'bc@example.test',
+            'password' => $bcrypt, 'date' => '2026-01-01 00:00:00', 'admincreated' => '0'], null, [], [], $r);
+        $this->assertNull($mapped['legacy_md5']);
+        $this->assertSame($bcrypt, $mapped['legacy_bcrypt']);
+        $this->assertSame(1, $r->passwordBcrypt);
+        $this->assertSame(0, $r->passwordLegacy);
+    }
+
+    public function test_unknown_hash_format_counted_not_carried(): void
+    {
+        $r = new Report();
+        $mapped = EfictionMapper::mapUser(['uid' => 10, 'penname' => 'Odd', 'email' => 'odd@example.test',
+            'password' => sha1('whatever'), 'date' => '2026-01-01 00:00:00', 'admincreated' => '0'], null, [], [], $r);
+        $this->assertNull($mapped['legacy_md5']);
+        $this->assertNull($mapped['legacy_bcrypt']);
+        $this->assertSame(1, $r->passwordOther);
+    }
+
+    public function test_argon2id_hash_is_carried(): void
+    {
+        if (!defined('PASSWORD_ARGON2ID')) $this->markTestSkipped('argon2id unavailable');
+        $r = new Report();
+        $argon = password_hash('argonpassword', PASSWORD_ARGON2ID);
+        $mapped = EfictionMapper::mapUser(['uid' => 11, 'penname' => 'Future', 'email' => 'future@example.test',
+            'password' => $argon, 'date' => '2027-01-01 00:00:00', 'admincreated' => '0'], null, [], [], $r);
+        $this->assertSame($argon, $mapped['legacy_bcrypt']);
+        $this->assertSame(1, $r->passwordBcrypt);
+    }
+
     public static function ratingFlagsProvider(): array
     {
         $cases = [];

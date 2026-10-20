@@ -14,6 +14,8 @@ final class Report
     public int $unresolvableTokens = 0;
     public int $multiRatingStories = 0;
     public int $passwordLegacy = 0;
+    public int $passwordBcrypt = 0;
+    public int $passwordOther = 0;
     public int $responseBlocksExtracted = 0;
     public int $responseMisses = 0;
     public int $alreadyMapped = 0;
@@ -35,6 +37,8 @@ final class Report
         $lines[] = "unresolvable tokens: {$this->unresolvableTokens}";
         $lines[] = "multi-rating stories (first won): {$this->multiRatingStories}";
         $lines[] = "legacy password hashes: {$this->passwordLegacy}";
+        $lines[] = "legacy bcrypt hashes: {$this->passwordBcrypt}";
+        $lines[] = "unknown-format passwords (reset required): {$this->passwordOther}";
         $lines[] = "response blocks extracted: {$this->responseBlocksExtracted} (misses: {$this->responseMisses})";
         $lines[] = "already mapped (skipped): {$this->alreadyMapped}";
         foreach ($this->rejects as $why => $n) { $lines[] = "REJECT $why: $n"; }
