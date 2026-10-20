@@ -354,12 +354,16 @@ final class Epub
             if ($digest === false) {
                 throw new \RuntimeException("the file vanished before its digest was taken: {$path}");
             }
-            // decision 8: the digest check runs first in commit mode, so a
-            // re-offered file skips before any author or content work
-            if ($commit && ($hit = $this->db->one('SELECT story_id FROM epub_imports WHERE sha256 = ?', [$digest])) !== null) {
-                $row['status'] = 'skipped';
+            // decision 8: the digest check runs in BOTH modes, so a
+            // re-offered file skips before any author or content work in
+            // commit mode and reports would-skip instead of would-import in
+            // a dry run (finding 4: the old $commit guard had the dry run
+            // promising an import a commit would refuse)
+            if (($hit = $this->db->one('SELECT story_id FROM epub_imports WHERE sha256 = ?', [$digest])) !== null) {
+                $row['status'] = $commit ? 'skipped' : 'would skip';
                 $row['storyId'] = (int) $hit['story_id'];
-                $row['notes'][] = sprintf('skipped (already imported as story %d)', (int) $hit['story_id']);
+                $row['notes'][] = sprintf('%s (already imported as story %d)',
+                    $commit ? 'skipped' : 'would skip', (int) $hit['story_id']);
                 $this->lastReport = $row;
                 return;
             }

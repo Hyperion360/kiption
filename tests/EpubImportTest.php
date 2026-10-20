@@ -527,6 +527,24 @@ final class EpubImportTest extends TestCase
         $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK), 'a dry run stores no cover either');
     }
 
+    /** Finding: the digest check was guarded by $commit, so a dry run
+     *  printed "Would import" for a file commit would skip. The ledger
+     *  lookup runs in both modes and the dry run reports would-skip. */
+    public function test_a_dry_run_reports_would_skip_for_an_already_imported_digest(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('twice.epub');
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, true);
+        $first = $importer->lastReport();
+        $importer->importFile($epub, null, false);
+        $rep = $importer->lastReport();
+        $this->assertSame('would skip', $rep['status']);
+        $this->assertSame($first['storyId'], $rep['storyId']);
+        $this->assertContains('would skip (already imported as story ' . $first['storyId'] . ')', $rep['notes']);
+        $this->assertSame(['stories' => 1, 'chapters' => 3, 'ledger' => 1], $this->counts(), 'the dry run writes nothing');
+    }
+
     public function test_all_whitespace_chapters_refuse_without_a_ledger_row(): void
     {
         $this->member('realauthor');

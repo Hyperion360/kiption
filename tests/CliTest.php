@@ -428,4 +428,29 @@ final class CliTest extends TestCase
         $this->assertSame(3, $this->rows('SELECT COUNT(*) c FROM chapters'));
         $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'));
     }
+
+
+
+    /** Finding: the digest check was commit-only, so a dry run promised
+     *  "Would import" for a file commit would skip. The ledger lookup runs
+     *  in both modes and the dry run reports Would skip, writing nothing. */
+    public function test_import_epub_dry_run_reports_would_skip_for_an_already_imported_file(): void
+    {
+        $authorId = $this->importSetup();
+        $epub = $this->epub('again.epub', 'Repeat Book');
+        [$code, $out] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, $out);
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --dry-run --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        // the skip fires before any conversion work, so the counts stay 0:
+        // nothing beyond the digest was read
+        $this->assertMatchesRegularExpression('/^Would skip: Repeat Book \(0 chapters, 0 words\)$/m', $out);
+        $this->assertMatchesRegularExpression('/already imported as story \d+/', $out);
+        $this->assertMatchesRegularExpression('/^0 would import, 1 skipped, 0 failed$/m', $out);
+        $this->assertStringNotContainsString('Would import:', $out);
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'), 'the dry run writes no story');
+        $this->assertSame(3, $this->rows('SELECT COUNT(*) c FROM chapters'));
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'), 'the dry run writes no ledger row');
+    }
+
 }

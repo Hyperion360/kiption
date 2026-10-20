@@ -436,8 +436,8 @@ match ($argv[1] ?? 'help') {
             exit(1);
         }
         $importer = new \App\Import\Epub($db, (string) $config['uploads']['dir']);
-        $labels = ['imported' => 'Imported', 'would import' => 'Would import', 'skipped' => 'Skipped'];
-        $counts = ['imported' => 0, 'would import' => 0, 'skipped' => 0, 'failed' => 0];
+        $labels = ['imported' => 'Imported', 'would import' => 'Would import', 'skipped' => 'Skipped', 'would skip' => 'Would skip'];
+        $counts = ['imported' => 0, 'would import' => 0, 'would skip' => 0, 'skipped' => 0, 'failed' => 0];
         foreach ($files as $file) {
             try {
                 $importer->importFile($file, $authorId !== null ? (int) $authorId : null, $mode === 'commit');
@@ -458,7 +458,9 @@ match ($argv[1] ?? 'help') {
         }
         printf("%d %s, %d skipped, %d failed\n",
             $mode === 'commit' ? $counts['imported'] : $counts['would import'],
-            $mode === 'commit' ? 'imported' : 'would import', $counts['skipped'], $counts['failed']);
+            $mode === 'commit' ? 'imported' : 'would import',
+            $counts['skipped'] + $counts['would skip'], // finding 4: a dry run counts its would-skips as skips
+            $counts['failed']);
         exit($counts['failed'] > 0 ? 1 : 0);
     })(),
     'mail:users' => (function () use ($config, $argv) {
