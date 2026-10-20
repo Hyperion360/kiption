@@ -371,6 +371,83 @@ match ($argv[1] ?? 'help') {
             exit(1);
         }
     })(),
+    'import:epub' => (function () use ($config, $argv) {
+        $target = $argv[2] ?? '';
+        $rest = array_slice($argv, 2);
+        $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
+        $author = $authorId = null;
+        foreach ($rest as $a) {
+            if (str_starts_with($a, '--author=') && strlen($a) > 9) { $author = substr($a, 9); }
+            if (str_starts_with($a, '--author-id=') && strlen($a) > 12) { $authorId = substr($a, 12); }
+        }
+        $usage = "Usage: kip import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]\n";
+        if (in_array('--dry-run', $rest, true) && in_array('--commit', $rest, true)) {
+            fwrite(STDERR, "--dry-run and --commit are mutually exclusive.\n{$usage}");
+            exit(1);
+        }
+        if ($author !== null && $authorId !== null) {
+            fwrite(STDERR, "--author and --author-id are mutually exclusive.\n{$usage}");
+            exit(1);
+        }
+        if ($target === '' || $mode === '' || (!is_file($target) && !is_dir($target))) {
+            // a mistyped or missing path gets its own line (the import:efiction idiom)
+            if ($target !== '' && !is_file($target) && !is_dir($target)) {
+                fwrite(STDERR, "No such file: {$target}\n");
+            }
+            fwrite(STDERR, $usage);
+            exit(1);
+        }
+        if ($authorId !== null && !ctype_digit($authorId)) {
+            fwrite(STDERR, "--author-id wants a positive integer.\n{$usage}");
+            exit(1);
+        }
+        $db = new Kip\Database($config['db']['dsn']);
+        if ($author !== null) {
+            // penname resolution is the CLI's job (the importer takes ids
+            // only): exact, case-insensitive against users.penname, the same
+            // fold the importer's dc:creator fallback applies
+            $hit = null;
+            foreach ($db->all('SELECT id, penname FROM users') as $u) {
+                if (mb_strtolower((string) $u['penname']) === mb_strtolower($author)) { $hit = (int) $u['id']; break; }
+            }
+            if ($hit === null) {
+                fwrite(STDERR, "no member carries the penname '{$author}': resolve --author against users first\n");
+                exit(1);
+            }
+            $authorId = $hit;
+        }
+        $files = is_dir($target) ? array_values((array) glob($target . '/*.epub')) : [$target];
+        sort($files);
+        if ($files === []) {
+            fwrite(STDERR, "No .epub files in {$target}\n");
+            exit(1);
+        }
+        $importer = new \App\Import\Epub($db, (string) $config['uploads']['dir']);
+        $labels = ['imported' => 'Imported', 'would import' => 'Would import', 'skipped' => 'Skipped'];
+        $counts = ['imported' => 0, 'would import' => 0, 'skipped' => 0, 'failed' => 0];
+        foreach ($files as $file) {
+            try {
+                $importer->importFile($file, $authorId !== null ? (int) $authorId : null, $mode === 'commit');
+            } catch (\Throwable) {
+                // one bad book never stops the batch; the failed report row
+                // is always left behind for the print below
+            }
+            $rep = $importer->lastReport() ?? [];
+            $status = (string) ($rep['status'] ?? 'failed');
+            $counts[$status] = ($counts[$status] ?? 0) + 1;
+            if ($status === 'failed') {   // refusals print on STDERR
+                fwrite(STDERR, "Failed: {$file}\n");
+                foreach ($rep['notes'] ?? [] as $n) { fwrite(STDERR, "  {$n}\n"); }
+                continue;
+            }
+            printf("%s: %s (%d chapters, %d words)\n", $labels[$status] ?? $status, (string) $rep['title'], (int) $rep['chapters'], (int) $rep['words']);
+            foreach ($rep['notes'] ?? [] as $n) { echo "  {$n}\n"; }
+        }
+        printf("%d %s, %d skipped, %d failed\n",
+            $mode === 'commit' ? $counts['imported'] : $counts['would import'],
+            $mode === 'commit' ? 'imported' : 'would import', $counts['skipped'], $counts['failed']);
+        exit($counts['failed'] > 0 ? 1 : 0);
+    })(),
     'mail:users' => (function () use ($config, $argv) {
         $rest = array_slice($argv, 2);
         $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
@@ -427,5 +504,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };

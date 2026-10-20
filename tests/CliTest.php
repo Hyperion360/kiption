@@ -15,8 +15,13 @@ final class CliTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-cli-') . '.sqlite';
     }
 
+    private string $fixtures = '';
+
     protected function tearDown(): void
     {
+        if ($this->fixtures !== '') { exec('rm -rf ' . escapeshellarg($this->fixtures)); $this->fixtures = ''; }
+        $staticDir = $this->path . '-static';
+        if (is_dir($staticDir)) { exec('rm -rf ' . escapeshellarg($staticDir)); }
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
@@ -208,5 +213,172 @@ final class CliTest extends TestCase
         $this->assertSame(0, $code, $out);
         $this->assertStringContainsString('upstream check unavailable', $out);
         exec('rm -rf ' . escapeshellarg($dir));
+    }
+
+    // ------------------------------------------------------------------
+    // import:epub. The shared kip() folds stderr into stdout with 2>&1;
+    // the import refusals print to STDERR, so these cases run the command
+    // through a local wrapper that captures the two streams apart.
+    // ------------------------------------------------------------------
+
+    /** @return array{0: int, 1: string, 2: string} exit code, stdout, stderr */
+    private function kipSplit(string $args): array
+    {
+        $staticDir = $this->path . '-static';
+        if (!is_dir($staticDir)) { mkdir($staticDir); }
+        $outFile = $this->path . '-out';
+        $errFile = $this->path . '-err';
+        $cmd = sprintf('KIP_DB_DSN=%s KIP_STATIC_CACHE_DIR=%s %s %s %s > %s 2> %s',
+            escapeshellarg('sqlite:' . $this->path),
+            escapeshellarg($staticDir),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(dirname(__DIR__) . '/bin/kip'),
+            $args,
+            escapeshellarg($outFile),
+            escapeshellarg($errFile));
+        exec($cmd, $ignored, $code);
+        return [(int) $code, (string) file_get_contents($outFile), (string) file_get_contents($errFile)];
+    }
+
+    /** A throwaway directory for the .epub fixtures, removed on teardown. */
+    private function fixturesDir(): string
+    {
+        if ($this->fixtures === '') {
+            $this->fixtures = sys_get_temp_dir() . '/kiption-cli-fx-' . uniqid('', true);
+            mkdir($this->fixtures, 0775, true);
+        }
+        return $this->fixtures;
+    }
+
+    /** A minimal importable EPUB at fixtures/<name>: container, OPF
+     *  (title, creator, no cover convention), N one-paragraph chapters.
+     *  Returns the absolute path, the EpubImportTest fixture idiom. */
+    private function epub(string $name, string $title, string $creator = 'cli-author', int $chapters = 3): string
+    {
+        $items = $refs = [];
+        $path = $this->fixturesDir() . '/' . $name;
+        $zip = new \ZipArchive();
+        if ($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            $this->fail("fixture zip {$name} failed to open for writing");
+        }
+        for ($n = 1; $n <= $chapters; $n++) {
+            $items[] = sprintf('<item id="ch%d" href="Text/ch%d.xhtml" media-type="application/xhtml+xml"/>', $n, $n);
+            $refs[] = sprintf('<itemref idref="ch%d"/>', $n);
+            $zip->addFromString(sprintf('OEBPS/Text/ch%d.xhtml', $n),
+                '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>ch' . $n . '</title></head>'
+                . '<body><h2>ch' . $n . '</h2><p>Prose for chapter ' . $n . '.</p></body></html>');
+        }
+        $zip->addFromString('mimetype', 'application/epub+zip');
+        $zip->addFromString('META-INF/container.xml',
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            . '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+        $zip->addFromString('OEBPS/content.opf',
+            '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">'
+            . '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            . '<dc:title>' . $title . '</dc:title><dc:creator>' . $creator . '</dc:creator>'
+            . '<dc:description>A CLI fixture.</dc:description><dc:language>en</dc:language></metadata>'
+            . '<manifest>' . implode('', $items) . '</manifest><spine>' . implode('', $refs) . '</spine></package>');
+        $zip->close();
+        return $path;
+    }
+
+    /** A member with a known penname, the EpubImportTest INSERT idiom
+     *  against the same throwaway DB the CLI points at. */
+    private function member(string $penname): int
+    {
+        $db = new Database('sqlite:' . $this->path);
+        $db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)",
+            [$penname . '@e.test', password_hash('x1234567', PASSWORD_DEFAULT), $penname, date('c'), date('c')]);
+        return (int) $db->lastInsertId();
+    }
+
+    private function rows(string $sql): int
+    {
+        return (int) (new Database('sqlite:' . $this->path))->one($sql)['c'];
+    }
+
+    /** The common preamble: schema, blank taxonomy, one author member. */
+    private function importSetup(): int
+    {
+        $this->kip('migrate');
+        $this->kip('db:blank');
+        return $this->member('cli-author');
+    }
+
+    public function test_import_epub_commit_imports_a_file_and_prints_the_report(): void
+    {
+        $authorId = $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Cli Title \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertStringNotContainsString('Would import', $out);
+        $this->assertSame('', $err, 'a clean import prints nothing on stderr');
+        $db = new Database('sqlite:' . $this->path);
+        $story = $db->one("SELECT id, title, author_id FROM stories WHERE title = 'Cli Title'");
+        $this->assertNotNull($story, 'the story row landed');
+        $this->assertSame($authorId, (int) $story['author_id']);
+        $this->assertSame(3, $this->rows('SELECT COUNT(*) c FROM chapters WHERE story_id = ' . (int) $story['id']));
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'));
+    }
+
+    public function test_import_epub_imports_a_directory_sorted_with_a_summary(): void
+    {
+        $authorId = $this->importSetup();
+        $this->epub('b-second.epub', 'Beta Book');
+        $this->epub('a-first.epub', 'Alpha Book');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Alpha Book \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertMatchesRegularExpression('/^Imported: Beta Book \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertLessThan(strpos($out, 'Imported: Beta Book'), strpos($out, 'Imported: Alpha Book'),
+            'the directory walks in filename order, not directory order');
+        $this->assertMatchesRegularExpression('/^2 imported, 0 skipped, 0 failed$/m', $out);
+        $this->assertSame(2, $this->rows('SELECT COUNT(*) c FROM stories'));
+        $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM stories WHERE title = 'Alpha Book'"));
+    }
+
+    public function test_import_epub_dry_run_prints_and_persists_nothing(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('dry.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --dry-run --author=cli-author');
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Would import: Cli Title \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertStringNotContainsString('Imported:', $out);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'), 'a dry run writes no story');
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM chapters'));
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM epub_imports'), 'a dry run writes no ledger row');
+    }
+
+    public function test_import_epub_unknown_penname_refuses_on_stderr_before_any_import(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('ghost.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author=nope');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString("no member carries the penname 'nope'", $err, 'the refusal reaches STDERR');
+        $this->assertSame('', $out, 'a refusal prints no success lines');
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    public function test_import_epub_rejects_both_author_flags_as_a_usage_error(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author=a --author-id=1');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    public function test_import_epub_rejects_dry_run_and_commit_together_as_a_usage_error(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --dry-run --commit');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
     }
 }
