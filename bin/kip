@@ -372,6 +372,8 @@ match ($argv[1] ?? 'help') {
         }
     })(),
     'import:epub' => (function () use ($config, $argv) {
+        // a near-cap 64 MiB archive (Epub::MAX_TOTAL_BYTES) busts the 128M CLI limit mid-batch: 512M holds it
+        ini_set('memory_limit', '512M');
         $target = $argv[2] ?? '';
         $rest = array_slice($argv, 2);
         $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');

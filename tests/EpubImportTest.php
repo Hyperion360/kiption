@@ -702,6 +702,79 @@ final class EpubImportTest extends TestCase
             'the distinct linear chapters land in spine order');
     }
 
+    /** The FanFicFare OPF shape: titlepage and log_page as DISTINCT manifest
+     *  items ahead of the real chapters, every itemref at linear="yes" (the
+     *  way writer_epub.py writes them). $titleId/$logId set the manifest
+     *  id casing. */
+    private function fanficfareOpf(string $titleId = 'titlepage', string $logId = 'log_page'): string
+    {
+        return '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">'
+            . '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            . '<dc:title>Stamped Title</dc:title><dc:creator>realauthor</dc:creator>'
+            . '<dc:description>FanFicFare shape fixture.</dc:description><dc:language>en</dc:language></metadata>'
+            . '<manifest>'
+            . '<item id="' . $titleId . '" href="titlepage.xhtml" media-type="application/xhtml+xml"/>'
+            . '<item id="' . $logId . '" href="log_page.xhtml" media-type="application/xhtml+xml"/>'
+            . '<item id="ch1" href="Text/ch1.xhtml" media-type="application/xhtml+xml"/>'
+            . '<item id="ch2" href="Text/ch2.xhtml" media-type="application/xhtml+xml"/>'
+            . '</manifest>'
+            . '<spine><itemref idref="' . $titleId . '" linear="yes"/><itemref idref="' . $logId . '" linear="yes"/>'
+            . '<itemref idref="ch1" linear="yes"/><itemref idref="ch2" linear="yes"/></spine></package>';
+    }
+
+    /** An override pair: the upstream front matter pages themselves, each
+     *  carrying exactly what writer_epub.py dumps there (title + byline +
+     *  summary on the title page, the update log list on the log page). */
+    private function fanficfarePages(): array
+    {
+        return [
+            'OEBPS/titlepage.xhtml' => '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Title Page</title></head>'
+                . '<body><h2>Stamped Title</h2><p>by realauthor</p><p>The summary dump lives here.</p></body></html>',
+            'OEBPS/log_page.xhtml' => '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Update Log</title></head>'
+                . '<body><h2>Update Log</h2><p>Published: 2026-01-01.</p></body></html>',
+        ];
+    }
+
+    /** Finding: the real FanFicFare epub writer emits title_page and
+     *  log_page as DISTINCT manifest items with every itemref at
+     *  linear="yes", so neither the linear=no guard nor the duplicate-path
+     *  guard ever saw them: the title page imported as chapter 1 and the
+     *  update log as chapter 2. The skip is the manifest idref fingerprint
+     *  ('titlepage', 'log_page'), each skip counted in one note. */
+    public function test_fanficfare_front_matter_idrefs_skip_with_a_counted_note(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('fanficfare.epub', ['chapters' => 2], [
+            'OEBPS/content.opf' => $this->fanficfareOpf(),
+        ] + $this->fanficfarePages());
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, true);
+        $rep = $importer->lastReport();
+        $this->assertSame('imported', $rep['status']);
+        $this->assertSame(2, $rep['chapters'], 'the title page and the update log import as zero chapters');
+        $this->assertContains('FanFicFare front matter pages skipped: 2', $rep['notes']);
+        $this->assertSame(['ch1', 'ch2'],
+            array_column($this->db->all('SELECT title FROM chapters WHERE story_id = ? ORDER BY position', [$rep['storyId']]), 'title'),
+            'only the real chapters import, in spine order');
+    }
+
+    /** The fingerprint matches the upstream idref convention case
+     *  insensitively and exactly: a variant casing still skips, while a
+     *  chapter whose TITLE reads "Title Page" is untouched prose. */
+    public function test_the_front_matter_fingerprint_matches_the_idref_case_insensitively(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('fanficfare-case.epub', ['chapters' => 2], [
+            'OEBPS/content.opf' => $this->fanficfareOpf('TitlePage', 'LOG_PAGE'),
+        ] + $this->fanficfarePages());
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, true);
+        $rep = $importer->lastReport();
+        $this->assertSame('imported', $rep['status']);
+        $this->assertSame(2, $rep['chapters']);
+        $this->assertContains('FanFicFare front matter pages skipped: 2', $rep['notes']);
+    }
+
     /** Finding: the /u whitespace collapse returns null on invalid UTF-8 and
      *  the old cast silently emptied the summary. loadXML refuses invalid
      *  bytes on the wire, so the only way they reach the pipeline is a

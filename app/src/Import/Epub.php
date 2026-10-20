@@ -259,23 +259,35 @@ final class Epub
     /** Spine idrefs in document order, filtered to xhtml media-types and
      *  capped at MAX_CHAPTERS (decision 3: an over-cap spine refuses before
      *  any chapter payload is read). itemrefs carrying linear="no" are
-     *  auxiliary content and skip with a counted note, and a second itemref
-     *  to an already-resolved path skips with a counted note (FanFicFare
-     *  ships title_page/log_page this way; the duplicate would import the
-     *  chapter twice). Every spine path must name a real entry; a spine
-     *  with nothing readable refuses the file. */
+     *  auxiliary content and skip with a counted note, a second itemref to
+     *  an already-resolved path skips with a counted note, and the
+     *  FanFicFare front matter skips on the manifest idref fingerprint:
+     *  writer_epub.py emits title_page and log_page as DISTINCT manifest
+     *  items and writes every itemref at linear="yes", so neither guard
+     *  above ever saw them and the title page (title, byline, summary
+     *  dump) imported as chapter 1 with the update log as chapter 2; the
+     *  exact, case-insensitive match on those two idrefs counts each skip.
+     *  The fingerprint is the idref convention only: a chapter whose TITLE
+     *  reads "Title Page" is real prose and imports. Every spine path must
+     *  name a real entry; a spine with nothing readable refuses the file. */
     private function readSpine(\DOMDocument $doc, array $manifest, array &$notes): array
     {
         $spine = [];
         $linearSkipped = 0;
         $duplicates = 0;
+        $frontMatter = 0;
         foreach ($doc->getElementsByTagName('itemref') as $ref) {
+            // deliberately case-insensitive (the spec is case-sensitive)
             if (mb_strtolower($ref->getAttribute('linear')) === 'no') {
                 $linearSkipped++;
                 continue;
             }
             $item = $manifest[$ref->getAttribute('idref')] ?? null;
             if ($item === null || !in_array($item['mediaType'], ['application/xhtml+xml', 'text/html'], true)) {
+                continue;
+            }
+            if (in_array(mb_strtolower($ref->getAttribute('idref')), ['titlepage', 'log_page'], true)) {
+                $frontMatter++;
                 continue;
             }
             if (in_array($item['path'], $spine, true)) {
@@ -285,6 +297,7 @@ final class Epub
             $spine[] = $item['path'];
         }
         if ($linearSkipped > 0) { $notes[] = sprintf('linear="no" itemrefs skipped: %d', $linearSkipped); }
+        if ($frontMatter > 0) { $notes[] = sprintf('FanFicFare front matter pages skipped: %d', $frontMatter); }
         if ($duplicates > 0) { $notes[] = sprintf('duplicate spine itemrefs skipped: %d', $duplicates); }
         if (count($spine) > self::MAX_CHAPTERS) {
             throw new \RuntimeException(sprintf('spine exceeds 512 chapters: %d readable itemrefs, over the cap', count($spine)));
