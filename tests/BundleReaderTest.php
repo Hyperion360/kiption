@@ -50,6 +50,16 @@ final class BundleReaderTest extends TestCase
         $this->assertSame('legacy author ', $authors[1]['penname'], 'bytes verbatim incl. trailing space');
     }
 
+    public function test_manifest_records_source_version_and_hash_census(): void
+    {
+        $m = (new BundleReader($this->bundlePath()))->manifest();
+        $this->assertArrayHasKey('source_version', $m);           // from the fixture's settings row
+        $this->assertSame('3.5.5', $m['source_version']);
+        $this->assertSame(2, $m['password_formats']['md5']);     // fixture uids 1+2
+        $this->assertSame(1, $m['password_formats']['bcrypt']);  // fixture uid 7
+        $this->assertSame(0, $m['password_formats']['other']);
+    }
+
     public function test_reader_exposes_story_files(): void
     {
         $reader = new BundleReader($this->bundlePath());

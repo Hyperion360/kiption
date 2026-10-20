@@ -35,10 +35,10 @@ final class EfictionInstall
         // REAL 3.5.5 columns (install/install.php:632); the 9b shape with
         // pl_type/pl_pageid was invented and exists nowhere in the source
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_pagelinks (link_id INTEGER PRIMARY KEY, link_name TEXT, link_text TEXT, link_key TEXT, link_url TEXT, link_target TEXT, link_access INTEGER)");
-        $this->pdo->exec("CREATE TABLE fxs_fanfiction_settings (sitekey TEXT PRIMARY KEY, tableprefix TEXT, store TEXT, storiespath TEXT, maintenance INTEGER, language TEXT)");
+        $this->pdo->exec("CREATE TABLE fxs_fanfiction_settings (sitekey TEXT PRIMARY KEY, tableprefix TEXT, store TEXT, storiespath TEXT, maintenance INTEGER, language TEXT, version TEXT)");
         // adversarial seed: penname case collision, admincreated ghost, zero dates,
         // 'No Review' sentinel, response block appended, store=files chapter
-        $this->pdo->exec("INSERT INTO fxs_fanfiction_settings VALUES ('FXKEY', 'fx_', 'files', 'stories', 1, 'en')");
+        $this->pdo->exec("INSERT INTO fxs_fanfiction_settings VALUES ('FXKEY', 'fx_', 'files', 'stories', 1, 'en', '3.5.5')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authors (uid, penname, email, password, date, admincreated) VALUES (1, 'Legacy Author', 'legacy@example.test', '" . md5('oldpassword') . "', '2010-05-01 10:00:00', '0')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authors (uid, penname, email, password, date, admincreated) VALUES (2, 'legacy author ', 'second@example.test', '" . md5('otherpassword') . "', '0000-00-00 00:00:00', '1')");
         // eFiction 3.5.7+ member: password_hash() bcrypt, varchar(255) in MySQL (TEXT here).

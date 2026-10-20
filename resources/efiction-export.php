@@ -37,6 +37,8 @@ final class EfictionExporter
         $manifest = [
             'exporter_version' => self::VERSION,
             'efiction_version' => '3.5.5',
+            'source_version' => (isset($settings['version']) && $settings['version'] !== null && $settings['version'] !== '')
+                ? (string) $settings['version'] : null, // display-only; the Kiption mapper never branches on it
             'exported_at' => gmdate('c'),
             'settings' => [
                 'store' => (string) $settings['store'],
@@ -49,6 +51,19 @@ final class EfictionExporter
             'counts' => [],
             'invalid_utf8_replaced' => 0,
         ];
+        // Password-format census (display-only; the Kiption mapper re-detects
+        // per row). Old installs without a settings.version column export
+        // with source_version null — SELECT * tolerates the missing column.
+        $census = ['md5' => 0, 'bcrypt' => 0, 'other' => 0];
+        $qc = dbquery('SELECT password FROM ' . TABLEPREFIX . 'fanfiction_authors');
+        while (($a = dbassoc($qc)) !== null) {
+            $pw = (string) $a['password'];
+            if ($pw === '0' || $pw === '') continue;                      // passwordless: not carried, not counted
+            if (strlen($pw) === 32 && ctype_xdigit($pw)) $census['md5']++;
+            elseif (strlen($pw) === 60 && preg_match('/^\$2[aby]\$/', $pw)) $census['bcrypt']++;
+            else $census['other']++;
+        }
+        $manifest['password_formats'] = $census;
         $jsonl = gzopen($this->outDir . '/archive.jsonl.gz', 'wb9');
         foreach (self::TABLES as $i => $table) {
             $count = 0;
