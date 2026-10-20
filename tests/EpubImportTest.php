@@ -551,17 +551,21 @@ final class EpubImportTest extends TestCase
     {
         $this->member('realauthor');
         $epub = $this->importBook('orphan.epub', [], ['OEBPS/cover.png' => $this->png()]);
-        $this->db->exec('DROP TABLE epub_imports'); // forced failure after the cover stored
+        // forced failure AFTER the cover has moved: dropping chapters lets
+        // the digest pre-check pass, the cover store, and the story row
+        // land, and only then blows up the first chapter INSERT, which is
+        // exactly the rollback+unlink path this test guards (dropping
+        // epub_imports instead dies in the pre-check, before persist(),
+        // and the empty-uploads assertion passes vacuously)
+        $this->db->exec('DROP TABLE chapters');
         $importer = new Epub($this->db, $this->uploads, true);
         try {
             $importer->importFile($epub, null, true);
-            $this->fail('the missing ledger table must abort the import');
+            $this->fail('the missing chapters table must abort the import');
         } catch (\PDOException $ex) {
-            $this->assertStringContainsString('epub_imports', $ex->getMessage());
+            $this->assertStringContainsString('chapters', $ex->getMessage());
         }
-        // the ledger table is gone by construction; measure the rest
         $this->assertSame($this->seeded['stories'], (int) $this->db->one('SELECT COUNT(*) c FROM stories')['c'], 'the catch rolled the story back');
-        $this->assertSame($this->seeded['chapters'], (int) $this->db->one('SELECT COUNT(*) c FROM chapters')['c'], 'the catch rolled the chapters back');
         $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK), 'the rollback unlinked the stored cover');
         $this->assertSame('failed', $importer->lastReport()['status']);
     }
