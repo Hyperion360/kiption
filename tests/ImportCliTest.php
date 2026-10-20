@@ -120,4 +120,13 @@ final class ImportCliTest extends TestCase
         [$code2, ] = $this->kip('import:efiction ' . escapeshellarg($b));
         $this->assertNotSame(0, $code2, 'neither --dry-run nor --commit refuses');
     }
+
+    public function test_migration_037_adds_legacy_bcrypt_column(): void
+    {
+        $this->kip('migrate');
+        $cols = $this->db()->all("PRAGMA table_info(users)");
+        $names = array_column($cols, 'name');
+        $this->assertContains('legacy_md5', $names);   // pre-existing seam intact
+        $this->assertContains('legacy_bcrypt', $names); // new
+    }
 }
