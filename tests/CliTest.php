@@ -381,4 +381,37 @@ final class CliTest extends TestCase
         $this->assertStringContainsString('Usage: kip import:epub', $err);
         $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
     }
+
+    public function test_import_epub_rejects_empty_author_values_as_a_usage_error(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, , $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author=');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        [$code, , $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    /** The mid-batch corruption case: a good book followed by a corrupt one
+     *  must report each file as itself (the failed row can never be the
+     *  previous file's) and sink the run's exit code. */
+    public function test_import_epub_mixed_batch_reports_each_file_and_fails_the_run(): void
+    {
+        $authorId = $this->importSetup();
+        $this->epub('1-good.epub', 'Good Book');
+        file_put_contents($this->fixturesDir() . '/2-corrupt.epub', 'not a zip archive at all');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(1, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertSame(1, substr_count($out, 'Imported:'), 'the good file imports once: ' . $out);
+        $this->assertMatchesRegularExpression('/^Imported: Good Book \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertMatchesRegularExpression('/^Failed: .*2-corrupt\.epub$/m', $err);
+        $this->assertMatchesRegularExpression('/not a readable zip archive/', $err, 'the failure reason rides the Failed block');
+        $this->assertMatchesRegularExpression('/^1 imported, 0 skipped, 1 failed$/m', $out);
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'));
+        $this->assertSame(3, $this->rows('SELECT COUNT(*) c FROM chapters'));
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'));
+    }
 }

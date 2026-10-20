@@ -377,12 +377,16 @@ match ($argv[1] ?? 'help') {
         $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
         $author = $authorId = null;
         foreach ($rest as $a) {
-            if (str_starts_with($a, '--author=') && strlen($a) > 9) { $author = substr($a, 9); }
-            if (str_starts_with($a, '--author-id=') && strlen($a) > 12) { $authorId = substr($a, 12); }
+            if (str_starts_with($a, '--author=')) { $author = substr($a, 9); }
+            if (str_starts_with($a, '--author-id=')) { $authorId = substr($a, 12); }
         }
         $usage = "Usage: kip import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]\n";
         if (in_array('--dry-run', $rest, true) && in_array('--commit', $rest, true)) {
             fwrite(STDERR, "--dry-run and --commit are mutually exclusive.\n{$usage}");
+            exit(1);
+        }
+        if (($author !== null && $author === '') || ($authorId !== null && $authorId === '')) {
+            fwrite(STDERR, "--author and --author-id want a value after the =.\n{$usage}");
             exit(1);
         }
         if ($author !== null && $authorId !== null) {

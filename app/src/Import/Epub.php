@@ -308,20 +308,25 @@ final class Epub
      *  resolves --author-id/--author to an id upstream); null falls back to
      *  an exact case-insensitive penname match on the OPF's dc:creator, and
      *  no match refuses. $commit = false is a dry run: everything is read,
-     *  converted and counted into the report, nothing is written. */
+     *  converted and counted into the report, nothing is written. inspect()
+     *  runs INSIDE the try, so every throw (a corrupt archive included)
+     *  leaves THIS file's failed report row behind; a stale row from the
+     *  previous file in a batch would let the CLI print an imported line
+     *  for a book that never opened. */
     public function importFile(string $path, ?int $authorId, bool $commit): void
     {
-        $meta = $this->inspect($path);
         $row = [
             'file' => $path,
             'status' => $commit ? 'imported' : 'would import',
-            'title' => (string) $meta['title'],
+            'title' => '',
             'chapters' => 0,
             'words' => 0,
             'storyId' => null,
             'notes' => [],
         ];
         try {
+            $meta = $this->inspect($path);
+            $row['title'] = (string) $meta['title'];
             $digest = hash_file('sha256', $path);
             if ($digest === false) {
                 throw new \RuntimeException("the file vanished before its digest was taken: {$path}");
