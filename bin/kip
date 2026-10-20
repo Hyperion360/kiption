@@ -420,6 +420,15 @@ match ($argv[1] ?? 'help') {
             }
             $authorId = $hit;
         }
+        if ($authorId !== null) {
+            // the importer's own id check fires per file (one Failed block
+            // per book in a directory run): refuse once here, the same
+            // up-front resolution the penname path just did
+            if ($db->one('SELECT id FROM users WHERE id = ?', [(int) $authorId]) === null) {
+                fwrite(STDERR, "no member carries author id {$authorId}: resolve --author-id against users first\n");
+                exit(1);
+            }
+        }
         $files = is_dir($target) ? array_values((array) glob($target . '/*.epub')) : [$target];
         sort($files);
         if ($files === []) {

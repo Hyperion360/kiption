@@ -1148,7 +1148,7 @@ administrator with `php bin/kip user:create <email> [password]
 
 AO3 downloads, FanFicFare output, or any EPUB you own:
 
-    php bin/kip import:epub ~/Downloads/ao3-exports/ --commit --author=demo
+    php bin/kip import:epub ~/Downloads/ao3-exports/ --commit --author='Demo Author'
 
 One story per file, chapters in spine order, summary and cover from the
 EPUB's own metadata, each file imported once (re-runs skip by content

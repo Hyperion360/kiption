@@ -362,6 +362,20 @@ final class CliTest extends TestCase
         $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
     }
 
+    /** A nonexistent --author-id refuses once, up front: the importer's own
+     *  id check fires per file, so a directory run would otherwise print one
+     *  Failed block per book (the penname path already fast-fails here). */
+    public function test_import_epub_unknown_author_id_refuses_once_before_any_import(): void
+    {
+        $this->importSetup();
+        $this->epub('lonely.epub', 'Ghost Id');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=999999');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('no member carries author id 999999', $err, 'the refusal names the id on STDERR');
+        $this->assertSame('', $out, 'a refusal prints no success lines');
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
     public function test_import_epub_rejects_both_author_flags_as_a_usage_error(): void
     {
         $this->importSetup();
