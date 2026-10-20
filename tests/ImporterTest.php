@@ -139,7 +139,7 @@ final class ImporterTest extends TestCase
         });
         $out = $this->import($b, 'commit');
         $db = $this->db();
-        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
         $this->assertSame('The stored **chapter** text.', trim((string) $db->one('SELECT content FROM chapters')['content']));
         $this->assertStringContainsString('verification', $out);
         $this->assertStringContainsString('password file', $out);
@@ -149,11 +149,11 @@ final class ImporterTest extends TestCase
         // re-commit: SELECT-first skips, no duplicates
         $again = $this->import($b, 'commit');
         $this->assertStringContainsString('already mapped', $again);
-        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
         // dry-run after commit (same options): legal, writes nothing new
         $dry = $this->import($b, 'dry-run');
         $this->assertStringContainsString('dry-run: nothing written', $dry);
-        $this->assertSame(9, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
+        $this->assertSame(11, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
     }
 
     public function test_allow_missing_text_stubs_missing_chapters(): void
@@ -314,7 +314,7 @@ final class ImporterTest extends TestCase
         // roles, EAV, junctions, clamps, anchors
         $this->assertSame('admin', $db->one("SELECT role FROM users WHERE penname = 'The Admin'")['role'], 'manifest admins CSV upgraded (junk tokens ignored)');
         $this->assertSame('EAV bio wins', $db->one("SELECT bio FROM users WHERE penname = 'The Admin'")['bio']);
-        $this->assertSame('LEGACY AUTHOR-3', $db->one('SELECT penname FROM users ORDER BY id DESC LIMIT 1')['penname'], 'case collision suffixing chains');
+        $this->assertSame('LEGACY AUTHOR-3', $db->one("SELECT penname FROM users WHERE email = 'caps@e.test'")['penname'], 'case collision suffixing chains');
         $this->assertSame(10, (int) $db->one('SELECT rating FROM reviews WHERE body = ?', ['clamp'])['rating'], '99 clamps to 10');
         $this->assertSame('rsp & more', $db->one('SELECT response FROM reviews WHERE body = ?', ['clamp'])['response']);
         $this->assertNull($db->one("SELECT user_id FROM reviews WHERE body = 'uid gone'")['user_id']);
@@ -328,7 +328,7 @@ final class ImporterTest extends TestCase
         // re-commit: every table skips through import_map, no duplicates
         $again = $this->import($b, 'commit');
         $this->assertStringContainsString('already mapped', $again);
-        $this->assertSame(4, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(5, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
         $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM stories')['c'], 'story 10 rejected (author missing), no duplicates');
     }
 
@@ -704,7 +704,7 @@ final class ImporterTest extends TestCase
             $this->assertStringContainsString('rate_limit', $e->getMessage(), 'the original error survives');
         }
         $db = $this->db();
-        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the transaction already committed');
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the transaction already committed');
         $this->assertSame('committed', (string) $db->one('SELECT status FROM import_runs ORDER BY id DESC LIMIT 1')['status']);
     }
 

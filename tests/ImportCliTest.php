@@ -61,7 +61,7 @@ final class ImportCliTest extends TestCase
         [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($this->bundle()) . ' --commit');
         $this->assertSame(0, $code, $out);
         $db = $this->db();
-        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
         $this->assertSame('Legacy Author', $db->one('SELECT penname FROM users WHERE id = 1')['penname']);
         $this->assertSame(md5('oldpassword'), $db->one('SELECT legacy_md5 FROM users WHERE id = 1')['legacy_md5']);
         $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
@@ -70,8 +70,8 @@ final class ImportCliTest extends TestCase
         $this->assertSame('The stored **chapter** text.', trim((string) $db->one('SELECT content FROM chapters')['content']));
         $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
         $this->assertSame('Thanks!', $db->one('SELECT response FROM reviews WHERE response IS NOT NULL')['response']);
-        // the fixture yields exactly 9 map rows (2 users + 2 prefs + 1 story + 1 chapter + 2 reviews + 1 log)
-        $this->assertSame(9, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
+        // the fixture yields exactly 11 map rows (3 users + 3 prefs + 1 story + 1 chapter + 2 reviews + 1 log)
+        $this->assertSame(11, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
         $this->assertSame('Unrated', $db->one('SELECT label FROM ratings')['label'], 'empty taxonomy fell back to Unrated');
         // 301 map written (story shape; reviews.php carries its own item+type shape per Task 5)
         $this->assertNotNull($db->one("SELECT * FROM legacy_urls WHERE legacy_path = 'viewstory.php' AND params = 'sid=7'"));
@@ -106,7 +106,7 @@ final class ImportCliTest extends TestCase
         [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($b) . ' --commit');
         $this->assertSame(0, $code, $out);
         $this->assertStringContainsString('already mapped', $out);
-        $this->assertSame(2, (int) $this->db()->one('SELECT COUNT(*) c FROM users')['c'], 'no duplicates');
+        $this->assertSame(3, (int) $this->db()->one('SELECT COUNT(*) c FROM users')['c'], 'no duplicates');
         [$code2, $out2] = $this->kip('import:efiction ' . escapeshellarg($b) . ' --commit --encoding=latin1');
         $this->assertNotSame(0, $code2, 'different options hash must refuse');
     }
@@ -128,5 +128,18 @@ final class ImportCliTest extends TestCase
         $names = array_column($cols, 'name');
         $this->assertContains('legacy_md5', $names);   // pre-existing seam intact
         $this->assertContains('legacy_bcrypt', $names); // new
+    }
+
+    public function test_bcrypt_member_imported_with_carried_hash(): void
+    {
+        $this->kip('migrate');
+        [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($this->bundle()) . ' --commit');
+        $this->assertSame(0, $code, $out);
+        $db = $this->db();
+        $row = $db->one("SELECT id, legacy_md5, legacy_bcrypt FROM users WHERE email = 'bcrypt@example.test'");
+        $this->assertNotNull($row, 'the bcrypt fixture member imported');
+        $this->assertNull($row['legacy_md5']);
+        $this->assertNotNull($row['legacy_bcrypt']);
+        $this->assertTrue(password_verify('bcryptpassword', $row['legacy_bcrypt']));
     }
 }

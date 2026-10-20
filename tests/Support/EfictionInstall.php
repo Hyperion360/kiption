@@ -41,6 +41,11 @@ final class EfictionInstall
         $this->pdo->exec("INSERT INTO fxs_fanfiction_settings VALUES ('FXKEY', 'fx_', 'files', 'stories', 1, 'en')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authors (uid, penname, email, password, date, admincreated) VALUES (1, 'Legacy Author', 'legacy@example.test', '" . md5('oldpassword') . "', '2010-05-01 10:00:00', '0')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authors (uid, penname, email, password, date, admincreated) VALUES (2, 'legacy author ', 'second@example.test', '" . md5('otherpassword') . "', '0000-00-00 00:00:00', '1')");
+        // eFiction 3.5.7+ member: password_hash() bcrypt, varchar(255) in MySQL (TEXT here).
+        // Makes the fixture a mixed archive (half-migrated upgrader output shape).
+        // uid 7: ImporterTest's inline extensions already own uids 3 and 4.
+        $this->pdo->exec("INSERT INTO {$p}fanfiction_authors (uid, penname, email, password, date, admincreated) VALUES (7, 'Bcrypt Author', 'bcrypt@example.test', '"
+            . password_hash('bcryptpassword', PASSWORD_BCRYPT) . "', '2026-06-01 12:00:00', '0')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authorprefs (uid, validated, level, newreviews, newrespond) VALUES (1, 1, 0, 1, 1)");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_stories (sid, title, summary, catid, classes, rid, date, updated, uid, validated, completed, wordcount, count) VALUES (7, 'Legacy Tale', 'An old story.', '1', '3', '5', '2011-01-01 00:00:00', '2012-06-15 00:00:00', 1, '1', '1', 900, 4242)");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_chapters (chapid, title, inorder, storytext, validated, wordcount, sid, uid) VALUES (10, 'One', 1, NULL, '1', 900, 7, 1)");

@@ -37,7 +37,7 @@ final class BundleReaderTest extends TestCase
     {
         $reader = new BundleReader($this->bundlePath());
         $this->assertSame('files', $reader->manifest()['settings']['store']);
-        $this->assertSame(2, $reader->manifest()['counts']['fanfiction_authors']);
+        $this->assertSame(3, $reader->manifest()['counts']['fanfiction_authors']);
         // seed every manifest table at 0: the exporter records zero counts for
         // empty tables, so the accumulator must cover the full table set
         $tables = array_fill_keys(array_keys($reader->manifest()['counts']), 0);

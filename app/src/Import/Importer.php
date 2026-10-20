@@ -370,10 +370,10 @@ final class Importer
             if ($u === null) { $this->bump($this->rejected, 'fanfiction_authors'); continue; }
             if (isset($eav[$uid])) $u['bio'] = $eav[$uid]; // EAV wins over the column
             $p = $prefs[$uid] ?? null;
-            $this->db->query('INSERT INTO users (email, password_hash, penname, legacy_md5, role, bio, email_verified_at, approved_at, created_at, age_consented_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            $this->db->query('INSERT INTO users (email, password_hash, penname, legacy_md5, legacy_bcrypt, role, bio, email_verified_at, approved_at, created_at, age_consented_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 [$u['email'],
-                 password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), // unguessable; the md5 hook owns first login
-                 $u['penname'], $u['legacy_md5'], $u['role'],
+                 password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), // unguessable; the legacy hook owns first login
+                 $u['penname'], $u['legacy_md5'], $u['legacy_bcrypt'], $u['role'],
                  $this->prose((string) $u['bio']),
                  $u['email_verified_at'], $u['approved_at'], $u['created_at'],
                  self::dateOrNull($p['ageconsent'] ?? null)]);

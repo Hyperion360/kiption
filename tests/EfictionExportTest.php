@@ -27,7 +27,7 @@ final class EfictionExportTest extends TestCase
     public function test_fixture_builds_schema_settings_and_files(): void
     {
         $fx = $this->install();
-        $this->assertSame(2, $fx->count('fanfiction_authors'));
+        $this->assertSame(3, $fx->count('fanfiction_authors'));
         $this->assertSame(1, (int) $fx->one('SELECT validated FROM ' . $fx->prefix . 'fanfiction_authorprefs WHERE uid = 1')['validated']);
         $this->assertFileExists($this->root . '/stories/1/10.txt');
         $this->assertSame('files', $fx->settings()['store'] === 'files' ? 'files' : 'db', 'settings row present');
@@ -54,7 +54,7 @@ final class EfictionExportTest extends TestCase
         $manifest = $exporter->export();
         $this->assertSame('3.5.5', $manifest['efiction_version']);
         $this->assertSame('files', $manifest['settings']['store']);
-        $this->assertSame(2, $manifest['counts']['fanfiction_authors']);
+        $this->assertSame(3, $manifest['counts']['fanfiction_authors']);
         $this->assertSame(1, $manifest['counts']['fanfiction_stories']);
         $this->assertFileExists($outDir . '/archive.jsonl.gz');
         $this->assertFileExists($outDir . '/manifest.json');
