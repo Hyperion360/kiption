@@ -124,8 +124,8 @@ final class SitemapTest extends TestCase
         // the BuilderTest count pin applies here too (Task 3: the challenges
         // index joins the enumeration; the /series index rides the fixed set;
         // sitemaps stay files, not cache pages; the content-policy page rides
-        // the seeded-pages set)
-        $this->assertSame(24, $count);
+        // the seeded-pages set, and Task 2's dmca page rides it too)
+        $this->assertSame(25, $count);
         $this->assertFileExists($this->publicDir() . '/sitemap.xml');
         $this->assertStringContainsString(
             'https://archive.example/story/view/the-rabbit-hole',

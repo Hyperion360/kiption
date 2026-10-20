@@ -58,7 +58,7 @@ final class BuilderTest extends TestCase
                   '/browse/authors', '/browse/authors/b', '/browse/authors/d'] as $p) {
             $this->assertNotNull($cache->serve(new Request('GET', $p, [], [], [])), "{$p} built");
         }
-        $this->assertSame(24, $count); // 5 fixed (home, browse, recent, series index, top hub) + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series + 2 seeded pages (about + content-policy) + demo(view+stories) + beta(view) + directory(index + b for betafriend + d for demo-author) + the adult read builds as its anonymous variant (the gate page, 200) + news index + 1 seeded news item (Task 4: /news + SELECT id FROM news rows) + the challenges index (Task 3; the seeded challenge has no visible items, so its view page never joins the enumeration, finding 10)
+        $this->assertSame(25, $count); // 5 fixed (home, browse, recent, series index, top hub) + 1 category + rabbit(view+3 reads) + after(view+1 read) + 1 series + 3 seeded pages (about + content-policy + dmca; Task 2's migration adds the third) + demo(view+stories) + beta(view) + directory(index + b for betafriend + d for demo-author) + the adult read builds as its anonymous variant (the gate page, 200) + news index + 1 seeded news item (Task 4: /news + SELECT id FROM news rows) + the challenges index (Task 3; the seeded challenge has no visible items, so its view page never joins the enumeration, finding 10)
     }
 
     public function test_prune_empties_the_layer(): void
