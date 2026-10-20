@@ -702,11 +702,11 @@ final class EpubImportTest extends TestCase
             'the distinct linear chapters land in spine order');
     }
 
-    /** The FanFicFare OPF shape: titlepage and log_page as DISTINCT manifest
+    /** The FanFicFare OPF shape: title_page and log_page as DISTINCT manifest
      *  items ahead of the real chapters, every itemref at linear="yes" (the
      *  way writer_epub.py writes them). $titleId/$logId set the manifest
      *  id casing. */
-    private function fanficfareOpf(string $titleId = 'titlepage', string $logId = 'log_page'): string
+    private function fanficfareOpf(string $titleId = 'title_page', string $logId = 'log_page'): string
     {
         return '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">'
             . '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
@@ -740,7 +740,8 @@ final class EpubImportTest extends TestCase
      *  linear="yes", so neither the linear=no guard nor the duplicate-path
      *  guard ever saw them: the title page imported as chapter 1 and the
      *  update log as chapter 2. The skip is the manifest idref fingerprint
-     *  ('titlepage', 'log_page'), each skip counted in one note. */
+     *  ('title_page', 'log_page'), with 'titlepage' kept as a legacy alias;
+     *  each skip counted in one note. */
     public function test_fanficfare_front_matter_idrefs_skip_with_a_counted_note(): void
     {
         $this->member('realauthor');
@@ -765,7 +766,7 @@ final class EpubImportTest extends TestCase
     {
         $this->member('realauthor');
         $epub = $this->importBook('fanficfare-case.epub', ['chapters' => 2], [
-            'OEBPS/content.opf' => $this->fanficfareOpf('TitlePage', 'LOG_PAGE'),
+            'OEBPS/content.opf' => $this->fanficfareOpf('Title_Page', 'LOG_PAGE'),
         ] + $this->fanficfarePages());
         $importer = new Epub($this->db, $this->uploads);
         $importer->importFile($epub, null, true);

@@ -286,7 +286,9 @@ final class Epub
             if ($item === null || !in_array($item['mediaType'], ['application/xhtml+xml', 'text/html'], true)) {
                 continue;
             }
-            if (in_array(mb_strtolower($ref->getAttribute('idref')), ['titlepage', 'log_page'], true)) {
+            // upstream writer_epub.py spells the idref title_page; 'titlepage'
+            // stays as a legacy alias for archives built before the fix
+            if (in_array(mb_strtolower($ref->getAttribute('idref')), ['title_page', 'log_page', 'titlepage'], true)) {
                 $frontMatter++;
                 continue;
             }
