@@ -32,6 +32,10 @@ final class Epub
     private int $actualTotal = 0;
     /** the last importFile() report row, or null before the first call */
     private ?array $lastReport = null;
+    /** lowercased penname => user id, built on the first creator-based
+     *  resolution and reused after: a directory import reads users once,
+     *  not once per file */
+    private ?array $pennameIndex = null;
 
     public function __construct(
         private Database $db,
@@ -144,6 +148,7 @@ final class Epub
         $opfDir = ($d = dirname($opfPath)) === '.' ? '' : $d;
         $meta = $this->readMetadata($doc);
         $manifest = $this->readManifest($doc, $opfDir);
+        $spineNotes = [];
         return [
             'stats' => $this->stats,
             'opfPath' => $opfPath,
@@ -152,7 +157,8 @@ final class Epub
             'summary' => $meta['summary'],
             'language' => $meta['language'],
             'cover' => $this->findCover($doc, $manifest),
-            'spine' => $this->readSpine($doc, $manifest),
+            'spine' => $this->readSpine($doc, $manifest, $spineNotes),
+            'spineNotes' => $spineNotes,
             'manifest' => $manifest,
         ];
     }
@@ -252,18 +258,34 @@ final class Epub
 
     /** Spine idrefs in document order, filtered to xhtml media-types and
      *  capped at MAX_CHAPTERS (decision 3: an over-cap spine refuses before
-     *  any chapter payload is read). Every spine path must name a real
-     *  entry; a spine with nothing readable refuses the file. */
-    private function readSpine(\DOMDocument $doc, array $manifest): array
+     *  any chapter payload is read). itemrefs carrying linear="no" are
+     *  auxiliary content and skip with a counted note, and a second itemref
+     *  to an already-resolved path skips with a counted note (FanFicFare
+     *  ships title_page/log_page this way; the duplicate would import the
+     *  chapter twice). Every spine path must name a real entry; a spine
+     *  with nothing readable refuses the file. */
+    private function readSpine(\DOMDocument $doc, array $manifest, array &$notes): array
     {
         $spine = [];
+        $linearSkipped = 0;
+        $duplicates = 0;
         foreach ($doc->getElementsByTagName('itemref') as $ref) {
+            if (mb_strtolower($ref->getAttribute('linear')) === 'no') {
+                $linearSkipped++;
+                continue;
+            }
             $item = $manifest[$ref->getAttribute('idref')] ?? null;
             if ($item === null || !in_array($item['mediaType'], ['application/xhtml+xml', 'text/html'], true)) {
                 continue;
             }
+            if (in_array($item['path'], $spine, true)) {
+                $duplicates++;
+                continue;
+            }
             $spine[] = $item['path'];
         }
+        if ($linearSkipped > 0) { $notes[] = sprintf('linear="no" itemrefs skipped: %d', $linearSkipped); }
+        if ($duplicates > 0) { $notes[] = sprintf('duplicate spine itemrefs skipped: %d', $duplicates); }
         if (count($spine) > self::MAX_CHAPTERS) {
             throw new \RuntimeException(sprintf('spine exceeds 512 chapters: %d readable itemrefs, over the cap', count($spine)));
         }
@@ -327,6 +349,7 @@ final class Epub
         try {
             $meta = $this->inspect($path);
             $row['title'] = (string) $meta['title'];
+            foreach ($meta['spineNotes'] as $note) { $row['notes'][] = $note; }
             $digest = hash_file('sha256', $path);
             if ($digest === false) {
                 throw new \RuntimeException("the file vanished before its digest was taken: {$path}");
@@ -393,8 +416,10 @@ final class Epub
                 $this->db->query('INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     [$storyId, $i + 1, $ch['title'], '', $ch['md'], '', 1, $ch['words'], $now, $now]);
             }
-            // story word_count is the sum of its chapters' recomputed counts
-            $this->db->query('UPDATE stories SET word_count = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE story_id = stories.id)');
+            // story word_count is the sum of its chapters' recomputed counts,
+            // scoped to THIS story: the unscoped form is a migration-time idiom
+            // and here would rewrite every story row once per imported book
+            $this->db->query('UPDATE stories SET word_count = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE story_id = stories.id) WHERE stories.id = ?', [$storyId]);
             $this->db->query('INSERT INTO epub_imports (sha256, story_id, imported_at) VALUES (?, ?, ?)', [$digest, $storyId, $now]);
             $this->db->commit();
         } catch (\Throwable $e) {
@@ -420,12 +445,23 @@ final class Epub
             }
             return $authorId;
         }
-        foreach ($this->db->all('SELECT id, penname FROM users') as $u) {
-            if (mb_strtolower((string) $u['penname']) === mb_strtolower($creator)) {
-                return (int) $u['id'];
+        foreach ($this->pennameIndex ??= $this->buildPennameIndex() as $pen => $id) {
+            if ($pen === mb_strtolower($creator)) {
+                return $id;
             }
         }
         throw new \RuntimeException(sprintf("no member matches the EPUB creator '%s': pass --author or --author-id", $creator));
+    }
+
+    /** The case-folded penname index, first id winning on duplicates (the
+     *  foreach-first-match order the direct scan used). */
+    private function buildPennameIndex(): array
+    {
+        $index = [];
+        foreach ($this->db->all('SELECT id, penname FROM users') as $u) {
+            $index[mb_strtolower((string) $u['penname'])] ??= (int) $u['id'];
+        }
+        return $index;
     }
 
     /** Decision 5: dc:language rides the INSERT when it names an installed

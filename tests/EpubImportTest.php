@@ -622,6 +622,68 @@ final class EpubImportTest extends TestCase
         $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK));
     }
 
+    /** Finding: the story word_count SUM UPDATE ran without a WHERE (a
+     *  migration-time idiom), so every imported book rewrote every story
+     *  row. The probe: a neighbour story whose chapters carry a deliberately
+     *  wrong word_count must keep it through the import, while the imported
+     *  story still sums its own chapters. */
+    public function test_the_word_count_sum_scopes_to_the_imported_story(): void
+    {
+        $authorId = $this->member('realauthor');
+        $rating = (int) $this->db->one('SELECT id FROM ratings ORDER BY position, id LIMIT 1')['id'];
+        // story and chapter both carry the same deliberately wrong 999: the
+        // unscoped SUM UPDATE would recompute it to 7 on the next import
+        $this->db->query('INSERT INTO stories (title, slug, author_id, rating_id, word_count) VALUES (?, ?, ?, ?, 999)',
+            ['Neighbour', 'neighbour', $authorId, $rating]);
+        $neighbour = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO chapters (story_id, position, content, validated, word_count) VALUES (?, 1, ?, 1, ?)',
+            [$neighbour, 'one two three four five six seven', 999]);
+        $epub = $this->importBook('scoped.epub');
+        (new Epub($this->db, $this->uploads))->importFile($epub, null, true);
+        $this->assertSame(999, (int) $this->db->one('SELECT word_count FROM stories WHERE id = ?', [$neighbour])['word_count'],
+            'the SUM UPDATE carries the story WHERE: the neighbour row stays untouched');
+        $chapters = $this->db->all('SELECT word_count FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?)', ['stamped-title']);
+        $this->assertSame(array_sum(array_map(static fn (array $c): int => (int) $c['word_count'], $chapters)),
+            (int) $this->db->one("SELECT word_count FROM stories WHERE slug = 'stamped-title'")['word_count'],
+            'the imported story still sums its own chapters');
+    }
+
+    /** Finding: itemrefs carrying linear="no" are EPUB auxiliary content
+     *  (FanFicFare's title_page/log_page) and a second itemref to one
+     *  manifest item imported the chapter twice; both skip with a counted
+     *  note and the distinct linear chapters land in spine order. */
+    public function test_linear_no_and_duplicate_spine_itemrefs_skip_with_counted_notes(): void
+    {
+        $this->member('realauthor');
+        $opf = '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">'
+            . '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            . '<dc:title>Stamped Title</dc:title><dc:creator>realauthor</dc:creator>'
+            . '<dc:description>Spine shape fixture.</dc:description><dc:language>en</dc:language></metadata>'
+            . '<manifest>'
+            . '<item id="ch1" href="Text/ch1.xhtml" media-type="application/xhtml+xml"/>'
+            . '<item id="ch2" href="Text/ch2.xhtml" media-type="application/xhtml+xml"/>'
+            . '<item id="ch3" href="Text/ch3.xhtml" media-type="application/xhtml+xml"/>'
+            . '<item id="aux" href="Text/aux.xhtml" media-type="application/xhtml+xml"/>'
+            . '</manifest>'
+            . '<spine><itemref idref="ch1"/><itemref idref="ch2"/><itemref idref="ch2"/>'
+            . '<itemref idref="aux" linear="no"/><itemref idref="ch3"/></spine></package>';
+        $epub = $this->importBook('spine-shape.epub', [], [
+            'OEBPS/content.opf' => $opf,
+            'OEBPS/Text/aux.xhtml' => '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>aux</title></head>'
+                . '<body><h2>aux</h2><p>Auxiliary page.</p></body></html>',
+        ]);
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, true);
+        $rep = $importer->lastReport();
+        $this->assertSame('imported', $rep['status']);
+        $this->assertSame(3, $rep['chapters'], 'the duplicate and the linear=no itemref import once each');
+        $this->assertContains('linear="no" itemrefs skipped: 1', $rep['notes']);
+        $this->assertContains('duplicate spine itemrefs skipped: 1', $rep['notes']);
+        $this->assertSame(['ch1', 'ch2', 'ch3'],
+            array_column($this->db->all('SELECT title FROM chapters WHERE story_id = ? ORDER BY position', [$rep['storyId']]), 'title'),
+            'the distinct linear chapters land in spine order');
+    }
+
     /** Finding: the /u whitespace collapse returns null on invalid UTF-8 and
      *  the old cast silently emptied the summary. loadXML refuses invalid
      *  bytes on the wire, so the only way they reach the pipeline is a
