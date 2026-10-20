@@ -22,12 +22,17 @@ final class ImportCliTest extends TestCase
         @unlink(substr($this->dbPath, 0, -7)); // the bare tempnam stub behind the .sqlite suffix
     }
 
-    /** Builds a 9a bundle from a fresh fixture, returning its path. */
-    private function bundle(): string
+    /** Builds a 9a bundle from a fresh fixture, returning its path.
+     *  Variants: '' modern 3.5.5; 'legacy3x' 3.0-era column set; 'future' 3.5.8-style. */
+    private function bundle(string $variant = ''): string
     {
         $src = $this->root . '/src';
         mkdir($src, 0775, true); // the fixture opens its sqlite file inside this dir
-        $fx = new \EfictionInstall($src);
+        $fx = new \EfictionInstall($src, legacy3x: $variant === 'legacy3x');
+        if ($variant === 'future') {
+            $fx->pdo->exec('ALTER TABLE fx_fanfiction_stories ADD future_col TEXT');
+            $fx->pdo->exec("UPDATE fxs_fanfiction_settings SET version = '3.5.8'");
+        }
         $fx->installShims();
         if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
         require_once dirname(__DIR__) . '/resources/efiction-export.php';
@@ -141,5 +146,30 @@ final class ImportCliTest extends TestCase
         $this->assertNull($row['legacy_md5']);
         $this->assertNotNull($row['legacy_bcrypt']);
         $this->assertTrue(password_verify('bcryptpassword', $row['legacy_bcrypt']));
+    }
+
+    public function test_legacy_3x_schema_gap_bundle_imports_full_counts(): void
+    {
+        $this->kip('migrate');
+        [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($this->bundle('legacy3x')) . ' --commit');
+        $this->assertSame(0, $code, $out);
+        $db = $this->db();
+        // same member/story counts as the modern fixture: the gaps are
+        // optional columns the mapper never needed
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM chapters')['c']);
+        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
+    }
+
+    public function test_future_release_bundle_imports_full_counts(): void
+    {
+        $this->kip('migrate');
+        [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($this->bundle('future')) . ' --commit');
+        $this->assertSame(0, $code, $out);
+        $db = $this->db();
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
+        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
     }
 }

@@ -21,6 +21,37 @@ final class EfictionExporter
         'fanfiction_authorfields', 'fanfiction_authorinfo',
     ];
 
+    /** The 3.5 column set per exported table, sourced from the official
+     *  installer/upgrader column lists (install.php / upgrade20.php). Older
+     *  3.x sources that lack some of these still export: the exporter
+     *  introspects the real columns, records the diff as schema_gaps, and
+     *  emits every expected-but-missing column as null so the bundle shape
+     *  is uniform. Extra columns a FUTURE official release adds are not
+     *  gaps: they ride through SELECT * untouched. */
+    private const EXPECTED_COLUMNS = [
+        'fanfiction_authors' => ['uid', 'penname', 'realname', 'email', 'bio', 'image', 'date', 'admincreated', 'password'],
+        'fanfiction_authorprefs' => ['uid', 'newreviews', 'newrespond', 'ageconsent', 'alertson', 'sortby', 'storyindex', 'validated', 'userskin', 'level', 'categories', 'contact', 'stories'],
+        'fanfiction_stories' => ['sid', 'title', 'summary', 'storynotes', 'catid', 'classes', 'charid', 'rid', 'date', 'updated', 'uid', 'coauthors', 'featured', 'validated', 'completed', 'rr', 'wordcount', 'rating', 'reviews', 'count'],
+        'fanfiction_chapters' => ['chapid', 'title', 'inorder', 'notes', 'storytext', 'endnotes', 'validated', 'wordcount', 'rating', 'reviews', 'sid', 'uid', 'count'],
+        'fanfiction_series' => ['seriesid', 'title', 'summary', 'uid', 'isopen', 'catid', 'rating', 'classes', 'characters', 'reviews', 'numstories', 'challenges'],
+        'fanfiction_inseries' => ['seriesid', 'sid', 'subseriesid', 'confirmed', 'inorder'],
+        'fanfiction_reviews' => ['reviewid', 'item', 'chapid', 'reviewer', 'uid', 'review', 'date', 'rating', 'respond', 'type'],
+        'fanfiction_favorites' => ['uid', 'item', 'type', 'comments'],
+        'fanfiction_categories' => ['catid', 'parentcatid', 'category', 'description', 'image', 'locked', 'leveldown', 'displayorder', 'numitems'],
+        'fanfiction_classtypes' => ['classtype_id', 'classtype_name', 'classtype_title'],
+        'fanfiction_classes' => ['class_id', 'class_type', 'class_name'],
+        'fanfiction_characters' => ['charid', 'catid', 'charname', 'bio', 'image'],
+        'fanfiction_ratings' => ['rid', 'rating', 'ratingwarning', 'warningtext'],
+        'fanfiction_coauthors' => ['sid', 'uid'],
+        'fanfiction_news' => ['nid', 'author', 'title', 'story', 'time', 'comments'],
+        'fanfiction_comments' => ['cid', 'nid', 'uid', 'comment', 'time'],
+        'fanfiction_pagelinks' => ['link_id', 'link_name', 'link_text', 'link_key', 'link_url', 'link_target', 'link_access'],
+        'fanfiction_messages' => ['message_id', 'message_name', 'message_title', 'message_text'],
+        'fanfiction_log' => ['log_id', 'log_action', 'log_uid', 'log_ip', 'log_timestamp', 'log_type'],
+        'fanfiction_authorfields' => ['field_id', 'field_type', 'field_name', 'field_title', 'field_options', 'field_order', 'field_profile'],
+        'fanfiction_authorinfo' => ['uid', 'field_id', 'info'],
+    ];
+
     /** @param string $installRoot absolute path of the eFiction install (config.php lives here)
      *  @param string $settingsPrefix the {settingsprefix} for the settings table
      *  @param string $outDir writable directory for bundle parts */
@@ -65,12 +96,22 @@ final class EfictionExporter
         }
         $manifest['password_formats'] = $census;
         $jsonl = gzopen($this->outDir . '/archive.jsonl.gz', 'wb9');
+        // Older 3.x sources carry fewer columns: record what the source
+        // lacked (operator visibility) and normalize rows below so the
+        // bundle shape is uniform regardless of source age.
+        $gaps = [];
+        foreach (self::TABLES as $table) {
+            $missing = array_values(array_diff(self::EXPECTED_COLUMNS[$table] ?? [], self::tableColumns(TABLEPREFIX . $table)));
+            if ($missing !== []) $gaps[$table] = $missing;
+        }
+        $manifest['schema_gaps'] = $gaps;
         foreach (self::TABLES as $i => $table) {
             $count = 0;
             // Unbuffered in situ (mysqli_use_result under the install's layer is
             // the live path; the query text is a hardcoded literal).
             $q = dbquery('SELECT * FROM ' . TABLEPREFIX . $table);
             while (($row = dbassoc($q)) !== null) {
+                foreach ($gaps[$table] ?? [] as $missingCol) { $row[$missingCol] = null; }
                 $row['_table'] = $table; // the reader's table discriminator (finding 1)
                 $json = json_encode($this->utf8Safe($row, $manifest), JSON_UNESCAPED_UNICODE);
                 gzwrite($jsonl, $json . "\n");
@@ -95,6 +136,52 @@ final class EfictionExporter
         if ($row === null) throw new RuntimeException('settings row not found for this sitekey');
         return $row;
     }
+
+    /** Actual column names of a table, through the install's own db layer.
+     *  In situ (MySQL) SHOW COLUMNS works; under the sqlite test shim it
+     *  throws, and PRAGMA table_info answers instead. Both go through the
+     *  same dbquery/dbassoc pair the export loop already uses. */
+    private static function tableColumns(string $table): array
+    {
+        try {
+            $q = dbquery('SHOW COLUMNS FROM ' . $table);
+            $cols = [];
+            while (($r = dbassoc($q)) !== null) { $cols[] = (string) ($r['Field'] ?? $r['name']); }
+            if ($cols !== []) return $cols;
+        } catch (\Throwable $e) { /* sqlite shim: fall through to PRAGMA */ }
+        $q = dbquery('PRAGMA table_info(' . $table . ')');
+        $cols = [];
+        while (($r = dbassoc($q)) !== null) { $cols[] = (string) $r['name']; }
+        return $cols;
+    }
+
+    /** Whether a table exists — the pre-3.0 marker is fanfiction_coauthors,
+     *  the same table official 3.x's own upgrade ladder creates. */
+    private static function tableExists(string $table): bool
+    {
+        try {
+            $q = dbquery('SHOW TABLES LIKE \'' . escapestring($table) . '\'');
+            return dbassoc($q) !== null; // MySQL: no row is conclusive
+        } catch (\Throwable $e) { /* sqlite shim: sqlite_master */ }
+        $q = dbquery("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '" . escapestring($table) . "'");
+        return dbassoc($q) !== null;
+    }
+
+    /** The pre-3.0 runbook: no bundle is written. Cloud URL is the repo's
+     *  owner-confirmed hosted-service domain (cloud.kiption.com). */
+    private const TOO_OLD_HTML = <<<'HTML'
+<p>This archive runs a version of eFiction older than the export path supports (pre-3.0).</p>
+<p>Two ways forward:</p>
+<ol>
+<li>Have Kiption Cloud do it for you &mdash; archive hosting with eFiction migration on paid tiers:
+<a href="https://cloud.kiption.com">cloud.kiption.com</a> (no upgrading, no hosting needed; a database dump plus your story files is all it needs).</li>
+<li>Upgrade it yourself first with the maintained fork's <code>install/upgrade11.php</code> (from eFiction 1.1)
+or <code>install/upgrade20.php</code> (from eFiction 2.0.x) &mdash;
+<a href="https://github.com/Hyperion360/efiction">github.com/Hyperion360/efiction</a> &mdash; then upload this exporter and run it again.</li>
+</ol>
+<p>eFiction 4/5 rewrite installs have no upgrade path to 3.x and are not importable.</p>
+<p>Individual writers who just want a home for their fic can post free at <a href="https://kiption.com">kiption.com</a>.</p>
+HTML;
 
     /** Byte-faithful transport: replace invalid UTF-8 (the latin1 swamp) with
      *  mb's substitution character so json_encode cannot fail, and COUNT every
@@ -174,6 +261,20 @@ final class EfictionExporter
         }
         if (!$run) {
             return [self::page('Export ready', self::formHtml($token)), 200];
+        }
+        // Pre-3.0 gate, before any table is read: version older than 3.0 OR
+        // the 3.x ladder's fanfiction_coauthors table absent (the structural
+        // marker — a settings row without a version column is only possible
+        // on pre-versioning installs, and those never have coauthors either).
+        // No UPPER gate: any future official 3.5.x release exports directly.
+        $settingsTable = escapestring($settingsPrefix) . 'fanfiction_settings';
+        $version = '';
+        if (in_array('version', self::tableColumns($settingsTable), true)) {
+            $v = dbassoc(dbquery("SELECT version FROM {$settingsTable} WHERE sitekey = '" . escapestring(SITEKEY) . "'"));
+            if ($v !== null && $v['version'] !== null && $v['version'] !== '') $version = (string) $v['version'];
+        }
+        if (($version !== '' && version_compare($version, '3.0', '<')) || !self::tableExists(TABLEPREFIX . 'fanfiction_coauthors')) {
+            return [self::page('This archive is too old to export', self::TOO_OLD_HTML), 422];
         }
         $outDir = $installRoot . '/out-' . bin2hex(random_bytes(6));
         mkdir($outDir, 0775, true);

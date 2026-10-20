@@ -4,18 +4,26 @@ final class EfictionInstall
     public PDO $pdo;
     public string $prefix = 'fx_';
 
-    public function __construct(private string $root) { $this->build(); }
+    /** @param bool $legacy3x build a 3.0-era column set instead of 3.5.5:
+     *  drop the post-3.0 columns the official 3.x ladder added
+     *  (fanfiction_news.comments, fanfiction_series.numstories,
+     *  fanfiction_pagelinks.link_key — install/install.php and
+     *  upgrade20.php's own ALTER list), and stamp settings.version '3.0'. */
+    public function __construct(private string $root, private bool $legacy3x = false) { $this->build(); }
 
     private function build(): void
     {
         $this->pdo = new PDO('sqlite:' . $this->root . '/efiction.sqlite');
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $p = $this->prefix;
+        $newsComments = $this->legacy3x ? '' : ', comments INTEGER';
+        $seriesNumstories = $this->legacy3x ? '' : ', numstories INTEGER';
+        $linkKey = $this->legacy3x ? '' : ', link_key TEXT';
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_authors (uid INTEGER PRIMARY KEY AUTOINCREMENT, penname TEXT, realname TEXT, email TEXT, bio TEXT, image TEXT, date TEXT, admincreated TEXT DEFAULT '0', password TEXT DEFAULT '0')");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_authorprefs (uid INTEGER PRIMARY KEY, newreviews INTEGER, newrespond INTEGER, ageconsent INTEGER, alertson INTEGER, tinyMCE INTEGER, sortby INTEGER, storyindex INTEGER, validated INTEGER, userskin TEXT, level INTEGER, categories TEXT, contact INTEGER, stories INTEGER)");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_stories (sid INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, summary TEXT, storynotes TEXT, catid TEXT, classes TEXT, charid TEXT, rid TEXT, date TEXT, updated TEXT, uid INTEGER, coauthors TEXT, featured TEXT, validated TEXT, completed TEXT, rr TEXT, wordcount INTEGER, rating INTEGER, reviews INTEGER, count INTEGER)");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_chapters (chapid INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, inorder INTEGER, notes TEXT, storytext TEXT, endnotes TEXT, validated TEXT, wordcount INTEGER, rating INTEGER, reviews INTEGER, sid INTEGER, uid INTEGER, count INTEGER)");
-        $this->pdo->exec("CREATE TABLE {$p}fanfiction_series (seriesid INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, summary TEXT, uid INTEGER, isopen INTEGER, catid TEXT, rating INTEGER, classes TEXT, characters TEXT, reviews INTEGER, numstories INTEGER, challenges TEXT)");
+        $this->pdo->exec("CREATE TABLE {$p}fanfiction_series (seriesid INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, summary TEXT, uid INTEGER, isopen INTEGER, catid TEXT, rating INTEGER, classes TEXT, characters TEXT, reviews INTEGER{$seriesNumstories}, challenges TEXT)");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_inseries (seriesid INTEGER, sid INTEGER, subseriesid INTEGER DEFAULT 0, confirmed INTEGER DEFAULT 0, inorder INTEGER, PRIMARY KEY (sid, seriesid, subseriesid))");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_reviews (reviewid INTEGER PRIMARY KEY AUTOINCREMENT, item INTEGER, chapid INTEGER, reviewer TEXT, uid INTEGER, review TEXT, date TEXT, rating INTEGER, respond TEXT, type TEXT)");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_favorites (uid INTEGER, item INTEGER, type TEXT, comments TEXT, UNIQUE (item, type, uid))");
@@ -25,7 +33,7 @@ final class EfictionInstall
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_characters (charid INTEGER PRIMARY KEY, catid INTEGER, charname TEXT, bio TEXT, image TEXT)");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_ratings (rid INTEGER PRIMARY KEY, rating TEXT, ratingwarning TEXT, warningtext TEXT)");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_coauthors (sid INTEGER, uid INTEGER, PRIMARY KEY (sid, uid))");
-        $this->pdo->exec("CREATE TABLE {$p}fanfiction_news (nid INTEGER PRIMARY KEY, author TEXT, title TEXT, story TEXT, time TEXT, comments INTEGER)");
+        $this->pdo->exec("CREATE TABLE {$p}fanfiction_news (nid INTEGER PRIMARY KEY, author TEXT, title TEXT, story TEXT, time TEXT{$newsComments})");
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_comments (cid INTEGER PRIMARY KEY, nid INTEGER, uid INTEGER, comment TEXT, time TEXT)");
         // finding 7: the five tables the companion maps from
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_authorfields (field_id INTEGER PRIMARY KEY, field_type TEXT, field_name TEXT, field_title TEXT, field_options TEXT, field_order INTEGER, field_profile TEXT DEFAULT '0')");
@@ -34,11 +42,11 @@ final class EfictionInstall
         $this->pdo->exec("CREATE TABLE {$p}fanfiction_messages (message_id INTEGER PRIMARY KEY, message_name TEXT, message_title TEXT, message_text TEXT)");
         // REAL 3.5.5 columns (install/install.php:632); the 9b shape with
         // pl_type/pl_pageid was invented and exists nowhere in the source
-        $this->pdo->exec("CREATE TABLE {$p}fanfiction_pagelinks (link_id INTEGER PRIMARY KEY, link_name TEXT, link_text TEXT, link_key TEXT, link_url TEXT, link_target TEXT, link_access INTEGER)");
+        $this->pdo->exec("CREATE TABLE {$p}fanfiction_pagelinks (link_id INTEGER PRIMARY KEY, link_name TEXT, link_text TEXT{$linkKey}, link_url TEXT, link_target TEXT, link_access INTEGER)");
         $this->pdo->exec("CREATE TABLE fxs_fanfiction_settings (sitekey TEXT PRIMARY KEY, tableprefix TEXT, store TEXT, storiespath TEXT, maintenance INTEGER, language TEXT, version TEXT)");
         // adversarial seed: penname case collision, admincreated ghost, zero dates,
         // 'No Review' sentinel, response block appended, store=files chapter
-        $this->pdo->exec("INSERT INTO fxs_fanfiction_settings VALUES ('FXKEY', 'fx_', 'files', 'stories', 1, 'en', '3.5.5')");
+        $this->pdo->exec("INSERT INTO fxs_fanfiction_settings VALUES ('FXKEY', 'fx_', 'files', 'stories', 1, 'en', " . ($this->legacy3x ? "'3.0'" : "'3.5.5'") . ")");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authors (uid, penname, email, password, date, admincreated) VALUES (1, 'Legacy Author', 'legacy@example.test', '" . md5('oldpassword') . "', '2010-05-01 10:00:00', '0')");
         $this->pdo->exec("INSERT INTO {$p}fanfiction_authors (uid, penname, email, password, date, admincreated) VALUES (2, 'legacy author ', 'second@example.test', '" . md5('otherpassword') . "', '0000-00-00 00:00:00', '1')");
         // eFiction 3.5.7+ member: password_hash() bcrypt, varchar(255) in MySQL (TEXT here).

@@ -19,18 +19,38 @@ final class BundleReaderTest extends TestCase
         exec('rm -rf ' . escapeshellarg($this->root));
     }
 
-    private function bundlePath(): string
+    /** Runs the exporter over a fixture variant. Variants:
+     *  ''        the modern 3.5.5 fixture
+     *  'legacy3x' a 3.0-era column set (no news.comments, series.numstories,
+     *             pagelinks.link_key; settings.version '3.0')
+     *  'future'   a 3.5.8-style source (version string + an extra unknown column)
+     *  'pre30'    a 2.0.2-shaped source with NO fanfiction_coauthors table
+     *  @return array{0: string, 1: int} html + HTTP status */
+    private function runExport(string $variant = ''): array
     {
         mkdir($this->root . '/src', 0775, true); // fixture requires its root to exist
-        $fx = new \EfictionInstall($this->root . '/src');
+        $fx = new \EfictionInstall($this->root . '/src', legacy3x: $variant === 'legacy3x');
+        if ($variant === 'future') {
+            $fx->pdo->exec('ALTER TABLE fx_fanfiction_stories ADD future_col TEXT');
+            $fx->pdo->exec("UPDATE fxs_fanfiction_settings SET version = '3.5.8'");
+        }
+        if ($variant === 'pre30') {
+            $fx->pdo->exec('DROP TABLE fx_fanfiction_coauthors');
+            $fx->pdo->exec("UPDATE fxs_fanfiction_settings SET version = '2.0.2'");
+        }
         $fx->installShims();
         if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
         require_once dirname(__DIR__) . '/resources/efiction-export.php'; // finding 6: one level, not two
         $token = str_repeat('a', 64);
         file_put_contents($this->root . '/src/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
-        [$html] = \EfictionExporter::runner($this->root . '/src', 'fxs_', $token, true, true, false, true);
+        return \EfictionExporter::runner($this->root . '/src', 'fxs_', $token, true, true, false, true);
+    }
+
+    private function bundlePath(string $variant = ''): string
+    {
+        $this->runExport($variant);
         foreach (glob($this->root . '/src/out-*/kiption-export.tar.gz') as $p) return $p;
-        $this->fail('bundle not built: ' . $html);
+        $this->fail('bundle not built');
     }
 
     public function test_reader_round_trips_rows_and_manifest(): void
@@ -58,6 +78,43 @@ final class BundleReaderTest extends TestCase
         $this->assertSame(2, $m['password_formats']['md5']);     // fixture uids 1+2
         $this->assertSame(1, $m['password_formats']['bcrypt']);  // fixture uid 7
         $this->assertSame(0, $m['password_formats']['other']);
+    }
+
+    public function test_legacy_3x_schema_gaps_are_recorded(): void
+    {
+        $m = (new BundleReader($this->bundlePath('legacy3x')))->manifest();
+        $this->assertContains('comments', $m['schema_gaps']['fanfiction_news'] ?? []);
+        $this->assertContains('numstories', $m['schema_gaps']['fanfiction_series'] ?? []);
+        $this->assertContains('link_key', $m['schema_gaps']['fanfiction_pagelinks'] ?? []);
+        $this->assertSame([], $m['schema_gaps']['fanfiction_authors'] ?? [], 'a 3.0-era authors table has no gaps');
+        $this->assertSame('3.0', $m['source_version']);
+    }
+
+    public function test_pre_3x_database_is_refused_with_runbook(): void
+    {
+        // settings.version '2.0.2' and NO fanfiction_coauthors table
+        [$html, $status] = $this->runExport('pre30');
+        $this->assertStringContainsString('upgrade11.php', $html);   // names the runbook
+        $this->assertStringContainsString('upgrade20.php', $html);
+        $this->assertStringContainsString('cloud.kiption.com', $html);
+        $this->assertSame([], glob($this->root . '/src/out-*/kiption-export.tar.gz'), 'no bundle written');
+    }
+
+    public function test_future_official_release_still_imports(): void
+    {
+        // "3.5.8-style" source: newer version string + an extra unknown column
+        // on fanfiction_stories standing in for whatever a newer official
+        // release adds. No upper version gate exists.
+        $reader = new BundleReader($this->bundlePath('future'));
+        $m = $reader->manifest();
+        $this->assertSame('3.5.8', $m['source_version']);
+        $this->assertSame([], $m['schema_gaps'], 'extra unknown columns are not gaps');
+        // extra unknown columns ride through SELECT * into the JSON harmlessly
+        $sawFutureCol = false;
+        foreach ($reader->rows() as $e) {
+            if ($e['table'] === 'fanfiction_stories' && array_key_exists('future_col', $e['row'])) $sawFutureCol = true;
+        }
+        $this->assertTrue($sawFutureCol, 'the unknown column rode through verbatim');
     }
 
     public function test_reader_exposes_story_files(): void
