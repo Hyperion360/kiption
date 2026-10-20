@@ -31,7 +31,9 @@ on this path touches its terms. Re-upload through the author submission
 flow: create the story, paste or attach the chapters (markdown, cleaned
 from the download), re-enter the rating, warnings, categories, and
 fandom/tags through the archive's taxonomy, and upload the cover if you
-had art. Chapter comments, kudos, and bookmark histories do not transfer.
+had art, or hand the downloads to the operator: `bin/kip import:epub
+<dir> --commit --author=<you>` performs the re-upload in one command.
+Chapter comments, kudos, and bookmark histories do not transfer.
 
 ## From Wattpad or FanFiction.net
 
@@ -50,7 +52,8 @@ downloader for them. Established open-source export tools exist instead:
 [FanFicFare](https://github.com/jimmxinu/fanficfare) (a Calibre plugin
 and CLI whose site adapters include both catalogs) fetches stories under
 your own login and produces EPUB copies, which are worth having as the
-durable backup the platform never gave you. A tool like that runs under
+durable backup the platform never gave you, and the EPUBs it produces
+import directly with the same command. A tool like that runs under
 your account and its use is between you and the platform's terms.
 
 ## From Substack

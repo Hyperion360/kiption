@@ -1144,6 +1144,16 @@ through the built-in admin panel afterwards, or create a fresh
 administrator with `php bin/kip user:create <email> [password]
 --admin`.
 
+### Migrating from an EPUB library
+
+AO3 downloads, FanFicFare output, or any EPUB you own:
+
+    php bin/kip import:epub ~/Downloads/ao3-exports/ --commit --author=demo
+
+One story per file, chapters in spine order, summary and cover from the
+EPUB's own metadata, each file imported once (re-runs skip by content
+hash). Preview everything with `--dry-run`.
+
 ## Versioning and releases
 
 Kiption is versioned for the people who run it. Tags are how self-hosters
