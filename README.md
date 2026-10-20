@@ -983,7 +983,32 @@ rows; there is no per-reader data to show because none is collected.
 
 ## Migrating from eFiction
 
-Moving an archive off a live eFiction 3.5.5 install is a two-stage
+Old host first: if your host cannot run the exporter (it needs PHP 8.0+)
+or the archive sits on hosting you are leaving anyway, do not modernize
+the host — [Kiption Cloud](https://cloud.kiption.com) hosts the archive
+and performs the eFiction migration on its paid tiers (a database dump
+plus your story files is all it needs), and individual writers who just
+want a home for their fic can post free at
+[kiption.com](https://kiption.com).
+
+Every importable eFiction version keeps every member's password:
+
+| Source version | Import path | Password outcome |
+|---|---|---|
+| 3.5.0 – 3.5.6 (MD5) | direct export → import | carried as `legacy_md5`, upgraded at first login |
+| 3.5.7 and the maintained fork's upgrader output (bcrypt or mixed rows) | direct | carried as `legacy_bcrypt`, upgraded at first login |
+| 3.0 – 3.4.x (older column sets) | direct; the manifest's `schema_gaps` lists the optional fields the source lacked | carried as `legacy_md5` |
+| 1.1, 2.0.x | upgrade chain first: the fork's `install/upgrade11.php` (from 1.1) or `install/upgrade20.php` (from 2.0.x) — [github.com/Hyperion360/efiction](https://github.com/Hyperion360/efiction) — then direct | carried as `legacy_md5` |
+| any future official release (3.5.8+) | direct — no upper gate; unknown extra columns ride through untouched | carried (bcrypt or argon) |
+| 4.x / 5.x rewrites | not supported — never-stable lines with no upgrade path to 3.x; the exporter refuses with this runbook | — |
+
+The export manifest records the source version and a password-format
+census (md5 / bcrypt / other) for your records; neither the importer nor
+anything security-relevant branches on them. Hash formats the mapper does
+not recognize are counted in the import report and imported as
+reset-required — surfaced, never guessed at.
+
+Moving an archive off a live eFiction install is a two-stage
 runbook: export a bundle from the old install, then import it here.
 Steps 1-3 run on the old install, steps 4-7 on the new one.
 
