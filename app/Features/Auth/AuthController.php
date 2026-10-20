@@ -109,17 +109,23 @@ final class AuthController
         return $redirect;
     }
 
-    /** eFiction imports carry unsalted md5 hashes: on the first successful
-     *  legacy verify, rehash to the modern algorithm, clear the legacy column,
-     *  and send the we-moved note. Runs after the throttle gate, so guessing
-     *  burns login_attempts rows exactly like a normal login failure.
+    /** eFiction imports carry unsalted md5 or legacy bcrypt hashes: on the
+     *  first successful legacy verify, rehash to the modern algorithm, clear
+     *  BOTH legacy columns, and send the we-moved note. Runs after the
+     *  throttle gate, so guessing burns login_attempts rows exactly like a
+     *  normal login failure. md5 is checked first and bcrypt only as an
+     *  else, so a corrupt double-legacy row has exactly one comparison path
+     *  (and one login_attempts burn per wrong try).
      *  Returns whether an upgrade happened; the retry only runs then, so a
      *  wrong password still costs exactly one login_attempts row. */
     private function tryLegacyUpgrade(string $email, string $password): bool
     {
-        $row = $this->db->one('SELECT id, legacy_md5 FROM users WHERE email = ? AND legacy_md5 IS NOT NULL', [$email]);
-        if ($row === null || !hash_equals((string) $row['legacy_md5'], md5($password))) return false;
-        $this->db->query('UPDATE users SET password_hash = ?, legacy_md5 = NULL WHERE id = ?',
+        $row = $this->db->one('SELECT id, legacy_md5, legacy_bcrypt FROM users WHERE email = ? AND (legacy_md5 IS NOT NULL OR legacy_bcrypt IS NOT NULL)', [$email]);
+        if ($row === null) return false;
+        $verified = $row['legacy_md5'] !== null && hash_equals((string) $row['legacy_md5'], md5($password));
+        if (!$verified && $row['legacy_bcrypt'] !== null) $verified = password_verify($password, (string) $row['legacy_bcrypt']);
+        if (!$verified) return false;
+        $this->db->query('UPDATE users SET password_hash = ?, legacy_md5 = NULL, legacy_bcrypt = NULL WHERE id = ?',
             [password_hash($password, PASSWORD_DEFAULT), $row['id']]);
         // we_moved carries no placeholders: the pair resolves straight from the row.
         [$subject, $body] = \App\Templates::get($this->db, 'we_moved', 'The archive moved',
