@@ -210,6 +210,9 @@ final class ImportCliTest extends TestCase
         $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
         $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
         $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM chapters')['c']);
-        $this->assertSame(10, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c'], 'the 3.5.5 map rows plus the third member');
+        // the same map rows the 3.5.5 fixture yields (3 users + 3 prefs +
+        // 1 story + 1 chapter + 2 reviews + 1 log): the 3.5.2 ALTERs touch
+        // columns the importer never reads
+        $this->assertSame(11, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
     }
 }
