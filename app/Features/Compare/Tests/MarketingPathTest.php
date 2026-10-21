@@ -184,5 +184,11 @@ final class MarketingPathTest extends TestCase
         // it exists regardless of page rows, so it must not wait for a
         // first live request to fill.
         $this->assertNotNull($cache->serve(new Request('GET', '/compare', [], [], [])), 'the compare index builds');
+        // Editing a compare row through PageController::update purges the
+        // page file AND the hub (the news-index idiom): the hub's link text
+        // is the row's title, so a purge that spared it would keep serving
+        // the stale or fallback spelling to anonymous visitors.
+        $cache->purgePage('compare-substack');
+        $this->assertFileDoesNotExist($this->cacheDir . '/compare/index.html');
     }
 }

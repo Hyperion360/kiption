@@ -188,11 +188,18 @@ final class Cache
      *  file's path can never change under an edit. A mapped marketing page
      *  serves at its TopPaths spelling, so its edit purges THERE: purging the
      *  /page/view spelling would unlink a nonexistent file and leave the
-     *  live one stale. */
+     *  live one stale. A compare row's edit also moves the /compare hub,
+     *  whose link text is the row's title (the news-index idiom): without
+     *  this, an edited title leaves the hub serving the stale or fallback
+     *  spelling to anonymous visitors indefinitely. */
     public function purgePage(string $slug): void
     {
         $f = $this->fileFor(\App\Marketing\TopPaths::path($slug) ?? '/page/view/' . $slug);
         if ($f !== null && is_file($f)) @unlink($f);
+        if (str_starts_with($slug, 'compare-')) {
+            $hub = $this->fileFor('/compare');
+            if ($hub !== null && is_file($hub)) @unlink($hub);
+        }
     }
 
     /** A news item's two cached surfaces: the item's own view file plus the
