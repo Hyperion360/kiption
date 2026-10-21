@@ -10,6 +10,7 @@ final class TopPaths
         'cloud' => '/cloud',
         'dmca' => '/dmca',
         'compare-efiction' => '/compare/efiction',
+        'compare-fictioneer' => '/compare/fictioneer',
         'compare-wattpad' => '/compare/wattpad',
         'compare-webnovel' => '/compare/webnovel',
         'compare-royal-road' => '/compare/royalroad',
