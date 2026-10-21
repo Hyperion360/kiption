@@ -13,8 +13,10 @@ Kiption is a modern eFiction alternative: eFiction 3.5 has been
 unmaintained since 2018 and breaks on current PHP. Kiption covers the
 eFiction feature set, imports an eFiction archive with one command
 (HTML converted to markdown, legacy passwords keep working, old URLs
-301 to their new addresses), and serves anonymous pages from a static
-cache on a one-query-per-page budget.
+301 to their new addresses), imports any EPUB you already own (Archive
+of Our Own's own download button, FanFicFare output, or any platform
+with an EPUB export), and serves anonymous pages from a static cache
+on a one-query-per-page budget.
 
 If you are coming from Wattpad, Royal Road, Fanfiction.net, Archive of
 Our Own, WebNovel, or Substack and want an archive you host and
@@ -1168,6 +1170,16 @@ copies of `efiction-export.php` import zero admins (the report line
 through the built-in admin panel afterwards, or create a fresh
 administrator with `php bin/kip user:create <email> [password]
 --admin`.
+
+### Migrating from an EPUB library
+
+AO3 downloads, FanFicFare output, or any EPUB you own:
+
+    php bin/kip import:epub ~/Downloads/ao3-exports/ --commit --author='Demo Author'
+
+One story per file, chapters in spine order, summary and cover from the
+EPUB's own metadata, each file imported once (re-runs skip by content
+hash). Preview everything with `--dry-run`.
 
 ## Versioning and releases
 

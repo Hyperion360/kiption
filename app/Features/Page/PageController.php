@@ -21,6 +21,12 @@ final class PageController
     {
         $row = $this->find($slug);
         if ($row === null) return new Response('Page not found', 404);
+        // A mapped marketing page serves at its top-level path; this spelling
+        // is its permanent alias (TopPaths owns the map, one canonical URL).
+        // The path guard can only fire on an internal call: routing never
+        // reaches here with $top, the marketing controllers own that path.
+        $top = \App\Marketing\TopPaths::path($slug);
+        if ($top !== null && $this->request->path !== $top) return Response::redirect($top, 301);
         $body = $row['body'];
         $head = $this->head()->withTitle($row['title'])
             ->withDescription($this->description($body))

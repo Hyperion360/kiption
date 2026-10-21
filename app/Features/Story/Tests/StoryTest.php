@@ -116,7 +116,7 @@ final class StoryTest extends TestCase
         $db->query("INSERT INTO tags (tag_type_id, name) VALUES (1, 'Adventure')");
         (new \App\Repositories\AuthoringRepository($db))->updateStory(
             'the-rabbit-hole', 1, 'The Rabbit Hole', 'Falling, slowly.', 'Thanks for reading.',
-            1, [1], false, false, '', false, '', '', '', [1]);
+            1, [1], false, false, '', false, '', '', '', false, [1]);
         $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
         $this->assertStringContainsString('Fantasy', $body);
         $this->assertStringNotContainsString('Adventure', $body);

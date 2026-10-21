@@ -15,8 +15,13 @@ final class CliTest extends TestCase
         $this->path = tempnam(sys_get_temp_dir(), 'kiption-cli-') . '.sqlite';
     }
 
+    private string $fixtures = '';
+
     protected function tearDown(): void
     {
+        if ($this->fixtures !== '') { exec('rm -rf ' . escapeshellarg($this->fixtures)); $this->fixtures = ''; }
+        $staticDir = $this->path . '-static';
+        if (is_dir($staticDir)) { exec('rm -rf ' . escapeshellarg($staticDir)); }
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
@@ -208,5 +213,289 @@ final class CliTest extends TestCase
         $this->assertSame(0, $code, $out);
         $this->assertStringContainsString('upstream check unavailable', $out);
         exec('rm -rf ' . escapeshellarg($dir));
+    }
+
+    // ------------------------------------------------------------------
+    // import:epub. The shared kip() folds stderr into stdout with 2>&1;
+    // the import refusals print to STDERR, so these cases run the command
+    // through a local wrapper that captures the two streams apart.
+    // ------------------------------------------------------------------
+
+    /** @return array{0: int, 1: string, 2: string} exit code, stdout, stderr */
+    private function kipSplit(string $args): array
+    {
+        $staticDir = $this->path . '-static';
+        if (!is_dir($staticDir)) { mkdir($staticDir); }
+        $outFile = $this->path . '-out';
+        $errFile = $this->path . '-err';
+        $cmd = sprintf('KIP_DB_DSN=%s KIP_STATIC_CACHE_DIR=%s %s %s %s > %s 2> %s',
+            escapeshellarg('sqlite:' . $this->path),
+            escapeshellarg($staticDir),
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg(dirname(__DIR__) . '/bin/kip'),
+            $args,
+            escapeshellarg($outFile),
+            escapeshellarg($errFile));
+        exec($cmd, $ignored, $code);
+        return [(int) $code, (string) file_get_contents($outFile), (string) file_get_contents($errFile)];
+    }
+
+    /** A throwaway directory for the .epub fixtures, removed on teardown. */
+    private function fixturesDir(): string
+    {
+        if ($this->fixtures === '') {
+            $this->fixtures = sys_get_temp_dir() . '/kiption-cli-fx-' . uniqid('', true);
+            mkdir($this->fixtures, 0775, true);
+        }
+        return $this->fixtures;
+    }
+
+    /** A minimal importable EPUB at fixtures/<name>: container, OPF
+     *  (title, creator, no cover convention), N one-paragraph chapters.
+     *  Returns the absolute path, the EpubImportTest fixture idiom. */
+    private function epub(string $name, string $title, string $creator = 'cli-author', int $chapters = 3): string
+    {
+        $items = $refs = [];
+        $path = $this->fixturesDir() . '/' . $name;
+        $zip = new \ZipArchive();
+        if ($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            $this->fail("fixture zip {$name} failed to open for writing");
+        }
+        for ($n = 1; $n <= $chapters; $n++) {
+            $items[] = sprintf('<item id="ch%d" href="Text/ch%d.xhtml" media-type="application/xhtml+xml"/>', $n, $n);
+            $refs[] = sprintf('<itemref idref="ch%d"/>', $n);
+            $zip->addFromString(sprintf('OEBPS/Text/ch%d.xhtml', $n),
+                '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>ch' . $n . '</title></head>'
+                . '<body><h2>ch' . $n . '</h2><p>Prose for chapter ' . $n . '.</p></body></html>');
+        }
+        $zip->addFromString('mimetype', 'application/epub+zip');
+        $zip->addFromString('META-INF/container.xml',
+            '<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
+            . '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>');
+        $zip->addFromString('OEBPS/content.opf',
+            '<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid">'
+            . '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            . '<dc:title>' . $title . '</dc:title><dc:creator>' . $creator . '</dc:creator>'
+            . '<dc:description>A CLI fixture.</dc:description><dc:language>en</dc:language></metadata>'
+            . '<manifest>' . implode('', $items) . '</manifest><spine>' . implode('', $refs) . '</spine></package>');
+        $zip->close();
+        return $path;
+    }
+
+    /** A member with a known penname, the EpubImportTest INSERT idiom
+     *  against the same throwaway DB the CLI points at. */
+    private function member(string $penname): int
+    {
+        $db = new Database('sqlite:' . $this->path);
+        $db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)",
+            [$penname . '@e.test', password_hash('x1234567', PASSWORD_DEFAULT), $penname, date('c'), date('c')]);
+        return (int) $db->lastInsertId();
+    }
+
+    private function rows(string $sql): int
+    {
+        return (int) (new Database('sqlite:' . $this->path))->one($sql)['c'];
+    }
+
+    /** The common preamble: schema, blank taxonomy, one author member. */
+    private function importSetup(): int
+    {
+        $this->kip('migrate');
+        $this->kip('db:blank');
+        return $this->member('cli-author');
+    }
+
+    public function test_import_epub_commit_imports_a_file_and_prints_the_report(): void
+    {
+        $authorId = $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Cli Title \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertStringNotContainsString('Would import', $out);
+        $this->assertSame('', $err, 'a clean import prints nothing on stderr');
+        $db = new Database('sqlite:' . $this->path);
+        $story = $db->one("SELECT id, title, author_id FROM stories WHERE title = 'Cli Title'");
+        $this->assertNotNull($story, 'the story row landed');
+        $this->assertSame($authorId, (int) $story['author_id']);
+        $this->assertSame(3, $this->rows('SELECT COUNT(*) c FROM chapters WHERE story_id = ' . (int) $story['id']));
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'));
+    }
+
+    public function test_import_epub_imports_a_directory_sorted_with_a_summary(): void
+    {
+        $authorId = $this->importSetup();
+        $this->epub('b-second.epub', 'Beta Book');
+        $this->epub('a-first.epub', 'Alpha Book');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Alpha Book \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertMatchesRegularExpression('/^Imported: Beta Book \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertLessThan(strpos($out, 'Imported: Beta Book'), strpos($out, 'Imported: Alpha Book'),
+            'the directory walks in filename order, not directory order');
+        $this->assertMatchesRegularExpression('/^2 imported, 0 skipped, 0 failed$/m', $out);
+        $this->assertSame(2, $this->rows('SELECT COUNT(*) c FROM stories'));
+        $this->assertSame(1, $this->rows("SELECT COUNT(*) c FROM stories WHERE title = 'Alpha Book'"));
+    }
+
+    public function test_import_epub_dry_run_prints_and_persists_nothing(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('dry.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --dry-run --author=cli-author');
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Would import: Cli Title \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertStringNotContainsString('Imported:', $out);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'), 'a dry run writes no story');
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM chapters'));
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM epub_imports'), 'a dry run writes no ledger row');
+    }
+
+    public function test_import_epub_unknown_penname_refuses_on_stderr_before_any_import(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('ghost.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author=nope');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString("no member carries the penname 'nope'", $err, 'the refusal reaches STDERR');
+        $this->assertSame('', $out, 'a refusal prints no success lines');
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    /** A nonexistent --author-id refuses once, up front: the importer's own
+     *  id check fires per file, so a directory run would otherwise print one
+     *  Failed block per book (the penname path already fast-fails here). */
+    public function test_import_epub_unknown_author_id_refuses_once_before_any_import(): void
+    {
+        $this->importSetup();
+        $this->epub('lonely.epub', 'Ghost Id');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=999999');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('no member carries author id 999999', $err, 'the refusal names the id on STDERR');
+        $this->assertSame('', $out, 'a refusal prints no success lines');
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    public function test_import_epub_rejects_both_author_flags_as_a_usage_error(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author=a --author-id=1');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    public function test_import_epub_rejects_dry_run_and_commit_together_as_a_usage_error(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --dry-run --commit');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    public function test_import_epub_rejects_empty_author_values_as_a_usage_error(): void
+    {
+        $this->importSetup();
+        $epub = $this->epub('book.epub', 'Cli Title');
+        [$code, , $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author=');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        [$code, , $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=');
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('Usage: kip import:epub', $err);
+        $this->assertSame(0, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    /** The mid-batch corruption case: a good book followed by a corrupt one
+     *  must report each file as itself (the failed row can never be the
+     *  previous file's) and sink the run's exit code. */
+    public function test_import_epub_mixed_batch_reports_each_file_and_fails_the_run(): void
+    {
+        $authorId = $this->importSetup();
+        $this->epub('1-good.epub', 'Good Book');
+        file_put_contents($this->fixturesDir() . '/2-corrupt.epub', 'not a zip archive at all');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(1, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertSame(1, substr_count($out, 'Imported:'), 'the good file imports once: ' . $out);
+        $this->assertMatchesRegularExpression('/^Imported: Good Book \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertMatchesRegularExpression('/^Failed: .*2-corrupt\.epub$/m', $err);
+        $this->assertMatchesRegularExpression('/not a readable zip archive/', $err, 'the failure reason rides the Failed block');
+        $this->assertMatchesRegularExpression('/^1 imported, 0 skipped, 1 failed$/m', $out);
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'));
+        $this->assertSame(3, $this->rows('SELECT COUNT(*) c FROM chapters'));
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'));
+    }
+
+    /** Finding: glob($target . '/*.epub') treats the whole argument as a
+     *  pattern, so the reviewer's books[2024] directory matched its sibling
+     *  books2 and books4 instead of listing its own files. */
+    public function test_import_epub_directory_with_glob_metacharacters_imports_only_its_own_files(): void
+    {
+        $authorId = $this->importSetup();
+        $bracket = $this->fixturesDir() . '/books[2024]';
+        mkdir($bracket);
+        $this->epub('books[2024]/own.epub', 'Bracket Own');
+        mkdir($this->fixturesDir() . '/books2');
+        $this->epub('books2/two.epub', 'Sibling Two');
+        mkdir($this->fixturesDir() . '/books4');
+        $this->epub('books4/four.epub', 'Sibling Four');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($bracket) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Bracket Own \(3 chapters, \d+ words\)$/m', $out);
+        $this->assertStringNotContainsString('Sibling Two', $out);
+        $this->assertStringNotContainsString('Sibling Four', $out);
+        $this->assertMatchesRegularExpression('/^1 imported, 0 skipped, 0 failed$/m', $out);
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    /** Finding: the case-sensitive *.epub pattern silently skipped .EPUB
+     *  files; the suffix test lowercases first. */
+    public function test_import_epub_directory_includes_uppercase_epub_files(): void
+    {
+        $authorId = $this->importSetup();
+        $this->epub('loud.EPUB', 'Loud Book');
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($this->fixturesDir()) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertMatchesRegularExpression('/^Imported: Loud Book \(3 chapters, \d+ words\)$/m', $out, 'the suffix test folds case, so .EPUB imports');
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'));
+    }
+
+    /** Finding: the digest check was commit-only, so a dry run promised
+     *  "Would import" for a file commit would skip. The ledger lookup runs
+     *  in both modes and the dry run reports Would skip, writing nothing. */
+    public function test_import_epub_dry_run_reports_would_skip_for_an_already_imported_file(): void
+    {
+        $authorId = $this->importSetup();
+        $epub = $this->epub('again.epub', 'Repeat Book');
+        [$code, $out] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, $out);
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --dry-run --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        // the skip fires before any conversion work, so the counts stay 0:
+        // nothing beyond the digest was read
+        $this->assertMatchesRegularExpression('/^Would skip: Repeat Book \(0 chapters, 0 words\)$/m', $out);
+        $this->assertMatchesRegularExpression('/already imported as story \d+/', $out);
+        $this->assertMatchesRegularExpression('/^0 would import, 1 skipped, 0 failed$/m', $out);
+        $this->assertStringNotContainsString('Would import:', $out);
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM stories'), 'the dry run writes no story');
+        $this->assertSame(3, $this->rows('SELECT COUNT(*) c FROM chapters'));
+        $this->assertSame(1, $this->rows('SELECT COUNT(*) c FROM epub_imports'), 'the dry run writes no ledger row');
+    }
+
+    /** Finding: a hostile dc:title must not emit control characters to the
+     *  operator's terminal; tab and newline are the ones XML parsing can
+     *  legally deliver, and the printed line stays one clean line. */
+    public function test_import_epub_strips_control_characters_from_reported_titles(): void
+    {
+        $authorId = $this->importSetup();
+        $epub = $this->epub('evil.epub', "Evil\tTitle\nSecond Line");
+        [$code, $out, $err] = $this->kipSplit('import:epub ' . escapeshellarg($epub) . ' --commit --author-id=' . $authorId);
+        $this->assertSame(0, $code, "stdout: {$out}\nstderr: {$err}");
+        $this->assertStringNotContainsString("\t", $out, 'control characters never reach the terminal');
+        $this->assertMatchesRegularExpression('/^Imported: EvilTitleSecond Line \(3 chapters, \d+ words\)$/m', $out,
+            'characters strip, nothing replaces them, and the line count never grows');
     }
 }

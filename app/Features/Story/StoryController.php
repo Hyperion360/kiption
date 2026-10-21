@@ -529,7 +529,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo, $tagIds] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
         }
@@ -537,7 +537,7 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
-            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $tagIds);
+            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
         return Response::redirect('/story/edit/' . $slug);
@@ -558,7 +558,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $giftTo, $tagIds] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
@@ -569,7 +569,7 @@ final class StoryController
         try {
             [$newSlug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
-                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $tagIds);
+                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -660,6 +660,7 @@ final class StoryController
                 'restricted' => (int) $story['i'],
                 'language' => (string) $story['j'],
                 'round_robin' => (int) $story['p'],
+                'is_original' => (int) ($story['r'] ?? 0),
                 'gift_to' => (string) ($story['q'] ?? ''),
                 'canonical_url' => (string) ($story['n'] ?? ''),
                 'crosspost_url' => (string) ($story['o'] ?? ''),
@@ -725,7 +726,7 @@ final class StoryController
         return \App\StaticCache\Cache::configured($this->app);
     }
 
-    /** @return array{string,string,string,int,array,bool,bool,string,bool,string,array} */
+    /** @return array{string,string,string,int,array,bool,bool,string,bool,bool,string,array} */
     private function storyInput(): array
     {
         $post = $this->request->post;
@@ -745,6 +746,10 @@ final class StoryController
             // Value-based, not isset (finding 8's lesson): an unchecked box
             // omits the key, and a forged non-'1' value must read as off.
             ($post['round_robin'] ?? '') === '1',
+            // Attestation, same value-based idiom: unchecked omits the key,
+            // forged non-'1' reads as off. Attaching money surfaces to a
+            // fan work is the platform's hard line (DMCA posture).
+            ($post['is_original'] ?? '') === '1',
             substr(trim((string) ($post['gift_to'] ?? '')), 0, 120),
             // The tags idiom is the categories idiom: numeric-only, unknown
             // ids drop inside writeTags's INSERT..SELECT WHERE id IN.

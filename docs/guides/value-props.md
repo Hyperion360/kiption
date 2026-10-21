@@ -79,8 +79,8 @@ gripes every FFN author knows:
 
 - **No ads mid-story.** There is no ad system in the codebase at all.
 - **No coin paywalls.** Monetization on Kiption is the author's own support
-  link (Patreon, Ko-fi) on their profile and stories. The platform never
-  sits between an author and their reader's money.
+  link (Patreon, Ko-fi) on their profile and original works. The platform
+  never sits between an author and their reader's money.
 - **No algorithm rations your reach.** Wattpad's home feed decides who
   sees a story. On Kiption a new chapter fans out to every follower's
   chosen channel (inbox, email, digest), and listings are chronological
@@ -167,7 +167,9 @@ gripes every FFN author knows:
 ## What Kiption deliberately does not build
 
 - In-app payments, coins, or paid chapter unlocks. Monetization is a
-  support link, never a toll booth.
+  support link, never a toll booth. The only money surface anywhere is
+  that link, on the author's profile and on original works' story
+  pages; a fan work never carries one.
 - Per-paragraph inline comments. Chapter-level threads and reviews only.
 - Image and video hosting beyond covers and avatars.
 - Social feeds, clubs, and activity streams.
@@ -177,6 +179,8 @@ gripes every FFN author knows:
 Self-hosting is free forever under the MIT license; this repository is
 the whole product. The hosted flagship at kiption.com runs the same code
 and bans works whose primary purpose is sexual gratification; romance,
-including mature romance behind the content gate, is welcome. What an
-archive accepts is always the operator's call, and the seeded
-content-policy page is theirs to edit.
+including mature romance behind the content gate, is welcome. Fan works
+are welcome too, and they are never paywalled: a support link renders
+on the author's profile and on an original work's story page, never on
+a fanfic story page. What an archive accepts is always the operator's
+call, and the seeded content-policy page is theirs to edit.

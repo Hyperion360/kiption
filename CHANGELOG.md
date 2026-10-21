@@ -4,6 +4,24 @@ All notable changes to Kiption are documented here. Formats follow Keep a Change
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-21
+
+### Security
+- admin surfaces route through one epoch-checked gate, Adminness::requireAdmin (valid session, then the role row, fail-closed 403 on any arm), replacing the twelve copies of the raw COUNT idiom; an authorized pentest pass over the result returned no exploitable findings.
+
+### Added
+- a seeded copyright and DMCA page at /dmca on every install (migration 037 backfills existing archives, INSERT OR IGNORE preserves an operator's own page): what a takedown notice must contain, counter-notice handling per 17 U.S.C. 512(g), account termination after three sustained notices, and a designated-agent contact block the operator fills in through the admin page forms.
+- import:epub, a bulk EPUB importer (AO3 downloads, FanFicFare output, any EPUB library) with dry-run, author resolution, covers, and per-file idempotency.
+- top-level marketing paths served from page rows (/cloud, /dmca, and /compare/ for eFiction, Wattpad, Webnovel, Royal Road, FanFiction.net, AO3, and Substack); each mapped slug carries one canonical URL, /page/view/{slug} 301-redirects to it, the sitemap advertises only the canonical spellings, and the static-cache build warms the compare paths.
+- an original-work attestation on the story form (migration 039 adds the flag to existing stories and imports as unchecked): checking it states the work is entirely the author's own, and it gates the monetization surfaces.
+
+### Changed
+- the story-page support link renders only on attested original works, never on fan-work story pages; author profiles keep it for every author.
+
+### Fixed
+- the powered-by footer's default product URL is cloud.kiption.com; the kiption.cloud spelling it replaced never existed as a domain (one hosted domain, owner-confirmed).
+- the release builder's staging copy carries its directory prefix, so root-relative exclusion paths (app/backups/, app/nav.json) match again; the install tree, the manifest, and the upgrade ZIP agree on one payload.
+
 ## [0.1.1] - 2026-10-15
 
 ### Added

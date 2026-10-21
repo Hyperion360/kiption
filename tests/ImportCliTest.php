@@ -172,4 +172,44 @@ final class ImportCliTest extends TestCase
         $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
         $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
     }
+
+    /** The SourceForge "latest version" download (eFiction 3.5.2,
+     *  eFiction352.zip, the last artifact the project ever published there)
+     *  round-trips. Its schema differs from the 3.5.5 fixture in exactly
+     *  two tables and the importer reads neither difference: authorprefs
+     *  predates tinyMCE, and authorfields carries field_code_in /
+     *  field_code_out / field_on instead of field_order / field_profile
+     *  (the 3.5.5 custom-fields redesign). ALTER the fixture to the 3.5.2
+     *  shape, then run the real exporter and importer end to end. */
+    public function test_sourceforge_352_schema_round_trips(): void
+    {
+        $src = $this->root . '/src';
+        mkdir($src, 0775, true);
+        $fx = new \EfictionInstall($src);
+        $fx->installShims();
+        $fx->pdo->exec('ALTER TABLE fx_fanfiction_authorprefs DROP COLUMN "tinyMCE"');
+        $fx->pdo->exec('CREATE TABLE fx_fanfiction_authorfields_352 (field_id INTEGER PRIMARY KEY AUTOINCREMENT, field_type TEXT, field_name TEXT, field_title TEXT, field_options TEXT, field_code_in TEXT, field_code_out TEXT, field_on TEXT)');
+        $fx->pdo->exec('INSERT INTO fx_fanfiction_authorfields_352 (field_id, field_type, field_name, field_title, field_options) SELECT field_id, field_type, field_name, field_title, field_options FROM fx_fanfiction_authorfields');
+        $fx->pdo->exec('DROP TABLE fx_fanfiction_authorfields');
+        $fx->pdo->exec('ALTER TABLE fx_fanfiction_authorfields_352 RENAME TO fx_fanfiction_authorfields');
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        $token = str_repeat('a', 64);
+        file_put_contents($src . '/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
+        \EfictionExporter::runner($src, 'fxs_', $token, true, true, false, true);
+        $bundle = '';
+        foreach (glob($src . '/out-*/kiption-export.tar.gz') as $p) $bundle = $p;
+        $this->assertNotSame('', $bundle, 'bundle not built');
+        [$code, $out] = $this->kip('migrate');
+        $this->assertSame(0, $code, $out);
+        [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($bundle) . ' --commit');
+        $this->assertSame(0, $code, $out);
+        $db = $this->db();
+        // the shared fixture now seeds three members (uid 3 is the bcrypt
+        // member), so one more user map row than the 3.5.5 baseline
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM chapters')['c']);
+        $this->assertSame(10, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c'], 'the 3.5.5 map rows plus the third member');
+    }
 }

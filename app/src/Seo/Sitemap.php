@@ -94,8 +94,11 @@ final class Sitemap
         $segments[] = ['sitemap-series.xml', array_map(static fn(array $s): array
             => [$baseUrl . '/series/view/' . rawurlencode((string) $s['slug']), $s['created_at']],
             $db->all('SELECT slug, created_at FROM series'))];
+        // A mapped marketing slug advertises its TOP-LEVEL spelling (TopPaths
+        // owns the map): a sitemap entry is a canonical declaration, so the
+        // /page/view alias, a 301, never appears here.
         $segments[] = ['sitemap-pages.xml', array_map(static fn(array $p): array
-            => [$baseUrl . '/page/view/' . rawurlencode((string) $p['slug']), $p['updated_at']],
+            => [$baseUrl . (\App\Marketing\TopPaths::path((string) $p['slug']) ?? '/page/view/' . rawurlencode((string) $p['slug'])), $p['updated_at']],
             $db->all("SELECT slug, updated_at FROM pages WHERE body <> ''"))];
         // The news segment gates on its flag (finding 3): uninit the class
         // answers ON (finding 1), so every pre-flag caller keeps the segment.

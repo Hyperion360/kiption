@@ -309,6 +309,8 @@ return [
     'story.rating' => 'Rating',
     'story.categories' => 'Categories',
     'story.completed' => 'Completed',
+    'story.is_original_label' => 'Original work',
+    'story.is_original_help' => 'Check only if this work is entirely your own: no characters or worlds from someone else\'s copyright. Original works may carry support and payment links; fan works never do.',
     'story.gift_to_label' => 'Gift to (a line for the recipient, shown on the story page)',
     'story.canonical_label' => 'Canonical URL (must start with http:// or https://; when this archive mirrors a story whose original lives elsewhere)',
     'story.crosspost_label' => 'Cross-posted from (must start with http:// or https://; where this story was first published)',
@@ -484,6 +486,11 @@ return [
     'page.slug_placeholder' => 'about',
     'page.body_placeholder' => 'Markdown welcome',
     'page.last_updated' => 'Last updated {date}',
+
+    // The comparison hub (/compare).
+    'compare.heading' => 'How Kiption compares',
+    'compare.lead' => 'Kiption measured against the platforms writers and readers already use.',
+    'compare.meta_description' => 'Kiption compared to eFiction, Wattpad, Webnovel, Royal Road, FanFiction.net, AO3, and Substack.',
 
     // The validation queue.
     'queue.heading' => 'Validation queue',
