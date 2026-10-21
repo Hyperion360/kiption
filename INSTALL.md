@@ -249,7 +249,7 @@ Never world-writable: no step in this guide asks for `chmod 777` or a
 CHMOD 777 a storage folder and 666 a config, leave those habits behind:
 every writable path above is owned by the PHP user alone, and
 `config.php` does not exist until the setup wizard writes it, outside
-the web root, already private. A co-tenant on a shared host can read a
+the web root, already private. Another site on a shared host can read a
 world-writable file; that is the hole this install refuses to open.
 
 ## 4. Web server

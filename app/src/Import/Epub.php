@@ -66,7 +66,7 @@ final class Epub
         }
         $this->zip = $zip;
         if ($zip->numFiles > self::MAX_MEMBERS) {
-            throw new \RuntimeException(sprintf('zip holds %d entries, over the 4096 member cap', $zip->numFiles));
+            throw new \RuntimeException(sprintf('zip holds %d entries, over the %d member cap', $zip->numFiles, self::MAX_MEMBERS));
         }
         $this->stats = [];
         $declaredTotal = 0;
@@ -78,11 +78,11 @@ final class Epub
             $this->stats[] = $stat;
             $size = (int) $stat['size'];
             if ($size > self::MAX_FILE_BYTES) {
-                throw new \RuntimeException(sprintf("zip entry '%s' declares %d bytes, over the 16 MiB per-entry cap", $stat['name'], $size));
+                throw new \RuntimeException(sprintf("zip entry '%s' declares %d bytes, over the %d MiB per-entry cap", $stat['name'], $size, self::mib(self::MAX_FILE_BYTES)));
             }
             $declaredTotal += $size;
             if ($declaredTotal > self::MAX_TOTAL_BYTES) {
-                throw new \RuntimeException(sprintf('zip entries declare %d bytes total, over the 64 MiB archive cap', $declaredTotal));
+                throw new \RuntimeException(sprintf('zip entries declare %d bytes total, over the %d MiB archive cap', $declaredTotal, self::mib(self::MAX_TOTAL_BYTES)));
             }
         }
         $this->actualTotal = 0;
@@ -108,13 +108,21 @@ final class Epub
             throw new \RuntimeException(sprintf("zip entry '%s' (index %d) failed to read", $this->stats[$i]['name'] ?? $i, $i));
         }
         if (strlen($data) > self::MAX_FILE_BYTES) {
-            throw new \RuntimeException(sprintf('zip entry %d read %d actual bytes, over the 16 MiB per-entry cap', $i, strlen($data)));
+            throw new \RuntimeException(sprintf('zip entry %d read %d actual bytes, over the %d MiB per-entry cap', $i, strlen($data), self::mib(self::MAX_FILE_BYTES)));
         }
         $this->actualTotal += strlen($data);
         if ($this->actualTotal > self::MAX_TOTAL_BYTES) {
-            throw new \RuntimeException(sprintf('zip reads total %d actual bytes, over the 64 MiB archive cap', $this->actualTotal));
+            throw new \RuntimeException(sprintf('zip reads total %d actual bytes, over the %d MiB archive cap', $this->actualTotal, self::mib(self::MAX_TOTAL_BYTES)));
         }
         return $data;
+    }
+
+    /** A byte cap in whole MiB, the human-readable form the refusal
+     *  messages quote: interpolated from the constants so the words and
+     *  the enforcement cannot drift apart. */
+    private static function mib(int $bytes): int
+    {
+        return intdiv($bytes, 1024 * 1024);
     }
 
     /** The structure pass: container, OPF, metadata, manifest, spine, cover.
@@ -147,6 +155,12 @@ final class Epub
         }
         $opfDir = ($d = dirname($opfPath)) === '.' ? '' : $d;
         $meta = $this->readMetadata($doc);
+        // an empty or whitespace dc:title would import a story titled '':
+        // refuse here at the structure pass, where the other hard refusals
+        // live, so a dry run reports the same refusal a commit would
+        if (trim($meta['title']) === '') {
+            throw new \RuntimeException('the EPUB carries no usable title');
+        }
         $manifest = $this->readManifest($doc, $opfDir);
         $spineNotes = [];
         return [
@@ -209,7 +223,8 @@ final class Epub
     /** First dc:title, first dc:creator, dc:description stripped to plain
      *  text (tags off, entities decoded, whitespace collapsed, 1000 chars),
      *  dc:language lowercased. An absent field is an empty string; refusal
-     *  is not metadata's job. The collapse carries a non-u fallback: a /u
+     *  is not metadata's job (the one exception, the empty title, refuses
+     *  in readStructure). The collapse carries a non-u fallback: a /u
      *  pattern returns null on invalid UTF-8, and the naive cast would
      *  silently hand the import an empty summary. */
     private function readMetadata(\DOMDocument $doc): array
@@ -302,7 +317,7 @@ final class Epub
         if ($frontMatter > 0) { $notes[] = sprintf('FanFicFare front matter pages skipped: %d', $frontMatter); }
         if ($duplicates > 0) { $notes[] = sprintf('duplicate spine itemrefs skipped: %d', $duplicates); }
         if (count($spine) > self::MAX_CHAPTERS) {
-            throw new \RuntimeException(sprintf('spine exceeds 512 chapters: %d readable itemrefs, over the cap', count($spine)));
+            throw new \RuntimeException(sprintf('spine exceeds %d chapters: %d readable itemrefs, over the cap', self::MAX_CHAPTERS, count($spine)));
         }
         foreach ($spine as $path) {
             if ($this->entryIndex($path) === null) {

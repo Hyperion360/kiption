@@ -40,10 +40,9 @@ it except the items noted. Decisions that cost money stay with the owner.
       owner project, not a default.
 - [ ] Either way: watch the fork's CI weekly (green on PHP 8.3/8.4 x
       MySQL/MariaDB), cut a tag when compatibility fixes accumulate.
-      Checked 2026-10-15: latest runs green on main (compatibility branch
-      merged; three failing CI setup runs earlier the same day were
-      fixed forward). The weekly cadence is manual: no recurring automation
-      was created (recurring-cost rule; ask if wanted).
+      Checked 2026-10-21: latest runs green on main. The weekly cadence
+      is manual: no recurring automation was created (recurring-cost rule;
+      ask if wanted).
 
 ## Engineering follow-ups (coordinator-executable, no owner input needed)
 
@@ -72,12 +71,15 @@ it except the items noted. Decisions that cost money stay with the owner.
 ## Ongoing discovery (marketing and SEO cadence)
 
 - [ ] Cut a release every time user-facing work lands (releases are the
-      strongest sustained search signal; 0.1.1 shipped 2026-10-15).
+      strongest sustained search signal; 0.1.1 shipped 2026-10-15, 0.2.0
+      shipped 2026-10-21 with import:epub as the headline).
 - [ ] Answer every Discussion and issue within a day (community-engagement
       signals feed both GitHub ranking and the eFiction community's trust).
+      Checked 2026-10-21: only the pinned issue open, zero Discussions.
 - [ ] Re-check repo topics quarterly against what people actually search
-      (both efiction spellings are in place; the 20-topic cap is full, so
-      swaps only for proven better terms).
+      (last optimized 2026-10-15: the competitor platforms went in as bare
+      names plus substack, fanfiction-net, and self-hosting; next review
+      January 2027).
 
 ## Backlog (recorded non-goals, revisit only on demand)
 
@@ -88,6 +90,29 @@ it except the items noted. Decisions that cost money stay with the owner.
       while read/whole gate): a product decision, recorded 2026-10-15.
 
 ## Closed (kept for the record)
+
+- [x] The qa-full follow-up batch shipped 2026-10-21 (commit on top of
+      v0.2.0): cap messages interpolate the constants so words and
+      enforcement cannot drift; four enforced-but-untested refusal paths
+      gained coverage pins (container DOCTYPE, missing rootfile,
+      absolute-href escape, cover-absent clean import via a toggled
+      fixture builder); an empty dc:title refuses with a clear message
+      instead of importing a story titled nothing; fixture hygiene
+      (override-winning union, checked addFile/addFromString, tempnam
+      guard). Full suite 1144 tests / 9366 assertions.
+- [x] v0.2.0 shipped 2026-10-21: tag pushed, GitHub release live with the
+      folded changelog (import:epub as the headline Added); the cadence
+      item above executed the same day the work landed.
+- [x] The install/upgrade guide benchmarked against efiction.org/download
+      (2026-10-21): theirs offers one download, CHMOD 777/666, upload-over
+      upgrades, and no requirements, troubleshooting, rollback, or
+      checksums; INSTALL.md carries digest-pinned install and upgrade
+      ZIPs, a permissions table with no world-writable step (and now says
+      so, naming the habit it replaces), troubleshooting, and a shell-free
+      rollback. Superior on every axis their page lacks.
+- [x] The README first screen names the EPUB import path next to the
+      eFiction import (2026-10-21): AO3 downloads, FanFicFare output, or
+      any platform with an EPUB export.
 
 - [x] The hosted-go-live checklist (the C1-C9 track, the email provider
       pick, the Stripe go-live gate, and the reserved-instance decision)

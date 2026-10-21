@@ -19,7 +19,9 @@ final class EpubImportTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-epub-db-') . '.sqlite';
+        $stub = tempnam(sys_get_temp_dir(), 'kiption-epub-db-');
+        if ($stub === false) { $this->fail('tempnam failed: no database stub to rename to .sqlite'); }
+        $this->path = $stub . '.sqlite';
         $this->db = new Database('sqlite:' . $this->path);
         (new \Kip\Migrations\Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db);
@@ -85,10 +87,14 @@ final class EpubImportTest extends TestCase
             $this->fail("fixture zip {$name} failed to open for writing");
         }
         foreach ($entries as $entryName => $content) {
-            $zip->addFromString((string) $entryName, (string) $content);
+            if (!$zip->addFromString((string) $entryName, (string) $content)) {
+                $this->fail("fixture zip {$name} failed to add entry {$entryName}");
+            }
         }
         foreach ($opts['files'] ?? [] as $entryName => $diskPath) {
-            $zip->addFile((string) $diskPath, (string) $entryName);
+            if (!$zip->addFile((string) $diskPath, (string) $entryName)) {
+                $this->fail("fixture zip {$name} failed to add file {$entryName} from {$diskPath}");
+            }
         }
         if (!$zip->close()) {
             $this->fail("fixture zip {$name} failed to close");
@@ -315,6 +321,37 @@ final class EpubImportTest extends TestCase
         (new Epub($this->db, $this->uploads))->inspect($epub);
     }
 
+    /** Coverage pin: the DOCTYPE scan covers the CONTAINER document too,
+     *  not only the OPF (entity expansion is refused at both parses). */
+    public function test_a_doctype_in_the_container_is_refused(): void
+    {
+        $epub = $this->importBook('container-doctype.epub', [], [
+            'META-INF/container.xml' => '<?xml version="1.0"?>' . "\n"
+                . "<!DOCTYPE container>\n"
+                . '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>'
+                . '<rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>'
+                . '</rootfiles></container>',
+        ]);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/refuses DOCTYPE/');
+        (new Epub($this->db, $this->uploads))->inspect($epub);
+    }
+
+    /** Coverage pin: a container naming a rootfile no entry carries refuses
+     *  with the missing-entry phrasing, not the no-rootfile one. */
+    public function test_a_rootfile_missing_from_the_archive_refuses(): void
+    {
+        $epub = $this->importBook('ghost-rootfile.epub', [], [
+            'META-INF/container.xml' => '<?xml version="1.0"?>' . "\n"
+                . '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles>'
+                . '<rootfile full-path="OEBPS/elsewhere.opf" media-type="application/oebps-package+xml"/>'
+                . '</rootfiles></container>',
+        ]);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/rootfile full-path is missing from the archive/');
+        (new Epub($this->db, $this->uploads))->inspect($epub);
+    }
+
     public function test_a_doctype_in_the_opf_is_refused(): void
     {
         $epub = $this->makeEpub('doctype.epub', [], ['book' => ['doctype' => true]]);
@@ -347,6 +384,24 @@ final class EpubImportTest extends TestCase
         (new Epub($this->db, $this->uploads))->inspect($epub);
     }
 
+    /** Coverage pin: the other escape shape, a leading absolute path,
+     *  refuses the same way (the escape toggle above walks above root
+     *  instead). The manifest entry the href points at exists, so the
+     *  refusal is purely the absolute path. */
+    public function test_an_absolute_manifest_href_escapes_the_archive(): void
+    {
+        $epub = $this->makeEpub('abs-href.epub', [], ['book' => [
+            'chapters' => 2,
+            'hrefs' => [
+                ['/x.xhtml', 'Text/ch1.xhtml'],
+                ['Text/ch2.xhtml', 'Text/ch2.xhtml'],
+            ],
+        ]]);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/escapes the archive/');
+        (new Epub($this->db, $this->uploads))->inspect($epub);
+    }
+
     public function test_a_spine_href_with_no_zip_entry_is_missing_from_the_archive(): void
     {
         $epub = $this->makeEpub('missing-href.epub', [], ['book' => ['missing' => true]]);
@@ -361,6 +416,24 @@ final class EpubImportTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/spine exceeds 512 chapters/');
         (new Epub($this->db, $this->uploads))->inspect($epub);
+    }
+
+    /** Policy: an empty or whitespace dc:title would import a story titled
+     *  '', so the structure pass refuses before any author, digest or
+     *  chapter work, and the refusal stays retryable. */
+    public function test_an_empty_title_refuses(): void
+    {
+        $this->member('realauthor');
+        foreach (['', '   '] as $title) {
+            $epub = $this->makeEpub('no-title.epub', [], ['book' => ['title' => $title, 'creator' => 'realauthor']]);
+            try {
+                (new Epub($this->db, $this->uploads))->importFile($epub, null, true);
+                $this->fail('an empty dc:title must refuse');
+            } catch (\RuntimeException $ex) {
+                $this->assertStringContainsString('no usable title', $ex->getMessage());
+            }
+        }
+        $this->assertSame(['stories' => 0, 'chapters' => 0, 'ledger' => 0], $this->counts(), 'the refusal stays retryable: no ledger row');
     }
 
     // ------------------------------------------------------------------
@@ -623,6 +696,24 @@ final class EpubImportTest extends TestCase
         $s = $this->db->one('SELECT cover_path FROM stories');
         $this->assertNull($s['cover_path']);
         $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK));
+    }
+
+    /** Coverage pin: no cover convention at all is a clean import, not a
+     *  skip note and not a failure: the story row carries a null cover_path
+     *  and the uploads dir stays empty. */
+    public function test_a_book_with_no_cover_imports_cleanly(): void
+    {
+        $this->member('realauthor');
+        $epub = $this->importBook('coverless.epub', ['cover' => 'none']);
+        $importer = new Epub($this->db, $this->uploads);
+        $importer->importFile($epub, null, true);
+        $rep = $importer->lastReport();
+        $this->assertSame('imported', $rep['status']);
+        $this->assertSame([], array_values(array_filter($rep['notes'],
+            static fn (string $n): bool => str_starts_with($n, 'cover skipped: '))), 'a coverless book carries no cover note');
+        $s = $this->db->one('SELECT cover_path FROM stories WHERE slug = ?', ['stamped-title']);
+        $this->assertNull($s['cover_path']);
+        $this->assertSame([], glob($this->uploads . '/*', GLOB_MARK), 'no cover reached the uploads dir');
     }
 
     public function test_strict_mode_turns_a_cover_skip_into_a_throw(): void
