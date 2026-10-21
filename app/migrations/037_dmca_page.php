@@ -4,7 +4,7 @@ return new class extends Kip\Migrations\Migration {
     {
         // OR IGNORE preserves an operator's own /dmca page on upgrade, the
         // 036 rule. The AGENT block is operator-editable through the admin
-        // page forms; hosted tenants fill the platform agent, self-hosters
+        // page forms; hosted operators fill the platform agent, self-hosters
         // their own.
         $db->query("INSERT OR IGNORE INTO pages (slug, title, body) VALUES ('dmca', 'Copyright and DMCA', ?)",
             ['Copyright notice and takedown policy.
