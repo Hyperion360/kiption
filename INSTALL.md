@@ -244,6 +244,14 @@ access to exactly these paths. Everything else can stay read-only.
 its fix; it also creates a missing directory when it can, so a healthy
 first run may self-heal rows 2 through 5.
 
+Never world-writable: no step in this guide asks for `chmod 777` or a
+`666` config file. If an older archive's instructions trained you to
+CHMOD 777 a storage folder and 666 a config, leave those habits behind:
+every writable path above is owned by the PHP user alone, and
+`config.php` does not exist until the setup wizard writes it, outside
+the web root, already private. A co-tenant on a shared host can read a
+world-writable file; that is the hole this install refuses to open.
+
 ## 4. Web server
 
 The supported path is plain PHP through `public/index.php`; anything that
