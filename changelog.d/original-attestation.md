@@ -1,0 +1,1 @@
+Added: an original-work attestation on the story form (migration 039 adds the flag to existing stories and imports as unchecked): checking it states the work is entirely the author's own, and it gates the monetization surfaces.

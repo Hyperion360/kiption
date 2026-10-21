@@ -1,0 +1,1 @@
+Added: top-level marketing paths served from page rows (/cloud, /dmca, and /compare/ for eFiction, Wattpad, Webnovel, Royal Road, FanFiction.net, AO3, and Substack); each mapped slug carries one canonical URL, /page/view/{slug} 301-redirects to it, the sitemap advertises only the canonical spellings, and the static-cache build warms the compare paths.

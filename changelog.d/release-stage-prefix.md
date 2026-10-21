@@ -1,0 +1,1 @@
+Fixed: the release builder's staging copy carries its directory prefix, so root-relative exclusion paths (app/backups/, app/nav.json) match again; the install tree, the manifest, and the upgrade ZIP agree on one payload.
