@@ -1,1 +1,0 @@
-Security: admin surfaces route through one epoch-checked gate, Adminness::requireAdmin (valid session, then the role row, fail-closed 403 on any arm), replacing the twelve copies of the raw COUNT idiom; an authorized pentest pass over the result returned no exploitable findings.
