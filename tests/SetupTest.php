@@ -920,9 +920,17 @@ define("KIPTION_PUBLIC_DIR", ' . var_export($public, true) . ');
         // Pending setup state: the front controller must 503 before anything else.
         file_put_contents($shared . '/setup-token.txt', bin2hex(random_bytes(32)) . "\n");
 
+        // The front controller's constants come from a generated wrapper
+        // router that requires the prepend explicitly: PHP's built-in server
+        // does not apply auto_prepend_file to the router script itself (the
+        // gate then silently falls back to the repo layout and the request
+        // 500s in routing instead of 503ing at the gate).
+        $router = $home . '/router.php';
+        file_put_contents($router, '<?php require ' . var_export($prepend, true) . '; return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';');
+
         $port = $this->freePort(8097);
         $handle = proc_open(
-            [PHP_BINARY, '-d', 'auto_prepend_file=' . $prepend, '-S', '127.0.0.1:' . $port, '-t', $public, dirname(__DIR__) . '/public/index.php'],
+            [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $public, $router],
             [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
             $pipes
         );
