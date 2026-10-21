@@ -180,5 +180,9 @@ final class MarketingPathTest extends TestCase
         $this->assertNotNull($cache->serve(new Request('GET', '/compare/substack', [], [], [])), 'mapped slug builds at its top-level path');
         $this->assertNotNull($cache->serve(new Request('GET', '/dmca', [], [], [])), 'the migration-seeded dmca row builds at /dmca');
         $this->assertNotNull($cache->serve(new Request('GET', '/page/view/about', [], [], [])), 'an unmapped page slug still builds at /page/view');
+        // The compare index rides the build's fixed set (the /news idiom):
+        // it exists regardless of page rows, so it must not wait for a
+        // first live request to fill.
+        $this->assertNotNull($cache->serve(new Request('GET', '/compare', [], [], [])), 'the compare index builds');
     }
 }

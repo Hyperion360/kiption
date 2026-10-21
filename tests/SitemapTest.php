@@ -62,6 +62,14 @@ final class SitemapTest extends TestCase
         $authors = (string) file_get_contents($dir . '/sitemap-authors.xml');
         $this->assertStringContainsString('/user/view/demo-author', $authors);
         $this->assertStringContainsString('/user/view/betafriend', $authors);
+        // pages: an unmapped slug keeps its /page/view URL; a mapped one
+        // (dmca, migration-seeded) advertises its TOP-LEVEL spelling only.
+        // A sitemap entry is a canonical declaration: the 301 alias never
+        // appears here.
+        $pages = (string) file_get_contents($dir . '/sitemap-pages.xml');
+        $this->assertStringContainsString('https://archive.example/page/view/about', $pages);
+        $this->assertStringContainsString('https://archive.example/dmca', $pages);
+        $this->assertStringNotContainsString('/page/view/dmca', $pages);
         // external-canonical stories deindex locally and leave the sitemap
         $this->db()->query("UPDATE stories SET canonical_url = 'https://rr.example/works/9' WHERE slug = 'after-hours'");
         \App\Seo\Sitemap::writeAll($this->db(), $dir, 'https://archive.example', []);
@@ -124,8 +132,9 @@ final class SitemapTest extends TestCase
         // the BuilderTest count pin applies here too (Task 3: the challenges
         // index joins the enumeration; the /series index rides the fixed set;
         // sitemaps stay files, not cache pages; the content-policy page rides
-        // the seeded-pages set, and Task 2's dmca page rides it too)
-        $this->assertSame(25, $count);
+        // the seeded-pages set, and Task 2's dmca page rides it too, at its
+        // top-level spelling; the fix loop adds the /compare index, +1)
+        $this->assertSame(26, $count);
         $this->assertFileExists($this->publicDir() . '/sitemap.xml');
         $this->assertStringContainsString(
             'https://archive.example/story/view/the-rabbit-hole',

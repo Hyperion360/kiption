@@ -33,7 +33,10 @@ final class Builder
         unset($config['cache_db']);
         $config['log_db'] = ['dsn' => 'sqlite::memory:'];
         $app = new App($config);
-        $urls = ['/', '/browse', '/browse/recent', '/series'];
+        // The compare index rides the fixed set (the /news idiom): it renders
+        // regardless of page rows (fallback titles), so the build warms it
+        // instead of waiting for a first live request to fill the layer.
+        $urls = ['/', '/browse', '/browse/recent', '/series', '/compare'];
         // The four flaggable blocks (finding 3): the /top seed, the lists
         // block, the news block, the directory block. Off flags enumerate
         // nothing, so no gated page is ever rendered or stored.
