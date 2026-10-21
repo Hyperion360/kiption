@@ -394,7 +394,11 @@ doctor`) that catches it.
 
 ## 9. Upgrading
 
-Back up first, then pull and re-run the install-shaped steps:
+The complete upgrade guide lives in [UPGRADE.md](UPGRADE.md): all three
+routes (the browser `/upgrade.php` endpoint for shared hosting, the
+`site/upgrade/cli.php` lifecycle for shell access, and the git sequence
+below), how far you can jump, what an upgrade does to your data, and what
+a failure restores. The short form for a git checkout:
 
     php bin/kip backup
     git pull
