@@ -14,7 +14,7 @@ final class CompareController
 
     public function index(): Response|string
     {
-        // One IN-query for the seven rows that exist; a row-less comparison
+        // One IN-query for the eight rows that exist; a row-less comparison
         // still renders its link, degraded to the slug as its title.
         $slugs = array_map(static fn(array $c): string => $c['slug'], TopPaths::comparisons());
         $found = [];
@@ -51,6 +51,11 @@ final class CompareController
     public function efiction(): Response|string
     {
         return \App\Marketing\MarketingPage::render($this->view, $this->request, $this->db, $this->session, $this->app, 'compare-efiction');
+    }
+
+    public function fictioneer(): Response|string
+    {
+        return \App\Marketing\MarketingPage::render($this->view, $this->request, $this->db, $this->session, $this->app, 'compare-fictioneer');
     }
 
     public function wattpad(): Response|string

@@ -105,6 +105,18 @@ final class MarketingPathTest extends TestCase
         $this->assertStringContainsString('<link rel="canonical" href="https://archive.example/compare/substack">', $res->body);
     }
 
+    public function test_fictioneer_comparison_serves_at_top_level(): void
+    {
+        $this->seedPage('compare-fictioneer', 'Kiption vs Fictioneer', 'The two self-hosted paths compared: the archive engine and the WordPress theme.');
+        $res = $this->client()->get('/compare/fictioneer');
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('The two self-hosted paths compared', $res->body);
+        $this->assertStringContainsString('<link rel="canonical" href="https://archive.example/compare/fictioneer">', $res->body);
+        $res = $this->client()->get('/page/view/compare-fictioneer');
+        $this->assertSame(301, $res->status);
+        $this->assertSame('/compare/fictioneer', $this->header($res, 'Location'));
+    }
+
     public function test_dmca_serves_at_top_level(): void
     {
         // The migration-seeded row (037) carries the takedown body.
@@ -114,7 +126,7 @@ final class MarketingPathTest extends TestCase
         $this->assertStringContainsString('<link rel="canonical" href="https://archive.example/dmca">', $res->body);
     }
 
-    public function test_compare_index_lists_all_seven_with_fallback_titles(): void
+    public function test_compare_index_lists_all_eight_with_fallback_titles(): void
     {
         $this->seedPage('compare-substack', 'Kiption vs Substack', 'Body.');
         $res = $this->client()->get('/compare');
@@ -123,7 +135,9 @@ final class MarketingPathTest extends TestCase
         $this->assertStringContainsString('<a href="/compare/substack">Kiption vs Substack</a>', $res->body);
         // A row-less comparison degrades to the slug-as-title, not a failure.
         $this->assertStringContainsString('<a href="/compare/royalroad">Royal road</a>', $res->body);
-        foreach (['/compare/efiction', '/compare/wattpad', '/compare/webnovel', '/compare/royalroad',
+        // Eight comparisons: the original seven plus fictioneer (the second
+        // self-hosted path, listed beside eFiction).
+        foreach (['/compare/efiction', '/compare/fictioneer', '/compare/wattpad', '/compare/webnovel', '/compare/royalroad',
                   '/compare/fanfictionnet', '/compare/ao3', '/compare/substack'] as $href) {
             $this->assertStringContainsString('href="' . $href . '"', $res->body, $href);
         }
