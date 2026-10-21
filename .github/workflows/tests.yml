@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with: {persist-credentials: false}
-      - uses: shivammathur/setup-php@9e72090525849c5e82e596048e0ed7ba31b135cc # v2.32.0
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2.40.0
         with:
           php-version: ${{ matrix.php }}
           extensions: pdo_sqlite, sqlite3, mbstring
           coverage: none
-      - uses: ramsey/composer-install@a2636af0004d1c0499ffca6ac972ef1fa35d38fe # v3.1.0
+      - uses: ramsey/composer-install@a8d0d959dab41457692a5e2041bd9b757a119e3f # v3.2.1
       - run: vendor/bin/phpunit
