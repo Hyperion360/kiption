@@ -71,9 +71,12 @@ final class Builder
             $urls[] = '/lists/view/' . $l['slug'];
         }
         // Custom pages: every non-empty body is a public cacheable page; an
-        // empty body renders the noindex shape and never fills the layer.
+        // empty body renders the noindex shape and never fills the layer. A
+        // mapped marketing slug emits its TOP-LEVEL spelling (TopPaths), the
+        // one it serves at; the /page/view spelling is a 301 and must never
+        // hold a file (this layer answers before routing).
         foreach ($db->all("SELECT slug FROM pages WHERE body <> ''") as $p) {
-            $urls[] = '/page/view/' . $p['slug'];
+            $urls[] = \App\Marketing\TopPaths::path((string) $p['slug']) ?? '/page/view/' . $p['slug'];
         }
         // News: the index plus every item's view page (public data only).
         if (Features::on('news')) {

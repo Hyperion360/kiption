@@ -487,6 +487,11 @@ return [
     'page.body_placeholder' => 'Markdown welcome',
     'page.last_updated' => 'Last updated {date}',
 
+    // The comparison hub (/compare).
+    'compare.heading' => 'How Kiption compares',
+    'compare.lead' => 'Kiption measured against the platforms writers and readers already use.',
+    'compare.meta_description' => 'Kiption compared to eFiction, Wattpad, Webnovel, Royal Road, FanFiction.net, AO3, and Substack.',
+
     // The validation queue.
     'queue.heading' => 'Validation queue',
     'queue.stories' => 'Stories',

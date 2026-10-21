@@ -25,11 +25,15 @@ final class Cache
     }
 
     /** Route shapes this layer may serve and fill. Mirrors the router's own
-     *  segment whitelist; anything else maps to null and is never cached. */
+     *  segment whitelist; anything else maps to null and is never cached.
+     *  The marketing top paths fold in from TopPaths (the one map), plus the
+     *  /compare index, the only marketing route without its own MAP entry. */
     public function fileFor(string $path): ?string
     {
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $path)) return null;
-        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series|/series/view/[a-z0-9-]+|/lists/view/[a-z0-9-]+|/challenges|/challenges/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top)$#', $path)) return null;
+        $marketing = '/compare|' . implode('|', array_map(
+            static fn(string $p): string => preg_quote($p, '#'), \App\Marketing\TopPaths::MAP));
+        if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series|/series/view/[a-z0-9-]+|/lists/view/[a-z0-9-]+|/challenges|/challenges/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top|' . $marketing . ')$#', $path)) return null;
         $prefix = $path === '/' ? '' : $path;   // '/' must not become '//'
         return $this->dir . $prefix . '/index.html';
     }
@@ -181,10 +185,13 @@ final class Cache
     }
 
     /** A custom page's single cache file; the slug is immutable, so the
-     *  file's path can never change under an edit. */
+     *  file's path can never change under an edit. A mapped marketing page
+     *  serves at its TopPaths spelling, so its edit purges THERE: purging the
+     *  /page/view spelling would unlink a nonexistent file and leave the
+     *  live one stale. */
     public function purgePage(string $slug): void
     {
-        $f = $this->fileFor('/page/view/' . $slug);
+        $f = $this->fileFor(\App\Marketing\TopPaths::path($slug) ?? '/page/view/' . $slug);
         if ($f !== null && is_file($f)) @unlink($f);
     }
 
