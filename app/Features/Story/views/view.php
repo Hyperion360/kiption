@@ -118,7 +118,10 @@
               <button type="submit"><?= \App\Lang::t('story.report') ?></button>
             </form></details>
           <?php endif; ?>
-          <?php if (!empty($story['support_url'])): ?>
+          <?php /* Monetization stays off fanwork pages (Task 4): the link
+               renders only for the original-work attestation. Profiles keep
+               it for every author. */ ?>
+          <?php if (!empty($story['support_url']) && (int) ($story['is_original'] ?? 0) === 1): ?>
           <a href="<?= $this->e($story['support_url']) ?>" rel="noopener nofollow"><?= \App\Lang::t('story.support') ?></a>
           <?php endif; ?>
         </div>

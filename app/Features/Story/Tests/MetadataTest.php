@@ -99,6 +99,10 @@ final class MetadataTest extends TestCase
     {
         $res = $this->client()->postWithToken('/account/support', ['support_url' => 'https://ko-fi.example/demo']);
         $this->assertSame(302, $res->status, $res->body);
+        // The seeded story is a fan work; the display assertion below needs
+        // the attestation, which rides direct SQL (the write path is the
+        // attestation tests').
+        $this->db->query("UPDATE stories SET is_original = 1 WHERE slug = 'the-rabbit-hole'");
         $body = $this->client()->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('Support the author', $body);
         $this->assertStringContainsString('https://ko-fi.example/demo', $body);
@@ -107,6 +111,25 @@ final class MetadataTest extends TestCase
         $res = $this->client()->postWithToken('/account/support', ['support_url' => 'https://' . str_repeat('a', 5000)]);
         $this->assertSame(422, $res->status, 'the form maxlength=200 is client-side only; the server must cap');
         $this->assertLessThanOrEqual(200, (int) $this->db->one('SELECT LENGTH(support_url) n FROM users WHERE id = 1')['n']);
+    }
+
+    public function test_support_link_scoped_to_original_works(): void
+    {
+        // The seeder's author has no support_url; give the fanfic/original
+        // split a single author who monetizes. is_original rides direct SQL:
+        // the write path is the attestation test's, this pins the RENDER.
+        $this->db->query("UPDATE users SET support_url = 'https://ko-fi.example/demo' WHERE id = 1");
+        $this->db->query("UPDATE stories SET is_original = 1 WHERE slug = 'the-rabbit-hole'");
+        // 'after-hours' stays a fan work (0), the seeded default.
+        $client = $this->client();
+        $this->assertStringContainsString('https://ko-fi.example/demo',
+            $client->get('/story/view/the-rabbit-hole')->body);
+        $this->assertStringNotContainsString('https://ko-fi.example/demo',
+            $client->get('/story/view/after-hours')->body);
+        // The profile keeps the link for both fanfic and original authors.
+        $slug = (string) $this->db->one('SELECT profile_slug FROM users WHERE id = 1')['profile_slug'];
+        $this->assertStringContainsString('https://ko-fi.example/demo',
+            $client->get('/user/view/' . $slug)->body);
     }
 
     public function test_original_attestation_create_flip_forgery(): void
