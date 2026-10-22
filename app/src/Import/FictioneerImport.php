@@ -555,12 +555,16 @@ final class FictioneerImport
             [(string) ($meta['fictioneer_recommendation_support'] ?? '')]
         ) as $u) {
             $u = trim((string) $u);
-            if (preg_match('#^https?://#i', $u) === 1) $urls[] = $u;
+            if (preg_match('#^https?://#i', $u) === 1) {
+                // the flavor renders https links only (the prose pipeline's
+                // rule): an http link would print as literal markdown text
+                $urls[] = preg_replace('#^http://#i', 'https://', $u);
+            }
         }
         if ($urls !== []) {
             $lines[] = '';
             $lines[] = 'Links:';
-            foreach (array_unique($urls) as $i => $u) $lines[] = '- [Link ' . ($i + 1) . '](' . $u . ')';
+            foreach (array_values(array_unique($urls)) as $i => $u) $lines[] = '- [Link ' . ($i + 1) . '](' . $u . ')';
         }
         return implode("\n", $lines);
     }
@@ -623,7 +627,7 @@ final class FictioneerImport
         $extra .= 'links and images still pointing at ' . $this->reader->siteHost() . ": {$this->oldHostRefs} (keep the old uploads reachable, or rehost)\n";
         $extra .= "password-protected items (original passwords kept, gated): {$this->lockedItems}\n";
         $extra .= 'accounts created from the author block (locked; send password resets): ' . ($this->counts['users (from the author block)'] ?? 0) . "\n";
-        $extra .= "Treat the import log as semi-public: it names logins and emails from the author block; it carries no hashes.\n";
+        $extra .= "Treat the import log as semi-public: it counts accounts and drops, it carries no emails, logins, or hashes.\n";
         return $this->report->render() . "\n" . $extra;
     }
 

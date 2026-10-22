@@ -158,6 +158,7 @@ final class FictioneerImportTest extends TestCase
                     'fictioneer_recommendation_one_sentence' => 'Read this one.',
                     'fictioneer_recommendation_author' => 'Someone',
                     'fictioneer_recommendation_primary_url' => 'https://books.example/great',
+                    'fictioneer_recommendation_urls' => serialize(['http://books.example/great', 'http://mirror.example/read']),
                     'fictioneer_recommendation_support' => 'ftp://nope',
                 ]]),
             Wxr::item(['id' => 301, 'type' => 'fcn_story', 'status' => 'draft', 'slug' => 'draft-story', 'title' => 'Draft']),
@@ -230,7 +231,14 @@ final class FictioneerImportTest extends TestCase
         // recommendation page + legacy page name, support link scheme-filtered
         $this->assertSame('A Great Book', $db->one("SELECT title FROM pages WHERE slug LIKE 'recommendation-great-book%'")['title']);
         $this->assertNotNull($db->one("SELECT 1 FROM legacy_page_urls WHERE legacy_name = 'recommendation/great-book'"));
-        $this->assertStringNotContainsString('ftp://nope', (string) $db->one("SELECT body FROM pages WHERE slug LIKE 'recommendation-great-book%'")['body']);
+        $rec = (string) $db->one("SELECT body FROM pages WHERE slug LIKE 'recommendation-great-book%'")['body'];
+        $this->assertStringNotContainsString('ftp://nope', $rec);
+        // the flavor renders https links only: http sources are upgraded on
+        // the way in, and the dedupe reindexes (Link 1, Link 2, no gaps)
+        $this->assertStringContainsString('](https://books.example/great)', $rec);
+        $this->assertStringContainsString('](https://mirror.example/read)', $rec);
+        $this->assertStringNotContainsString('](http://', $rec);
+        $this->assertStringContainsString("- [Link 1](https://books.example/great)\n- [Link 2](https://mirror.example/read)", $rec);
         // collection as a public reading list with one resolved item
         $list = $db->one("SELECT l.is_public, COUNT(x.id) items FROM reading_lists l JOIN reading_list_items x ON x.list_id = l.id WHERE l.slug = 'collection-best-of'");
         $this->assertSame('1', (string) $list['is_public']);
@@ -248,6 +256,9 @@ final class FictioneerImportTest extends TestCase
         $this->assertStringContainsString('dropped unapproved comment', $out);
         $this->assertStringContainsString('REJECT story not public on the source (draft)', $out);
         $this->assertStringContainsString('dropped collection item', $out);
+        // the footer's privacy claim must be true: no report line prints a login or an email
+        $this->assertStringContainsString('it counts accounts and drops, it carries no emails, logins, or hashes', $out);
+        $this->assertStringNotContainsString('names logins and emails', $out);
         // the verification block must be honest, not merely present: the
         // fcn_story line carries the exact counts (3 read: acf, hidden, and
         // the rejected draft; 2 imported) with no MISMATCH suffix, and an

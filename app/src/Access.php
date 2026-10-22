@@ -17,7 +17,10 @@ final class Access
     {
         $hash = $row['access_hash'] ?? null;
         if ($hash === null || $hash === '') return false;
-        return !in_array($table . ':' . (string) $row['id'], $session->get('access_unlocks', []), true);
+        // peek, never get: a plain get() starts the lazy session and emits
+        // Set-Cookie for a cookieless guest, so no gate page could ever be
+        // cached. A not-started session reads as "no unlocks", still locked.
+        return !in_array($table . ':' . (string) $row['id'], $session->peek('access_unlocks') ?? [], true);
     }
 
     public static function unlock(Session $session, string $table, int $id): void

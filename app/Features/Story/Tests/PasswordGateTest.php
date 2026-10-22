@@ -85,6 +85,21 @@ final class PasswordGateTest extends TestCase
         $this->assertStringContainsString('noindex', $res->body);
     }
 
+    public function test_gate_render_hands_a_guest_no_cookie(): void
+    {
+        // locked() reads the unlock list with peek(), never get(): a plain
+        // get() would start the lazy session and emit Set-Cookie, so the
+        // byte-identical guest gate could never land in the static cache.
+        $this->lockStory();
+        $res = $this->client()->get('/story/view/the-rabbit-hole');
+        $this->assertSame(200, $res->status, $res->body);
+        $setCookie = [];
+        foreach ($res->headers as $k => $v) {
+            if (strcasecmp((string) $k, 'Set-Cookie') === 0) $setCookie[] = $v;
+        }
+        $this->assertSame([], $setCookie, 'a cookieless guest must receive no Set-Cookie');
+    }
+
     public function test_locked_read_page_carries_noindex(): void
     {
         $this->lockStory();
