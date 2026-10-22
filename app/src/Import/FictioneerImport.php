@@ -8,7 +8,7 @@ use Kip\Database;
  *  terms, accounts, pages, and lists), and every uncertainty becomes a
  *  Report line. A WXR has no manifest, so verification is the reader's
  *  per-type item counts against the insert tallies, printed as MISMATCH
- *  flags. The ~60-line orchestration skeleton duplicates the eFiction
+ *  flags (or honest short-by counts when counted rejects made the gap). The ~60-line orchestration skeleton duplicates the eFiction
  *  importer on purpose: the stable 1083-line orchestrator is not worth a
  *  risky extraction; Runs (Task 1) carries what genuinely is shared. */
 final class FictioneerImport
@@ -63,7 +63,12 @@ final class FictioneerImport
 
     public function run(): string
     {
-        $optionsHash = sha1(json_encode(['owner' => $this->ownerId]));
+        // The options family is a constant for now: the hash exists so FUTURE
+        // options (flags that change how data lands) can gate a re-import.
+        // Owner is per-run targeting, never family: two sites importing under
+        // different --owner values must coexist, which is why the keys are
+        // site-scoped.
+        $optionsHash = sha1('fictioneer-v1');
         Runs::assertMigrated($this->db);
         Runs::assertOptionsCompatible($this->db, 'fictioneer', $optionsHash);
         $this->report = new Report();
@@ -96,6 +101,10 @@ final class FictioneerImport
                 . "snapshot: see pre-import-*.sqlite next to the export; restore = copy it over the DB\n";
         } catch (\Throwable $e) {
             if ($this->db->transactionDepth() > 0) $this->db->rollBack();
+            // the durability pragma is restored on EVERY failure path (a
+            // mid-transaction throw, or a post-commit rider): a run that dies
+            // with synchronous = OFF left behind would quietly outlive itself
+            if ($sync !== null) $this->db->exec("PRAGMA synchronous = {$sync}");
             throw $e;
         }
     }
@@ -138,6 +147,11 @@ final class FictioneerImport
         $existing = $this->db->one('SELECT id FROM users WHERE email = ?', [$u['email']]);
         if ($existing !== null) {
             $id = (int) $existing['id'];
+            // the WXR author lands on the existing account: keep the map row
+            // (the /author/{login} 301 rides it) and surface the adoption.
+            // No login in the line: the report carries none (the footer claim).
+            $this->record('fcn_user', $this->key($login), 'users', $id);
+            $this->report->drop('author email already a member here (account adopted)');
         } else {
             $penname = $u['penname'];
             for ($n = 2; $this->db->one('SELECT 1 AS x FROM users WHERE penname = ?', [$penname]) !== null; $n++) {
@@ -221,6 +235,9 @@ final class FictioneerImport
                 // only: a scheduled story lands unvalidated for the operator
                 $vis = 'unlisted';
                 $this->report->drop('scheduled story imported unvalidated (validate it when its date passes)');
+            } elseif ($vis === 'unlisted') {
+                // fcn_hidden or the hidden flags: same landing, its own line
+                $this->report->drop('hidden on the source (imported unvalidated; validate when reviewed)');
             }
             $authorId = $this->authorMap[$item['login']] ?? null;
             if ($authorId === null) { $this->report->reject('story without an author login'); continue; }
@@ -267,6 +284,17 @@ final class FictioneerImport
                  $created, FictioneerMapper::iso($item['modified']) ?? $created, $access]);
             $id = (int) $this->db->lastInsertId();
             $this->record(FictioneerMapper::STORY, $this->key((string) $item['id']), 'stories', $id);
+            // story slug legacy rows, written inside the transaction like the
+            // chapter ones (INSERT OR IGNORE: resume-safe): the ORIGINAL WXR
+            // slug keeps its 301 even when uniquification suffixes the final
+            // slug, and the ?fcn_story={slug} query fallback gets its row (the
+            // pre-routing gate in public/index.php arms on it)
+            if ($item['slug'] !== '') {
+                $this->db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, \'\', \'story\', ?)',
+                    ['/story/' . $item['slug'], $id]);
+                $this->db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (\'\', ?, \'story\', ?)',
+                    ['fcn_story=' . $item['slug'], $id]);
+            }
             $this->storySlugs[$item['id']] = ['slug' => $slug];
             $this->storyRating[$item['id']] = array_search($rating, $this->ratingMap, true) ?: 'Unrated';
             $this->counts['stories'] = ($this->counts['stories'] ?? 0) + 1;
@@ -642,7 +670,7 @@ final class FictioneerImport
                 FictioneerMapper::RECOMMENDATION => 'recommendation pages',
                 default => '',
             }] ?? 0;
-            $flag = $imported <= $n ? '' : ' MISMATCH';
+            $flag = $imported > $n ? ' MISMATCH' : ($imported < $n ? ' (short by ' . ($n - $imported) . ')' : '');
             $lines[] = sprintf('%-16s read %d, imported %d%s', $type, $n, $imported, $flag);
         }
         return implode("\n", $lines) . "\n";

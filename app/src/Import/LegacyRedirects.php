@@ -142,6 +142,15 @@ final class LegacyRedirects
             if (count($get) === count($request->get)) {
                 ksort($get);
                 $row = $db->one('SELECT target_type, target_id FROM legacy_urls WHERE legacy_path = ? AND params = ?', ['', http_build_query($get)]);
+                // WordPress's canonical shortlink arrives as a bare ?p={digits}
+                // (no post_type): try the two Fictioneer post types before
+                // giving up, in the story-then-chapter order the map writes.
+                if ($row === null && count($get) === 1 && ctype_digit((string) ($get['p'] ?? ''))) {
+                    foreach (['p=' . $get['p'] . '&post_type=fcn_story', 'p=' . $get['p'] . '&post_type=fcn_chapter'] as $shaped) {
+                        $row = $db->one('SELECT target_type, target_id FROM legacy_urls WHERE legacy_path = ? AND params = ?', ['', $shaped]);
+                        if ($row !== null) break;
+                    }
+                }
             }
         }
         if ($row === null) return null;

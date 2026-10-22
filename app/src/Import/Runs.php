@@ -10,7 +10,10 @@ final class Runs
 {
     public static function assertMigrated(Database $db): void
     {
-        try { $db->one('SELECT 1 FROM import_map LIMIT 1'); }
+        // the importer column is migration 040's: probing it also catches a
+        // pre-040 import_runs (or no import_runs at all) here, with the clean
+        // sentence, instead of a raw PDOException from newRun's INSERT later
+        try { $db->one('SELECT importer FROM import_runs LIMIT 1'); }
         catch (\PDOException) { throw new \RuntimeException('run `kip migrate` first'); }
     }
 

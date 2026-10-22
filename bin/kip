@@ -534,8 +534,10 @@ match ($argv[1] ?? 'help') {
                 $ownerId = (int) $hit['id'];
             }
             echo (new \App\Import\FictioneerImport($db, new \App\Import\WxrReader($file), $mode, $ownerId, $config))->run();
-        } catch (\RuntimeException $e) {
+        } catch (\Throwable $e) {
             // operator-facing failures print clean and exit 1, no stack trace
+            // (a PDOException counts: full disk on VACUUM INTO is an operator
+            // problem too, not a code bug to trace)
             fwrite(STDERR, $e->getMessage() . "\n");
             exit(1);
         }

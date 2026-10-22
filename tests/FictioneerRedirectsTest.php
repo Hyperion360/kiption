@@ -56,6 +56,22 @@ final class FictioneerRedirectsTest extends TestCase
         $this->assertNull($red->lookupPath(new Request('GET', '/', ['p' => '999'], [], []), $this->db));
     }
 
+    public function test_bare_p_shortlinks_resolve_through_the_post_types(): void
+    {
+        // WordPress's canonical shortlink is a bare ?p={digits} (no
+        // post_type): the lookup tries fcn_story then fcn_chapter before
+        // giving up
+        $red = new LegacyRedirects();
+        $this->assertSame('/story/view/the-rabbit-hole',
+            $red->lookupPath(new Request('GET', '/', ['p' => '11'], [], []), $this->db), 'a bare story shortlink resolves');
+        $this->assertSame('/story/view/the-rabbit-hole',
+            $red->lookupPath(new Request('GET', '/', ['p' => '22'], [], []), $this->db), 'a bare chapter shortlink lands on its story');
+        // the guard: only a lone digit param qualifies
+        $this->assertNull($red->lookupPath(new Request('GET', '/', ['p' => '11', 'post_type' => 'page'], [], []), $this->db), 'another post_type is no match');
+        $this->assertNull($red->lookupPath(new Request('GET', '/', ['p' => 'abc'], [], []), $this->db), 'a non-digit p is no shortlink');
+        $this->assertNull($red->lookupPath(new Request('GET', '/', ['p' => '999'], [], []), $this->db), 'an unknown id stays a 404');
+    }
+
     public function test_unknown_paths_and_methods_return_null(): void
     {
         $red = new LegacyRedirects();

@@ -256,17 +256,25 @@ final class FictioneerImportTest extends TestCase
         $this->assertStringContainsString('dropped unapproved comment', $out);
         $this->assertStringContainsString('REJECT story not public on the source (draft)', $out);
         $this->assertStringContainsString('dropped collection item', $out);
-        // the footer's privacy claim must be true: no report line prints a login or an email
+        $this->assertStringContainsString('dropped hidden on the source (imported unvalidated; validate when reviewed): 1', $out);
+        // the footer's privacy claim must be true: no report line prints a
+        // login or an email (the fixture's real WXR emails never appear)
         $this->assertStringContainsString('it counts accounts and drops, it carries no emails, logins, or hashes', $out);
-        $this->assertStringNotContainsString('names logins and emails', $out);
+        $this->assertStringNotContainsString('anna@example.org', $out);
+        $this->assertStringNotContainsString('beta.wp@example.org', $out);
         // the verification block must be honest, not merely present: the
         // fcn_story line carries the exact counts (3 read: acf, hidden, and
-        // the rejected draft; 2 imported) with no MISMATCH suffix, and an
-        // honest run prints no MISMATCH anywhere in the block
-        $this->assertMatchesRegularExpression('/^fcn_story\s+read 3, imported 2$/m', $out);
+        // the rejected draft; 2 imported) and names the gap as short-by-1
+        // (the draft is a counted reject), equal lines carry no flag, and
+        // an honest run prints no MISMATCH anywhere in the block
+        $this->assertMatchesRegularExpression('/^fcn_story\s+read 3, imported 2 \(short by 1\)$/m', $out);
+        $this->assertMatchesRegularExpression('/^fcn_chapter\s+read 2, imported 2$/m', $out);
+        $this->assertMatchesRegularExpression('/^fcn_recommendation\s+read 1, imported 1$/m', $out);
+        $this->assertMatchesRegularExpression('/^fcn_collection\s+read 1, imported 1$/m', $out);
         $this->assertStringNotContainsString('MISMATCH', $out);
         // legacy rows
         $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/story/acf-story-11'")['c']);
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '' AND params = 'fcn_story=acf-story-11'")['c'], 'the ?fcn_story= query fallback got its row');
         $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/chapter/chapter-100'")['c']);
         $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '' AND params = 'p=11&post_type=fcn_story'")['c']);
         $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/author/anna'")['c']);
@@ -278,6 +286,57 @@ final class FictioneerImportTest extends TestCase
         $this->assertSame('2', (string) $db->one("SELECT COUNT(*) c FROM chapters WHERE story_id IN (SELECT id FROM stories WHERE slug IN ('acf-story-11', 'hidden-story-200'))")['c']);
         $this->assertSame('1', (string) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
         $this->assertSame('1', (string) $db->one('SELECT COUNT(*) c FROM reading_lists')['c']);
+    }
+
+    /** A WXR author whose email already belongs to a member here adopts that
+     *  account: the story lands under it, no duplicate user is created, the
+     *  /author/{login} 301 row still exists (the fcn_user map row rides the
+     *  adoption now), and the report names the adoption without printing the
+     *  login. */
+    public function test_an_author_email_already_on_this_site_adopts_the_account(): void
+    {
+        $db = $this->readyDb();
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'adopted-tale', 'title' => 'Adopted Tale', 'content' => '',
+                'login' => 'wanderer',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Oneshot']]),
+        ], [
+            ['id' => 9, 'login' => 'wanderer', 'email' => 'demo@example.test', 'display_name' => 'Wanderer'],
+        ]);
+        $p = $this->write($xml);
+        $out = $this->import($p, 'commit');
+        $demoId = (string) $db->one("SELECT id FROM users WHERE email = 'demo@example.test'")['id'];
+        $this->assertSame('2', (string) $db->one('SELECT COUNT(*) c FROM users')['c'], 'no duplicate account for a known email');
+        $this->assertSame($demoId, (string) $db->one("SELECT author_id FROM stories WHERE slug = 'adopted-tale'")['author_id'], 'the story lands under the adopted account');
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/author/wanderer'")['c'], 'the adopted login keeps its 301 row');
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM import_map WHERE legacy_table = 'fcn_user' AND legacy_id = 'old.example.org/wanderer'")['c']);
+        $this->assertStringContainsString('dropped author email already a member here (account adopted): 1', $out);
+        $this->assertStringNotContainsString('wanderer', $out, 'the report carries no logins');
+    }
+
+    /** A failed commit run restores the durability pragma: synchronous goes
+     *  to OFF for the bulk load, and a mid-pass throw (the owner gate here)
+     *  must not leave the connection quietly non-durable after the rollback. */
+    public function test_a_failed_commit_run_restores_synchronous(): void
+    {
+        $db = $this->readyDb();
+        $before = (string) $db->one('PRAGMA synchronous')['synchronous'];
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'plain', 'title' => 'Plain', 'content' => '',
+                'login' => 'anna',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Oneshot']]),
+            Wxr::item(['id' => 30, 'type' => 'fcn_collection', 'slug' => 'crowd', 'title' => 'Crowd', 'login' => 'anna']),
+        ]);
+        $p = $this->write($xml);
+        try {
+            (new FictioneerImport($db, new WxrReader($p), 'commit', null, $this->config()))->run();
+            $this->fail('the owner requirement must stop the run');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('pass --owner=', $e->getMessage());
+        }
+        $this->assertSame($before, (string) $db->one('PRAGMA synchronous')['synchronous'], 'the failed run restores the durability pragma');
+        $this->assertSame('0', (string) $db->one('SELECT COUNT(*) c FROM import_map')['c'], 'the rolled-back run left nothing behind');
+        $this->assertNotEmpty(glob($this->dir . '/pre-import-*.sqlite'), 'the snapshot was taken before the failure');
     }
 
     /** WordPress exports post_password in plaintext: readers who knew the

@@ -182,6 +182,22 @@ final class ImporterTest extends TestCase
         $this->import($b, 'commit');
     }
 
+    /** A database migrated only up to 039 carries import_runs WITHOUT the
+     *  importer column (migration 040): the guard must refuse with the clean
+     *  sentence here, not later as a raw PDOException from the run INSERT. */
+    public function test_pre_040_database_refuses_with_the_clean_message(): void
+    {
+        $this->migrate();
+        $db = $this->db();
+        $db->exec('ALTER TABLE import_runs DROP COLUMN importer');
+        try {
+            \App\Import\Runs::assertMigrated($db);
+            $this->fail('a pre-040 import_runs must refuse');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('run `kip migrate` first', $e->getMessage());
+        }
+    }
+
     public function test_latin1_override_converts_story_files(): void
     {
         $this->migrate();
