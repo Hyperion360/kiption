@@ -1181,6 +1181,60 @@ One story per file, chapters in spine order, summary and cover from the
 EPUB's own metadata, each file imported once (re-runs skip by content
 hash). Preview everything with `--dry-run`.
 
+## Migrating from Fictioneer
+
+Fictioneer is a WordPress theme, so the export path is WordPress's own:
+in the old site's admin, run Tools > Export, choose All content, and
+download the WXR file. All content is what carries the four Fictioneer
+post types, their metadata, the fandom/genre/character/warning terms,
+and the comments; a posts-only export loses the archive. The file can
+stay gzipped (`export.wordpress.2026-10-21.xml.gz` works as-is).
+
+1. On the new archive (after `php bin/kip migrate`), dry-run it:
+   `php bin/kip import:fictioneer export.wordpress.2026-10-21.xml --dry-run`.
+   Nothing is written; the report is real. Read it end to end: per-type
+   counts, rejects with reasons, dropped features, and the era notes.
+2. Accounts: the export's author block carries each author's login,
+   email, and display name, so accounts arrive with real addresses and
+   pennames. What it never carries is password material (WordPress
+   stores account passwords in a form nobody can carry over), so every
+   imported account is locked until the author uses password reset. An
+   author with no usable email in the export gets a
+   `{login}@wxr-import.invalid` placeholder, counted in the report; fix
+   those under the admin roster before sending resets. Post passwords
+   are different: a password-protected story or chapter keeps its
+   original password and its readers keep their access (an expired
+   password imports open, as it lived on the source).
+3. Collections import as public reading lists owned by one existing
+   member. If the run stops to ask for an owner, re-run with
+   `--owner=<penname>` (a numeric `--owner=<id>` names the member by
+   id).
+4. Expect counted drops, all listed in the report: private, deleted,
+   and unapproved comments (none were public on the source), co-author
+   ids whose author record is missing from the export, story custom
+   pages and per-story fields without a home (support links,
+   changelogs, epub prefaces and afterwords), and http links upgraded
+   to https. Unknown WordPress shortcodes stay literal in the text on
+   purpose; they are visible, not counted. Media never moves: the
+   export carries image URLs, not files, so inline images and links
+   keep pointing at the old site and the report counts them. Keep the
+   old uploads directory reachable (or rehost the images and edit the
+   chapters) before you retire the WordPress install.
+5. Commit: `php bin/kip import:fictioneer export.wordpress.2026-10-21.xml
+   --commit --owner=<penname>`. A `pre-import-*.sqlite` snapshot of the
+   database lands next to the export before anything else happens, then
+   the whole import is one transaction. The report prints again plus a
+   verification block (read versus imported per type), the legacy 301
+   map is written, and pages:build warms the static cache. A failed or
+   interrupted commit re-runs safely: already-mapped rows are
+   recognized and skipped.
+6. Cutover: point DNS at the new archive. `/story/{slug}`,
+   `/chapter/{slug}`, `/story/{story}/{chapter}`, `/author/{login}`,
+   recommendation pages, and the `?p=&post_type=` and `?fcn_chapter=`
+   fallbacks 301 to their new URLs, so search rankings move with the
+   archive. Spot-check a story, a profile, and a comment thread against
+   the old site before you flip.
+
 ## Versioning and releases
 
 Kiption is versioned for the people who run it. Tags are how self-hosters
