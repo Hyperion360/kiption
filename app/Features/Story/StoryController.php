@@ -21,6 +21,9 @@ final class StoryController
         $me = $this->viewerId();
         $story = $this->repo->findStoryBySlug($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
+        // The post-password gate (Fictioneer parity): the pass form is the
+        // crawler's view of a locked work; the TOC never renders under it.
+        if (\App\Access::locked($story, 'story', $this->session)) return $this->passGate($story, 'story');
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
             $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
@@ -323,12 +326,49 @@ final class StoryController
                 'returnTo' => '/story/read/' . $slug . '/' . $position,
             ]);
         }
+        // The post-password gates (Fictioneer parity), story-level first, then
+        // the pivoted chapter hash (both ride the ONE query's row). The
+        // fragment keeps its never-a-page rule, the read page's twin of the
+        // adult-gate branch: a locked read answers the pass PAGE on
+        // /story/read, a bare 404 on /story/fragment - never prose, never the
+        // gate's 200 shape there.
+        if (\App\Access::locked($story, 'story', $this->session)) {
+            return $gatePage ? $this->passGate($story, 'story') : new Response('Page not found', 404);
+        }
+        if (\App\Access::locked(['id' => $story['ch_id'], 'access_hash' => $story['ch_access_hash'] ?? null], 'chapter', $this->session)) {
+            return $gatePage
+                ? $this->passGate(['id' => $story['ch_id'], 'title' => $story['title'], 'penname' => $story['penname']], 'chapter')
+                : new Response('Page not found', 404);
+        }
         $prev = null; $next = null;
         foreach ($positions as $pn) {
             if ($pn < $position) $prev = $pn;
             if ($next === null && $pn > $position) $next = $pn;
         }
         return ['story' => $story, 'chapters' => $chapters, 'prev' => $prev, 'next' => $next];
+    }
+
+    /** The post-password gate (Fictioneer parity): a locked story or
+     *  chapter renders the pass form until this session unlocked it. The
+     *  hash rides the row already loaded: zero extra queries. */
+    private function passGate(array $row, string $table): Response
+    {
+        $head = $this->head()
+            ->withTitle((string) ($row['title'] ?? 'Locked'))
+            ->withNoindex();
+        return new Response($this->view->render('story/pass', [
+            'title' => (string) ($row['title'] ?? 'Locked'),
+            'head' => $head,
+            'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'loggedIn' => $this->viewerId() !== 0,
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'story' => $row,
+            'table' => $table,
+            'id' => (int) $row['id'],
+            'return_to' => $this->request->path,
+            'wrong' => ($this->request->get['gate'] ?? '') === 'wrong',
+        ]));
     }
 
     /** C8: the chapter's span of the whole story in percent, folded from the
@@ -370,8 +410,15 @@ final class StoryController
         $me = $this->viewerId();
         $story = $this->repo->wholeWork($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
+        if (\App\Access::locked($story, 'story', $this->session)) return $this->passGate($story, 'story');
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            // The post-password gate rides the bundle too: a chapter-locked
+            // chapter drops from the whole view exactly like an unvalidated
+            // one drops in SQL - never a line of gated prose on the bundle.
+            if (\App\Access::locked(['id' => (int) $c['id'], 'access_hash' => $c['access_hash'] ?? null], 'chapter', $this->session)) {
+                continue;
+            }
             $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'content' => (string) $c['content'], 'word_count' => (int) $c['word_count']];
         }
         ksort($chapters);
@@ -440,8 +487,16 @@ final class StoryController
         $me = $this->viewerId();
         $story = $this->repo->wholeWork($slug, $me);
         if ($story === null) return new Response('Page not found', 404);
+        // Above the build: a locked story never spends the export (the
+        // download IS reading, so it answers the gate, never a file).
+        if (\App\Access::locked($story, 'story', $this->session)) return $this->passGate($story, 'story');
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
+            // whole()'s chapter filter verbatim: a chapter-locked chapter never
+            // rides the export either (the download IS reading).
+            if (\App\Access::locked(['id' => (int) $c['id'], 'access_hash' => $c['access_hash'] ?? null], 'chapter', $this->session)) {
+                continue;
+            }
             $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'content' => (string) $c['content'], 'word_count' => (int) $c['word_count']];
         }
         ksort($chapters);
@@ -529,7 +584,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
         }
@@ -537,7 +592,8 @@ final class StoryController
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
-            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds);
+            $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds,
+            $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT));
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
         return Response::redirect('/story/edit/' . $slug);
@@ -558,7 +614,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
@@ -566,10 +622,19 @@ final class StoryController
         if ($syndicationError !== null) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, $syndicationError, null), 422);
         }
+        // The lock transition probe: a save that sets a password where none
+        // existed flips public prose to gated forever, so the pre-write hash
+        // decides the deferred re-purge below (the delete-path rider).
+        $locking = !$accessClear && $accessPassword !== '';
+        $wasOpen = true;
+        if ($locking) {
+            $old = $this->db->one('SELECT access_hash FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
+            $wasOpen = ($old['access_hash'] ?? null) === null || (string) $old['access_hash'] === '';
+        }
         try {
             [$newSlug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
-                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds);
+                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds, $accessPassword, $accessClear);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
@@ -580,6 +645,20 @@ final class StoryController
         $this->staticCache()->purgeStory($newSlug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
         if ($newSlug !== $slug) {
             $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs); // old URLs' files too
+        }
+        if ($locking && $wasOpen) {
+            // A guest render already in flight when the purge ran can finish
+            // after it and re-store pre-lock bytes, and a locked story is
+            // never purged again by later writes - the stale public prose
+            // would stand until pages:prune. The re-purge runs after this
+            // response is sent (the delete pattern's deferred rider), so
+            // only renders that outlast this entire request can slip through.
+            $this->app->defer(function () use ($newSlug, $slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs): void {
+                $this->staticCache()->purgeStory($newSlug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
+                if ($newSlug !== $slug) {
+                    $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
+                }
+            });
         }
         return Response::redirect('/story/edit/' . $newSlug);
     }
@@ -726,7 +805,7 @@ final class StoryController
         return \App\StaticCache\Cache::configured($this->app);
     }
 
-    /** @return array{string,string,string,int,array,bool,bool,string,bool,bool,string,array} */
+    /** @return array{string,string,string,int,array,bool,bool,string,bool,bool,string,array,string,bool} */
     private function storyInput(): array
     {
         $post = $this->request->post;
@@ -754,6 +833,12 @@ final class StoryController
             // The tags idiom is the categories idiom: numeric-only, unknown
             // ids drop inside writeTags's INSERT..SELECT WHERE id IN.
             array_values(array_filter((array) ($post['tags'] ?? []), 'is_numeric')),
+            // The post-password pair (Fictioneer parity): the raw password
+            // travels to the repository, which hashes it (never stored raw,
+            // never echoed back); the clear checkbox rides the same
+            // value-based idiom as the flags above.
+            trim((string) ($post['access_password'] ?? '')),
+            ($post['access_clear'] ?? '') === '1',
         ];
     }
 

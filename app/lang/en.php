@@ -207,6 +207,12 @@ return [
     'story.gate_or' => 'or',
     'story.gate_go_back' => 'go back',
 
+    // The post-password gate (Fictioneer parity): the pass form is the
+    // crawler's view of a locked work, so it carries no prose to leak.
+    'story.pass_prompt' => 'Password:',
+    'story.pass_continue' => 'Unlock',
+    'story.pass_wrong' => 'That password is not it. Try again.',
+
     // Chapter bookmarks (C5), a member-only reader feature: markers with a
     // short note, added and removed from the chapter page. The C4 progress
     // keys died with the C7 hero, and its own reader.you_are_here
@@ -315,6 +321,8 @@ return [
     'story.canonical_label' => 'Canonical URL (must start with http:// or https://; when this archive mirrors a story whose original lives elsewhere)',
     'story.crosspost_label' => 'Cross-posted from (must start with http:// or https://; where this story was first published)',
     'story.syndication_help' => 'Set one or the other, never both: a canonical URL points search engines at the original and deindexes the copy here; a cross-post URL tells readers where the story came from.',
+    'story.access_password_label' => 'Post password (readers must enter it to read this story)',
+    'story.access_clear_label' => 'Remove password',
     'story.cover_label' => 'Cover (PNG/JPG/WEBP/GIF, max 2 MiB)',
     'story.upload_cover' => 'Upload cover',
     'story.coauthors' => 'Coauthors',
@@ -338,6 +346,8 @@ return [
     'chapter.publish_at' => 'Schedule (UTC)',
     'chapter.publish_hint' => 'Optional UTC date-time, for example 2099-01-01T09:00. Leave empty to publish through the normal path; a set date holds the chapter back until the release job runs.',
     'chapter.publish_invalid' => 'The schedule must be a UTC date-time like 2099-01-01T09:00.',
+    'chapter.access_password_label' => 'Post password (readers must enter it to read this chapter)',
+    'chapter.access_clear_label' => 'Remove password',
     'chapter.markdown_help' => 'Markdown: *italic*, **bold**, a line of --- for a scene break, > for quotes, [text](https://...). HTML is not available.',
     'chapter.save' => 'Save chapter',
     'chapter.delete' => 'Delete chapter',

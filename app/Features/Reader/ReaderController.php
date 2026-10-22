@@ -52,6 +52,30 @@ final class ReaderController
         return $r->withAddedHeader('Set-Cookie', \App\Cookie::pref(Prefs::COOKIE, $isDefault ? '' : $prefs->cookieValue()));
     }
 
+    /** The pass-gate unlock: verify against the row's hash, mark the
+     *  session, back to where the reader came from. Failures redirect with
+     *  gate=wrong; a query-bearing return_to is never cached, and the
+     *  /reader rate bucket throttles guessing. */
+    #[Post]
+    public function unlock(): Response
+    {
+        $to = \App\Redirects::safeReturn($this->request->postStr('return_to'));
+        $table = $this->request->postStr('table');
+        $id = (int) $this->request->postStr('id');
+        $password = $this->request->postStr('password');
+        if (!in_array($table, ['story', 'chapter'], true) || $id < 1 || $password === '') {
+            return Response::redirect($to);
+        }
+        $hash = ($table === 'story'
+            ? $this->db->one('SELECT access_hash FROM stories WHERE id = ?', [$id])['access_hash'] ?? null
+            : $this->db->one('SELECT access_hash FROM chapters WHERE id = ?', [$id])['access_hash'] ?? null);
+        if (is_string($hash) && $hash !== '' && password_verify($password, $hash)) {
+            \App\Access::unlock($this->session, $table, $id);
+            return Response::redirect($to);
+        }
+        return Response::redirect($to . (str_contains($to, '?') ? '&' : '?') . 'gate=wrong');
+    }
+
     /** (story, chapter) by slug + validated position in ONE query, behind
      *  StoryController::read()'s exact restricted gate (CAST is load-bearing:
      *  a bare ? != 0 would compare across storage classes and fail the gate

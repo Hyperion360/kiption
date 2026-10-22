@@ -80,18 +80,19 @@ final class AuthoringRepository
 
     /** @return array{0: int, 1: string, 2: array, 3: array, 4: string, 5: array} id,
      *  slug, category slugs, series slugs, author profile slug, challenge slugs
-     *  (purge coordinates) */
+     *  (purge coordinates). $accessHash arrives pre-hashed (the controller
+     *  hashes the form's raw input; a NULL means open). */
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
                                 array $categoryIds, bool $validated, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '', bool $isOriginal = false,
-                                array $tagIds = []): array
+                                array $tagIds = [], ?string $accessHash = null): array
     {
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
         try {
             $this->db->query(
-                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language, round_robin, gift_to, is_original) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0]);
+                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language, round_robin, gift_to, is_original, access_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0, $accessHash]);
             $storyId = (int) $this->db->lastInsertId();
             $this->writeCategories($storyId, $categoryIds);
             $this->writeTags($storyId, $tagIds);
@@ -108,14 +109,19 @@ final class AuthoringRepository
      *  category slugs before+after, series slugs, author profile slug, challenge
      *  slugs (purge coordinates). The syndication pair arrives pre-validated by
      *  the controller (http(s) only, 200 chars max, never both set); empty
-     *  strings clear the state. */
+     *  strings clear the state. The post-password trio (Fictioneer parity):
+     *  the clear checkbox wins; a non-empty password is hashed here (raw
+     *  input is never stored, never passed through); otherwise unchanged. */
     public function updateStory(string $slug, int $userId, string $title, string $summary, string $notes,
                                 int $ratingId, array $categoryIds, bool $completed, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '',
                                 string $canonicalUrl = '', string $crosspostUrl = '', bool $isOriginal = false,
-                                array $tagIds = []): array
+                                array $tagIds = [], ?string $accessPassword = null, bool $accessClear = false): array
     {
         $story = $this->ownStory($slug, $userId);
+        $accessValue = $accessClear
+            ? null
+            : ($accessPassword !== '' && $accessPassword !== null ? password_hash($accessPassword, PASSWORD_DEFAULT) : $story['access_hash']);
         $newSlug = $slug;
         if (\App\Slug::make($title) !== \App\Slug::make($story['title'])) {
             $newSlug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
@@ -127,10 +133,12 @@ final class AuthoringRepository
                               completed = ?, is_restricted = ?, language = ?, round_robin = ?, gift_to = ?,
                               is_original = ?,
                               canonical_url = ?, crosspost_url = ?,
+                              access_hash = ?,
                               updated_at = ? WHERE id = ?',
                 [$title, $newSlug, $summary, $notes, $ratingId, $completed ? 1 : 0, $restricted ? 1 : 0, $language,
                  $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0,
                  $canonicalUrl === '' ? null : $canonicalUrl, $crosspostUrl === '' ? null : $crosspostUrl,
+                 $accessValue,
                  date('c'), $story['id']]);
             $this->writeCategories((int) $story['id'], $categoryIds);
             $this->writeTags((int) $story['id'], $tagIds);
@@ -169,7 +177,7 @@ final class AuthoringRepository
     public function ownStory(string $slug, int $userId, bool $rr = false): array
     {
         $story = $this->db->one(
-            "SELECT id, title, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL
+            "SELECT id, title, author_id, access_hash FROM stories WHERE slug = ? AND deleted_at IS NULL
               AND (author_id = ?
                    OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = stories.id AND ca.user_id = ?)
                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin')
@@ -335,8 +343,9 @@ final class AuthoringRepository
      *  series slugs, author profile slug, challenge slugs (purge coordinates).
      *  $rr is the roundrobin flag: the only write the rr expansion opens
      *  (update/delete stay story-side; chapters record no contributor to gate
-     *  edits by). */
-    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false): array
+     *  edits by). $accessHash arrives pre-hashed (the controller hashes the
+     *  form's raw input; a NULL means open). */
+    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false, ?string $accessHash = null): array
     {
         $story = $this->ownStory($slug, $userId, $rr);
         $words = \App\Markdown::wordCount($content);
@@ -347,9 +356,9 @@ final class AuthoringRepository
         $this->db->begin();
         try {
             $this->db->query(
-                'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, publish_at)
-                 SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
-                [$story['id'], $title, $before, $content, $after, $live, $words, $publishAt, $story['id']]);
+                'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, publish_at, access_hash)
+                 SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
+                [$story['id'], $title, $before, $content, $after, $live, $words, $publishAt, $accessHash, $story['id']]);
             $this->touchStory($story['id']);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
@@ -361,9 +370,18 @@ final class AuthoringRepository
     }
 
     /** @return array{0: array, 1: array, 2: string, 3: array} */
-    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null): array
+    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null, ?string $accessPassword = null, bool $accessClear = false): array
     {
         $story = $this->ownStory($slug, $userId);
+        // The post-password trio (updateStory's shape) against the chapter's
+        // own current row: the clear checkbox wins; a non-empty password is
+        // hashed here (raw input is never stored, never passed through);
+        // otherwise unchanged. The POST path may spend this lookup: the
+        // one-query budget binds page renders only.
+        $current = $this->db->one('SELECT access_hash FROM chapters WHERE story_id = ? AND position = ?', [$story['id'], $position]);
+        $accessValue = $accessClear
+            ? null
+            : ($accessPassword !== '' && $accessPassword !== null ? password_hash($accessPassword, PASSWORD_DEFAULT) : ($current['access_hash'] ?? null));
         $this->db->begin();
         try {
             // The schedule follows the form: the input repopulates from the row
@@ -371,8 +389,8 @@ final class AuthoringRepository
             // round-trips and an emptied field clears it. A live chapter with a
             // stray publish_at is inert: releaseDue's WHERE demands validated = 0.
             $this->db->query('UPDATE chapters SET title = ?, notes_before = ?, content = ?, notes_after = ?,
-                              word_count = ?, publish_at = ?, updated_at = ? WHERE story_id = ? AND position = ?',
-                [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, date('c'), $story['id'], $position]);
+                              word_count = ?, publish_at = ?, access_hash = ?, updated_at = ? WHERE story_id = ? AND position = ?',
+                [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, $accessValue, date('c'), $story['id'], $position]);
             $this->touchStory($story['id']);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);

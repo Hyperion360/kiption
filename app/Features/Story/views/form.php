@@ -42,6 +42,8 @@
     <?php endif; ?>
     <label class="inline"><input type="checkbox" name="completed" value="1" <?= $story !== null && (int) $story['completed'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.completed') ?></label>
     <label class="inline"><input type="checkbox" name="restricted" value="1" <?= $story !== null && (int) $story['restricted'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.registered_only') ?></label>
+    <label><?= \App\Lang::t('story.access_password_label') ?> <input type="password" name="access_password" autocomplete="new-password"></label>
+    <label class="inline"><input type="checkbox" name="access_clear" value="1"> <?= \App\Lang::t('story.access_clear_label') ?></label>
     <label class="inline"><input type="checkbox" name="round_robin" value="1" <?= $story !== null && (int) ($story['round_robin'] ?? 0) === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.round_robin') ?></label>
     <label class="inline"><input type="checkbox" name="is_original" value="1"<?= $story !== null && (int) ($story['is_original'] ?? 0) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('story.is_original_label') ?></label>
     <p class="hint"><?= \App\Lang::t('story.is_original_help') ?></p>

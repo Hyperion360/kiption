@@ -15,6 +15,8 @@
     <label><?= \App\Lang::t('chapter.note_after') ?> <textarea name="notes_after" rows="2"><?= $this->e($story['notes_after'] ?? '') ?></textarea></label>
     <label><?= \App\Lang::t('chapter.publish_at') ?> <input type="datetime-local" name="publish_at" value="<?= $this->e(substr((string) ($story['publish_at'] ?? ''), 0, 16)) ?>"></label>
     <p class="chapter-meta"><?= \App\Lang::t('chapter.publish_hint') ?></p>
+    <label><?= \App\Lang::t('chapter.access_password_label') ?> <input type="password" name="access_password" autocomplete="new-password"></label>
+    <label class="inline"><input type="checkbox" name="access_clear" value="1"> <?= \App\Lang::t('chapter.access_clear_label') ?></label>
     <button type="submit"><?= \App\Lang::t('chapter.save') ?></button>
   </form>
   <?php if ($position !== null): ?>
