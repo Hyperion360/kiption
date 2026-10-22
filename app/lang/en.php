@@ -209,7 +209,8 @@ return [
 
     // The post-password gate (Fictioneer parity): the pass form is the
     // crawler's view of a locked work, so it carries no prose to leak.
-    'story.pass_prompt' => 'Password:',
+    'story.pass_heading' => 'Protected work',
+    'story.pass_prompt' => 'Password',
     'story.pass_continue' => 'Unlock',
     'story.pass_wrong' => 'That password is not it. Try again.',
 

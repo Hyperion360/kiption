@@ -1433,3 +1433,12 @@ body.focus .site-head { display: none; }
     scroll-behavior: auto !important;
   }
 }
+
+/* The post-password card's form (the age gate twin): the house stacked
+   one-field form, full-width field, actions row with the outline back
+   link beside the solid primary. */
+.gate-pass { margin-block-start: 1.5rem; text-align: start; }
+.gate-pass label { font-weight: 500; }
+.gate-pass input[type="password"] { width: 100%; margin-block-end: .75rem; }
+.gate-pass .gate-actions { display: flex; align-items: center; gap: 1rem; margin-block-start: .25rem; }
+.gate-warning { margin: 0 0 1rem; font: 500 14px/1.5 var(--sans); }
