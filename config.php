@@ -8,6 +8,11 @@ $dataDir = defined('KIPTION_SHARED_DIR') ? KIPTION_SHARED_DIR : __DIR__ . '/app'
 $deploymentFile = $dataDir . '/deployment.php';
 $deployment = is_file($deploymentFile) ? (require $deploymentFile) : [];
 $publicDir = defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : ($deployment['public_dir'] ?? __DIR__ . '/public');
+// The footer legal line's links: KIP_FOOTER_LINKS carries them as a JSON
+// array of {label,url} pairs; unreadable JSON reads as no links (the
+// FooterLegal init filters malformed pairs itself, the NavLinks stance).
+$footerLinks = json_decode((string) (getenv('KIP_FOOTER_LINKS') ?: '[]'), true);
+$footerLinks = is_array($footerLinks) ? $footerLinks : [];
 return [
     'env'     => getenv('KIP_ENV') ?: 'prod', // prod default, D4 info-disclosure rule
     'data_dir' => $dataDir, // the private writable tree: databases, backups, nav, setup state (release layout: site/shared; flat layout: app/)
@@ -65,6 +70,9 @@ return [
     'og_image' => '',   // absolute or root-relative path; renders og:image/twitter cards when set
     'powered_by' => true,   // footer attribution; the /settings board's powered_by row (or this key set false) opts out
     'powered_by_url' => getenv('KIP_POWERED_BY_URL') ?: 'https://cloud.kiption.com',
+    'footer_copyright' => getenv('KIP_FOOTER_COPYRIGHT') ?: '',   // footer copyright holder (e.g. 'Hyperion360 Inc'); empty = no legal line. KIP_FOOTER_COPYRIGHT overrides
+    'footer_copyright_url' => getenv('KIP_FOOTER_COPYRIGHT_URL') ?: '',   // the holder's link target; only https:// or /-relative values link (the nav stance)
+    'footer_links' => $footerLinks,   // legal links (label/url pairs) before the copyright span; KIP_FOOTER_LINKS carries them as a JSON string
     'feeds_full_text' => (bool) getenv('KIP_FEEDS_FULL_TEXT') ?: false, // Atom entries carry the first chapter in <content type="html">
     'ai_crawlers' => getenv('KIP_AI_CRAWLERS') === false || (bool) getenv('KIP_AI_CRAWLERS'), // robots.txt stance; KIP_AI_CRAWLERS=0 disallows GPTBot & co
     'registration_mode' => $deployment['registration_mode'] ?? 'verify',   // open | verify | approval | invite; a browser install starts invite-only

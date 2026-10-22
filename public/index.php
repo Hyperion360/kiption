@@ -171,6 +171,7 @@ $config = \App\Settings::apply($config);
 // Nothing above reads it (the static-cache HIT serves stored bytes, the
 // maintenance view is standalone), so init-after-apply covers every render.
 \App\Attribution::init($config);
+\App\FooterLegal::init($config); // the legal-line seam, same merged-config order
 // The skins seam (views_override): the operator's chosen skin directory wins
 // over the app defaults template-by-template, '' for the default skin. It sits
 // AFTER the static-cache HIT and the maintenance 503 above by construction:

@@ -86,6 +86,15 @@
 <?php endforeach; ?>
       <?php if (\App\Features::on('feeds')): ?><a href="/feed/subscribe"><?= \App\Lang::t('common.feed_title') ?></a><?php endif; ?>
     </nav>
+    <?php /* The operator's legal line (the Attribution seam's sibling):
+       copyright holder and legal links from the boot config, absent when
+       unconfigured. Identical bytes for every visitor; the year is baked
+       at render time, so a cached page carries its build year until the
+       next build or purge. Only https and site-relative urls link (the
+       nav stance); anything else renders as plain text. */ ?>
+    <?php if (\App\FooterLegal::has()): ?>
+    <p class="foot-legal"><?php foreach (\App\FooterLegal::links() as $l): ?><?php if (\App\FooterLegal::linkable($l['url'])): ?><a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a><?php else: ?><?= $this->e($l['label']) ?><?php endif; ?> <?php endforeach; ?><?php if (\App\FooterLegal::copyright() !== ''): ?><span>© <?= date('Y') ?> <?php if (\App\FooterLegal::linkable(\App\FooterLegal::copyrightUrl())): ?><a href="<?= $this->e(\App\FooterLegal::copyrightUrl()) ?>" rel="noopener"><?= $this->e(\App\FooterLegal::copyright()) ?></a><?php else: ?><?= $this->e(\App\FooterLegal::copyright()) ?><?php endif; ?></span><?php endif; ?></p>
+    <?php endif; ?>
     <?php /* Attribution (the WordPress pattern): on by default, off by the
        powered_by config key, identical bytes for every visitor so cached
        pages stay stable. */ ?>

@@ -883,6 +883,39 @@ has a bucket; a test drives `/auth/attempt` past the shipped map, so
 deleting or misspelling an entry fails the suite rather than silently
 disabling its limit.
 
+### Footer copyright and legal links
+
+The footer can carry one legal line after the secondary destinations: a
+copyright holder plus a short list of legal links. Both are absent until
+configured (the shipped `config.php` sets neither, so a fresh install
+renders no legal line), the line is identical for every visitor, and the
+year in it is the render date, so a cached page carries its build year
+until the next build or purge. Three keys in `config.php`:
+
+- `footer_copyright`: the holder, rendered as `© <year> <holder>`
+  (plain text when no URL is set).
+- `footer_copyright_url`: the holder's link target.
+- `footer_links`: a list of `['label' => ..., 'url' => ...]` pairs,
+  rendered in order before the copyright.
+
+URLs link only when they are `https://` or site-relative (`/page/...`);
+anything else (`javascript:`, `http:`, `//host`) renders as plain text,
+never an anchor. Environment overrides: `KIP_FOOTER_COPYRIGHT`,
+`KIP_FOOTER_COPYRIGHT_URL`, and `KIP_FOOTER_LINKS` (a JSON array of
+`{"label":...,"url":...}` pairs; invalid JSON reads as no links). The
+flagship values, as an example:
+
+```php
+'footer_copyright' => 'Hyperion360 Inc',
+'footer_copyright_url' => 'https://hyperion360.com/',
+'footer_links' => [
+    ['label' => 'Terms', 'url' => '/page/view/terms'],
+    ['label' => 'Privacy', 'url' => '/page/view/privacy'],
+    ['label' => 'Content policy', 'url' => '/page/view/content-policy'],
+    ['label' => 'Copyright and DMCA', 'url' => '/dmca'],
+],
+```
+
 ## Feature flags
 
 Every discretionary surface is admin-togglable at `/features` (admins only;
