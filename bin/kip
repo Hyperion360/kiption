@@ -478,6 +478,68 @@ match ($argv[1] ?? 'help') {
             $counts['failed']);
         exit($counts['failed'] > 0 ? 1 : 0);
     })(),
+    'import:fictioneer' => (function () use ($config, $argv) {
+        // a near-cap 1 GiB payload busts the 128M CLI limit mid-stream: 512M holds it
+        ini_set('memory_limit', '512M');
+        $file = $argv[2] ?? '';
+        $rest = array_slice($argv, 2);
+        $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
+        $owner = null;
+        foreach ($rest as $a) { if (str_starts_with($a, '--owner=')) { $owner = substr($a, 8); } }
+        $usage = "Usage: kip import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]\n";
+        // the reader's extensions are declared in composer.json; a host that
+        // skipped composer's platform check still gets a clean sentence here
+        foreach (['XMLReader' => 'xmlreader', 'DOMDocument' => 'dom'] as $class => $ext) {
+            if (!class_exists($class)) {
+                fwrite(STDERR, "PHP extension {$ext} is not enabled; the Fictioneer importer needs it.\n");
+                exit(1);
+            }
+        }
+        if (str_ends_with(strtolower($file), '.gz') && !function_exists('gzopen')) {
+            fwrite(STDERR, "PHP extension zlib is not enabled; pass an uncompressed .xml export instead.\n");
+            exit(1);
+        }
+        if (in_array('--dry-run', $rest, true) && in_array('--commit', $rest, true)) {
+            fwrite(STDERR, "--dry-run and --commit are mutually exclusive.\n{$usage}");
+            exit(1);
+        }
+        if ($owner !== null && $owner === '') {
+            fwrite(STDERR, "--owner wants a value after the =.\n{$usage}");
+            exit(1);
+        }
+        if ($file === '' || $mode === '' || !is_file($file)) {
+            if ($file !== '' && !is_file($file)) fwrite(STDERR, "No such file: {$file}\n");
+            fwrite(STDERR, $usage);
+            exit(1);
+        }
+        try {
+            $db = new Kip\Database($config['db']['dsn']);
+            $ownerId = null;
+            if ($owner !== null) {
+                // penname resolution is the CLI's job (the importer takes ids
+                // only, the import:epub idiom): a numeric owner is an id, an
+                // exact case-insensitive penname otherwise
+                $hit = null;
+                if (ctype_digit($owner)) {
+                    $hit = $db->one('SELECT id FROM users WHERE id = ?', [(int) $owner]);
+                } else {
+                    foreach ($db->all('SELECT id, penname FROM users') as $u) {
+                        if (mb_strtolower((string) $u['penname']) === mb_strtolower($owner)) { $hit = ['id' => $u['id']]; break; }
+                    }
+                }
+                if ($hit === null) {
+                    fwrite(STDERR, "no member carries " . (ctype_digit($owner) ? "id {$owner}" : "the penname '{$owner}'") . ": resolve --owner against users first\n");
+                    exit(1);
+                }
+                $ownerId = (int) $hit['id'];
+            }
+            echo (new \App\Import\FictioneerImport($db, new \App\Import\WxrReader($file), $mode, $ownerId, $config))->run();
+        } catch (\RuntimeException $e) {
+            // operator-facing failures print clean and exit 1, no stack trace
+            fwrite(STDERR, $e->getMessage() . "\n");
+            exit(1);
+        }
+    })(),
     'mail:users' => (function () use ($config, $argv) {
         $rest = array_slice($argv, 2);
         $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
@@ -534,5 +596,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };
