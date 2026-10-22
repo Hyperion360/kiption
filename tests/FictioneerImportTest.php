@@ -248,7 +248,12 @@ final class FictioneerImportTest extends TestCase
         $this->assertStringContainsString('dropped unapproved comment', $out);
         $this->assertStringContainsString('REJECT story not public on the source (draft)', $out);
         $this->assertStringContainsString('dropped collection item', $out);
-        $this->assertStringContainsString('fcn_story', $out);
+        // the verification block must be honest, not merely present: the
+        // fcn_story line carries the exact counts (3 read: acf, hidden, and
+        // the rejected draft; 2 imported) with no MISMATCH suffix, and an
+        // honest run prints no MISMATCH anywhere in the block
+        $this->assertMatchesRegularExpression('/^fcn_story\s+read 3, imported 2$/m', $out);
+        $this->assertStringNotContainsString('MISMATCH', $out);
         // legacy rows
         $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/story/acf-story-11'")['c']);
         $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/chapter/chapter-100'")['c']);
