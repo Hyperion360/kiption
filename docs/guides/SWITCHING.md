@@ -44,7 +44,9 @@ an HTML-based editor typically needs its styling stripped, which the
 author guide documents. Set the rating and warning gates to match what
 the old platform's content rating claimed. If the old account stays up,
 add a final chapter or profile note pointing readers at the new address;
-Kiption's own old-URL 301s only cover eFiction imports.
+Kiption's own old-URL 301s cover eFiction imports and Fictioneer
+imports (the WordPress export carries the old /story/ and /chapter/
+slugs across as redirect rows).
 
 You own your text on both platforms; what their terms restrict is
 automated access to their sites, which is why this archive ships no
@@ -64,6 +66,50 @@ subset, and re-upload as stories or news posts. The subscriber list
 exports as CSV; the archive does not ingest email lists, so readers come
 by pointing at your profile's follow button and the RSS and author feeds,
 then choose inbox, immediate email, or digest themselves.
+
+## How Kiption compares to Fictioneer
+
+Fictioneer is a WordPress theme for publishing fiction. Kiption is a
+standalone fiction archive: one SQLite file, no plugins, no build step.
+Both are open source and free, so the choice comes down to upkeep, what
+moves with you, and what readers can do once they arrive.
+
+Setup and upkeep. Fictioneer needs WordPress, MySQL, and a careful
+plugin stack; its own docs call it hard for newcomers and warn that
+popular caching plugins break it. Because it ships outside the official
+directory, every update is a manual theme upload. Kiption installs as
+one directory, and updates are versioned releases you can stage and
+roll back.
+
+Getting your archive in. Fictioneer has no export tool. Its migration
+guide asks you to paste PHP into functions.php, warns you to delete the
+script afterward because leaving it deployed is a security hole, and
+gives no path in from other software at all. Kiption imports the
+standard WordPress export file with one command: stories, chapters,
+author notes, genres, fandoms, characters, comments, collections, and
+recommendations come across. A dry-run report counts everything first,
+and a database snapshot is taken before any of it commits. Old /story/
+and /chapter/ links keep working through the 301 map the import writes,
+so your search rankings move with you.
+
+Reader engagement. Fictioneer refuses ratings and review scores on
+purpose; three separate request threads were closed wontfix. Kiption
+ships zero-to-ten reviews with author responses, kudos, favorites,
+follows with email digests, and reading lists. Reader email
+notifications, which Fictioneer declines to build, are built in.
+
+Counts you can trust. Fictioneer caches hard: its author index can run
+24 hours stale, and its follow counters drift, a bug its author tracks
+but does not plan to fix. Kiption renders every page with at most one
+database query and keeps the numbers exact.
+
+Your data stays yours. Chapters are markdown at rest, not WordPress
+HTML. Any work downloads as EPUB or HTML whenever a reader or the
+author wants it, so nothing about leaving Kiption needs a plugin.
+
+Minimums, not adjectives: Kiption needs PHP 8.3 and a SQLite file.
+Fictioneer needs at least WordPress 6.5, PHP 7.4, and MySQL, plus the
+hosting headroom its own FAQ says large archives require.
 
 ## Moving gradually
 
