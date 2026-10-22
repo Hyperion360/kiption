@@ -14,10 +14,10 @@ final class HtmlToMarkdown
      *  text: mangling an author's [sic] is worse than a leftover bracket. */
     public static function wordpress(string $html): string
     {
-        $html = preg_replace('/\[(?:wp_)?caption[^\]]*\]/i', '', $html) ?? $html;
-        $html = preg_replace('/\[\/(?:wp_)?caption\]/i', '', $html) ?? $html;
+        $html = preg_replace('/\[(?:wp_)?caption(?![\w-])[^\]]*\]/i', '', $html) ?? $html;
+        $html = preg_replace('/\[\/(?:wp_)?caption(?![\w-])\]/i', '', $html) ?? $html;
         $html = preg_replace('/\[fcnt\](.*?)\[\/fcnt\]/is', ' ($1)', $html) ?? $html;
-        $html = preg_replace('/\[(?:gallery|embed|audio|video|playlist|contact-form|fictioneer_[a-z_]+)[^\]]*\]/i', '', $html) ?? $html;
+        $html = preg_replace('/\[(?:gallery|embed|audio|video|playlist|contact-form|fictioneer_[a-z_]+)(?![\w-])[^\]]*\]/i', '', $html) ?? $html;
         return self::convert($html);
     }
 

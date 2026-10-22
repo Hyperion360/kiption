@@ -100,6 +100,19 @@ final class HtmlToMarkdownTest extends TestCase
         $this->assertStringContainsString('[sic]', $md);
     }
 
+    public function test_caption_prefix_shortcodes_stay_literal(): void
+    {
+        $md = HtmlToMarkdown::wordpress('[captionary] stays');
+        $this->assertStringContainsString('[captionary] stays', $md);
+    }
+
+    public function test_void_prefix_shortcodes_stay_literal(): void
+    {
+        $md = HtmlToMarkdown::wordpress('[embeddable] stays [videogame] too');
+        $this->assertStringContainsString('[embeddable] stays', $md);
+        $this->assertStringContainsString('[videogame] too', $md);
+    }
+
     public function test_del_and_pre_collapse_to_text(): void
     {
         $md = HtmlToMarkdown::convert('<p><del>gone</del></p><pre>kept  as-is</pre>');
