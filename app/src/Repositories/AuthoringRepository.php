@@ -119,9 +119,7 @@ final class AuthoringRepository
                                 array $tagIds = [], ?string $accessPassword = null, bool $accessClear = false): array
     {
         $story = $this->ownStory($slug, $userId);
-        $accessValue = $accessClear
-            ? null
-            : ($accessPassword !== '' && $accessPassword !== null ? password_hash($accessPassword, PASSWORD_DEFAULT) : $story['access_hash']);
+        $accessValue = $this->accessValue($accessClear, $accessPassword, $story['access_hash'] ?? null);
         $newSlug = $slug;
         if (\App\Slug::make($title) !== \App\Slug::make($story['title'])) {
             $newSlug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
@@ -374,14 +372,10 @@ final class AuthoringRepository
     {
         $story = $this->ownStory($slug, $userId);
         // The post-password trio (updateStory's shape) against the chapter's
-        // own current row: the clear checkbox wins; a non-empty password is
-        // hashed here (raw input is never stored, never passed through);
-        // otherwise unchanged. The POST path may spend this lookup: the
+        // own current row. The POST path may spend this lookup: the
         // one-query budget binds page renders only.
         $current = $this->db->one('SELECT access_hash FROM chapters WHERE story_id = ? AND position = ?', [$story['id'], $position]);
-        $accessValue = $accessClear
-            ? null
-            : ($accessPassword !== '' && $accessPassword !== null ? password_hash($accessPassword, PASSWORD_DEFAULT) : ($current['access_hash'] ?? null));
+        $accessValue = $this->accessValue($accessClear, $accessPassword, $current['access_hash'] ?? null);
         $this->db->begin();
         try {
             // The schedule follows the form: the input repopulates from the row
@@ -399,6 +393,17 @@ final class AuthoringRepository
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+
+    /** The post-password trio both save paths share: the clear checkbox
+     *  wins; a non-empty password is hashed here (raw input is never
+     *  stored, never passed through); otherwise unchanged. */
+    private function accessValue(bool $clear, ?string $password, ?string $current): ?string
+    {
+        return $clear
+            ? null
+            : ($password !== '' && $password !== null ? password_hash($password, PASSWORD_DEFAULT) : $current);
     }
 
     /** @return array{0: array, 1: array, 2: string, 3: array} */
