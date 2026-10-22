@@ -133,8 +133,9 @@ final class SitemapTest extends TestCase
         // index joins the enumeration; the /series index rides the fixed set;
         // sitemaps stay files, not cache pages; the content-policy page rides
         // the seeded-pages set, and Task 2's dmca page rides it too, at its
-        // top-level spelling; the fix loop adds the /compare index, +1)
-        $this->assertSame(26, $count);
+        // top-level spelling; the fix loop adds the /compare index, +1;
+        // migration 042's compare-fictioneer row rides it as well, +1)
+        $this->assertSame(27, $count);
         $this->assertFileExists($this->publicDir() . '/sitemap.xml');
         $this->assertStringContainsString(
             'https://archive.example/story/view/the-rabbit-hole',

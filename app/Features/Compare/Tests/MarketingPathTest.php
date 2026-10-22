@@ -65,7 +65,9 @@ final class MarketingPathTest extends TestCase
 
     private function seedPage(string $slug, string $title, string $body): void
     {
-        $this->db->query('INSERT INTO pages (slug, title, body) VALUES (?, ?, ?)', [$slug, $title, $body]);
+        // OR REPLACE: a test's seed deliberately overrides whatever a
+        // migration (036/037/042) already put at that slug.
+        $this->db->query('INSERT OR REPLACE INTO pages (slug, title, body) VALUES (?, ?, ?)', [$slug, $title, $body]);
     }
 
     public function test_cloud_serves_its_page_row_at_the_top_level(): void
@@ -115,6 +117,17 @@ final class MarketingPathTest extends TestCase
         $res = $this->client()->get('/page/view/compare-fictioneer');
         $this->assertSame(301, $res->status);
         $this->assertSame('/compare/fictioneer', $this->header($res, 'Location'));
+    }
+
+    public function test_fictioneer_comparison_serves_from_the_migration_seeded_row(): void
+    {
+        // The migration-seeded row (042) carries the researched body; the
+        // older test seeds a placeholder, this one proves the real row ships.
+        $res = $this->client()->get('/compare/fictioneer');
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('Fictioneer has no export tool', $res->body);
+        $this->assertStringContainsString('<link rel="canonical" href="https://archive.example/compare/fictioneer">', $res->body);
+        $this->assertStringContainsString('Fictioneer', \App\Lang::t('compare.meta_description'));
     }
 
     public function test_dmca_serves_at_top_level(): void

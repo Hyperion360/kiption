@@ -500,7 +500,7 @@ return [
     // The comparison hub (/compare).
     'compare.heading' => 'How Kiption compares',
     'compare.lead' => 'Kiption measured against the platforms writers and readers already use.',
-    'compare.meta_description' => 'Kiption compared to eFiction, Wattpad, Webnovel, Royal Road, FanFiction.net, AO3, and Substack.',
+    'compare.meta_description' => 'Kiption compared to eFiction, Fictioneer, Wattpad, Webnovel, Royal Road, FanFiction.net, AO3, and Substack.',
 
     // The validation queue.
     'queue.heading' => 'Validation queue',
