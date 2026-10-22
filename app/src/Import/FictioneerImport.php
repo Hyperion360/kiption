@@ -266,12 +266,9 @@ final class FictioneerImport
             $created = FictioneerMapper::iso($item['date']) ?? date('c');
             // WordPress exports post_password in plaintext: the original
             // password survives (hashed), and readers who knew it keep
-            // access. An expired password (fictioneer_post_password_expiration_date
-            // in the past) means the chapter was public on the source: import
-            // it open, never more gated than it lived either.
-            $expires = (string) ($item['meta']['fictioneer_post_password_expiration_date'] ?? '');
-            $passwordExpired = $item['password'] !== '' && $expires !== ''
-                && strtotime($expires) !== false && strtotime($expires) < time();
+            // access. An expired password means the chapter was public on
+            // the source: import it open, never more gated than it lived.
+            $passwordExpired = $this->passwordExpired($item);
             $access = $item['password'] !== '' && !$passwordExpired ? password_hash($item['password'], PASSWORD_DEFAULT) : null;
             if ($access !== null) { $this->lockedItems++; }
             if ($passwordExpired) { $this->report->drop('expired post password (imported open, as it lived)'); }
@@ -367,11 +364,9 @@ final class FictioneerImport
             $locked = $item['password'] !== '';
             // a locked chapter keeps its prose and its ORIGINAL password (WXR
             // exports post_password in plaintext); the gate does the rest.
-            // An expired password (fictioneer_post_password_expiration_date in
-            // the past) means it was public on the source: import it open.
-            $expires = (string) ($item['meta']['fictioneer_post_password_expiration_date'] ?? '');
-            $passwordExpired = $locked && $expires !== ''
-                && strtotime($expires) !== false && strtotime($expires) < time();
+            // An expired password means it was public on the source: import
+            // it open.
+            $passwordExpired = $this->passwordExpired($item);
             $content = $this->prose($item['content']);
             if ($locked && !$passwordExpired) {
                 $this->lockedItems++;
@@ -550,13 +545,22 @@ final class FictioneerImport
         }
     }
 
+    /** The WXR item's post_password is expired (fictioneer_post_password_expiration_date
+     *  in the past, and only when a password exists): the item was public on
+     *  the source, so it imports open. Shared by story and chapter passes. */
+    private function passwordExpired(array $item): bool
+    {
+        if ($item['password'] === '') return false;
+        $expires = (string) ($item['meta']['fictioneer_post_password_expiration_date'] ?? '');
+        return $expires !== '' && strtotime($expires) !== false && strtotime($expires) < time();
+    }
+
     private function resolveRating(?string $label): int
     {
         $mapped = FictioneerMapper::ratingLabel($label);
         if ($mapped !== null && isset($this->ratingMap[$mapped])) return $this->ratingMap[$mapped];
         if ($label !== null && $label !== '') {
             $this->report->sample("rating \"$label\" is not in the Fictioneer set; imported Unrated");
-            return $this->unratedId();
         }
         return $this->unratedId();
     }
