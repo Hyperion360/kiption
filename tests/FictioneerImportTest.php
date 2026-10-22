@@ -5,11 +5,14 @@ use App\Import\WxrReader;
 use App\Tests\Support\Wxr;
 use Kip\Database;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /** Drives the REAL Fictioneer orchestrator end to end: a throwaway sqlite
  *  file, Migrator + Seeder, in-process runs, a real config array with
- *  throwaway dirs. Task 7 landed the harness and the oneshot test; the
- *  rest of the era matrix arrives with Task 9. */
+ *  throwaway dirs. Covers the four 5.x data-model eras: honest counts on a
+ *  mixed export, original passwords kept, scheduled posts, two sites with
+ *  colliding post ids, orphaned/dropped chapter positions, hostile meta,
+ *  DOCTYPE refusal, and parent-link precedence. */
 final class FictioneerImportTest extends TestCase
 {
     private string $dir = '';
@@ -124,5 +127,326 @@ final class FictioneerImportTest extends TestCase
         $rows = $db->all("SELECT c.slug FROM story_categories sc JOIN categories c ON c.id = sc.category_id
                           JOIN stories s ON s.id = sc.story_id WHERE s.slug IN ('from-a', 'from-b')");
         $this->assertSame([['slug' => 'fantasy'], ['slug' => 'fantasy']], $rows, 'both stories point at the one adopted category');
+    }
+
+    /** The whole-era matrix in one export: ACF-era meta (5.0-5.7), the
+     *  pre-5.10 and 5.10+ SEO spellings, fcn_hidden (5.35), a draft, a
+     *  recommendation, a collection, notes, comments in every state, and a
+     *  http link. Counts must be honest, the owner gate must roll the run
+     *  back, and a resume run must skip exactly what it already mapped. */
+    public function test_all_eras_import_with_honest_counts(): void
+    {
+        $db = $this->readyDb();
+        $storyId = 11; $ch1 = 100; $ch2 = 101;
+        $xml = Wxr::channel([
+            Wxr::acfStory($storyId, ['login' => 'anna']),
+            Wxr::chapter($ch1, $storyId, ['title' => 'First', 'content' => '<h2>First</h2><p>Alpha text.</p>', 'login' => 'anna',
+                'meta' => ['fictioneer_chapter_story' => (string) $storyId,
+                            'fictioneer_chapter_foreword' => '<p>Before note.</p>',
+                            'fictioneer_chapter_afterword' => '<p>After note.</p>'],
+                'comments' => [
+                    ['author' => 'Go', 'content' => '<p>Loved it.</p>', 'approved' => '1'],
+                    ['author' => 'Shy', 'content' => '<p>Secret.</p>', 'type' => 'private', 'approved' => '1'],
+                    ['author' => 'Ghost', 'content' => '<p>Bye.</p>', 'meta' => ['fictioneer_deleted_by_user' => '1'], 'approved' => '1'],
+                    ['author' => 'Bot', 'content' => '<p>Spam.</p>', 'approved' => '0'],
+                ]]),
+            Wxr::chapter($ch2, $storyId, ['title' => 'Second', 'content' => '<p>Beta text.</p><p><a href="http://old.example.org/about">about</a> <img src="https://old.example.org/u/a.jpg" alt="pic"></p>', 'login' => 'anna',
+                'meta' => ['fictioneer_chapter_story' => (string) $storyId, 'fictioneer_chapter_rating' => 'Mature']]),
+            Wxr::hiddenStory(200),
+            Wxr::item(['id' => 300, 'type' => 'fcn_recommendation', 'slug' => 'great-book', 'title' => 'A Great Book',
+                'login' => 'anna', 'meta' => [
+                    'fictioneer_recommendation_one_sentence' => 'Read this one.',
+                    'fictioneer_recommendation_author' => 'Someone',
+                    'fictioneer_recommendation_primary_url' => 'https://books.example/great',
+                    'fictioneer_recommendation_support' => 'ftp://nope',
+                ]]),
+            Wxr::item(['id' => 301, 'type' => 'fcn_story', 'status' => 'draft', 'slug' => 'draft-story', 'title' => 'Draft']),
+            Wxr::item(['id' => 302, 'type' => 'fcn_collection', 'slug' => 'best-of', 'title' => 'Best of',
+                'login' => 'anna', 'status' => 'publish',
+                'meta' => [
+                    'fictioneer_collection_items' => serialize([$storyId, 9999]),
+                    'fictioneer_collection_description' => 'Hand picked.',
+                ]]),
+            // the wp chapter ids in the story's order array map via their own post ids
+        ], [
+            ['id' => 3, 'login' => 'anna', 'email' => 'anna@example.org', 'display_name' => 'Anna S.'],
+            ['id' => 4, 'login' => 'beta', 'email' => 'beta.wp@example.org'],
+        ]);
+        // the story's order array must name real chapter wp ids: rewrite acfStory for the fixture
+        $xml = str_replace(serialize([100 + $storyId]), serialize([$ch1, $ch2]), $xml);
+        $p = $this->write($xml);
+
+        // collections exist: the run stops with the owner instruction and rolls back
+        try {
+            $this->import($p, 'commit');
+            $this->fail('expected the owner requirement');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('pass --owner=', $e->getMessage());
+        }
+        $this->assertSame('0', (string) $db->one("SELECT COUNT(*) c FROM stories WHERE slug IN ('acf-story-11', 'hidden-story-200', 'draft-story')")['c'], 'the failed run left nothing behind');
+
+        $ownerId = (int) $db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $out = $this->import($p, 'dry-run', $ownerId);
+        $this->assertStringContainsString('dry-run: nothing written', $out);
+        $this->assertSame('0', (string) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
+
+        $out = $this->import($p, 'commit', $ownerId);
+        // stories: acf + hidden imported, draft dropped (the seeder's demo
+        // stories also live here, so imported rows are counted by slug)
+        $this->assertSame('2', (string) $db->one("SELECT COUNT(*) c FROM stories WHERE slug IN ('acf-story-11', 'hidden-story-200')")['c']);
+        $this->assertSame('0', (string) $db->one("SELECT COUNT(*) c FROM stories WHERE slug = 'draft-story'")['c']);
+        $hidden = $db->one("SELECT s.validated, r.label FROM stories s JOIN ratings r ON r.id = s.rating_id WHERE s.slug = 'hidden-story-200'");
+        $this->assertSame('0', (string) $hidden['validated'], 'fcn_hidden imports unvalidated');
+        $this->assertSame('Mature', $hidden['label']);
+        // era handling
+        $this->assertStringContainsString('source eras detected', $out);
+        $this->assertStringContainsString('ACF era', $out);
+        $this->assertStringContainsString('pre-5.10 SEO fields', $out);
+        $this->assertStringContainsString('5.10+ SEO fields', $out);
+        $this->assertSame('Old SEO description', $db->one("SELECT meta_description FROM stories WHERE slug = 'acf-story-11'")['meta_description']);
+        $this->assertSame('New era SEO', $db->one("SELECT meta_description FROM stories WHERE slug = 'hidden-story-200'")['meta_description']);
+        // chapters: order from the array, notes mapped, rating promotion
+        $chapters = $db->all("SELECT position, title, validated, notes_before, notes_after, content FROM chapters
+                              WHERE story_id = (SELECT id FROM stories WHERE slug = 'acf-story-11') ORDER BY position");
+        $this->assertCount(2, $chapters);
+        $this->assertSame('First', $chapters[0]['title']);
+        $this->assertSame('Before note.', trim($chapters[0]['notes_before']));
+        $this->assertSame('After note.', trim($chapters[0]['notes_after']));
+        $this->assertSame('**First**' . "\n\n" . 'Alpha text.', rtrim($chapters[0]['content'], "\n"));
+        $acf = $db->one("SELECT r.label FROM stories s JOIN ratings r ON r.id = s.rating_id WHERE s.slug = 'acf-story-11'");
+        $this->assertSame('Mature', $acf['label'], 'the Mature chapter rating lifts the Teen story');
+        // word counts recomputed from the chapters that landed, never trusted
+        // (the fixture's _word_count cache says 999)
+        $expected = \App\Markdown::wordCount($chapters[0]['content']) + \App\Markdown::wordCount($chapters[1]['content']);
+        $this->assertSame((string) $expected, (string) $db->one("SELECT word_count FROM stories WHERE slug = 'acf-story-11'")['word_count']);
+        // links: http upgraded, old-host references counted, never fetched
+        $this->assertStringContainsString('](https://old.example.org/about)', $chapters[1]['content']);
+        $this->assertStringContainsString('http links upgraded to https: 1', $out);
+        $this->assertStringContainsString('links and images still pointing at old.example.org: 2', $out);
+        // comments: approved+public only (the seeder plants no reviews)
+        $this->assertSame('1', (string) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
+        $this->assertSame('Go', $db->one('SELECT guest_name FROM reviews')['guest_name']);
+        $this->assertNull($db->one('SELECT rating FROM reviews')['rating']);
+        // recommendation page + legacy page name, support link scheme-filtered
+        $this->assertSame('A Great Book', $db->one("SELECT title FROM pages WHERE slug LIKE 'recommendation-great-book%'")['title']);
+        $this->assertNotNull($db->one("SELECT 1 FROM legacy_page_urls WHERE legacy_name = 'recommendation/great-book'"));
+        $this->assertStringNotContainsString('ftp://nope', (string) $db->one("SELECT body FROM pages WHERE slug LIKE 'recommendation-great-book%'")['body']);
+        // collection as a public reading list with one resolved item
+        $list = $db->one("SELECT l.is_public, COUNT(x.id) items FROM reading_lists l JOIN reading_list_items x ON x.list_id = l.id WHERE l.slug = 'collection-best-of'");
+        $this->assertSame('1', (string) $list['is_public']);
+        $this->assertSame('1', (string) $list['items'], 'the 9999 item drops with a count');
+        // accounts: real emails and display names from the author block, locked, role validated_author
+        $anna = $db->one("SELECT email, penname, role FROM users WHERE email = 'anna@example.org'");
+        $this->assertSame('Anna S.', $anna['penname']);
+        $this->assertSame('validated_author', $anna['role']);
+        // co-authors resolve through the author block (wp id 4 = beta)
+        $co = $db->one("SELECT u.email FROM coauthors c JOIN users u ON u.id = c.user_id JOIN stories s ON s.id = c.story_id WHERE s.slug = 'acf-story-11'");
+        $this->assertSame('beta.wp@example.org', $co['email']);
+        // report lines
+        $this->assertStringContainsString('dropped private comment', $out);
+        $this->assertStringContainsString('dropped deleted-comment tombstone', $out);
+        $this->assertStringContainsString('dropped unapproved comment', $out);
+        $this->assertStringContainsString('REJECT story not public on the source (draft)', $out);
+        $this->assertStringContainsString('dropped collection item', $out);
+        $this->assertStringContainsString('fcn_story', $out);
+        // legacy rows
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/story/acf-story-11'")['c']);
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/chapter/chapter-100'")['c']);
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '' AND params = 'p=11&post_type=fcn_story'")['c']);
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM legacy_urls WHERE legacy_path = '/author/anna'")['c']);
+        // resume: a second commit skips everything it already mapped
+        // (2 stories + 2 chapters + 1 comment + 1 recommendation + 1 collection)
+        $out2 = $this->import($p, 'commit', $ownerId);
+        $this->assertStringContainsString('already mapped (skipped): 7', $out2);
+        $this->assertSame('2', (string) $db->one("SELECT COUNT(*) c FROM stories WHERE slug IN ('acf-story-11', 'hidden-story-200')")['c']);
+        $this->assertSame('2', (string) $db->one("SELECT COUNT(*) c FROM chapters WHERE story_id IN (SELECT id FROM stories WHERE slug IN ('acf-story-11', 'hidden-story-200'))")['c']);
+        $this->assertSame('1', (string) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
+        $this->assertSame('1', (string) $db->one('SELECT COUNT(*) c FROM reading_lists')['c']);
+    }
+
+    /** WordPress exports post_password in plaintext: readers who knew the
+     *  password keep their access, so the ORIGINAL value is hashed in, the
+     *  prose is kept (gated, never lost), and locked chapters stay validated
+     *  instead of landing in draft limbo. */
+    public function test_password_protected_items_keep_their_original_password(): void
+    {
+        $db = $this->readyDb();
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'locked-story', 'title' => 'Locked',
+                'password' => 'opensesame', 'content' => '',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                           'fictioneer_story_chapters' => serialize([20])]]),
+            Wxr::item(['id' => 20, 'type' => 'fcn_chapter', 'slug' => 'locked-chapter', 'title' => 'LC',
+                'password' => 'chapter-pw', 'content' => '<p>Secret prose.</p>',
+                'meta' => ['fictioneer_chapter_story' => '10']]),
+        ]);
+        $p = $this->write($xml);
+        $out = $this->import($p, 'commit');
+        $story = $db->one("SELECT access_hash, validated FROM stories WHERE slug = 'locked-story'");
+        $this->assertTrue(password_verify('opensesame', (string) $story['access_hash']), 'WordPress exports post_password in plaintext: readers keep their access');
+        $this->assertSame('1', (string) $story['validated']);
+        $chapter = $db->one("SELECT access_hash, content, validated FROM chapters WHERE title = 'LC'");
+        $this->assertTrue(password_verify('chapter-pw', (string) $chapter['access_hash']));
+        $this->assertStringContainsString('Secret prose.', $chapter['content'], 'locked prose is kept, gated, never lost');
+        $this->assertSame('1', (string) $chapter['validated'], 'the original password gates it; no draft limbo');
+        $this->assertStringContainsString('password-protected items (original passwords kept, gated): 2', $out);
+    }
+
+    /** Dual-source chapter links since Fictioneer 5.26.0: post_parent wins
+     *  over the fictioneer_chapter_story meta (the theme's own getter does
+     *  the same), the disagreement is sampled, and nothing is orphaned. */
+    public function test_post_parent_link_wins_and_disagreements_are_sampled(): void
+    {
+        $db = $this->readyDb();
+        // chapter 20 carries post_parent 10 AND meta fictioneer_chapter_story 99:
+        // post_parent wins, the disagreement is sampled, nothing is orphaned
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'parent-story', 'title' => 'Parent', 'content' => '',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                           'fictioneer_story_chapters' => serialize([20])]]),
+            Wxr::item(['id' => 20, 'type' => 'fcn_chapter', 'slug' => 'linked-twice', 'title' => 'LT',
+                'parent' => 10, 'meta' => ['fictioneer_chapter_story' => '99']]),
+        ]);
+        $p = $this->write($xml);
+        $out = $this->import($p, 'commit');
+        $chapter = $db->one("SELECT story_id FROM chapters WHERE title = 'LT'");
+        $this->assertNotNull($chapter, 'the meta-only read would have orphaned this chapter');
+        $this->assertSame((string) $db->one("SELECT id FROM stories WHERE slug = 'parent-story'")['id'], (string) $chapter['story_id'], 'linked to the post_parent story, not the meta one');
+        $this->assertStringContainsString('post_parent and fictioneer_chapter_story disagree', $out);
+    }
+
+    /** An expired post password (fictioneer_post_password_expiration_date in
+     *  the past) means the post was public on the source at the end: it
+     *  imports open, never more gated than it lived. */
+    public function test_expired_post_password_imports_open(): void
+    {
+        $db = $this->readyDb();
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'expired-gate', 'title' => 'Expired Gate',
+                'password' => 'stale', 'content' => '',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                           'fictioneer_story_chapters' => serialize([]),
+                           'fictioneer_post_password_expiration_date' => '2020-01-01 00:00:00']]),
+        ]);
+        $p = $this->write($xml);
+        $out = $this->import($p, 'commit');
+        $story = $db->one("SELECT access_hash, validated FROM stories WHERE slug = 'expired-gate'");
+        $this->assertNull($story['access_hash'], 'expired on the source means public here');
+        $this->assertSame('1', (string) $story['validated']);
+        $this->assertStringContainsString('expired post password (imported open, as it lived)', $out);
+    }
+
+    /** A scheduled story has no publish_at of its own to land on, so it
+     *  imports unvalidated for the operator; its chapters still import. */
+    public function test_scheduled_story_lands_unvalidated(): void
+    {
+        $db = $this->readyDb();
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'status' => 'future', 'slug' => 'later', 'title' => 'Later', 'content' => '',
+                'date' => '2027-06-01 00:00:00',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing', 'fictioneer_story_chapters' => serialize([20])]]),
+            Wxr::chapter(20, 10, ['title' => 'Ch']),
+        ]);
+        $p = $this->write($xml);
+        $out = $this->import($p, 'commit');
+        $this->assertSame('0', (string) $db->one("SELECT validated FROM stories WHERE slug = 'later'")['validated']);
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'later')")['c'], 'its chapters still import');
+        $this->assertStringContainsString('scheduled story imported unvalidated', $out);
+    }
+
+    /** A scheduled chapter keeps its future GMT date as its publish_at and
+     *  lands unvalidated: it goes live when the site's release pass says so,
+     *  not at import time. */
+    public function test_scheduled_chapters_arrive_scheduled(): void
+    {
+        $db = $this->readyDb();
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'serial', 'title' => 'Serial', 'content' => '',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                           'fictioneer_story_chapters' => serialize([20])]]),
+            Wxr::item(['id' => 20, 'type' => 'fcn_chapter', 'slug' => 'future-chapter', 'title' => 'Future', 'status' => 'future',
+                'date' => '2027-01-01 00:00:00',
+                'meta' => ['fictioneer_chapter_story' => '10']]),
+        ]);
+        $p = $this->write($xml);
+        $this->import($p, 'commit');
+        $chapter = $db->one("SELECT validated, publish_at FROM chapters WHERE title = 'Future'");
+        $this->assertSame('0', (string) $chapter['validated']);
+        $this->assertSame('2027-01-01T00:00:00Z', $chapter['publish_at']);
+    }
+
+    /** import_map keys are site-scoped ('{host}/{id}'): the same wp post id
+     *  on two WordPress sites is two stories, and the ?p= fallback row keeps
+     *  the bare id so both resolve. */
+    public function test_two_sites_with_the_same_post_ids_never_collide(): void
+    {
+        $db = $this->readyDb();
+        $a = $this->dir . '/a.xml';
+        $b = $this->dir . '/b.xml';
+        file_put_contents($a, Wxr::channel([Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'from-a', 'title' => 'From A', 'content' => '<p>A.</p>',
+            'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Oneshot']])], [], 'https://a.example.org/'));
+        file_put_contents($b, Wxr::channel([Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'from-b', 'title' => 'From B', 'content' => '<p>B.</p>',
+            'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Oneshot']])], [], 'https://b.example.org/'));
+        $this->import($a, 'commit');
+        $this->import($b, 'commit');
+        $this->assertSame('2', (string) $db->one("SELECT COUNT(*) c FROM stories WHERE slug IN ('from-a', 'from-b')")['c'], 'post id 10 on two sites is two stories');
+        $this->assertSame('2', (string) $db->one("SELECT COUNT(*) c FROM import_map WHERE legacy_table = 'fcn_story'")['c']);
+        $this->assertNotNull($db->one("SELECT 1 FROM import_map WHERE legacy_id = 'a.example.org/10'"));
+        $this->assertNotNull($db->one("SELECT 1 FROM import_map WHERE legacy_id = 'b.example.org/10'"));
+        $this->assertNotNull($db->one("SELECT 1 FROM legacy_urls WHERE params = 'p=10&post_type=fcn_story'"), 'the fallback row keeps the bare id');
+    }
+
+    /** The order array names 20, 21, 22; 21 is a draft (dropped); 23 is an
+     *  orphan of the array (linked but unlisted). Positions must read 1, 2,
+     *  3 with no gap where the dropped chapter was. */
+    public function test_orphans_and_dropped_chapters_keep_positions_contiguous(): void
+    {
+        $db = $this->readyDb();
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'gappy', 'title' => 'Gappy', 'content' => '',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                           'fictioneer_story_chapters' => serialize([20, 21, 22])]]),
+            Wxr::chapter(20, 10, ['title' => 'A']),
+            Wxr::chapter(21, 10, ['title' => 'B', 'status' => 'draft']),
+            Wxr::chapter(22, 10, ['title' => 'C']),
+            Wxr::chapter(23, 10, ['title' => 'D']),
+        ]);
+        $p = $this->write($xml);
+        $this->import($p, 'commit');
+        $rows = $db->all("SELECT position, title FROM chapters
+                          WHERE story_id = (SELECT id FROM stories WHERE slug = 'gappy') ORDER BY position");
+        $this->assertSame([[1, 'A'], [2, 'C'], [3, 'D']], array_map(static fn(array $r): array => [(int) $r['position'], $r['title']], $rows));
+    }
+
+    /** Serialized meta is unserialized with allowed_classes: false: hostile
+     *  payloads become garbage (null), no object is ever instantiated, and
+     *  the import degrades to orphan-append instead of failing. */
+    public function test_hostile_meta_never_instantiates_objects(): void
+    {
+        $db = $this->readyDb();
+        $evil = 'O:8:"EvilTest":0:{}';
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 11, 'type' => 'fcn_story', 'slug' => 'evil-meta', 'title' => 'Evil Meta', 'content' => '',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                           'fictioneer_story_chapters' => $evil,
+                           'fictioneer_story_co_authors' => $evil,
+                           'fictioneer_seo_fields' => $evil]]),
+            Wxr::chapter(100, 11, ['title' => 'Fine']),
+        ]);
+        $p = $this->write($xml);
+        $out = $this->import($p, 'commit');
+        $this->assertStringNotContainsString('EvilTest', $out . var_export($db->all('SELECT * FROM stories'), true) . var_export($db->all('SELECT * FROM chapters'), true));
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'evil-meta')")['c'], 'the chapter still lands (as an orphan of the garbage array, position 1)');
+        $this->assertSame('1', (string) $db->one("SELECT position FROM chapters WHERE title = 'Fine'")['position']);
+    }
+
+    /** WXR files never declare a DOCTYPE: one at the import layer means the
+     *  file is not what it claims, and the run refuses before any pass. */
+    public function test_doctype_is_refused_at_the_import_layer(): void
+    {
+        $this->readyDb();
+        $p = $this->write('<?xml version="1.0"?><!DOCTYPE rss><rss version="2.0"><channel></channel></rss>');
+        $this->expectException(RuntimeException::class);
+        $this->import($p, 'dry-run');
     }
 }
