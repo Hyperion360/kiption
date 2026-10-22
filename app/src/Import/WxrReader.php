@@ -70,6 +70,7 @@ final class WxrReader
     private function open(): void
     {
         if (isset($this->xml)) { $this->xml->close(); }
+        libxml_clear_errors(); // a failed pass must not poison the next one's first item
         $this->xml = new \XMLReader();
         if (!$this->xml->open($this->stream, null, LIBXML_NONET)) {
             throw new \RuntimeException("not a readable XML file: {$this->path}");
@@ -151,6 +152,13 @@ final class WxrReader
             }
         }
         if (!$sawRoot) throw new \RuntimeException('not a WXR file: empty document');
+        if (libxml_get_errors() !== []) {
+            // a post-root exit here is either EOF or truncation; only libxml
+            // knows which, so a buffered error means the file ends mid-document
+            $lines = array_map(static fn(\LibXMLError $e): string => trim($e->message), libxml_get_errors());
+            libxml_clear_errors();
+            throw new \RuntimeException('unreadable WXR: the file ends mid-document (' . implode('; ', $lines) . ')');
+        }
         $this->channelScanned = true; // no items at all: a valid, empty export
     }
 

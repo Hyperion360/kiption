@@ -81,6 +81,34 @@ final class WxrReaderTest extends TestCase
         iterator_to_array((new WxrReader($p))->items());
     }
 
+    public function test_refuses_channel_tail_truncation(): void
+    {
+        // EOF inside the channel tail (after wp:base_site_url, before any item):
+        // the fall-through after the channel walk must not pass as an empty export
+        $p = $this->write('<?xml version="1.0"?><rss version="2.0" xmlns:wp="http://wordpress.org/export/1.2/">'
+            . '<channel><wp:base_site_url>https://x.example/');
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('unreadable WXR');
+        iterator_to_array((new WxrReader($p))->items());
+    }
+
+    public function test_a_failed_reader_does_not_poison_the_next(): void
+    {
+        $bad = $this->write('<?xml version="1.0"?><rss version="2.0" xmlns:wp="http://wordpress.org/export/1.2/">'
+            . '<channel><wp:base_site_url>https://x.example/');
+        try {
+            iterator_to_array((new WxrReader($bad))->items());
+            $this->fail('the truncated file must throw');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('unreadable WXR', $e->getMessage());
+        }
+        // a NEW reader over a well-formed file, same process, after the poisoned buffer
+        $good = $this->write($this->channel($this->item(['id' => 8])));
+        $items = iterator_to_array((new WxrReader($good))->items(), false);
+        $this->assertCount(1, $items);
+        $this->assertSame(8, $items[0]['id']);
+    }
+
     public function test_gz_files_read_through_zlib(): void
     {
         $xml = $this->channel($this->item(['id' => 7]));
