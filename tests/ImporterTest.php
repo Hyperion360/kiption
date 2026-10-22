@@ -514,6 +514,22 @@ final class ImporterTest extends TestCase
         }
     }
 
+    /** The options-family guard is scoped per importer: a committed run from
+     *  ANOTHER importer (fictioneer) under different options must never refuse
+     *  an eFiction import; the guard reads only its own importer's runs. */
+    public function test_options_guard_is_scoped_per_importer(): void
+    {
+        $this->migrate();
+        $db = $this->db();
+        $db->query("INSERT INTO import_runs (options_hash, status, importer) VALUES ('deadbeef', 'committed', 'fictioneer')");
+        $fictioneerRun = (int) $db->lastInsertId();
+        $db->query('INSERT INTO import_map (legacy_table, legacy_id, new_table, new_id, run_id) VALUES (?, ?, ?, ?, ?)',
+            ['fictioneer_story', '1', 'stories', 1, $fictioneerRun]);
+        $out = $this->import($this->bundle(), 'commit');
+        $this->assertStringContainsString('verification', $out, 'the eFiction import ran past the foreign family');
+        $this->assertNotNull($db->one("SELECT id FROM import_runs WHERE importer = 'efiction'"), 'the eFiction run row names its importer');
+    }
+
     /** Task 2: the eight legacy ratingwarning bit combinations land as three
      *  INDEPENDENT gates: bit 2 -> ratings.is_adult, bit 4 -> stories
      *  .is_restricted, bit 1 counted as an unmigrated acknowledgment gate and

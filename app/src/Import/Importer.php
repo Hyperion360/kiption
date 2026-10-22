@@ -1042,32 +1042,10 @@ final class Importer
             [$legacyTable, $legacyId, $newTable, $newId, $this->runId]);
     }
 
-    private function assertMigrated(): void
-    {
-        try { $this->db->one('SELECT 1 FROM import_map LIMIT 1'); }
-        catch (\PDOException) { throw new \RuntimeException('run `kip migrate` first'); }
-    }
-
-    private function assertOptionsCompatible(string $hash): void
-    {
-        $row = $this->db->one('SELECT options_hash FROM import_runs WHERE status = \'committed\' ORDER BY id DESC LIMIT 1');
-        if ($row !== null && $row['options_hash'] !== $hash
-            && (int) $this->db->one('SELECT COUNT(*) c FROM import_map')['c'] > 0) {
-            throw new \RuntimeException('this database already has imports under different options; refusing to mix');
-        }
-    }
-
-    private function newRun(string $hash): int
-    {
-        $this->db->query('INSERT INTO import_runs (options_hash) VALUES (?)', [$hash]);
-        return (int) $this->db->lastInsertId();
-    }
-
-    private function finishRun(): void
-    {
-        $this->db->query('UPDATE import_runs SET status = \'committed\', finished_at = ? WHERE id = ?',
-            [gmdate('Y-m-d\TH:i:s\Z'), $this->runId]);
-    }
+    private function assertMigrated(): void { Runs::assertMigrated($this->db); }
+    private function assertOptionsCompatible(string $hash): void { Runs::assertOptionsCompatible($this->db, 'efiction', $hash); }
+    private function newRun(string $hash): int { return Runs::newRun($this->db, 'efiction', $hash); }
+    private function finishRun(): void { Runs::finishRun($this->db, $this->runId); }
 
     /** Legacy MySQL datetime or null; anything unparseable drops to null
      *  (ageconsent flags like '1' have no date meaning to carry). Date-only
