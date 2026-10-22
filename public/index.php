@@ -13,11 +13,12 @@ public/index.php
   |      \-- no  --> static cache maintenancePurge(false)
   |-- static cache serve(request)?  (GET, no cookies, no query, whitelisted path)
   |      |-- HIT  --> send --> exit            (App never boots)
-  |      \-- miss --> legacy .php URL in the 301 map? --> Location 301 --> exit
+  |      \-- miss --> legacy .php URL or /?p=&post_type=fcn_* query in the 301 map? --> Location 301 --> exit
   |                     \-- no --> new Kip\App(config, lazy session)
   |                                    |-- App::handle(request)
   |                                    |     |-- route to App\Features\{Feature}\*
   |                                    |     \-- Response (200/404/...)
+  |                                    |-- 404 and a legacy Fictioneer path? --> Location 301 --> exit
   |                                    |-- static cache maybeStore(request, response)  (anonymous 200 only)
   |                                    \-- send
 */
@@ -130,10 +131,15 @@ if ($static !== null && ($hit = $static->serve($request)) !== null) {
     exit;
 }
 
-// Legacy eFiction URLs: consult the import's 301 map before routing. Only GET
-// requests whose path ends in .php reach the database here; app pages are .php-free.
-if ($request->method === 'GET' && preg_match('#\.php$#', $request->path)) {
-    $target = (new \App\Import\LegacyRedirects())->lookup($request, new \Kip\Database($config['db']['dsn']));
+// Legacy eFiction URLs (.php paths) and Fictioneer's WordPress query fallbacks
+// (/?p=N&post_type=fcn_*, /?fcn_chapter=slug): consult the import's 301 map
+// before routing. A plain / request carries none of those parameters and
+// never reaches the database here.
+$legacyQuery = $request->path === '/' && (isset($request->get['p']) || isset($request->get['fcn_story']) || isset($request->get['fcn_chapter']));
+if ($request->method === 'GET' && (preg_match('#\.php$#', $request->path) || $legacyQuery)) {
+    $redirects = new \App\Import\LegacyRedirects();
+    $legacyDb = new \Kip\Database($config['db']['dsn']);
+    $target = $legacyQuery ? $redirects->lookupPath($request, $legacyDb) : $redirects->lookup($request, $legacyDb);
     if ($target !== null) {
         header('Cache-Control: private, no-store');
         header('Location: ' . $target, true, 301);
@@ -173,6 +179,16 @@ $config['views_override'] = \App\Skins::overrideDir($config);
 
 $app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
 $response = $app->handle($request);
+// Fictioneer legacy paths: only a routed 404 pays the consult (one indexed
+// lookup). Every clean page and every static-cache HIT is untouched.
+if ($response->status === 404 && $request->method === 'GET') {
+    $target = (new \App\Import\LegacyRedirects())->lookupPath($request, new \Kip\Database($config['db']['dsn']));
+    if ($target !== null) {
+        header('Cache-Control: private, no-store');
+        header('Location: ' . $target, true, 301);
+        exit;
+    }
+}
 if ($static !== null) {
     $static->maybeStore($request, $response);
 }
