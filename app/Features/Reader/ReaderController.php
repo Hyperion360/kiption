@@ -70,7 +70,7 @@ final class ReaderController
             ? $this->db->one('SELECT access_hash FROM stories WHERE id = ?', [$id])['access_hash'] ?? null
             : $this->db->one('SELECT access_hash FROM chapters WHERE id = ?', [$id])['access_hash'] ?? null);
         if (is_string($hash) && $hash !== '' && password_verify($password, $hash)) {
-            \App\Access::unlock($this->session, $table, $id);
+            \App\Access::unlock($this->session, $table, $id, $hash);
             return Response::redirect($to);
         }
         return Response::redirect($to . (str_contains($to, '?') ? '&' : '?') . 'gate=wrong');

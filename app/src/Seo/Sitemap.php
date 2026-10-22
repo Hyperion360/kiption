@@ -63,14 +63,18 @@ final class Sitemap
         // Stories: the view URL plus every validated read URL per story, all
         // carrying the story's updated_at; split into segments of
         // $maxPerSegment URLs. The WHERE clause is the Builder's story gate
-        // (validated, not deleted, not restricted) plus canonical_url IS NULL.
+        // (validated, not deleted, not restricted) plus canonical_url IS NULL
+        // plus the lock: a locked work serves a noindex gate, so its URL is
+        // never advertised (the chapter join carries the same gate, so a
+        // locked chapter drops only its read URL while the open story's view
+        // URL stays listed).
         // One query: the LEFT JOIN yields one row per validated chapter and a
         // single NULL-position row for chapterless stories, so the view URL is
         // emitted on each story's first row (the slug change) and one read URL
         // per chapter row.
         $storyUrls = [];
         $lastSlug = null;
-        foreach ($db->all('SELECT s.slug, s.updated_at, c.position FROM stories s LEFT JOIN chapters c ON c.story_id = s.id AND c.validated = 1 WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0 AND s.canonical_url IS NULL ORDER BY s.id, c.position') as $r) {
+        foreach ($db->all('SELECT s.slug, s.updated_at, c.position FROM stories s LEFT JOIN chapters c ON c.story_id = s.id AND c.validated = 1 AND c.access_hash IS NULL WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0 AND s.canonical_url IS NULL AND s.access_hash IS NULL ORDER BY s.id, c.position') as $r) {
             $slug = rawurlencode((string) $r['slug']);
             if ($r['slug'] !== $lastSlug) {
                 $storyUrls[] = [$baseUrl . '/story/view/' . $slug, $r['updated_at']];

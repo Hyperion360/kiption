@@ -125,6 +125,22 @@ final class PasswordGateTest extends TestCase
         $this->assertStringContainsString('/story/read/the-rabbit-hole/1', $res->body, 'the TOC is back');
     }
 
+    public function test_password_rotation_evicts_old_unlocks(): void
+    {
+        // the unlock marker carries a fingerprint of the hash it was minted
+        // against: rotating the password kills every marker minted under the
+        // old one (readers re-answer with the new password)
+        $this->lockStory();
+        $c = $this->client();
+        $id = $this->storyId();
+        $c->post('/reader/unlock', ['table' => 'story', 'id' => (string) $id, 'password' => 'pw', 'return_to' => '/story/view/the-rabbit-hole']);
+        $this->assertStringNotContainsString('name="password"', $c->get('/story/view/the-rabbit-hole')->body, 'unlocked before the rotation');
+        $this->db->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [password_hash('new-pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        $this->assertStringContainsString('name="password"', $c->get('/story/view/the-rabbit-hole')->body, 'the rotated hash locks the session out again');
+        $c->post('/reader/unlock', ['table' => 'story', 'id' => (string) $id, 'password' => 'new-pw', 'return_to' => '/story/view/the-rabbit-hole']);
+        $this->assertStringNotContainsString('name="password"', $c->get('/story/view/the-rabbit-hole')->body, 'the new password opens it');
+    }
+
     public function test_unlock_works_for_a_logged_in_member_too(): void
     {
         $this->lockStory();

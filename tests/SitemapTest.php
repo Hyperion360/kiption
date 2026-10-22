@@ -94,6 +94,31 @@ final class SitemapTest extends TestCase
         $this->assertStringContainsString('sitemap-authors.xml', (string) file_get_contents($dir . '/sitemap.xml'), 'the index lists what was written');
     }
 
+    public function test_locked_stories_leave_the_sitemap(): void
+    {
+        // a locked work serves a noindex gate, so its URLs stop being
+        // advertised: the story gate (view + every read) and the chapter gate
+        // (a locked chapter's read URL drops, its open story stays listed)
+        $dir = $this->publicDir();
+        $this->db()->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [password_hash('pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        \App\Seo\Sitemap::writeAll($this->db(), $dir, 'https://archive.example', []);
+        $stories = (string) file_get_contents($dir . '/sitemap-stories-1.xml');
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $stories);
+        $this->assertStringNotContainsString('/story/read/the-rabbit-hole/1', $stories);
+        $this->assertStringContainsString('/story/view/after-hours', $stories, 'open stories stay listed');
+
+        // unlock the story, lock one chapter: the story entry and the open
+        // chapter's read URL stay, only the locked chapter's read URL drops
+        $this->db()->query('UPDATE stories SET access_hash = NULL WHERE slug = ?', ['the-rabbit-hole']);
+        $this->db()->query('UPDATE chapters SET access_hash = ? WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = 1',
+            [password_hash('pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        \App\Seo\Sitemap::writeAll($this->db(), $dir, 'https://archive.example', []);
+        $stories = (string) file_get_contents($dir . '/sitemap-stories-1.xml');
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $stories, 'an open story with a locked chapter stays listed');
+        $this->assertStringNotContainsString('/story/read/the-rabbit-hole/1', $stories, 'the locked chapter read URL drops');
+        $this->assertStringContainsString('/story/read/the-rabbit-hole/2', $stories, 'open chapters stay listed');
+    }
+
     public function test_stories_split_at_a_lowered_segment_seam(): void
     {
         $dir = $this->publicDir();

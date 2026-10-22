@@ -13,6 +13,15 @@ final class Access
 {
     private const CAP = 100; // one session never collects unbounded unlocks
 
+    /** The marker carries a short fingerprint of the row's CURRENT hash: a
+     *  password rotation changes the fingerprint, so every marker minted
+     *  under the old hash dies with it (a bare table:id marker would keep a
+     *  stale unlock alive across the rotation). */
+    private static function marker(string $table, string|int $id, string $hash): string
+    {
+        return $table . ':' . $id . ':' . substr(md5($hash), 0, 8);
+    }
+
     public static function locked(array $row, string $table, Session $session): bool
     {
         $hash = $row['access_hash'] ?? null;
@@ -20,13 +29,13 @@ final class Access
         // peek, never get: a plain get() starts the lazy session and emits
         // Set-Cookie for a cookieless guest, so no gate page could ever be
         // cached. A not-started session reads as "no unlocks", still locked.
-        return !in_array($table . ':' . (string) $row['id'], $session->peek('access_unlocks') ?? [], true);
+        return !in_array(self::marker($table, (string) $row['id'], $hash), $session->peek('access_unlocks') ?? [], true);
     }
 
-    public static function unlock(Session $session, string $table, int $id): void
+    public static function unlock(Session $session, string $table, int $id, string $hash): void
     {
         $unlocks = $session->get('access_unlocks', []);
-        $unlocks[] = $table . ':' . $id;
+        $unlocks[] = self::marker($table, $id, $hash);
         $session->set('access_unlocks', array_slice(array_unique($unlocks), -self::CAP));
     }
 }
