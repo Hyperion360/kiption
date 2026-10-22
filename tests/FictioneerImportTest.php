@@ -82,4 +82,47 @@ final class FictioneerImportTest extends TestCase
         $this->assertSame('1', (string) $db->one("SELECT completed FROM stories WHERE slug = 'one-shot'")['completed']);
         $this->assertStringContainsString('oneshot stories (story prose became chapter 1): 1', $out);
     }
+
+    /** The category natural key is its slug (the tags idiom): a re-run of the
+     *  same fandom term adopts the existing row instead of re-inserting under
+     *  a suffixed slug, and the database-fed catMap lets a NEW story in a
+     *  later run link that same adopted category. */
+    public function test_taxonomy_is_idempotent_on_resume(): void
+    {
+        $db = $this->readyDb();
+        $term = ['domain' => 'fcn_fandom', 'nicename' => 'fantasy', 'name' => 'Fantasy'];
+        $story = fn(int $id, string $slug): string => Wxr::item(['id' => $id, 'type' => 'fcn_story',
+            'slug' => $slug, 'title' => 'Story ' . $id, 'content' => '',
+            'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                       'fictioneer_story_chapters' => serialize([])],
+            'terms' => [$term]]);
+        $a = $this->dir . '/a.xml';
+        $b = $this->dir . '/b.xml';
+        file_put_contents($a, Wxr::channel([$story(10, 'from-a')]));
+        file_put_contents($b, Wxr::channel([$story(20, 'from-b')]));
+        $cats = fn(): string => (string) $db->one('SELECT COUNT(*) c FROM categories')['c'];
+        $junctions = fn(): string => (string) $db->one("SELECT COUNT(*) c FROM story_categories sc
+            JOIN stories s ON s.id = sc.story_id WHERE s.slug IN ('from-a', 'from-b')")['c'];
+        $baseline = $cats(); // the seeder's starter category
+
+        $this->import($a, 'commit');
+        $afterFirst = $cats();
+        $this->assertSame((string) ($baseline + 1), $afterFirst, 'exactly one category for the fandom term');
+        $this->assertSame('fantasy', (string) $db->one("SELECT slug FROM categories WHERE name = 'Fantasy'")['slug']);
+        $this->assertSame('1', $junctions());
+
+        // the same WXR again: the mapped story skips its junctions, the term
+        // adopts the existing category, nothing re-inserts
+        $this->import($a, 'commit');
+        $this->assertSame($afterFirst, $cats(), 'the fandom term must not re-insert');
+        $this->assertSame('fantasy', (string) $db->one("SELECT slug FROM categories WHERE name = 'Fantasy'")['slug'], 'no suffixed -2 slug');
+        $this->assertSame('1', $junctions());
+
+        // a NEW story in a later run with the same term links the adopted row
+        $this->import($b, 'commit');
+        $this->assertSame($afterFirst, $cats());
+        $rows = $db->all("SELECT c.slug FROM story_categories sc JOIN categories c ON c.id = sc.category_id
+                          JOIN stories s ON s.id = sc.story_id WHERE s.slug IN ('from-a', 'from-b')");
+        $this->assertSame([['slug' => 'fantasy'], ['slug' => 'fantasy']], $rows, 'both stories point at the one adopted category');
+    }
 }

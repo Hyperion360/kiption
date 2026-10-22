@@ -164,9 +164,18 @@ final class FictioneerImport
                 if ($t['domain'] !== 'fcn_fandom' && $t['domain'] !== 'category') continue;
                 $key = $t['domain'] . '|' . $t['nicename'];
                 if (isset($this->catMap[$key])) continue;
+                // resume: the slug is the category's natural key (the tags
+                // idiom below): an existing row adopts the term and fills
+                // the map from the database, so a re-run neither re-inserts
+                // under a suffixed slug nor orphans a later story's junction
+                $base = FictioneerMapper::slugify($t['name'] !== '' ? $t['name'] : $t['nicename']);
+                if (($existing = $this->db->one('SELECT id FROM categories WHERE slug = ?', [$base])) !== null) {
+                    $this->catMap[$key] = (int) $existing['id'];
+                    continue;
+                }
                 $slug = \App\Slug::unique(
                     fn(string $s): bool => $this->db->one('SELECT 1 AS x FROM categories WHERE slug = ?', [$s]) !== null || isset($this->localSlugs["c:$s"]),
-                    FictioneerMapper::slugify($t['name'] !== '' ? $t['name'] : $t['nicename'])
+                    $base
                 );
                 $this->localSlugs["c:$slug"] = true;
                 $this->db->query('INSERT INTO categories (name, slug) VALUES (?, ?)', [$t['name'] !== '' ? $t['name'] : $t['nicename'], $slug]);
