@@ -20,7 +20,7 @@ on a one-query-per-page budget.
 
 If you are coming from Wattpad, Royal Road, Fanfiction.net, Archive of
 Our Own, WebNovel, or Substack and want an archive you host and
-control, read [Why Kiption](docs/guides/value-props.md). Hosted flagship:
+control, read [Why Kiption](docs/guides/COMPARE.md). Hosted flagship:
 https://kiption.com (launching); self-hosting is free forever.
 
 ## Requirements
@@ -105,7 +105,7 @@ serve` runs in dev mode, so observe maintenance mode with a plain
 
 Five audience documents live in `docs/guides/`:
 
-- [value-props.md](docs/guides/value-props.md): why Kiption, platform by
+- [COMPARE.md](docs/guides/COMPARE.md): why Kiption, platform by
   platform, every claim mapped to shipped code.
 - [SWITCHING.md](docs/guides/SWITCHING.md): bringing an existing archive
   from eFiction, AO3, Wattpad, FanFiction.net, or Substack, with an honest

@@ -4,7 +4,7 @@ How to bring an existing body of work to a Kiption archive, and an honest
 account of what transfers and what does not. The submission flow itself
 (roles, the markdown subset, covers, coauthors, series, scheduling) is in
 [AUTHORS.md](AUTHORS.md); the why is in
-[value-props.md](value-props.md).
+[COMPARE.md](COMPARE.md).
 
 ## Start at zero, on purpose
 

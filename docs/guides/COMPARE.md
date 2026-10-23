@@ -53,6 +53,35 @@ maintained PHP 8.3 compatibility fork (GPL, provenance verified against
 upstream) so existing archives keep running while you decide. Migrate to
 Kiption whenever you are ready; the importer is the same team.
 
+## Coming from Fictioneer
+
+Fictioneer is a WordPress theme for fiction archives, and its own docs
+and issue tracker mark where the theme stops:
+
+- **One command moves the archive.** Fictioneer has no export tool; its
+  migration guide is paste-PHP-into-functions.php. `bin/kip
+  import:fictioneer` reads the WordPress WXR export, prints a dry-run
+  report, snapshots the database before anything commits, and 301s the
+  old /story/ and /chapter/ URLs so search rankings survive the move.
+- **No plugin roulette.** Fictioneer needs WordPress 6.5+, PHP 7.4+,
+  and MySQL, and its own docs warn that caching and optimizer plugins
+  break the theme. Kiption is one directory and one SQLite file, there
+  are no plugins to conflict with, and updates are versioned releases,
+  not manual uploads from GitHub.
+- **Ratings and reviews exist.** Fictioneer declines ratings, review
+  scores, and votes on purpose. Kiption ships zero-to-ten scored
+  reviews with author responses, plus kudos, favorites, and follows.
+- **Followers hear about chapters.** Fictioneer declined reader email
+  notifications as too expensive to run. Kiption followers pick inbox,
+  immediate email, or a daily digest.
+- **The counters do not drift.** Fictioneer's author index can run 24
+  hours stale and its follow counters drift; the theme's developer is
+  on record as not planning to fix either. Every Kiption page renders
+  in one database query and every count is exact.
+- **Bulk imports stay intact.** Fictioneer's chapter bulk-import is
+  known to break chapter lists. Chapters arrive as markdown, in order,
+  and any story exports whole as EPUB or HTML.
+
 ## Coming from FanFiction.net
 
 FanFiction.net's interface has been effectively frozen for a decade, and
