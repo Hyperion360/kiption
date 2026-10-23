@@ -139,7 +139,11 @@ final class FictioneerImport
     }
 
     /** Lookup-or-create by email (natural key, resume-safe); records the
-     *  login in import_map and the wp id for co-author resolution. */
+     *  login in import_map and the wp id for co-author resolution. A
+     *  synthetic address is only adopted when it is this login's own
+     *  account from an earlier run: punctuational login variants slugify
+     *  alike, and adopting those blindly would merge two authors onto
+     *  one account. */
     private function ensureUser(string $login, ?array $author): int
     {
         if (isset($this->authorMap[$login])) {
@@ -148,14 +152,26 @@ final class FictioneerImport
         }
         $u = FictioneerMapper::mapUser($login, $author);
         $existing = $this->db->one('SELECT id FROM users WHERE email = ?', [$u['email']]);
-        if ($existing !== null) {
+        if ($existing !== null && (!$u['synthetic_email'] || $this->mappedId('fcn_user', $this->key($login)) === (int) $existing['id'])) {
             $id = (int) $existing['id'];
             // the WXR author lands on the existing account: keep the map row
             // (the /author/{login} 301 rides it) and surface the adoption.
             // No login in the line: the report carries none (the footer claim).
+            // A synthetic address on its own login (an earlier run's account)
+            // reuses silently: it is resume, not adoption.
             $this->record('fcn_user', $this->key($login), 'users', $id);
-            $this->report->drop('author email already a member here (account adopted)');
+            if (!$u['synthetic_email']) $this->report->drop('author email already a member here (account adopted)');
         } else {
+            if ($existing !== null) {
+                // another login already holds this synthetic address
+                // (punctuational variants slugify alike): a numbered local
+                // part keeps the two authors apart
+                $base = explode('@', $u['email'], 2)[0];
+                $n = 2;
+                while ($this->db->one('SELECT 1 AS x FROM users WHERE email = ?', [$base . $n . '@wxr-import.invalid']) !== null) $n++;
+                $u['email'] = $base . $n . '@wxr-import.invalid';
+                $this->report->drop('two logins slugify to one synthetic address (the second got a numbered one; fix the emails)');
+            }
             $penname = $u['penname'];
             for ($n = 2; $this->db->one('SELECT 1 AS x FROM users WHERE penname = ?', [$penname]) !== null; $n++) {
                 $penname = $u['penname'] . " ($n)";

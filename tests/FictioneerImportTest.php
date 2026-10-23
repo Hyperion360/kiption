@@ -395,6 +395,28 @@ final class FictioneerImportTest extends TestCase
         $this->assertStringNotContainsString('wanderer', $out, 'the report carries no logins');
     }
 
+    /** Two authors whose logins differ only by punctuation (jane-doe,
+     *  jane.doe) slugify to the same synthetic address: they are two
+     *  people, so the second lands as her own account with a
+     *  disambiguated address instead of being merged onto the first by
+     *  the email lookup. */
+    public function test_punctuational_login_variants_stay_two_accounts(): void
+    {
+        $db = $this->readyDb();
+        $story = fn(int $id, string $slug, string $login): string => Wxr::item([
+            'id' => $id, 'type' => 'fcn_story', 'slug' => $slug, 'title' => 'Story ' . $id, 'content' => '',
+            'login' => $login,
+            'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Oneshot']]);
+        $p = $this->write(Wxr::channel([$story(10, 'by-hyphen', 'jane-doe'), $story(11, 'by-dot', 'jane.doe')]));
+        $this->import($p, 'commit');
+        $this->assertSame('4', (string) $db->one('SELECT COUNT(*) c FROM users')['c'], 'the two seeded accounts plus one for each author');
+        $hyphen = (string) $db->one("SELECT author_id FROM stories WHERE slug = 'by-hyphen'")['author_id'];
+        $dot = (string) $db->one("SELECT author_id FROM stories WHERE slug = 'by-dot'")['author_id'];
+        $this->assertNotSame($hyphen, $dot, 'two authors never merge onto one account');
+        $this->assertSame('jane_doe@wxr-import.invalid', (string) $db->one('SELECT email FROM users WHERE id = ?', [$hyphen])['email']);
+        $this->assertSame('jane_doe2@wxr-import.invalid', (string) $db->one('SELECT email FROM users WHERE id = ?', [$dot])['email']);
+    }
+
     /** A failed commit run restores the durability pragma: synchronous goes
      *  to OFF for the bulk load, and a mid-pass throw (the owner gate here)
      *  must not leave the connection quietly non-durable after the rollback. */
