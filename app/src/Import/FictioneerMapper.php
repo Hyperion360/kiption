@@ -106,7 +106,10 @@ final class FictioneerMapper
     {
         $short = self::plain((string) ($meta['fictioneer_story_short_description'] ?? ''));
         if ($short !== '') return $short;
-        return self::plain($content, keepBreaks: true);
+        // the form contract is 1000 characters (the story form's maxlength,
+        // the Epub cap precedent): the prose fallback is the prefix, never
+        // the whole story duplicated above its chapters
+        return mb_substr(self::plain($content, keepBreaks: true), 0, 1000);
     }
 
     /** Accounts come from the channel's wp:author record when one exists

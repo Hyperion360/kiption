@@ -86,6 +86,25 @@ final class FictioneerImportTest extends TestCase
         $this->assertStringContainsString('oneshot stories (story prose became chapter 1): 1', $out);
     }
 
+    /** A story without a short description falls back to its prose as the
+     *  summary, capped at the story form's 1000 characters (the form's
+     *  maxlength, the Epub cap precedent): readers never meet the whole
+     *  story duplicated above its chapters. */
+    public function test_summary_fallback_caps_at_the_forms_1000_characters(): void
+    {
+        $db = $this->readyDb();
+        $prose = trim(str_repeat('word ', 240)); // 1199 characters, plain single-spaced text
+        $xml = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'no-blurb', 'title' => 'No Blurb', 'content' => $prose,
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Oneshot']]),
+        ]);
+        $p = $this->write($xml);
+        $this->import($p, 'commit');
+        $summary = (string) $db->one("SELECT summary FROM stories WHERE slug = 'no-blurb'")['summary'];
+        $this->assertSame(1000, mb_strlen($summary), 'the fallback never runs past the form contract');
+        $this->assertSame(mb_substr($prose, 0, 1000), $summary, 'and it is the prose itself, from the top');
+    }
+
     /** The category natural key is its slug (the tags idiom): a re-run of the
      *  same fandom term adopts the existing row instead of re-inserting under
      *  a suffixed slug, and the database-fed catMap lets a NEW story in a
