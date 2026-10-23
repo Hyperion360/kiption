@@ -82,4 +82,15 @@ final class ThemeValuesTest extends TestCase
         $this->assertStringNotContainsString('data-theme=', $this->render([]),
             'cookieless stays theme-neutral (the static-cache byte contract)');
     }
+
+    public function test_explicit_light_and_dark_cookies_render_their_attribute(): void
+    {
+        // The owner ruling's two poles (2026-10-22): a manual choice wins on
+        // every page at first paint, so both attributes ride the server
+        // render. paper is the one that matters under a dark OS setting: its
+        // attribute is what keeps the light tokens out of the
+        // prefers-color-scheme block, and the toggle writes it verbatim.
+        $this->assertStringContainsString('data-theme="paper"', $this->render(['theme' => 'paper']));
+        $this->assertStringContainsString('data-theme="night"', $this->render(['theme' => 'night']));
+    }
 }
