@@ -45,6 +45,9 @@ final class FictioneerImport
     private array $chapterOrder = [];
     /** @var array<int, int> wp story id -> next free position for orphans/oneshots */
     private array $nextPosition = [];
+    /** @var array<int, int> wp story id -> lowest position a NEW chapter may
+     *  take (mapped stories only: past what already landed in the database) */
+    private array $positionFloor = [];
     /** @var array<int, array{slug: string}> */
     private array $storySlugs = [];
     private int $httpUpgrades = 0;
@@ -247,6 +250,14 @@ final class FictioneerImport
             $this->chapterOrder[$item['id']] = array_values(array_filter(array_map('intval', (array) $order)));
             $this->nextPosition[$item['id']] = count($this->chapterOrder[$item['id']]) + 1;
             if (($mappedStory = $this->mappedId(FictioneerMapper::STORY, $this->key((string) $item['id']))) !== null) {
+                // split-file/per-era resume: the chapters that already landed
+                // live in the database, not in this file, so positions seeded
+                // from the WXR alone would restart at 1 and die on the UNIQUE
+                // (story_id, position) constraint. Seed past everything that
+                // landed; compactPositions() renumbers 1..n in order at the end.
+                $landed = (int) $this->db->one('SELECT COUNT(*) c FROM chapters WHERE story_id = ?', [$mappedStory])['c'];
+                $this->nextPosition[$item['id']] = max($this->nextPosition[$item['id']], $landed + 1);
+                $this->positionFloor[$item['id']] = $landed + 1;
                 $row = $this->db->one('SELECT s.slug, r.label FROM stories s JOIN ratings r ON r.id = s.rating_id WHERE s.id = ?', [$mappedStory]);
                 $this->storySlugs[$item['id']] = ['slug' => (string) ($row['slug'] ?? '')];
                 $this->storyRating[$item['id']] = (string) ($row['label'] ?? 'General');
@@ -376,7 +387,7 @@ final class FictioneerImport
                 $locked = false;
                 $this->report->drop('expired post password (imported open, as it lived)');
             }
-            $position = $this->positionFor($storyWpId, (int) $item['id']);
+            $position = $this->positionFor($mapped, $storyWpId, (int) $item['id']);
             $created = FictioneerMapper::iso($item['date']) ?? date('c');
             $this->db->query(
                 'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, created_at, updated_at, publish_at, access_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -431,15 +442,30 @@ final class FictioneerImport
 
     /** Positions come from the story's order array; chapters the array does
      *  not name (orphans, or chapters the array listed but which did not
-     *  import) are appended in arrival order. Gaps left by dropped chapters
-     *  are closed afterwards by compactPositions(), so prev/next reads stay
+     *  import) are appended in arrival order. On a split-file resume a
+     *  mapped story's low positions are already held by chapters that
+     *  landed in an earlier run, so every position sits at or above a
+     *  database-seeded floor instead of colliding on UNIQUE
+     *  (story_id, position). Gaps left by dropped chapters are closed
+     *  afterwards by compactPositions(), so prev/next reads stay
      *  contiguous. */
-    private function positionFor(int $storyWpId, int $chapterWpId): int
+    private function positionFor(int $storyId, int $storyWpId, int $chapterWpId): int
     {
+        if (!isset($this->nextPosition[$storyWpId])) {
+            // the story post is absent from this file (a later split file):
+            // seed both cursors from the chapters already in the database
+            $landed = (int) $this->db->one('SELECT COUNT(*) c FROM chapters WHERE story_id = ?', [$storyId])['c'];
+            $this->nextPosition[$storyWpId] = $landed + 1;
+            $this->positionFloor[$storyWpId] = $landed + 1;
+        }
         $idx = array_search($chapterWpId, $this->chapterOrder[$storyWpId] ?? [], true);
-        if ($idx !== false) return $idx + 1;
-        $pos = $this->nextPosition[$storyWpId] ?? 1;
-        $this->nextPosition[$storyWpId] = $pos + 1;
+        $pos = $idx !== false ? $idx + 1 : $this->nextPosition[$storyWpId];
+        $floor = $this->positionFloor[$storyWpId] ?? 0;
+        if ($floor > 0 && $pos < $floor) {
+            $pos = $floor;
+            $this->positionFloor[$storyWpId] = $floor + 1;
+        }
+        if ($pos >= $this->nextPosition[$storyWpId]) $this->nextPosition[$storyWpId] = $pos + 1;
         return $pos;
     }
 

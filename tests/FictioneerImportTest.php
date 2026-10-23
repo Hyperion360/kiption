@@ -148,6 +148,68 @@ final class FictioneerImportTest extends TestCase
         $this->assertSame([['slug' => 'fantasy'], ['slug' => 'fantasy']], $rows, 'both stories point at the one adopted category');
     }
 
+    /** Split/per-era exports omit the story post from a later file
+     *  (WordPress date-range cuts): its chapters must append after the
+     *  ones that already landed, seeded from the database, not die on the
+     *  UNIQUE (story_id, position) constraint the WXR-alone seeding hit. */
+    public function test_split_file_without_the_story_post_appends_after_landed_chapters(): void
+    {
+        $db = $this->readyDb();
+        $first = Wxr::channel([
+            Wxr::item(['id' => 10, 'type' => 'fcn_story', 'slug' => 'serial', 'title' => 'Serial', 'content' => '',
+                'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                           'fictioneer_story_chapters' => serialize([20])]]),
+            Wxr::chapter(20, 10, ['title' => 'First']),
+        ]);
+        $second = Wxr::channel([ // the story post is not in this file
+            Wxr::chapter(21, 10, ['title' => 'Second']),
+            Wxr::chapter(22, 10, ['title' => 'Third']),
+        ]);
+        $a = $this->dir . '/first.xml';
+        $b = $this->dir . '/second.xml';
+        file_put_contents($a, $first);
+        file_put_contents($b, $second);
+        $this->import($a, 'commit');
+        $this->import($b, 'commit'); // before the fix: chapter 21 collided with First at position 1 and killed the transaction
+        $rows = $db->all("SELECT position, title FROM chapters
+                          WHERE story_id = (SELECT id FROM stories WHERE slug = 'serial') ORDER BY position");
+        $this->assertSame([[1, 'First'], [2, 'Second'], [3, 'Third']],
+            array_map(static fn(array $r): array => [(int) $r['position'], $r['title']], $rows));
+    }
+
+    /** A one-shot's prose landed as chapter 1; a later file splits the
+     *  story into real chapters (the story post returns with a chapter
+     *  list). They append after the one-shot instead of colliding with it
+     *  at position 1, and the one-shot itself is not duplicated. */
+    public function test_real_chapters_after_a_oneshot_append_instead_of_colliding(): void
+    {
+        $db = $this->readyDb();
+        $story = fn(array $over): string => Wxr::item(array_merge([
+            'id' => 10, 'type' => 'fcn_story', 'slug' => 'split-tale', 'title' => 'Split Tale',
+            'content' => '<p>The whole tale, once.</p>',
+            'meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Oneshot',
+                       'fictioneer_story_chapters' => serialize([])],
+        ], $over));
+        $first = Wxr::channel([$story([])]);
+        $second = Wxr::channel([
+            $story(['meta' => ['fictioneer_story_rating' => 'Teen', 'fictioneer_story_status' => 'Ongoing',
+                               'fictioneer_story_chapters' => serialize([21, 22])]]),
+            Wxr::chapter(21, 10, ['title' => 'Part One']),
+            Wxr::chapter(22, 10, ['title' => 'Part Two']),
+        ]);
+        $a = $this->dir . '/first.xml';
+        $b = $this->dir . '/second.xml';
+        file_put_contents($a, $first);
+        file_put_contents($b, $second);
+        $this->import($a, 'commit');
+        $this->assertSame('1', (string) $db->one("SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'split-tale')")['c'], 'the one-shot landed as chapter 1');
+        $this->import($b, 'commit'); // before the fix: Part One hit the one-shot at position 1 and killed the transaction
+        $rows = $db->all("SELECT position, title FROM chapters
+                          WHERE story_id = (SELECT id FROM stories WHERE slug = 'split-tale') ORDER BY position");
+        $this->assertSame([[1, 'Split Tale'], [2, 'Part One'], [3, 'Part Two']],
+            array_map(static fn(array $r): array => [(int) $r['position'], $r['title']], $rows), 'appended after the one-shot, no duplicate one-shot');
+    }
+
     /** The whole-era matrix in one export: ACF-era meta (5.0-5.7), the
      *  pre-5.10 and 5.10+ SEO spellings, fcn_hidden (5.35), a draft, a
      *  recommendation, a collection, notes, comments in every state, and a
