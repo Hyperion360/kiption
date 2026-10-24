@@ -121,19 +121,23 @@ final class Cache
 
     /** The header shape every public policy demands, shared by the store
      *  predicate and both 304 branches: a response that starts a session
-     *  (Set-Cookie) is personalized, and a noindexed page is not worth
-     *  holding anywhere. Only the noindex directive withholds (the
-     *  framework PageCache's stance): other robots directives such as
-     *  max-snippet or noimageindex do not personalize a response. Name-based,
-     *  any casing: no guard may depend on a writer's spelling of the header
-     *  (the list-valued scan's same stance). */
+     *  (Set-Cookie) is personalized, and a page barred from indexing is not
+     *  worth holding anywhere. Only the indexing directives withhold (the
+     *  framework PageCache's stance, plus 'none', which is their exact
+     *  synonym): other robots directives such as max-snippet or noimageindex
+     *  do not personalize a response. Name-based, any casing: no guard may
+     *  depend on a writer's spelling of the header (the list-valued scan's
+     *  same stance). */
     private static function headersShareable(Response $response): bool
     {
         foreach (array_keys($response->headers) as $h) {
             if (strcasecmp((string) $h, 'set-cookie') === 0) return false;
             if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
                 foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
-                    if (stripos((string) $leaf, 'noindex') !== false) return false; // nothing worth indexing, nothing worth caching
+                    $directives = strtolower((string) $leaf);
+                    if (str_contains($directives, 'noindex') || str_contains($directives, 'none')) {
+                        return false; // nothing worth indexing, nothing worth caching
+                    }
                 }
             }
         }

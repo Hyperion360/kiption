@@ -147,10 +147,13 @@ final class StaticCacheTest extends TestCase
         // A HEAD poll revalidates like a GET: the entry survives.
         $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
             new Request('HEAD', '/story/view/x', [], [], []), new Response('', 304, ['ETag' => '"x"'])), 'a HEAD 304 repeats the page policy');
-        // Only the noindex directive withholds (the framework's stance);
-        // other robots directives do not personalize a response.
+        // Only the indexing directives withhold (the framework's stance, plus
+        // 'none', their exact synonym); other robots directives do not
+        // personalize a response.
         $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
-            $eligible, new Response('x', 200, ['X-Robots-Tag' => 'max-image-preview:large'])), 'a non-noindex robots directive still caches');
+            $eligible, new Response('x', 200, ['X-Robots-Tag' => 'max-image-preview:large'])), 'a non-indexing robots directive still caches');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            $eligible, new Response('x', 200, ['X-Robots-Tag' => 'none'])), 'none is noindex\'s synonym and withholds too');
     }
 
     /** The write path is the 304 rule's mirror and its guard: a 304 carries
