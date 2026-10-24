@@ -196,7 +196,7 @@ final class ScheduledReleasesTest extends TestCase
     {
         $fan = $this->plantFollower();
         $broken = new \App\PublishFanout($this->db,
-            new \Kip\Mailer(['transport' => 'log', 'log_path' => '/nonexistent-dir/kip-qa-rel/nope.log', 'from' => 'noreply@localhost']),
+            \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => '/nonexistent-dir/kip-qa-rel/nope.log', 'from' => 'noreply@localhost'])),
             'https://archive.example');
         // @ on the call: the log transport warns before it throws; the catch
         // under test is PublishFanout's, not the transport diagnostic.

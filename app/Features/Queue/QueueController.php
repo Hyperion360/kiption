@@ -9,7 +9,7 @@ final class QueueController
 {
     public function __construct(
         private View $view, private Request $request, private Database $db,
-        private Session $session, private App $app, private \Kip\Mailer $mailer,
+        private Session $session, private App $app, private \App\MailGuard $mailer,
     ) {}
 
     #[AuthAttr]

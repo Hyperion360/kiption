@@ -67,7 +67,7 @@ final class DigestTest extends TestCase
         $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
             ['title' => 'DigestMe', 'content' => 'One more chapter.', 'notes_before' => '', 'notes_after' => '']);
         $this->assertSame('', (string) file_get_contents($this->mailLog)); // digest mode: no immediate mail
-        $sent = (new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']), 'https://archive.example'))->send();
+        $sent = (new Digest($this->db, \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'])), 'https://archive.example'))->send();
         $this->assertGreaterThanOrEqual(1, $sent);
         $mail = (string) file_get_contents($this->mailLog);
         $this->assertStringContainsString('The Rabbit Hole', $mail);
@@ -82,7 +82,7 @@ final class DigestTest extends TestCase
         $this->db->query('DELETE FROM notifications');
         $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
             ['title' => 'OnceOnly', 'content' => 'Batched exactly once.', 'notes_before' => '', 'notes_after' => '']);
-        $digest = new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']), 'https://archive.example');
+        $digest = new Digest($this->db, \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'])), 'https://archive.example');
         $this->assertGreaterThanOrEqual(1, $digest->send());
         $mail = (string) file_get_contents($this->mailLog);
         $this->assertNotSame('', $mail); // something was really mailed
@@ -116,7 +116,7 @@ final class DigestTest extends TestCase
         $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
             ['title' => 'DigestOnly', 'content' => 'No immediate mail for opt-ins.', 'notes_before' => '', 'notes_after' => '']);
         $this->assertSame('', (string) file_get_contents($this->mailLog), 'digest opt-ins get no immediate favorite-update mail');
-        $sent = (new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']), 'https://archive.example'))->send();
+        $sent = (new Digest($this->db, \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'])), 'https://archive.example'))->send();
         $this->assertSame(1, $sent);
         $this->assertStringContainsString('The Rabbit Hole', (string) file_get_contents($this->mailLog));
     }
@@ -141,13 +141,13 @@ final class DigestTest extends TestCase
         $this->db->query('DELETE FROM notifications');
         $this->client(1)->postWithToken('/chapter/create/the-rabbit-hole',
             ['title' => 'MailFails', 'content' => 'The log transport will throw.', 'notes_before' => '', 'notes_after' => '']);
-        $broken = new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => '/nonexistent-dir/kip-qa-digest/nope.log', 'from' => 'noreply@localhost']), 'https://archive.example');
+        $broken = new Digest($this->db, \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => '/nonexistent-dir/kip-qa-digest/nope.log', 'from' => 'noreply@localhost'])), 'https://archive.example');
         // @ on the call: the log transport's failed write warns before it throws; the
         // exception path under test is the Digest catch, not the transport diagnostic.
         $this->assertSame(0, @$broken->send(), 'a failing mail transport is skipped, not fatal');
         $this->assertNull($this->db->one('SELECT digest_sent_at FROM user_prefs WHERE user_id = ?', [$this->fanId])['digest_sent_at'],
             'the marker only advances on a successful mail');
-        $recovered = new Digest($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']), 'https://archive.example');
+        $recovered = new Digest($this->db, \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'])), 'https://archive.example');
         $this->assertSame(1, $recovered->send(), 'the same batch mails once the transport works again');
     }
 }

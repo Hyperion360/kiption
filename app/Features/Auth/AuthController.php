@@ -1,7 +1,7 @@
 <?php // app/Features/Auth/AuthController.php
 namespace App\Features\Auth;
 use App\Repositories\UserRepository;
-use Kip\{App, Auth, Database, Mailer, Http\Request, Http\Response, Session, View};
+use Kip\{App, Auth, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class AuthController
@@ -11,7 +11,7 @@ final class AuthController
         private View $view,
         private Session $session,
         private Request $request,
-        private Mailer $mailer,
+        private \App\MailGuard $mailer,
         private App $app,
         private UserRepository $users,
         private Database $db,
@@ -147,6 +147,7 @@ final class AuthController
             'csrf' => $this->session->csrfToken(),
             'error' => null,
             'mode' => (string) $this->app->config('registration_mode', 'verify'),
+            'terms_url' => (string) $this->app->config('signup_terms_url', ''),
         ]);
     }
 
@@ -174,7 +175,7 @@ final class AuthController
             [$subject, $body] = \App\Templates::get($this->db, 'member_verify', 'Verify your account',
                 "Welcome to the archive. Confirm your address:\n\n{url}\n\nThe link is valid for 24 hours.");
             try {
-                $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]));
+                $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
             } catch (\Throwable $e) {
                 error_log("Verification mail failed: {$e->getMessage()}");
             }
@@ -200,6 +201,7 @@ final class AuthController
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
             'mode' => $mode,
+            'terms_url' => (string) $this->app->config('signup_terms_url', ''),
             'penname' => $penname, 'email' => $email, 'invite' => $this->request->postStr('invite'),
         ]), 422);
     }
@@ -237,7 +239,7 @@ final class AuthController
             // accounts, so its duration must not show in the response time.
             $this->app->defer(function () use ($email, $subject, $body, $url): void {
                 try {
-                    $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]));
+                    $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
                 } catch (\Throwable $e) {
                     // A mailer failure must not become an account-existence oracle: the page
                     // is identical either way, and the failure lands in the server log.
