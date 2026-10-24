@@ -85,4 +85,14 @@ final class RobotsTest extends TestCase
             'the fallback must be the app public dir, not <repo>/../public'
         );
     }
+
+    /** The arm passes the configured base so the Sitemap line is absolute
+     *  (RFC 9309). Pinned at source, the fallback test's stance: running the
+     *  arm would rewrite the shared checkout's seed robots.txt. */
+    public function test_kip_robots_arm_passes_the_configured_base_url(): void
+    {
+        $src = (string) file_get_contents(dirname(__DIR__) . '/bin/kip');
+        $needle = "writeRobots(\$file, (bool) (\$config['ai_crawlers'] ?? true), rtrim((string) (\$config['base_url'] ?? ''), '/'))";
+        $this->assertStringContainsString($needle, $src, 'the arm passes the absolute-URL base to writeRobots');
+    }
 }

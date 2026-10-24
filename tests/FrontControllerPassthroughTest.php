@@ -1,6 +1,7 @@
 <?php // tests/FrontControllerPassthroughTest.php
 namespace App\Tests;
 
+use App\Tests\Support\DevServerHttp;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,6 +16,8 @@ use PHPUnit\Framework\TestCase;
  */
 final class FrontControllerPassthroughTest extends TestCase
 {
+    use DevServerHttp;
+
     /** @var list<string> */
     private array $tmpDirs = [];
 
@@ -93,17 +96,17 @@ return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';
         $server = $this->startServer($port, $public, $router);
         try {
             foreach ($served as $rel => [$body, $type]) {
-                [$status, $gotType, $gotBody] = $this->fetch($port, '/' . $rel);
+                [$status, $gotType, , $gotBody] = $this->httpFetch($port, '/' . $rel);
                 $this->assertSame(200, $status, "/{$rel} must serve as a file");
                 $this->assertSame($type, $gotType, "/{$rel} Content-Type");
                 $this->assertSame($body, $gotBody, "/{$rel} body must be the file's bytes");
             }
             // The passthrough mirrors the .htaccess rules' nosniff on real
             // files: both serving paths carry the same guard.
-            [, , $headers] = $this->fetchWithHeaders($port, '/assets/reader.css');
+            [, , $headers] = $this->httpFetch($port, '/assets/reader.css');
             $this->assertSame('nosniff', $headers['x-content-type-options'] ?? '', 'the file path sends nosniff like Apache does');
             foreach ($refused as $rel => $body) {
-                [$status, , $gotBody] = $this->fetch($port, '/' . $rel);
+                [$status, , , $gotBody] = $this->httpFetch($port, '/' . $rel);
                 $this->assertSame(503, $status, "/{$rel} must fall through to the application, never serve as a file");
                 $this->assertStringNotContainsString($body, $gotBody, "/{$rel} leaked its content");
             }
@@ -119,65 +122,5 @@ return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';
         $this->assertTrue(mkdir($dir, 0775, true));
         $this->tmpDirs[] = $dir;
         return $dir;
-    }
-
-    private function freePort(int $start): int
-    {
-        for ($port = $start; $port < $start + 8; $port++) {
-            $sock = @fsockopen('127.0.0.1', $port, timeout: 0.2);
-            if ($sock === false) {
-                return $port;
-            }
-            fclose($sock);
-        }
-        $this->fail('no free port in the ad-hoc range');
-    }
-
-    /** @return resource the proc_open handle of the built-in server */
-    private function startServer(int $port, string $docroot, string $router): mixed
-    {
-        $handle = proc_open(
-            [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $docroot, $router],
-            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
-            $pipes
-        );
-        $this->assertIsResource($handle, 'dev server failed to start');
-        for ($i = 0; $i < 50; $i++) {
-            if (@fsockopen('127.0.0.1', $port, timeout: 0.2) !== false) {
-                return $handle;
-            }
-            usleep(100000);
-        }
-        proc_terminate($handle);
-        $this->fail('dev server never came up');
-    }
-
-    /** @return array{0: int, 1: string, 2: string} status, Content-Type, body */
-    private function fetch(int $port, string $path): array
-    {
-        [$status, $type, , $body] = $this->fetchWithHeaders($port, $path);
-        return [$status, $type, $body];
-    }
-
-    /** @return array{0: int, 1: string, 2: array<string,string>, 3: string} status, Content-Type, lower-cased header map, body */
-    private function fetchWithHeaders(int $port, string $path): array
-    {
-        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
-        $body = @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
-        $status = 0;
-        $type = '';
-        $headers = [];
-        foreach ($http_response_header ?? [] as $header) {
-            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
-                $status = (int) $m[1];
-            } elseif (str_contains($header, ':')) {
-                [$name, $value] = explode(':', $header, 2);
-                $headers[strtolower(trim($name))] = trim($value);
-                if (strcasecmp(trim($name), 'Content-Type') === 0) {
-                    $type = trim($value);
-                }
-            }
-        }
-        return [$status, $type, $headers, $body === false ? '' : $body];
     }
 }
