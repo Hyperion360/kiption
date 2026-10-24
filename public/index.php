@@ -31,17 +31,31 @@ declare(strict_types=1);
 // file itself: a `return false` here cannot cross the stable wrapper's require
 // boundary, which is the top-level router the dev server consults.
 if (PHP_SAPI === 'cli-server') {
-    $docroot = rtrim(defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : __DIR__, '/');
+    // Resolved on both sides: a docroot reached through a symlink (/var on
+    // macOS, a symlinked home on a host) never prefixes its own files'
+    // resolved paths otherwise, and every asset falls through to the app.
+    $docroot = realpath(defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : __DIR__);
     $p = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
-    $real = realpath($docroot . $p);
+    $real = $docroot === false ? false : realpath($docroot . $p);
     if ($real !== false && str_starts_with($real, $docroot . '/') && is_file($real)) {
-        // Assets only. A passthrough of anything else would hand out .php
-        // source (setup.php, upgrade.php) on the cli-server: unknown
-        // extensions fall through to the application like any other route.
-        $type = ['css' => 'text/css', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
-            'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'js' => 'text/javascript',
-            'png' => 'image/png', 'svg' => 'image/svg+xml', 'woff2' => 'font/woff2',
-        ][strtolower(pathinfo($real, PATHINFO_EXTENSION))] ?? null;
+        $rel = substr($real, strlen($docroot) + 1);
+        // .htaccess's two by-name refusals, mirrored: any dotted path segment
+        // and the private setup state, so a misupload into the docroot stays
+        // unreachable on the dev server exactly as it does under Apache.
+        $private = preg_match('#(^|/)\.#', $rel) === 1
+            || in_array(basename($rel), ['deployment.php', 'setup-token.txt', 'setup-complete.lock', 'setup.lock', 'setup-attempts'], true);
+        // Known static types only: the assets, every extension Storage can
+        // write into /uploads, and the real-file artifacts beside index.php
+        // (robots.txt, the sitemaps). Anything else, .php above all
+        // (setup.php, upgrade.php), falls through to the application like any
+        // other route instead of being handed out as source. Text types carry
+        // the charset the no-router dev server and PHP's own responses send.
+        $type = $private ? null : ([
+            'css' => 'text/css; charset=utf-8', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
+            'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'js' => 'text/javascript; charset=utf-8',
+            'png' => 'image/png', 'svg' => 'image/svg+xml', 'txt' => 'text/plain; charset=utf-8',
+            'webp' => 'image/webp', 'woff2' => 'font/woff2', 'xml' => 'application/xml; charset=utf-8',
+        ][strtolower(pathinfo($rel, PATHINFO_EXTENSION))] ?? null);
         if ($type !== null) {
             header('Content-Type: ' . $type);
             header('Content-Length: ' . (string) filesize($real));
