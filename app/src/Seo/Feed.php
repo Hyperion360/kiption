@@ -14,8 +14,16 @@ final class Feed
         return htmlspecialchars($s, self::X, 'UTF-8');
     }
 
-    public static function atom(string $siteName, string $baseUrl, array $stories, bool $fullText = false): string
+    /** One Atom document. $feedPath is the feed's own address: it is both the
+     *  <id> and the rel=self link, because Atom's id must identify THIS feed
+     *  (every feed on the site once shared the site root as its id, so a
+     *  reader keying on id could not tell the fantasy feed from the archive).
+     *  $alternatePath is the feed's human-facing page. Entry ids are story
+     *  URLs and never change: readers key entries on those. */
+    public static function atom(string $siteName, string $baseUrl, array $stories, bool $fullText = false,
+        string $feedPath = '/feed', string $alternatePath = '/'): string
     {
+        $self = $baseUrl . $feedPath;
         $items = '';
         foreach ($stories as $s) {
             $url = $baseUrl . '/story/view/' . rawurlencode($s['slug']);
@@ -41,14 +49,19 @@ final class Feed
         return '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . "<feed xmlns=\"http://www.w3.org/2005/Atom\">\n"
             . '  <title>' . self::e($siteName) . "</title>\n"
-            . '  <id>' . self::e($baseUrl . '/') . "</id>\n"
-            . '  <link href="' . self::e($baseUrl) . "\"/>\n"
+            . '  <id>' . self::e($self) . "</id>\n"
+            . '  <link rel="self" href="' . self::e($self) . '" type="application/atom+xml"/>' . "\n"
+            . '  <link rel="alternate" href="' . self::e($baseUrl . $alternatePath) . '" type="text/html"/>' . "\n"
             . '  <updated>' . self::e($updated) . "</updated>\n"
             . $items . "</feed>\n";
     }
 
-    public static function rss(string $siteName, string $baseUrl, array $stories): string
+    /** RSS 2.0. The atom:link rel=self is RSS best practice's form of the same
+     *  identity (the RSS advisory recommends it; readers use it to pin the
+     *  feed's canonical address after a redirect). */
+    public static function rss(string $siteName, string $baseUrl, array $stories, string $feedPath = '/rss'): string
     {
+        $self = $baseUrl . $feedPath;
         $items = '';
         foreach ($stories as $s) {
             $url = $baseUrl . '/story/view/' . rawurlencode($s['slug']);
@@ -61,10 +74,11 @@ final class Feed
                 . "    </item>\n";
         }
         return '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
-            . "<rss version=\"2.0\">\n  <channel>\n"
+            . "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n  <channel>\n"
             . '    <title>' . self::e($siteName) . "</title>\n"
             . '    <link>' . self::e($baseUrl) . "</link>\n"
             . '    <description>Recently updated stories</description>' . "\n"
+            . '    <atom:link rel="self" href="' . self::e($self) . '" type="application/rss+xml"/>' . "\n"
             . $items . "  </channel>\n</rss>\n";
     }
 }

@@ -65,9 +65,19 @@ final class FeedsExpansionTest extends TestCase
         $xml = simplexml_load_string($a->body);
         $this->assertNotFalse($xml, 'the author feed is well-formed XML');
         $this->assertSame('Demo Author', (string) $xml->title);
+        // Identity: the author feed's own address, its profile page as alternate.
+        $this->assertSame('https://archive.example/feed/author/demo-author', (string) $xml->id);
+        $this->assertSame('self', (string) $xml->link[0]['rel']);
+        $this->assertSame('https://archive.example/feed/author/demo-author', (string) $xml->link[0]['href']);
+        $this->assertSame('https://archive.example/user/view/demo-author', (string) $xml->link[1]['href']);
         $c = $this->client()->get('/feed/category/general');
         $this->assertSame(200, $c->status);
         $this->assertStringContainsString('the-rabbit-hole', $c->body);
+        $cx = simplexml_load_string($c->body);
+        $this->assertNotFalse($cx, 'the category feed is well-formed XML');
+        $this->assertSame('https://archive.example/feed/category/general', (string) $cx->id);
+        $this->assertSame('https://archive.example/feed/category/general', (string) $cx->link[0]['href']);
+        $this->assertSame('https://archive.example/browse/category/general', (string) $cx->link[1]['href']);
         $this->assertSame(404, $this->client()->get('/feed/author/ghost')->status);
         $this->assertSame(404, $this->client()->get('/feed/category/ghost')->status);
     }
@@ -81,6 +91,7 @@ final class FeedsExpansionTest extends TestCase
         $xml = simplexml_load_string($a->body);
         $this->assertNotFalse($xml);
         $this->assertSame('betafriend', (string) $xml->title);
+        $this->assertSame('https://archive.example/feed/author/betafriend', (string) $xml->id, 'an empty feed still identifies itself');
         $this->assertCount(0, $xml->entry);
         // same semantics for a category with no (gated) stories.
         $this->db()->query("INSERT INTO categories (name, slug, description) VALUES ('Void', 'void', 'Nothing yet.')");
