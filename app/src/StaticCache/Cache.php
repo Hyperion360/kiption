@@ -95,9 +95,7 @@ final class Cache
             || preg_match('#^/(?:feed(?:/(?:category/[a-z0-9-]+|author/[a-z0-9_-]+))?|rss)$#', $request->path) !== 1) {
             return null;
         }
-        foreach (array_keys($response->headers) as $h) {
-            if (strcasecmp((string) $h, 'set-cookie') === 0) return null;
-        }
+        if (self::hasSetCookie($response)) return null;
         return self::FEED_CC;
     }
 
@@ -110,14 +108,23 @@ final class Cache
      *  forever-stale version of this window with a deferred re-purge
      *  (StoryController::delete, App::defer) that runs after its response
      *  is sent. */
+    /** The one Set-Cookie refusal both policies share: a response that starts
+     *  a session is personalized, whether it is being stored (storable) or
+     *  stamped with the feed lifetime (feedControl). Name-based, any casing. */
+    private static function hasSetCookie(Response $response): bool
+    {
+        foreach (array_keys($response->headers) as $h) {
+            if (strcasecmp((string) $h, 'set-cookie') === 0) return true;
+        }
+        return false;
+    }
+
     private function storable(Request $request, Response $response): bool
     {
         if (!$this->isCacheable($request)) return false;
         if ($response->status !== 200) return false;
+        if (self::hasSetCookie($response)) return false;
         foreach (array_keys($response->headers) as $h) {
-            // name-based, any casing: neither guard may depend on a writer's
-            // spelling of the header (the list-valued scan's same stance)
-            if (strcasecmp((string) $h, 'set-cookie') === 0) return false;
             if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
                 foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
                     if ((string) $leaf !== '') return false; // nothing worth indexing, nothing worth caching
