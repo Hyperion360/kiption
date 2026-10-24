@@ -167,6 +167,9 @@ final class SitemapTest extends TestCase
         $this->assertStringContainsString('User-agent: GPTBot',
             (string) file_get_contents($this->publicDir() . '/robots.txt'),
             'the build honors the ai_crawlers toggle');
+        $this->assertStringContainsString('Sitemap: https://archive.example/sitemap.xml',
+            (string) file_get_contents($this->publicDir() . '/robots.txt'),
+            'the build passes its base_url so the Sitemap line is absolute (RFC 9309)');
         $this->assertFileDoesNotExist($cacheDir . '/sitemap.xml',
             'finding 11: sitemaps land in public_dir, never the cache dir');
     }

@@ -67,8 +67,10 @@ final class FrontControllerPassthroughTest extends TestCase
         file_put_contents($public . '/.well-known/probe.txt', 'challenge-bytes');
         $served['.well-known/probe.txt'] = ['challenge-bytes', 'text/plain; charset=utf-8'];
         // The never-serve set: PHP source, the private setup state misuploaded
-        // into the docroot, and dotted path segments (.htaccess's two by-name
-        // refusals, the second at any depth).
+        // into the docroot, dotted path segments (.htaccess's two by-name
+        // refusals, the second at any depth), and unknown extensions (the
+        // map's deliberate divergence from Apache's serve-any-real-file:
+        // they fall through to the application instead of readfile).
         $refused = [
             'setup.php' => '<?php echo "setup source";',
             'deployment.php' => '<?php return ["secret" => 1];',
@@ -80,6 +82,8 @@ final class FrontControllerPassthroughTest extends TestCase
             '.env' => 'SECRET=1',
             '.git/config' => '[core] bare = false',
             '.git/notes.txt' => 'a servable extension under a dotted segment',
+            'export.html' => '<html>static html that must fall through</html>',
+            'data.json' => '{"secret": 1}',
         ];
         foreach ($refused as $rel => $body) {
             file_put_contents($public . '/' . $rel, $body);
@@ -109,6 +113,15 @@ return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';
                 [$status, , , $gotBody] = $this->httpFetch($port, '/' . $rel);
                 $this->assertSame(503, $status, "/{$rel} must fall through to the application, never serve as a file");
                 $this->assertStringNotContainsString($body, $gotBody, "/{$rel} leaked its content");
+            }
+            // The containment guard itself: the sibling token exists outside
+            // the docroot, and every traversal spelling of a path to it must
+            // fall through to the application without leaking a byte.
+            $token = (string) file_get_contents($shared . '/setup-token.txt');
+            foreach (['/../shared/setup-token.txt', '/%2e%2e/shared/setup-token.txt', '/..%2fshared%2fsetup-token.txt', '/uploads/../../shared/setup-token.txt'] as $probe) {
+                [$status, , , $gotBody] = $this->httpFetch($port, $probe);
+                $this->assertSame(503, $status, "{$probe} must never resolve outside the docroot");
+                $this->assertStringNotContainsString($token, $gotBody, "{$probe} leaked the sibling token");
             }
         } finally {
             proc_terminate($server);

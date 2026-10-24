@@ -93,6 +93,10 @@ final class FeedsExpansionTest extends TestCase
         $this->assertSame('betafriend', (string) $xml->title);
         $this->assertSame('https://archive.example/feed/author/betafriend', (string) $xml->id, 'an empty feed still identifies itself');
         $this->assertCount(0, $xml->entry);
+        // The pinned instant is asserted directly: back-to-back renders run
+        // inside one wall-clock second, so byte identity alone would not
+        // catch a reverted date('c') (it moves the ETag only across seconds).
+        $this->assertSame('1970-01-01T00:00:00+00:00', (string) $xml->updated, 'an empty feed pins the epoch instant');
         // An empty feed pins a stable <updated>: a per-render date() would
         // move the body-hash ETag every second and no revalidation would
         // ever answer a 304.
@@ -106,6 +110,7 @@ final class FeedsExpansionTest extends TestCase
         $this->assertNotFalse($xml);
         $this->assertSame('Void', (string) $xml->title);
         $this->assertCount(0, $xml->entry);
+        $this->assertSame('1970-01-01T00:00:00+00:00', (string) $xml->updated, 'the empty category feed pins the epoch instant too');
     }
 
     public function test_full_text_mode_config_carries_content(): void

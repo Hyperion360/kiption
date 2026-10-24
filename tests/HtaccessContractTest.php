@@ -39,14 +39,30 @@ final class HtaccessContractTest extends TestCase
         $this->assertStringContainsString('Header set Cache-Control "public, max-age=3600"', $this->ht, 'robots and sitemaps');
     }
 
+    /** Each type family carries its own lifetime: bare substring checks
+     *  would pass with the extension lists swapped between blocks, so the
+     *  Header line is asserted INSIDE its FilesMatch span. */
+    public function test_each_type_family_carries_its_own_lifetime(): void
+    {
+        foreach (['css|js' => '14400', 'png|jpe?g|gif|webp|ico' => '86400', 'xml|txt' => '3600'] as $ext => $age) {
+            $this->assertSame(1, preg_match(
+                '#<FilesMatch "\.\(' . $ext . '\)\$">\s*Header set Cache-Control "public, max-age=' . $age . '"#',
+                $this->ht), "the {$ext} block and only it carries max-age={$age}");
+        }
+    }
+
     /** The page cache's files are internal targets, never URLs: a direct
      *  /cache/... request must be refused under Apache, including the
      *  percent-encoded spelling (the core decodes /%63ache/ straight onto
      *  the real files) and uppercase forms (case-insensitive hosts). */
     public function test_direct_cache_url_access_is_refused(): void
     {
-        // The raw request line guard: literal and %-encoded spellings, case-insensitive.
-        $this->assertStringContainsString('(?:c|%63)(?:a|%61)(?:c|%63)(?:h|%68)(?:e|%65)(?:/|%2f|%2F) [NC]', $this->ht);
+        // The raw request line guard: literal and %-encoded spellings, case-insensitive,
+        // immediately followed by its own [F] rule (a bare cond would chain onto
+        // the ^cache rule below and rewire which requests it refuses).
+        $this->assertSame(1, preg_match(
+            '#RewriteCond %\{THE_REQUEST\} \\\\s/\(\?:c\|%63\)\(\?:a\|%61\)\(\?:c\|%63\)\(\?:h\|%68\)\(\?:e\|%65\)\(\?:/\|%2f\|%2F\) \[NC\]\s*\n\s*RewriteRule \^ - \[F\]#',
+            $this->ht), 'the raw-request-line guard carries its own [F] rule');
         // The per-directory guard (matched against the decoded path) with the fast-path exemption.
         $this->assertStringContainsString('RewriteCond %{ENV:KIP_STATIC_HIT} ^$', $this->ht);
         $this->assertStringContainsString('RewriteRule ^cache(/|$) - [F]', $this->ht);

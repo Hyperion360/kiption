@@ -401,6 +401,20 @@ final class SharedHostReleaseTest extends TestCase
             $this->assertSame('public, s-maxage=14400', $this->httpHeader($port, '/', 'Cache-Control'), 'the home page carries the page cache bound');
             $this->assertSame('public, max-age=300, s-maxage=3600', $this->httpHeader($port, '/feed', 'Cache-Control'), 'the syndication XML carries its public lifetime');
             $this->assertSame('private, no-store', $this->httpHeader($port, '/feed/subscribe', 'Cache-Control'), 'the subscribe page stays private');
+            // Wire-level revalidation: the 304 that reaches the reader carries
+            // the same public policy as the 200 it freshens (RFC 9111 4.3.4),
+            // feed and page alike — the unit rows alone cannot prove the
+            // front controller stamps the wire response.
+            [, , $fh] = $this->httpFetch($port, '/feed');
+            $etag = $fh['etag'] ?? '';
+            $this->assertNotSame('', $etag, 'the feed 200 carries an ETag');
+            [$fStatus, , $fh2] = $this->httpFetch($port, '/feed', ['If-None-Match' => $etag]);
+            $this->assertSame(304, $fStatus, 'a conditional feed GET revalidates');
+            $this->assertSame('public, max-age=300, s-maxage=3600', $fh2['cache-control'] ?? '', 'the wire 304 repeats the feed public lifetime');
+            [, , $hh] = $this->httpFetch($port, '/');
+            [$hStatus, , $hh2] = $this->httpFetch($port, '/', ['If-None-Match' => $hh['etag'] ?? '']);
+            $this->assertContains($hStatus, [200, 304], 'a HIT answers 200, a revalidation 304');
+            $this->assertSame('public, s-maxage=14400', $hh2['cache-control'] ?? '', 'either way the home response keeps the page policy');
             // The host-matrix negatives, approximated over the dev server:
             // private names are not present, so they route to 404s.
             foreach (['/config.php', '/vendor/autoload.php', '/.git/config', '/app/data.sqlite'] as $private) {

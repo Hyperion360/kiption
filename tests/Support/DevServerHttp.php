@@ -42,9 +42,15 @@ trait DevServerHttp
     }
 
     /** @return array{0: int, 1: string, 2: array<string,string>, 3: string} status, Content-Type, lower-cased header map, body */
-    private function httpFetch(int $port, string $path): array
+    private function httpFetch(int $port, string $path, array $requestHeaders = []): array
     {
-        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
+        $opts = ['ignore_errors' => true, 'timeout' => 10];
+        if ($requestHeaders !== []) {
+            $opts['header'] = implode("\r\n", array_map(
+                static fn(string $n, string $v): string => "{$n}: {$v}",
+                array_keys($requestHeaders), $requestHeaders));
+        }
+        $context = stream_context_create(['http' => $opts]);
         $body = @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
         $status = 0;
         $type = '';
