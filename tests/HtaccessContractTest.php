@@ -32,8 +32,20 @@ final class HtaccessContractTest extends TestCase
     public function test_cache_lifetimes(): void
     {
         $this->assertStringContainsString('Header set Cache-Control "public, max-age=14400"', $this->ht, 'unversioned assets');
-        $this->assertStringContainsString('Header set Cache-Control "public, max-age=31536000, immutable"', $this->ht, 'name-stable binaries');
+        // One day, not a year: uploads are the one static shape a moderator
+        // can remove, and a held copy serves until its entry expires.
+        $this->assertStringContainsString('Header set Cache-Control "public, max-age=86400"', $this->ht, 'images');
+        $this->assertStringNotContainsString('31536000', $this->ht, 'no year-long retention on moderatable content');
         $this->assertStringContainsString('Header set Cache-Control "public, max-age=3600"', $this->ht, 'robots and sitemaps');
+    }
+
+    /** The page cache's files are internal targets, never URLs: a direct
+     *  /cache/... request must be refused under Apache (the files are real,
+     *  so the front controller never sees them). */
+    public function test_direct_cache_url_access_is_refused(): void
+    {
+        $this->assertStringContainsString("RewriteCond %{THE_REQUEST} \\s/cache/", $this->ht);
+        $this->assertStringContainsString('RewriteRule ^ - [F]', $this->ht);
     }
 
     /** The private setup state must stay refused by name in both languages:

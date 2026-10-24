@@ -125,10 +125,15 @@ final class Sitemap
     /** Regenerate robots.txt. Permissive is the committed public/robots.txt
      *  verbatim (byte-identical, the 52 bytes incl. the blank line before
      *  Sitemap); restrictive prepends one RFC 9309 group for the named AI
-     *  crawlers: consecutive User-agent lines share the single Disallow. */
-    public static function writeRobots(string $file, bool $permissive): void
+     *  crawlers: consecutive User-agent lines share the single Disallow.
+     *  $baseUrl turns the Sitemap line absolute (RFC 9309 requires an
+     *  absolute URL; a relative one is ignored by crawlers and fails
+     *  Lighthouse's robots-txt audit): every regenerator that knows the
+     *  site's address passes it; empty keeps the committed seed bytes. */
+    public static function writeRobots(string $file, bool $permissive, string $baseUrl = ''): void
     {
-        $body = "User-agent: *\nDisallow: /*?*\n\nSitemap: /sitemap.xml\n";
+        $sitemap = $baseUrl === '' ? '/sitemap.xml' : rtrim($baseUrl, '/') . '/sitemap.xml';
+        $body = "User-agent: *\nDisallow: /*?*\n\nSitemap: {$sitemap}\n";
         $ai = "User-agent: GPTBot\nUser-agent: CCBot\nUser-agent: ClaudeBot\nUser-agent: anthropic-ai\nUser-agent: Google-Extended\nDisallow: /\n\n";
         file_put_contents($file, $permissive ? $body : $ai . $body);
     }

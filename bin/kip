@@ -281,7 +281,7 @@ match ($argv[1] ?? 'help') {
     })(),
     'robots' => (function () use ($config) {
         $file = ($config['public_dir'] ?? dirname(__DIR__) . '/public') . '/robots.txt';
-        \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true));
+        \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true), rtrim((string) ($config['base_url'] ?? ''), '/'));
         echo "Wrote {$file}\n";
     })(),
     'digest:send' => (function () use ($config, $argv) {

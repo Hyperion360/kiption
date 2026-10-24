@@ -93,6 +93,11 @@ final class FeedsExpansionTest extends TestCase
         $this->assertSame('betafriend', (string) $xml->title);
         $this->assertSame('https://archive.example/feed/author/betafriend', (string) $xml->id, 'an empty feed still identifies itself');
         $this->assertCount(0, $xml->entry);
+        // An empty feed pins a stable <updated>: a per-render date() would
+        // move the body-hash ETag every second and no revalidation would
+        // ever answer a 304.
+        $again = $this->client()->get('/feed/author/betafriend');
+        $this->assertSame($a->body, $again->body, 'two renders of an empty feed are byte-identical');
         // same semantics for a category with no (gated) stories.
         $this->db()->query("INSERT INTO categories (name, slug, description) VALUES ('Void', 'void', 'Nothing yet.')");
         $c = $this->client()->get('/feed/category/void');

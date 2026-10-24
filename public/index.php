@@ -45,12 +45,13 @@ if (PHP_SAPI === 'cli-server') {
         // unreachable on the dev server exactly as it does under Apache.
         $private = preg_match('#(^|/)\.(?!well-known/)#', $rel) === 1
             || in_array(basename($rel), ['deployment.php', 'setup-token.txt', 'setup-complete.lock', 'setup.lock', 'setup-attempts'], true);
-        // Known static types only: the assets, every extension Storage can
-        // write into /uploads, and the real-file artifacts beside index.php
-        // (robots.txt, the sitemaps). Anything else, .php above all
-        // (setup.php, upgrade.php), falls through to the application like any
-        // other route instead of being handed out as source. Text types carry
-        // the charset the no-router dev server and PHP's own responses send.
+        // Known static types only: the assets, every extension the config's
+        // uploads allowlist lets Storage write, and the real-file artifacts
+        // beside index.php (robots.txt, the sitemaps). Anything else, .php
+        // above all (setup.php, upgrade.php), falls through to the
+        // application like any other route instead of being handed out as
+        // source. Text types carry the charset the no-router dev server and
+        // PHP's own responses send.
         $type = $private ? null : ([
             'css' => 'text/css; charset=utf-8', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
             'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'js' => 'text/javascript; charset=utf-8',

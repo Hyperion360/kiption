@@ -128,7 +128,7 @@ final class Builder
         $baseUrl = rtrim((string) ($config['base_url'] ?? ''), '/');
         if ($publicDir !== null && $baseUrl !== '') {
             Sitemap::writeAll($db, $publicDir, $baseUrl, $config);
-            Sitemap::writeRobots($publicDir . '/robots.txt', (bool) ($config['ai_crawlers'] ?? true));
+            Sitemap::writeRobots($publicDir . '/robots.txt', (bool) ($config['ai_crawlers'] ?? true), $baseUrl);
         }
         return $written;
     }

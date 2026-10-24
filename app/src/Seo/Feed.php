@@ -47,7 +47,10 @@ final class Feed
                     : '')
                 . "  </entry>\n";
         }
-        $updated = $stories[0]['updated_at'] ?? date('c');
+        // An empty feed pins a stable instant: date() here would move the
+        // <updated> (and so the body-hash ETag) every second, and no reader
+        // revalidation of an empty feed would ever get a 304.
+        $updated = $stories[0]['updated_at'] ?? '1970-01-01T00:00:00+00:00';
         return '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . "<feed xmlns=\"http://www.w3.org/2005/Atom\">\n"
             . '  <title>' . self::e($siteName) . "</title>\n"

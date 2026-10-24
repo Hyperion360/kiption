@@ -151,6 +151,7 @@ final class StaticCacheTest extends TestCase
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/Wrenfield', [], [], []), $feed), 'slug shapes match the router');
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/x/extra', [], [], []), $feed));
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []), new Response('<?xml?>', 404)), 'non-200 is never shareable');
+        $this->assertNull(Cache::feedControl(new Request('HEAD', '/feed', [], [], []), $feed), 'a HEAD response never rides the public lifetime (its body was stripped)');
         // A conditional GET's 304 must repeat the Cache-Control the 200 would
         // send (RFC 9111): Kip answers If-None-Match on every feed 200 with a
         // 304, and a shared cache replaces the stored entry's policy with the

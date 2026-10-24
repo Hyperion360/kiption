@@ -15,17 +15,19 @@ Options -Indexes
 # Lifetimes and sniffing protection for the docroot's real files, so a CDN or
 # browser sees one policy whatever the vintage of the host's defaults. `Header
 # set` fires on success responses only, so app-routed 404s keep the private,
-# no-store the front controller stamps. Name-stable binaries (uploads carry
-# server-generated hex names, the favicon ships beside index.php) earn the
-# year; the unversioned assets get the page cache's shared bound (every page
-# works without them); the sitemap and robots artifacts refresh hourly.
+# no-store the front controller stamps. Images get one day, not a year: their
+# URLs are content-addressed (uploads) or effectively frozen (favicon), but
+# uploads are also the one static shape a moderator can remove, and every
+# cache holding a copy keeps serving it until the entry expires. The
+# unversioned assets get the page cache's shared bound (every page works
+# without them); the sitemap and robots artifacts refresh hourly.
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options nosniff
     <FilesMatch "\.(css|js)$">
         Header set Cache-Control "public, max-age=14400"
     </FilesMatch>
     <FilesMatch "\.(png|jpe?g|gif|webp|ico)$">
-        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header set Cache-Control "public, max-age=86400"
     </FilesMatch>
     <FilesMatch "\.(xml|txt)$">
         Header set Cache-Control "public, max-age=3600"
@@ -53,6 +55,15 @@ Options -Indexes
     #RewriteCond %{HTTP_COOKIE} ^$
     #RewriteCond %{DOCUMENT_ROOT}/cache%{REQUEST_URI}/index.html -f
     #RewriteRule ^ cache%{REQUEST_URI}/index.html [L,E=KIP_STATIC_HIT:1]
+
+    # The cache's files are internal targets of the optional fast-path above,
+    # never URLs in their own right: a direct /cache/... request is refused so
+    # a cached page cannot be reached at a second, uncontrolled address (and
+    # so the files leak no duplicate content to crawlers). THE_REQUEST is the
+    # original request line, so the fast-path's internal rewrite to cache/...
+    # passes this while a literal /cache/... URL does not.
+    RewriteCond %{THE_REQUEST} \s/cache/
+    RewriteRule ^ - [F]
 
     # Front controller: /controller/action/args is not a real file
     RewriteCond %{REQUEST_FILENAME} !-f

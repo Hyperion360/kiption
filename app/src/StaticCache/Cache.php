@@ -82,11 +82,16 @@ final class Cache
      *  Set-Cookie never ride a shared cache. Null = not a feed shape. */
     public static function feedControl(Request $request, Response $response): ?string
     {
-        // A 304 rides along: Kip answers a reader's If-None-Match on a feed
-        // 200 with a 304, RFC 9111 has the 304 repeat the stored response's
-        // Cache-Control, and the fallback would otherwise flip the stored
-        // entry to no-store on the first revalidation.
-        if (!in_array($response->status, [200, 304], true)
+        // GET only: Kip strips a HEAD's body after the ETag is computed, so a
+        // HEAD 200 carries no bytes; a naive cache that stores HEAD responses
+        // must never hold an empty feed for the public lifetime. GET-sourced
+        // 304s stay covered. A 304 rides along: Kip answers a reader's
+        // If-None-Match on a feed 200 with a 304, RFC 9111 has the 304 repeat
+        // the stored response's Cache-Control, and the fallback would
+        // otherwise flip the stored entry to no-store on the first
+        // revalidation.
+        if ($request->method !== 'GET'
+            || !in_array($response->status, [200, 304], true)
             || preg_match('#^/(?:feed(?:/(?:category/[a-z0-9-]+|author/[a-z0-9_-]+))?|rss)$#', $request->path) !== 1) {
             return null;
         }
