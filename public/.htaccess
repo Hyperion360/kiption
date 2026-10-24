@@ -59,11 +59,19 @@ Options -Indexes
     # The cache's files are internal targets of the optional fast-path above,
     # never URLs in their own right: a direct /cache/... request is refused so
     # a cached page cannot be reached at a second, uncontrolled address (and
-    # so the files leak no duplicate content to crawlers). THE_REQUEST is the
-    # original request line, so the fast-path's internal rewrite to cache/...
-    # passes this while a literal /cache/... URL does not.
-    RewriteCond %{THE_REQUEST} \s/cache/
+    # so the files leak no duplicate content to crawlers). Two guards, one
+    # hazard each: THE_REQUEST is the raw request line (never decoded), so its
+    # alternation catches percent-encoded spellings like /%63ache/ that the
+    # core would otherwise decode straight onto the real files, while the
+    # fast-path's internal rewrite passes it (its request line names the page,
+    # not cache/). The per-directory rule catches what context-level decoding
+    # reveals and is env-guarded so it never fires on the fast path's second
+    # pass: the fast path sets KIP_STATIC_HIT as it rewrites, and that env is
+    # exactly what the Cache-Control Header set below keys on.
+    RewriteCond %{THE_REQUEST} \s/(?:c|%63)(?:a|%61)(?:c|%63)(?:h|%68)(?:e|%65)(?:/|%2f|%2F) [NC]
     RewriteRule ^ - [F]
+    RewriteCond %{ENV:KIP_STATIC_HIT} ^$
+    RewriteRule ^cache(/|$) - [F]
 
     # Front controller: /controller/action/args is not a real file
     RewriteCond %{REQUEST_FILENAME} !-f

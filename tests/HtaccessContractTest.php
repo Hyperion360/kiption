@@ -40,12 +40,16 @@ final class HtaccessContractTest extends TestCase
     }
 
     /** The page cache's files are internal targets, never URLs: a direct
-     *  /cache/... request must be refused under Apache (the files are real,
-     *  so the front controller never sees them). */
+     *  /cache/... request must be refused under Apache, including the
+     *  percent-encoded spelling (the core decodes /%63ache/ straight onto
+     *  the real files) and uppercase forms (case-insensitive hosts). */
     public function test_direct_cache_url_access_is_refused(): void
     {
-        $this->assertStringContainsString("RewriteCond %{THE_REQUEST} \\s/cache/", $this->ht);
-        $this->assertStringContainsString('RewriteRule ^ - [F]', $this->ht);
+        // The raw request line guard: literal and %-encoded spellings, case-insensitive.
+        $this->assertStringContainsString('(?:c|%63)(?:a|%61)(?:c|%63)(?:h|%68)(?:e|%65)(?:/|%2f|%2F) [NC]', $this->ht);
+        // The per-directory guard (matched against the decoded path) with the fast-path exemption.
+        $this->assertStringContainsString('RewriteCond %{ENV:KIP_STATIC_HIT} ^$', $this->ht);
+        $this->assertStringContainsString('RewriteRule ^cache(/|$) - [F]', $this->ht);
     }
 
     /** The private setup state must stay refused by name in both languages:
