@@ -38,9 +38,13 @@ final class Cache
         return $this->dir . $prefix . '/index.html';
     }
 
-    public function isCacheable(Request $request): bool
+    /** $allowHead widens the method rule to HEAD for the 304 branches only:
+     *  a 304 carries no body and never fills a store, so a HEAD poll is as
+     *  safe as a GET revalidation; a 200 stays GET-only (the file cache
+     *  fills from bodies, and a HEAD 200 has none). */
+    public function isCacheable(Request $request, bool $allowHead = false): bool
     {
-        return $request->method === 'GET'
+        return ($request->method === 'GET' || ($allowHead && $request->method === 'HEAD'))
             && $request->get === []
             && $request->cookies === []
             && $this->fileFor($request->path) !== null;
@@ -69,15 +73,17 @@ final class Cache
      *  the returned value on every send path. */
     public function cacheControlFor(Request $request, Response $response): string
     {
-        if ($this->storable($request, $response)) return self::PUBLIC_CC;
-        // A page-shape 304 repeats the stored 200's policy: RFC 9111 4.3.4
-        // has caches update the stored entry's headers from the 304's, so a
-        // revalidation stamped no-store evicts the very entry it freshens.
-        // The guards mirror storable()'s (cookieless whitelisted GET, clean
-        // headers) minus the 200-only status, which is the point here.
+        if ($response->status !== 304 && $this->storable($request, $response)) return self::PUBLIC_CC;
         if ($response->status === 304
-            && $this->isCacheable($request)
+            && $this->isCacheable($request, allowHead: true)
             && self::headersShareable($response)) {
+            // A 304 repeats the stored 200's policy: RFC 9111 4.3.4 has
+            // caches update the stored entry's headers from the 304's, so a
+            // revalidation stamped no-store evicts the very entry it
+            // freshens. GET or HEAD: a 304 carries no body and never fills
+            // a store, so a HEAD poll (feed readers and monitors use them)
+            // must keep the CDN entry alive exactly like a GET
+            // revalidation. The remaining guards mirror storable()'s.
             return self::PUBLIC_CC;
         }
         return self::feedControl($request, $response) ?? 'private, no-store';
@@ -93,14 +99,18 @@ final class Cache
      *  Set-Cookie never ride a shared cache. Null = not a feed shape. */
     public static function feedControl(Request $request, Response $response): ?string
     {
-        // GET only: Kip strips a HEAD's body after the ETag is computed, so a
-        // HEAD 200 carries no bytes; a naive cache that stores HEAD responses
-        // must never hold an empty feed for the public lifetime. GET-sourced
-        // 304s stay covered: Kip answers a reader's If-None-Match on a feed
-        // 200 with a 304, RFC 9111 has the 304 repeat the stored response's
+        // Method by status: a 200 is GET-only (Kip strips a HEAD's body
+        // after the ETag is computed, so a HEAD 200 carries no bytes and
+        // must never ride the public lifetime), while a 304 may also answer
+        // a HEAD poll: it only repeats the stored GET's policy and never
+        // fills a store. Kip answers a reader's If-None-Match on a feed 200
+        // with a 304, RFC 9111 has the 304 repeat the stored response's
         // Cache-Control, and the fallback would otherwise flip the stored
         // entry to no-store on the first revalidation.
-        if ($request->method !== 'GET'
+        $methodOk = $response->status === 304
+            ? in_array($request->method, ['GET', 'HEAD'], true)
+            : $request->method === 'GET';
+        if (!$methodOk
             || !in_array($response->status, [200, 304], true)
             || preg_match('#^/(?:feed(?:/(?:category/[a-z0-9-]+|author/[a-z0-9_-]+))?|rss)$#', $request->path) !== 1) {
             return null;
@@ -112,15 +122,18 @@ final class Cache
     /** The header shape every public policy demands, shared by the store
      *  predicate and both 304 branches: a response that starts a session
      *  (Set-Cookie) is personalized, and a noindexed page is not worth
-     *  holding anywhere. Name-based, any casing: no guard may depend on a
-     *  writer's spelling of the header (the list-valued scan's same stance). */
+     *  holding anywhere. Only the noindex directive withholds (the
+     *  framework PageCache's stance): other robots directives such as
+     *  max-snippet or noimageindex do not personalize a response. Name-based,
+     *  any casing: no guard may depend on a writer's spelling of the header
+     *  (the list-valued scan's same stance). */
     private static function headersShareable(Response $response): bool
     {
         foreach (array_keys($response->headers) as $h) {
             if (strcasecmp((string) $h, 'set-cookie') === 0) return false;
             if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
                 foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
-                    if ((string) $leaf !== '') return false; // nothing worth indexing, nothing worth caching
+                    if (stripos((string) $leaf, 'noindex') !== false) return false; // nothing worth indexing, nothing worth caching
                 }
             }
         }

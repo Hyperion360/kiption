@@ -144,6 +144,13 @@ final class StaticCacheTest extends TestCase
             $eligible, new Response('', 304, ['Set-Cookie' => 'sid=1'])), 'a cookied 304 stays private');
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
             $eligible, new Response('', 304, ['X-Robots-Tag' => 'noindex'])), 'a noindexed 304 stays private');
+        // A HEAD poll revalidates like a GET: the entry survives.
+        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+            new Request('HEAD', '/story/view/x', [], [], []), new Response('', 304, ['ETag' => '"x"'])), 'a HEAD 304 repeats the page policy');
+        // Only the noindex directive withholds (the framework's stance);
+        // other robots directives do not personalize a response.
+        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+            $eligible, new Response('x', 200, ['X-Robots-Tag' => 'max-image-preview:large'])), 'a non-noindex robots directive still caches');
     }
 
     /** The write path is the 304 rule's mirror and its guard: a 304 carries
@@ -178,6 +185,9 @@ final class StaticCacheTest extends TestCase
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/x/extra', [], [], []), $feed));
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []), new Response('<?xml?>', 404)), 'non-200 is never shareable');
         $this->assertNull(Cache::feedControl(new Request('HEAD', '/feed', [], [], []), $feed), 'a HEAD response never rides the public lifetime (its body was stripped)');
+        // A HEAD-sourced 304 repeats the stored policy like a GET's: HEAD
+        // polls (feed readers use them) must not evict the CDN entry.
+        $this->assertSame($cc, Cache::feedControl(new Request('HEAD', '/feed', [], [], []), new Response('', 304, ['ETag' => '"x"'])), 'a HEAD 304 repeats the feed policy');
         // A conditional GET's 304 must repeat the Cache-Control the 200 would
         // send (RFC 9111): Kip answers If-None-Match on every feed 200 with a
         // 304, and a shared cache replaces the stored entry's policy with the
