@@ -40,9 +40,10 @@ if (PHP_SAPI === 'cli-server') {
     if ($real !== false && str_starts_with($real, $docroot . '/') && is_file($real)) {
         $rel = substr($real, strlen($docroot) + 1);
         // .htaccess's two by-name refusals, mirrored: any dotted path segment
+        // (.well-known excepted, ACME challenges ride it under Apache too)
         // and the private setup state, so a misupload into the docroot stays
         // unreachable on the dev server exactly as it does under Apache.
-        $private = preg_match('#(^|/)\.#', $rel) === 1
+        $private = preg_match('#(^|/)\.(?!well-known/)#', $rel) === 1
             || in_array(basename($rel), ['deployment.php', 'setup-token.txt', 'setup-complete.lock', 'setup.lock', 'setup-attempts'], true);
         // Known static types only: the assets, every extension Storage can
         // write into /uploads, and the real-file artifacts beside index.php
@@ -57,6 +58,9 @@ if (PHP_SAPI === 'cli-server') {
             'webp' => 'image/webp', 'woff2' => 'font/woff2', 'xml' => 'application/xml; charset=utf-8',
         ][strtolower(pathinfo($rel, PATHINFO_EXTENSION))] ?? null);
         if ($type !== null) {
+            // The same header the .htaccess rules put on real files, so the
+            // dev server's file path carries the parity the policy states.
+            header('X-Content-Type-Options: nosniff');
             header('Content-Type: ' . $type);
             header('Content-Length: ' . (string) filesize($real));
             readfile($real);

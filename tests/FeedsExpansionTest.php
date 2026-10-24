@@ -144,5 +144,11 @@ final class FeedsExpansionTest extends TestCase
         $this->assertSame(200, $c->status);
         $this->assertStringContainsString('rel="alternate" type="application/atom+xml"', $c->body);
         $this->assertStringContainsString('href="/feed/category/general"', $c->body);
+        // The archive autodiscovery link keeps the feed's own name: a reader
+        // listing it beside the profile's author feed must not see the
+        // archive borrowing the page title.
+        $this->assertSame(2, preg_match_all('#<link rel="alternate" type="application/atom\+xml" title="([^"]*)" href="([^"]*)">#', $p->body, $m), 'the layout feed plus the author feed');
+        $this->assertSame(['Feed', 'Demo Author'], $m[1], 'the two autodiscovered feeds carry two distinct titles (the author link names the penname)');
+        $this->assertSame(['/feed', '/feed/author/demo-author'], $m[2]);
     }
 }

@@ -151,6 +151,13 @@ final class StaticCacheTest extends TestCase
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/Wrenfield', [], [], []), $feed), 'slug shapes match the router');
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/x/extra', [], [], []), $feed));
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []), new Response('<?xml?>', 404)), 'non-200 is never shareable');
+        // A conditional GET's 304 must repeat the Cache-Control the 200 would
+        // send (RFC 9111): Kip answers If-None-Match on every feed 200 with a
+        // 304, and a shared cache replaces the stored entry's policy with the
+        // 304's, so the fallback would flip the CDN entry to no-store on the
+        // first revalidation.
+        $this->assertSame($cc, Cache::feedControl(new Request('GET', '/feed', [], [], []), new Response('', 304, ['ETag' => '"sha256"'])), 'a 304 repeats the 200 policy');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/subscribe', [], [], []), new Response('', 304)), 'a 304 outside the feed paths stays private');
         $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []),
             new Response('<?xml?>', 200, ['Set-Cookie' => 'sid=1'])), 'a Set-Cookie response is personalized');
         // The seam hands the feed its lifetime and keeps the page rule intact;

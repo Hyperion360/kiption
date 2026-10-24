@@ -15,10 +15,10 @@ Options -Indexes
 # Lifetimes and sniffing protection for the docroot's real files, so a CDN or
 # browser sees one policy whatever the vintage of the host's defaults. `Header
 # set` fires on success responses only, so app-routed 404s keep the private,
-# no-store the front controller stamps. Uploads carry server-generated hex
-# names that are never reused, so they alone earn the year; the unversioned
-# assets get the page cache's shared bound (every page works without them);
-# the sitemap and robots artifacts refresh hourly.
+# no-store the front controller stamps. Name-stable binaries (uploads carry
+# server-generated hex names, the favicon ships beside index.php) earn the
+# year; the unversioned assets get the page cache's shared bound (every page
+# works without them); the sitemap and robots artifacts refresh hourly.
 <IfModule mod_headers.c>
     Header set X-Content-Type-Options nosniff
     <FilesMatch "\.(css|js)$">

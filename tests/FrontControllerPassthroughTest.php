@@ -57,6 +57,12 @@ final class FrontControllerPassthroughTest extends TestCase
         foreach ($served as $rel => [$body]) {
             file_put_contents($public . '/' . $rel, $body);
         }
+        // .well-known is Apache's one dotfile carve-out (ACME challenges),
+        // so the mirrored refusal must let a real known-type file under it
+        // serve; the passthrough only ever serves known static types.
+        mkdir($public . '/.well-known', 0775, true);
+        file_put_contents($public . '/.well-known/probe.txt', 'challenge-bytes');
+        $served['.well-known/probe.txt'] = ['challenge-bytes', 'text/plain; charset=utf-8'];
         // The never-serve set: PHP source, the private setup state misuploaded
         // into the docroot, and dotted path segments (.htaccess's two by-name
         // refusals, the second at any depth).
@@ -92,6 +98,10 @@ return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';
                 $this->assertSame($type, $gotType, "/{$rel} Content-Type");
                 $this->assertSame($body, $gotBody, "/{$rel} body must be the file's bytes");
             }
+            // The passthrough mirrors the .htaccess rules' nosniff on real
+            // files: both serving paths carry the same guard.
+            [, , $headers] = $this->fetchWithHeaders($port, '/assets/reader.css');
+            $this->assertSame('nosniff', $headers['x-content-type-options'] ?? '', 'the file path sends nosniff like Apache does');
             foreach ($refused as $rel => $body) {
                 [$status, , $gotBody] = $this->fetch($port, '/' . $rel);
                 $this->assertSame(503, $status, "/{$rel} must fall through to the application, never serve as a file");
@@ -145,17 +155,29 @@ return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';
     /** @return array{0: int, 1: string, 2: string} status, Content-Type, body */
     private function fetch(int $port, string $path): array
     {
+        [$status, $type, , $body] = $this->fetchWithHeaders($port, $path);
+        return [$status, $type, $body];
+    }
+
+    /** @return array{0: int, 1: string, 2: array<string,string>, 3: string} status, Content-Type, lower-cased header map, body */
+    private function fetchWithHeaders(int $port, string $path): array
+    {
         $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
         $body = @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
         $status = 0;
         $type = '';
+        $headers = [];
         foreach ($http_response_header ?? [] as $header) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
                 $status = (int) $m[1];
-            } elseif (stripos($header, 'Content-Type:') === 0) {
-                $type = trim(substr($header, strlen('Content-Type:')));
+            } elseif (str_contains($header, ':')) {
+                [$name, $value] = explode(':', $header, 2);
+                $headers[strtolower(trim($name))] = trim($value);
+                if (strcasecmp(trim($name), 'Content-Type') === 0) {
+                    $type = trim($value);
+                }
             }
         }
-        return [$status, $type, $body === false ? '' : $body];
+        return [$status, $type, $headers, $body === false ? '' : $body];
     }
 }

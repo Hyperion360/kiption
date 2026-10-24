@@ -18,10 +18,12 @@ final class Feed
      *  <id> and the rel=self link, because Atom's id must identify THIS feed
      *  (every feed on the site once shared the site root as its id, so a
      *  reader keying on id could not tell the fantasy feed from the archive).
-     *  $alternatePath is the feed's human-facing page. Entry ids are story
-     *  URLs and never change: readers key entries on those. */
-    public static function atom(string $siteName, string $baseUrl, array $stories, bool $fullText = false,
-        string $feedPath = '/feed', string $alternatePath = '/'): string
+     *  Both paths are required: a default would silently mint the main
+     *  feed's identity for a caller that forgets them. $alternatePath is the
+     *  feed's human-facing page. Entry ids are story URLs and never change:
+     *  readers key entries on those. */
+    public static function atom(string $siteName, string $baseUrl, array $stories, bool $fullText,
+        string $feedPath, string $alternatePath): string
     {
         $self = $baseUrl . $feedPath;
         $items = '';
@@ -58,10 +60,11 @@ final class Feed
 
     /** RSS 2.0. The atom:link rel=self is RSS best practice's form of the same
      *  identity (the RSS advisory recommends it; readers use it to pin the
-     *  feed's canonical address after a redirect). */
-    public static function rss(string $siteName, string $baseUrl, array $stories, string $feedPath = '/rss'): string
+     *  feed's canonical address after a redirect). /rss is the one RSS
+     *  address the app has, so it is written here and callers pass nothing. */
+    public static function rss(string $siteName, string $baseUrl, array $stories): string
     {
-        $self = $baseUrl . $feedPath;
+        $self = $baseUrl . '/rss';
         $items = '';
         foreach ($stories as $s) {
             $url = $baseUrl . '/story/view/' . rawurlencode($s['slug']);
