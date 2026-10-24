@@ -61,15 +61,26 @@ final class Cache
 
     /** The Cache-Control a response deserves, decided at the one seam that
      *  knows store eligibility: a response this layer would store carries the
-     *  page cache's shared bound, the syndication XML carries its own bounded
-     *  public lifetime (feedControl), and every other response is private
-     *  and uncacheable. Single predicate, shared with maybeStore, so the
-     *  file layer and the header can never disagree. The front controller
-     *  stamps the returned value on every send path. */
+     *  page cache's shared bound, a 304 freshening a storable page repeats
+     *  that same bound, the syndication XML carries its own bounded public
+     *  lifetime (feedControl), and every other response is private and
+     *  uncacheable. Single predicate, shared with maybeStore, so the file
+     *  layer and the header can never disagree. The front controller stamps
+     *  the returned value on every send path. */
     public function cacheControlFor(Request $request, Response $response): string
     {
-        return $this->storable($request, $response) ? self::PUBLIC_CC
-            : (self::feedControl($request, $response) ?? 'private, no-store');
+        if ($this->storable($request, $response)) return self::PUBLIC_CC;
+        // A page-shape 304 repeats the stored 200's policy: RFC 9111 4.3.4
+        // has caches update the stored entry's headers from the 304's, so a
+        // revalidation stamped no-store evicts the very entry it freshens.
+        // The guards mirror storable()'s (cookieless whitelisted GET, clean
+        // headers) minus the 200-only status, which is the point here.
+        if ($response->status === 304
+            && $this->isCacheable($request)
+            && self::headersShareable($response)) {
+            return self::PUBLIC_CC;
+        }
+        return self::feedControl($request, $response) ?? 'private, no-store';
     }
 
     /** The syndication XML's Cache-Control: the one app-served response shape
@@ -78,25 +89,53 @@ final class Cache
      *  rows and read no session state), and readers poll on their own
      *  schedule and revalidate with the ETag, so the browser window stays
      *  short while a CDN may hold the document for an hour. /feed/subscribe
-     *  is a personalized HTML page and stays out; a non-200 and a
+     *  is a personalized HTML page and stays out; a non-200/304 and a
      *  Set-Cookie never ride a shared cache. Null = not a feed shape. */
     public static function feedControl(Request $request, Response $response): ?string
     {
         // GET only: Kip strips a HEAD's body after the ETag is computed, so a
         // HEAD 200 carries no bytes; a naive cache that stores HEAD responses
         // must never hold an empty feed for the public lifetime. GET-sourced
-        // 304s stay covered. A 304 rides along: Kip answers a reader's
-        // If-None-Match on a feed 200 with a 304, RFC 9111 has the 304 repeat
-        // the stored response's Cache-Control, and the fallback would
-        // otherwise flip the stored entry to no-store on the first
-        // revalidation.
+        // 304s stay covered: Kip answers a reader's If-None-Match on a feed
+        // 200 with a 304, RFC 9111 has the 304 repeat the stored response's
+        // Cache-Control, and the fallback would otherwise flip the stored
+        // entry to no-store on the first revalidation.
         if ($request->method !== 'GET'
             || !in_array($response->status, [200, 304], true)
             || preg_match('#^/(?:feed(?:/(?:category/[a-z0-9-]+|author/[a-z0-9_-]+))?|rss)$#', $request->path) !== 1) {
             return null;
         }
-        if (self::hasSetCookie($response)) return null;
+        if (!self::headersShareable($response)) return null;
         return self::FEED_CC;
+    }
+
+    /** The header shape every public policy demands, shared by the store
+     *  predicate and both 304 branches: a response that starts a session
+     *  (Set-Cookie) is personalized, and a noindexed page is not worth
+     *  holding anywhere. Name-based, any casing: no guard may depend on a
+     *  writer's spelling of the header (the list-valued scan's same stance). */
+    private static function headersShareable(Response $response): bool
+    {
+        foreach (array_keys($response->headers) as $h) {
+            if (strcasecmp((string) $h, 'set-cookie') === 0) return false;
+            if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
+                foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
+                    if ((string) $leaf !== '') return false; // nothing worth indexing, nothing worth caching
+                }
+            }
+        }
+        return true;
+    }
+
+    /** The store predicate: exactly the responses maybeStore may fill with,
+     *  which is exactly the responses the public page policy may name. 200
+     *  only: a 304 freshens a held entry but never fills one (its body is
+     *  empty; cacheControlFor carries its policy separately). */
+    private function storable(Request $request, Response $response): bool
+    {
+        if (!$this->isCacheable($request)) return false;
+        if ($response->status !== 200) return false;
+        return self::headersShareable($response);
     }
 
     /** Fill after a successful anonymous render. Refuses anything that could
@@ -108,31 +147,6 @@ final class Cache
      *  forever-stale version of this window with a deferred re-purge
      *  (StoryController::delete, App::defer) that runs after its response
      *  is sent. */
-    /** The one Set-Cookie refusal both policies share: a response that starts
-     *  a session is personalized, whether it is being stored (storable) or
-     *  stamped with the feed lifetime (feedControl). Name-based, any casing. */
-    private static function hasSetCookie(Response $response): bool
-    {
-        foreach (array_keys($response->headers) as $h) {
-            if (strcasecmp((string) $h, 'set-cookie') === 0) return true;
-        }
-        return false;
-    }
-
-    private function storable(Request $request, Response $response): bool
-    {
-        if (!$this->isCacheable($request)) return false;
-        if ($response->status !== 200) return false;
-        if (self::hasSetCookie($response)) return false;
-        foreach (array_keys($response->headers) as $h) {
-            if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
-                foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
-                    if ((string) $leaf !== '') return false; // nothing worth indexing, nothing worth caching
-                }
-            }
-        }
-        return true;
-    }
     public function maybeStore(Request $request, Response $response): void
     {
         if (!$this->storable($request, $response)) return;

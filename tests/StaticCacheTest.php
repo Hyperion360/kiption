@@ -133,6 +133,32 @@ final class StaticCacheTest extends TestCase
             new Request('GET', '/auth/login', [], [], []), new Response('x', 200)), 'non-whitelisted route never');
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
             $eligible, new Response('x', 200, ['X-Robots-Tag' => 'noindex'])), 'noindexed never');
+        // A page-shape 304 repeats the stored 200's policy (RFC 9111 4.3.4:
+        // caches update the stored entry's headers from the 304's), with the
+        // same guards: whitelisted cookieless GET only, clean headers only.
+        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+            $eligible, new Response('', 304, ['ETag' => '"sha256"'])), 'a page 304 repeats the page policy');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            new Request('GET', '/auth/login', [], [], []), new Response('', 304)), 'a 304 outside the whitelist stays private');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            $eligible, new Response('', 304, ['Set-Cookie' => 'sid=1'])), 'a cookied 304 stays private');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            $eligible, new Response('', 304, ['X-Robots-Tag' => 'noindex'])), 'a noindexed 304 stays private');
+    }
+
+    /** The write path is the 304 rule's mirror and its guard: a 304 carries
+     *  the public policy so held entries survive revalidation, but its empty
+     *  body must never replace a stored page. */
+    public function test_a_304_never_fills_the_cache_file(): void
+    {
+        $req = new Request('GET', '/story/view/x', [], [], []);
+        $this->cache->maybeStore($req, new Response('<html>real</html>', 200));
+        $stored = $this->cache->serve($req);
+        $this->assertNotNull($stored);
+        $this->cache->maybeStore($req, new Response('', 304, ['ETag' => '"sha256"']));
+        $after = $this->cache->serve($req);
+        $this->assertNotNull($after, 'the stored page survives');
+        $this->assertSame($stored->body, $after->body, 'the 304 wrote nothing over it');
     }
 
     /** The syndication XML's public lifetime: the one app-served shape a
