@@ -207,14 +207,18 @@ if ($response->status === 404 && $request->method === 'GET') {
 if ($static !== null) {
     $static->maybeStore($request, $response);
 }
-// The shared-cache contract, decided where store eligibility is known: the one
-// response shape a CDN may hold is the one this layer just stored (anonymous,
-// 200, cookieless, queryless, whitelisted GET); everything else, including
-// every render when the static cache is disabled outright, is private and
-// uncacheable. A response that already carries Cache-Control (the reader
-// fragment's private, no-store, the beacon's) is overwritten with the value
-// its eligibility demands, which is always at least as strict.
-$response = $response->withHeader('Cache-Control', $static?->cacheControlFor($request, $response) ?? 'private, no-store');
+// The shared-cache contract, decided where store eligibility is known: the
+// one page shape a CDN may hold is the one this layer just stored (anonymous,
+// 200, cookieless, queryless, whitelisted GET), the syndication XML carries
+// its own bounded public lifetime (identical bytes for every reader, ETag
+// revalidation), and everything else, including every render when the static
+// cache is disabled outright, is private and uncacheable. A response that
+// already carries Cache-Control (the reader fragment's private, no-store, the
+// beacon's) is overwritten with the value its eligibility demands, which is
+// always at least as strict.
+$response = $response->withHeader('Cache-Control', $static?->cacheControlFor($request, $response)
+    ?? \App\StaticCache\Cache::feedControl($request, $response)
+    ?? 'private, no-store');
 // Multi-cookie Set-Cookie needs no wire translation since the Kip 0.5 sync:
 // Response carries list-valued headers and send() emits each leaf with append
 // semantics, so the session cookie survives beside them natively.

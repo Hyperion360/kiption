@@ -135,6 +135,32 @@ final class StaticCacheTest extends TestCase
             $eligible, new Response('x', 200, ['X-Robots-Tag' => 'noindex'])), 'noindexed never');
     }
 
+    /** The syndication XML's public lifetime: the one app-served shape a
+     *  shared cache may hold. The path whitelist matches the feed routes and
+     *  nothing else (the subscribe page is a personalized HTML page, slug
+     *  shapes match the router's), a non-200 stays private, and a
+     *  Set-Cookie never rides a shared cache. */
+    public function test_feed_control_times_only_the_syndication_xml(): void
+    {
+        $feed = new Response('<?xml?>', 200);
+        $cc = 'public, max-age=300, s-maxage=3600';
+        foreach (['/feed', '/rss', '/feed/category/fantasy', '/feed/author/wren_field'] as $path) {
+            $this->assertSame($cc, Cache::feedControl(new Request('GET', $path, [], [], []), $feed), $path);
+        }
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/subscribe', [], [], []), $feed), 'the subscribe page is personalized HTML');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/Wrenfield', [], [], []), $feed), 'slug shapes match the router');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/x/extra', [], [], []), $feed));
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []), new Response('<?xml?>', 404)), 'non-200 is never shareable');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []),
+            new Response('<?xml?>', 200, ['Set-Cookie' => 'sid=1'])), 'a Set-Cookie response is personalized');
+        // The seam hands the feed its lifetime and keeps the page rule intact;
+        // with the static cache disabled outright the front controller calls
+        // feedControl directly, so the static method is the whole fallback.
+        $this->assertSame($cc, $this->cache->cacheControlFor(new Request('GET', '/feed', [], [], []), $feed));
+        $this->assertSame('private, no-store',
+            $this->cache->cacheControlFor(new Request('GET', '/feed/subscribe', [], [], []), $feed));
+    }
+
     public function test_maybe_store_refuses_a_list_valued_set_cookie(): void
     {
         // The multi-cookie emission shape since the Kip 0.5 sync (login,

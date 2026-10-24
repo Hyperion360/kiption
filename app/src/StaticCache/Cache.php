@@ -6,6 +6,7 @@ final class Cache
 {
     private const MARKER = '.maintenance-purged';
     private const PUBLIC_CC = 'public, s-maxage=14400';
+    private const FEED_CC = 'public, max-age=300, s-maxage=3600';
 
     public function __construct(private string $dir) {}
 
@@ -59,14 +60,36 @@ final class Cache
     }
 
     /** The Cache-Control a response deserves, decided at the one seam that
-     *  knows store eligibility: a response this layer would store is the only
-     *  response a shared cache may hold (public, s-maxage bounded), and every
-     *  other response is private and uncacheable. Single predicate, shared
-     *  with maybeStore, so the file layer and the header can never disagree.
-     *  The front controller stamps the returned value on every send path. */
+     *  knows store eligibility: a response this layer would store carries the
+     *  page cache's shared bound, the syndication XML carries its own bounded
+     *  public lifetime (feedControl), and every other response is private
+     *  and uncacheable. Single predicate, shared with maybeStore, so the
+     *  file layer and the header can never disagree. The front controller
+     *  stamps the returned value on every send path. */
     public function cacheControlFor(Request $request, Response $response): string
     {
-        return $this->storable($request, $response) ? self::PUBLIC_CC : 'private, no-store';
+        return $this->storable($request, $response) ? self::PUBLIC_CC
+            : (self::feedControl($request, $response) ?? 'private, no-store');
+    }
+
+    /** The syndication XML's Cache-Control: the one app-served response shape
+     *  a shared cache may hold. Every feed renders the same bytes for every
+     *  reader (the queries select only validated, unrestricted, post-password
+     *  rows and read no session state), and readers poll on their own
+     *  schedule and revalidate with the ETag, so the browser window stays
+     *  short while a CDN may hold the document for an hour. /feed/subscribe
+     *  is a personalized HTML page and stays out; a non-200 and a
+     *  Set-Cookie never ride a shared cache. Null = not a feed shape. */
+    public static function feedControl(Request $request, Response $response): ?string
+    {
+        if ($response->status !== 200
+            || preg_match('#^/(?:feed(?:/(?:category/[a-z0-9-]+|author/[a-z0-9_-]+))?|rss)$#', $request->path) !== 1) {
+            return null;
+        }
+        foreach (array_keys($response->headers) as $h) {
+            if (strcasecmp((string) $h, 'set-cookie') === 0) return null;
+        }
+        return self::FEED_CC;
     }
 
     /** Fill after a successful anonymous render. Refuses anything that could

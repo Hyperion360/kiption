@@ -391,6 +391,13 @@ final class SharedHostReleaseTest extends TestCase
                 sha1((string) $this->httpBody($port, '/assets/app.js')),
                 'the served asset is the docroot copy'
             );
+            // The cache-control stamp runs in the real front controller: the
+            // home render is storable, the syndication XML rides its own
+            // public lifetime even with zero stories, and the personalized
+            // subscribe page stays private.
+            $this->assertSame('public, s-maxage=14400', $this->httpHeader($port, '/', 'Cache-Control'), 'the home page carries the page cache bound');
+            $this->assertSame('public, max-age=300, s-maxage=3600', $this->httpHeader($port, '/feed', 'Cache-Control'), 'the syndication XML carries its public lifetime');
+            $this->assertSame('private, no-store', $this->httpHeader($port, '/feed/subscribe', 'Cache-Control'), 'the subscribe page stays private');
             // The host-matrix negatives, approximated over the dev server:
             // private names are not present, so they route to 404s.
             foreach (['/config.php', '/vendor/autoload.php', '/.git/config', '/app/data.sqlite'] as $private) {
@@ -485,6 +492,18 @@ final class SharedHostReleaseTest extends TestCase
     {
         $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
         return @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
+    }
+
+    private function httpHeader(int $port, string $path, string $name): string
+    {
+        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
+        @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
+        foreach ($http_response_header ?? [] as $header) {
+            if (stripos($header, $name . ':') === 0) {
+                return trim(substr($header, strlen($name) + 1));
+            }
+        }
+        return '';
     }
 
     // ------------------------------------------------------- stable CLI dispatching
