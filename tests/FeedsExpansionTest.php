@@ -65,9 +65,19 @@ final class FeedsExpansionTest extends TestCase
         $xml = simplexml_load_string($a->body);
         $this->assertNotFalse($xml, 'the author feed is well-formed XML');
         $this->assertSame('Demo Author', (string) $xml->title);
+        // Identity: the author feed's own address, its profile page as alternate.
+        $this->assertSame('https://archive.example/feed/author/demo-author', (string) $xml->id);
+        $this->assertSame('self', (string) $xml->link[0]['rel']);
+        $this->assertSame('https://archive.example/feed/author/demo-author', (string) $xml->link[0]['href']);
+        $this->assertSame('https://archive.example/user/view/demo-author', (string) $xml->link[1]['href']);
         $c = $this->client()->get('/feed/category/general');
         $this->assertSame(200, $c->status);
         $this->assertStringContainsString('the-rabbit-hole', $c->body);
+        $cx = simplexml_load_string($c->body);
+        $this->assertNotFalse($cx, 'the category feed is well-formed XML');
+        $this->assertSame('https://archive.example/feed/category/general', (string) $cx->id);
+        $this->assertSame('https://archive.example/feed/category/general', (string) $cx->link[0]['href']);
+        $this->assertSame('https://archive.example/browse/category/general', (string) $cx->link[1]['href']);
         $this->assertSame(404, $this->client()->get('/feed/author/ghost')->status);
         $this->assertSame(404, $this->client()->get('/feed/category/ghost')->status);
     }
@@ -81,7 +91,17 @@ final class FeedsExpansionTest extends TestCase
         $xml = simplexml_load_string($a->body);
         $this->assertNotFalse($xml);
         $this->assertSame('betafriend', (string) $xml->title);
+        $this->assertSame('https://archive.example/feed/author/betafriend', (string) $xml->id, 'an empty feed still identifies itself');
         $this->assertCount(0, $xml->entry);
+        // The pinned instant is asserted directly: back-to-back renders run
+        // inside one wall-clock second, so byte identity alone would not
+        // catch a reverted date('c') (it moves the ETag only across seconds).
+        $this->assertSame('1970-01-01T00:00:00+00:00', (string) $xml->updated, 'an empty feed pins the epoch instant');
+        // An empty feed pins a stable <updated>: a per-render date() would
+        // move the body-hash ETag every second and no revalidation would
+        // ever answer a 304.
+        $again = $this->client()->get('/feed/author/betafriend');
+        $this->assertSame($a->body, $again->body, 'two renders of an empty feed are byte-identical');
         // same semantics for a category with no (gated) stories.
         $this->db()->query("INSERT INTO categories (name, slug, description) VALUES ('Void', 'void', 'Nothing yet.')");
         $c = $this->client()->get('/feed/category/void');
@@ -90,6 +110,7 @@ final class FeedsExpansionTest extends TestCase
         $this->assertNotFalse($xml);
         $this->assertSame('Void', (string) $xml->title);
         $this->assertCount(0, $xml->entry);
+        $this->assertSame('1970-01-01T00:00:00+00:00', (string) $xml->updated, 'the empty category feed pins the epoch instant too');
     }
 
     public function test_full_text_mode_config_carries_content(): void
@@ -133,5 +154,11 @@ final class FeedsExpansionTest extends TestCase
         $this->assertSame(200, $c->status);
         $this->assertStringContainsString('rel="alternate" type="application/atom+xml"', $c->body);
         $this->assertStringContainsString('href="/feed/category/general"', $c->body);
+        // The archive autodiscovery link keeps the feed's own name: a reader
+        // listing it beside the profile's author feed must not see the
+        // archive borrowing the page title.
+        $this->assertSame(2, preg_match_all('#<link rel="alternate" type="application/atom\+xml" title="([^"]*)" href="([^"]*)">#', $p->body, $m), 'the layout feed plus the author feed');
+        $this->assertSame(['Feed', 'Demo Author'], $m[1], 'the two autodiscovered feeds carry two distinct titles (the author link names the penname)');
+        $this->assertSame(['/feed', '/feed/author/demo-author'], $m[2]);
     }
 }

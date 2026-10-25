@@ -1,6 +1,6 @@
 <?php // app/Features/Coauthor/CoauthorController.php
 namespace App\Features\Coauthor;
-use Kip\{App, Database, Http\Request, Http\Response, Mailer, Session, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Notifications;
 use App\Repositories\AuthoringRepository;
@@ -9,7 +9,7 @@ final class CoauthorController
 {
     public function __construct(
         private View $view, private Request $request, private Database $db,
-        private Session $session, private App $app, private Mailer $mailer,
+        private Session $session, private App $app, private \App\MailGuard $mailer,
     ) {}
 
     #[AuthAttr] #[Post]

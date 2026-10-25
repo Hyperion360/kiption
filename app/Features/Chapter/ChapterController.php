@@ -8,7 +8,7 @@ final class ChapterController
 {
     public function __construct(
         private View $view, private Request $request, private Database $db,
-        private Session $session, private App $app, private \Kip\Mailer $mailer,
+        private Session $session, private App $app, private \App\MailGuard $mailer,
     ) {}
 
     #[AuthAttr]
@@ -40,8 +40,12 @@ final class ChapterController
         // scope ruling): a full member may open the gate on rr stories, while
         // update/delete and every story form stay story-side.
         $rr = \App\Features::on('roundrobin');
+        // The post-password field (Fictioneer parity): hashed here, stored by
+        // the repository; a new chapter was never public, so no purge rider.
+        $accessPassword = trim((string) ($this->request->post['access_password'] ?? ''));
         try {
-            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr);
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr,
+                $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT));
         } catch (\RuntimeException) {
             return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
         }
@@ -71,12 +75,33 @@ final class ChapterController
         } catch (\InvalidArgumentException) {
             return new Response($this->form($slug, $position, \App\Lang::t('chapter.publish_invalid')), 422);
         }
+        // The post-password pair (Fictioneer parity; the repository hashes the
+        // raw input and applies the clear-wins trio). A NULL-to-set lock on a
+        // live chapter is the delete path's forever-stale case: the pre-write
+        // hash decides the deferred re-purge rider below.
+        $accessPassword = trim((string) ($this->request->post['access_password'] ?? ''));
+        $accessClear = ($this->request->post['access_clear'] ?? '') === '1';
+        $locking = !$accessClear && $accessPassword !== '';
+        $wasOpen = true;
+        if ($locking) {
+            $old = $this->db->one('SELECT access_hash FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
+                [$slug, $position]);
+            $wasOpen = ($old['access_hash'] ?? null) === null || (string) $old['access_hash'] === '';
+        }
         try {
-            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt);
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt, $accessPassword, $accessClear);
         } catch (\RuntimeException) {
             return new Response('Page not found', 404);
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
+        if ($locking && $wasOpen) {
+            // The delete pattern's deferred rider: a guest render in flight
+            // during the synchronous purge can re-store pre-lock prose after
+            // it, and a locked chapter is never purged again by later writes.
+            $this->app->defer(function () use ($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs): void {
+                $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
+            });
+        }
         $wasLive = (int) ($this->db->one(
             'SELECT validated FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
             [$slug, $position])['validated'] ?? 0);

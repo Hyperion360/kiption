@@ -9,11 +9,17 @@ it except the items noted. Decisions that cost money stay with the owner.
 
 - [ ] Upload the social preview: repo Settings > Social preview > drag
       `docs/social-preview.png` (GitHub has no API for this; the image is
-      rendered and committed).
-- [ ] Submit both packages on packagist.org under the Hyperion360 account:
-      `https://github.com/Hyperion360/kip` as `hyperion360/kip` and
-      `https://github.com/Hyperion360/kipsaas` as `hyperion360/kipsaas`.
-      Free; enables `composer require` installs and a second search surface.
+      rendered and committed). Image verified 2026-10-25: it is the product
+      composite (the search-first screen beside the value matrix), which
+      sells better than a logo card would, so regeneration is not wanted;
+      the web upload is the only remaining step.
+- [x] Submit both packages on packagist.org: RESOLVED 2026-10-25, both are
+      already live and auto-updating (the entry predated the submissions).
+      `kip/framework` carries v0.5.0 plus dev-main and syncs within hours
+      of each push (last update 2026-10-24 20:11 UTC);
+      `hyperion360/kipsaas` is at v0.1.4 with dev-main (last update
+      2026-10-24 21:20 UTC). Nothing remains unless the owner wants the
+      Packagist profile page filled in.
 - [ ] Post the fan-wiki blurbs (draft exists in the 2026-10-15 coordinator
       summary) to the eFiction community wikis' download/version pages.
 - [ ] Awesome-selfhosted PR: DRAFTED 2026-10-15 (entry text, section fit,
@@ -40,42 +46,52 @@ it except the items noted. Decisions that cost money stay with the owner.
       owner project, not a default.
 - [ ] Either way: watch the fork's CI weekly (green on PHP 8.3/8.4 x
       MySQL/MariaDB), cut a tag when compatibility fixes accumulate.
-      Checked 2026-10-21: latest runs green on main. The weekly cadence
+      Checked 2026-10-25: latest runs green on main (compatibility
+      workflow, 1m9s). Next check by 2026-11-01. The weekly cadence
       is manual: no recurring automation was created (recurring-cost rule;
       ask if wanted).
 
 ## Engineering follow-ups (coordinator-executable, no owner input needed)
 
-- [ ] `import:epub` (proposed 2026-10-15, owner yes pending): a bulk
-      importer for EPUB files, the format every export path produces.
-      It makes the AO3 migration real through AO3's own official per-work
-      downloads (ToS-clean end to end; it realizes the shelved 2026-09-19
-      "Path D" importer design from the otwarchive clone spec), ingests
-      output from third-party export tools without this project shipping
-      a scraper, and gives authors a self-service migration from any
-      platform whose exporter they already use. Route through /write-plan
-      + /plan-eng-review before building.
+- [x] `import:epub`: SHIPPED in v0.2.0 (2026-10-21) as the release headline
+      (bulk EPUB importer: AO3 downloads, FanFicFare output, any EPUB
+      library; dry-run, author resolution, covers, per-file idempotency;
+      app/src/Import/Epub.php + tests/EpubImportTest.php on main, the
+      feature/import-epub branch is merged). This entry predates the ship
+      and was left open by mistake.
 - [ ] Kip-side (route through the Kip repo's own plan process): Backup.php
       artifact modes are DONE on kip main (commit cd929db, 2026-10-15:
       0700 dir re-hardened every run, 0600 artifacts new and stale, checked
       chmod failing loud; write-plan + codex adversarial review with six
-      findings folded; composer check green) but UNRELEASED: the framework's
-      only tag is v0.5.0, so kiption cannot consume it and cannot collapse
-      its 26 rate_limit prefixes to '*' (the catch-all is on kip main since
-      the 2026-10-07 branch, also unreleased) until the owner tags and
-      pushes a post-0.5.0 kip release, then runs composer update here.
+      findings folded; composer check green) but UNRELEASED, FULLY STAGED
+      as of 2026-10-25: 25 commits on kip main since v0.5.0 (cd929db's
+      backup modes plus the complete rate_limit '*' fallback series, its
+      own review rounds folded), CI green, three changelog fragments
+      pending (the backup fragment added by c89eb30 after this audit found
+      the fix had none), and the Packagist hook verified live so the tag
+      publishes itself. The owner's whole step, in a kip checkout:
+      `php bin/release 0.5.1 && git push origin main --tags`. Then here:
+      `composer update kip/framework` and collapse the 26 rate_limit
+      prefixes to '*' (coordinator-executable once the tag exists).
       The kip CI workflow decision stays parked (recurring-cost rule).
-- [ ] README screenshot pass once the hosted flagship is live: a hero shot
-      of the reader is the one discovery gap the star-research flagged.
+- [x] README screenshot pass: SHIPPED 2026-10-25 (owner ruling: the seeded
+      demo beats waiting for the flagship). docs/reader-hero.png is the
+      real reader in the Night theme (The Lantern Keeper's Daughter ch. 1,
+      the seeded content), 1400x900 from a 2x capture, embedded under the
+      README intro. When the hosted flagship is live, re-shoot the same
+      frame there for real data and re-point the image.
 
 ## Ongoing discovery (marketing and SEO cadence)
 
 - [ ] Cut a release every time user-facing work lands (releases are the
       strongest sustained search signal; 0.1.1 shipped 2026-10-15, 0.2.0
-      shipped 2026-10-21 with import:epub as the headline).
+      shipped 2026-10-21 with import:epub as the headline, 0.3.0 cut
+      2026-10-25 with import:fictioneer and the post-password gate as the
+      headlines, 15 fragments, tag local: the push and GitHub release stay
+      owner-gated).
 - [ ] Answer every Discussion and issue within a day (community-engagement
       signals feed both GitHub ranking and the eFiction community's trust).
-      Checked 2026-10-21: only the pinned issue open, zero Discussions.
+      Checked 2026-10-25: zero Discussions, only the pinned issue open.
 - [ ] Re-check repo topics quarterly against what people actually search
       (last optimized 2026-10-15: the competitor platforms went in as bare
       names plus substack, fanfiction-net, and self-hosting; next review
@@ -155,3 +171,4 @@ it except the items noted. Decisions that cost money stay with the owner.
       public-cached with no Set-Cookie.
 - [x] `/pentest` on the session and cookie paths (app/src/Cookie.php, App\Viewer, StaticCache) plus the launch surfaces: run 2026-10-15 as authorized task A6 (three in-harness hunters: secrets/crypto, DoS/supply-chain, auth variant loop). Findings and fixes: the wrangling gate and the Adminness moderator choke point now validate the session epoch (the one live variant of the revoked-session class); the exporter self-delete removes the out-* bundle directory; the importer bounds hostile bundles (member count, decompressed size, row length, bounded review scan, keyed uniquing); the upgrade engine sweeps orphaned work dirs, gates status on the prepare capability, caps manifests, and keeps failure detail out of responses. Verified clean: StaticCache refusal rules, Cookie name/value strictness, all token crypto (setup, capability, recovery, reset, verify, import), git history sweep. One finding routed to the Kip repo's own plan process: Backup.php artifacts carry umask modes (0600 suggested). [RESOLVED UPSTREAM 2026-10-15: kip main commit cd929db, unreleased until the owner tags post-0.5.0.]
 - [x] Site-wide RTA (Restricted To Adults) label: shipped 2026-10-14 as the `adult_rta` setting (config.php default or the settings board row; empty = off) applied once at boot through the `Head::siteRating` seam. A per-page `rating: adult` meta still wins and one rating meta renders per page.
+- [x] Ship a favicon: resolved 2026-10-24. The owner chose the mark (the K in the brand serif). public/favicon.svg carries the site's exact --serif stack so supporting browsers render the header's own face; public/favicon.ico is a 16/32/48 raster of Iowan Old Style (the stack's first named font) rendered locally. Both linked from every layout; svg joins the 86400 image lifetime in .htaccess. Console sweep's last error class is gone.

@@ -2,7 +2,7 @@
 namespace App;
 
 use Kip\Database;
-use Kip\Mailer;
+
 
 /** The publish fan-out: one copy of what every publish path (queue approve,
  *  a live chapter's create or edit, the release:due arm) owes a story's
@@ -10,7 +10,7 @@ use Kip\Mailer;
  *  CLI arm shares it too instead of growing a third copy. */
 final class PublishFanout
 {
-    public function __construct(private Database $db, private Mailer $mailer, private string $baseUrl) {}
+    public function __construct(private Database $db, private \App\MailGuard $mailer, private string $baseUrl) {}
 
     public function publish(string $slug): void
     {
@@ -45,7 +45,9 @@ final class PublishFanout
         ];
         foreach ($emails as $memberId => $email) {
             try {
-                $this->mailer->send($email, strtr($subject, $pairs), strtr($body, $pairs));
+                if (!$this->mailer->send($email, strtr($subject, $pairs), strtr($body, $pairs))) {
+                    continue; // the daily cap dropped this follower; the next chapter re-reaches them
+                }
             } catch (\Throwable $e) {
                 error_log("follower mail failed for member {$memberId}: {$e->getMessage()}");
             }

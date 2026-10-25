@@ -95,8 +95,8 @@ final class SearchRepository
             SELECT 's', ROW_NUMBER() OVER (ORDER BY st.updated_at DESC, st.id DESC), st.slug, st.title, st.summary,
                    st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
             FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$mute}{$filter}
-                  AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
-                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.content LIKE ? ESCAPE '\\'))
+                  AND s.access_hash IS NULL AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
+                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.access_hash IS NULL AND c.content LIKE ? ESCAPE '\\'))
                  ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?) st
             ORDER BY k, p",
             $params
@@ -158,13 +158,15 @@ final class SearchRepository
     /** Chapter-arm rows (f.chapter_id set) surface only VALIDATED chapters:
      *  every reader surface gates ch.validated = 1 unconditionally (the TOC
      *  blob, /story/read), so search must not make pending chapter text or
-     *  titles discoverable ahead of moderation. Story-arm rows carry a NULL
-     *  chapter_id and pass untouched. Param-free: the documented bind arrays
-     *  are unchanged. Rides INSIDE the fts_matches CTE as its WHERE, before
-     *  the per-story fold. */
+     *  titles discoverable ahead of moderation. The post-password rider
+     *  (access_hash IS NULL) keeps a locked chapter from making its story
+     *  match: the FTS arm is search's third prose channel, beside the two
+     *  LIKE folds. Story-arm rows carry a NULL chapter_id and pass untouched.
+     *  Param-free: the documented bind arrays are unchanged. Rides INSIDE the
+     *  fts_matches CTE as its WHERE, before the per-story fold. */
     private function chapterGate(): string
     {
-        return ' WHERE (f.chapter_id IS NULL OR EXISTS (SELECT 1 FROM chapters c WHERE c.id = f.chapter_id AND c.validated = 1))';
+        return ' WHERE (f.chapter_id IS NULL OR EXISTS (SELECT 1 FROM chapters c WHERE c.id = f.chapter_id AND c.validated = 1 AND c.access_hash IS NULL))';
     }
 
     public function searchFts(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
@@ -220,7 +222,7 @@ final class SearchRepository
             SELECT {$this->selectList()}, m.rank AS rank FROM fts_matches m
             CROSS JOIN stories s
             JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
-            WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}{$filter}
+            WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND s.access_hash IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}{$filter}
             ORDER BY rank ASC LIMIT ? OFFSET ?";
     }
 
@@ -241,8 +243,8 @@ final class SearchRepository
         $params[] = $perPage + 1; $params[] = $offset;
         $rows = $this->db->all(
             "SELECT {$this->selectList()} FROM stories s {$this->fromGates()}{$mute}{$filter}
-              AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
-                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.content LIKE ? ESCAPE '\\'))
+              AND s.access_hash IS NULL AND (s.title LIKE ? ESCAPE '\\' OR s.summary LIKE ? ESCAPE '\\' OR EXISTS (
+                    SELECT 1 FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.access_hash IS NULL AND c.content LIKE ? ESCAPE '\\'))
              ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?",
             $params
         );

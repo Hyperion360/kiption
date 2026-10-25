@@ -1,6 +1,6 @@
 <?php // app/Features/User/UserController.php
 namespace App\Features\User;
-use Kip\{App, Database, Http\Request, Http\Response, Mailer, Session, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Get, Post};
 use App\Repositories\UserRepository;
 
@@ -13,7 +13,7 @@ final class UserController
         private App $app,
         private UserRepository $users,
         private Database $db,
-        private Mailer $mailer,
+        private \App\MailGuard $mailer,
     ) {}
 
     public function view(string $slug): Response|string

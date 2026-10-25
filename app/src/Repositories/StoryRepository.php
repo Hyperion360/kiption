@@ -95,8 +95,10 @@ final class StoryRepository
 
     /** ONE query for the whole-work reading view: findStoryBySlug's fold
      *  verbatim except that the chapter TOC blob is swapped for a
-     *  content-carrying blob (position, title, prose, word_count per validated
-     *  chapter; the derived table alias carries the ORDER BY, the Task 1
+     *  content-carrying blob (id, position, title, prose, word_count, and the
+     *  chapter's access_hash per validated chapter, so the controller can
+     *  drop chapter-locked chapters in PHP the way the SQL drops unvalidated
+     *  ones; the derived table alias carries the ORDER BY, the Task 1
      *  lesson). The WHERE and the bind list are therefore findStoryBySlug's
      *  unchanged: validated + not-deleted + the CAST'd restricted gate, with
      *  the four viewer subqueries ahead of the slug. Memory stance: a very
@@ -117,7 +119,7 @@ final class StoryRepository
                     (SELECT GROUP_CONCAT(c.name, ", ") FROM story_categories sc
                      JOIN categories c ON c.id = sc.category_id
                      WHERE sc.story_id = s.id) AS category_names,
-                    (SELECT json_group_array(json_object(\'position\', c.position, \'title\', c.title, \'content\', c.content, \'word_count\', c.word_count))
+                    (SELECT json_group_array(json_object(\'id\', c.id, \'position\', c.position, \'title\', c.title, \'content\', c.content, \'word_count\', c.word_count, \'access_hash\', c.access_hash))
                      FROM (SELECT * FROM chapters WHERE story_id = s.id AND validated = 1 ORDER BY position) c) AS chapters_blob,
                     (SELECT json_group_array(json_object(\'id\', r.id, \'user_id\', r.user_id, \'penname\',
                             (SELECT penname FROM users ru WHERE ru.id = r.user_id), \'guest_name\', r.guest_name,
@@ -171,7 +173,9 @@ final class StoryRepository
      *  syndication pair rides along so chapter reads apply the SAME Head
      *  branch as the story view (the deindex must cover both surfaces).
      *  ch_id pivots the chapter's id for the read beacon img (finding 5:
-     *  the beacon wants chapters.id, never the position).
+     *  the beacon wants chapters.id, never the position). s.access_hash and
+     *  the ch_access_hash pivot ride along for the post-password gate
+     *  (Access::locked consults them in PHP: zero added queries).
      *  @return array<string,mixed>|null */
     public function findStoryWithChapter(string $slug, int $position, int $me = 0): ?array
     {
@@ -198,7 +202,7 @@ final class StoryRepository
         $bookmarksCols = self::bookmarksFold($me);
         return $this->db->one(
             'SELECT s.id, s.slug, s.title, s.summary, s.completed, s.created_at, s.updated_at, s.word_count,
-                    s.canonical_url, s.crosspost_url,
+                    s.canonical_url, s.crosspost_url, s.access_hash,
                     u.penname, r.label AS rating_label, r.is_adult, r.warning_text,
                     MAX(CASE WHEN ch.position = ? THEN ch.id END) AS ch_id,
                     MAX(CASE WHEN ch.position = ? THEN ch.title END) AS ch_title,
@@ -206,6 +210,7 @@ final class StoryRepository
                     MAX(CASE WHEN ch.position = ? THEN ch.content END) AS ch_content,
                     MAX(CASE WHEN ch.position = ? THEN ch.notes_after END) AS ch_notes_after,
                     MAX(CASE WHEN ch.position = ? THEN ch.word_count END) AS ch_word_count,
+                    MAX(CASE WHEN ch.position = ? THEN ch.access_hash END) AS ch_access_hash,
                     (SELECT json_group_array(json_object(\'position\', ch3.position, \'title\', ch3.title, \'word_count\', ch3.word_count))
                      FROM (SELECT position, title, word_count FROM chapters WHERE story_id = s.id AND validated = 1
                            ORDER BY position) ch3) AS chapters_blob,
@@ -217,7 +222,7 @@ final class StoryRepository
              WHERE s.slug = ? AND s.validated = 1 AND s.deleted_at IS NULL
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)
              GROUP BY s.id',
-            [$position, $position, $position, $position, $position, $position, $slug, $me]
+            [$position, $position, $position, $position, $position, $position, $position, $slug, $me]
         );
     }
 
@@ -296,11 +301,16 @@ final class StoryRepository
      *  stories belong to their author's chosen home, not to our feeds). In
      *  full-text mode the first validated chapter rides along as a param-free
      *  subselect so both variants stay ONE statement (the one-query law).
+     *  The post-password gate withholds only the prose: the subselect skips
+     *  chapter-locked rows and reads the outer alias's own hash, so a locked
+     *  work stays listed (title/summary are the gate's crawler-visible
+     *  identity) while its text never rides the feed.
      *  @return list<array<string,mixed>> */
     public function feedStories(int $perPage, int $offset, bool $fullText = false): array
     {
         $chapter = $fullText ? ',
-                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 ORDER BY c.position LIMIT 1) AS first_chapter' : '';
+                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1
+                       AND c.access_hash IS NULL AND s.access_hash IS NULL ORDER BY c.position LIMIT 1) AS first_chapter' : '';
         return $this->db->all(
             "SELECT s.slug, s.title, s.summary, s.updated_at, s.created_at, u.penname{$chapter}
              FROM stories s
@@ -371,8 +381,12 @@ final class StoryRepository
     public function categoryFeed(string $slug, int $perPage, int $offset, bool $fullText = false): array
     {
         if (!preg_match('/^[a-z0-9-]+$/', $slug)) return [];
+        // The first_chapter subselect reads the outer alias's own hash: a
+        // story- or chapter-locked work stays listed, its prose withheld
+        // (feedStories's post-password shape).
         $chapter = $fullText ? ',
-                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 ORDER BY c.position LIMIT 1) AS first_chapter' : '';
+                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1
+                       AND c.access_hash IS NULL AND s.access_hash IS NULL ORDER BY c.position LIMIT 1) AS first_chapter' : '';
         return $this->db->all(
             "SELECT cc.name AS feed_title, s.slug, s.title, s.summary, s.updated_at, s.created_at,
                     (SELECT su.penname FROM users su WHERE su.id = s.author_id) AS penname{$chapter}

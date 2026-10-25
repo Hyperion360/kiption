@@ -31,9 +31,10 @@ final class PageController
         $head = $this->head()->withTitle($row['title'])
             ->withDescription($this->description($body))
             ->withCanonical('/page/view/' . $slug);
+        $noindex = $body === '' || (int) ($row['noindex'] ?? 0) === 1;
         $data = [
             'title' => $row['title'],
-            'head' => $body === '' ? $head->withNoindex() : $head,
+            'head' => $noindex ? $head->withNoindex() : $head,
             'theme' => \App\Theme::current($this->request),
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
@@ -42,7 +43,7 @@ final class PageController
         ];
         // An empty body is the empty-category precedent: meta noindex plus the
         // X-Robots-Tag header, which also keeps it out of the static layer.
-        return $body === ''
+        return $noindex
             ? (new Response($this->view->render('page/view', $data), 200))->withHeader('X-Robots-Tag', 'noindex')
             : $this->view->render('page/view', $data);
     }
@@ -62,7 +63,8 @@ final class PageController
         if ($gate instanceof Response) return $gate;
         [$slug, $title, $body, $error] = $this->createInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
-        $this->db->query('INSERT INTO pages (slug, title, body) VALUES (?, ?, ?)', [$slug, $title, $body]);
+        $noindex = ($this->request->postStr('noindex') ?? '') === '1' ? 1 : 0;
+        $this->db->query('INSERT INTO pages (slug, title, body, noindex) VALUES (?, ?, ?, ?)', [$slug, $title, $body, $noindex]);
         return Response::redirect('/page/view/' . $slug);
     }
 
@@ -85,8 +87,9 @@ final class PageController
         if ($row === null) return new Response('Page not found', 404);
         [$title, $body, $error] = $this->titleBody(); // the posted slug is ignored: immutable after create
         if ($error !== null) return new Response($this->form($row, $error), 422);
-        $this->db->query("UPDATE pages SET title = ?, body = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE slug = ?",
-            [$title, $body, $slug]);
+        $noindex = ($this->request->postStr('noindex') ?? '') === '1' ? 1 : 0;
+        $this->db->query("UPDATE pages SET title = ?, body = ?, noindex = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE slug = ?",
+            [$title, $body, $noindex, $slug]);
         $this->cache()->purgePage($slug);
         return Response::redirect('/page/view/' . $slug);
     }
@@ -120,10 +123,11 @@ final class PageController
     private function find(string $slug): ?array
     {
         if (!preg_match('#^[a-z0-9-]+$#', $slug)) return null;
-        $row = $this->db->one('SELECT slug, title, body, updated_at FROM pages WHERE slug = ?', [$slug]);
+        $row = $this->db->one('SELECT slug, title, body, updated_at, noindex FROM pages WHERE slug = ?', [$slug]);
         return $row === null ? null : [
             'slug' => (string) $row['slug'], 'title' => (string) $row['title'],
             'body' => (string) $row['body'], 'updated_at' => (string) $row['updated_at'],
+            'noindex' => (int) $row['noindex'],
         ];
     }
 

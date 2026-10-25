@@ -48,4 +48,75 @@ final class HtmlToMarkdownTest extends TestCase
         $this->assertStringNotContainsString('MsoNormal', $out);
         $this->assertStringNotContainsString('nbsp', $out);
     }
+
+    public function test_heading_becomes_a_bold_paragraph(): void
+    {
+        $md = HtmlToMarkdown::convert('<h2>The Map</h2><p>Body text.</p>');
+        $this->assertSame("**The Map**\n\nBody text.\n", $md);
+    }
+
+    public function test_table_collapses_to_cell_lines(): void
+    {
+        $md = HtmlToMarkdown::convert('<table><tr><th>Name</th><th>Age</th></tr><tr><td>Ada</td><td>36</td></tr></table>');
+        $this->assertStringContainsString('Name | Age', $md);
+        $this->assertStringContainsString('Ada | 36', $md);
+    }
+
+    public function test_block_comments_vanish(): void
+    {
+        $md = HtmlToMarkdown::convert("<!-- wp:paragraph -->\n<p>Hello.</p>\n<!-- /wp:paragraph -->");
+        $this->assertSame("Hello.\n", $md);
+    }
+
+    public function test_wordpress_caption_keeps_image_and_text(): void
+    {
+        $md = HtmlToMarkdown::wordpress('[caption width="300"]<img src="https://x/y.jpg" alt="river"> The river[/caption]');
+        $this->assertStringContainsString('![river](https://x/y.jpg)', $md);
+        $this->assertStringContainsString('The river', $md);
+        $this->assertStringNotContainsString('[caption', $md);
+    }
+
+    public function test_wordpress_fcnt_keeps_the_note_inline(): void
+    {
+        $md = HtmlToMarkdown::wordpress('<p>Word[fcnt]an old word[/fcnt] ends.</p>');
+        $this->assertStringContainsString('Word (an old word) ends.', $md);
+    }
+
+    public function test_wordpress_gallery_vanishes(): void
+    {
+        $md = HtmlToMarkdown::wordpress('<p>A</p>[gallery ids="1,2,3"]<p>B</p>');
+        $this->assertSame("A\n\nB\n", $md);
+    }
+
+    public function test_wordpress_fictioneer_shortcodes_vanish(): void
+    {
+        $md = HtmlToMarkdown::wordpress('<p>A</p>[fictioneer_chapter_list]<p>B</p>');
+        $this->assertSame("A\n\nB\n", $md);
+    }
+
+    public function test_unknown_shortcode_stays_literal(): void
+    {
+        $md = HtmlToMarkdown::wordpress('<p>He said [sic].</p>');
+        $this->assertStringContainsString('[sic]', $md);
+    }
+
+    public function test_caption_prefix_shortcodes_stay_literal(): void
+    {
+        $md = HtmlToMarkdown::wordpress('[captionary] stays');
+        $this->assertStringContainsString('[captionary] stays', $md);
+    }
+
+    public function test_void_prefix_shortcodes_stay_literal(): void
+    {
+        $md = HtmlToMarkdown::wordpress('[embeddable] stays [videogame] too');
+        $this->assertStringContainsString('[embeddable] stays', $md);
+        $this->assertStringContainsString('[videogame] too', $md);
+    }
+
+    public function test_del_and_pre_collapse_to_text(): void
+    {
+        $md = HtmlToMarkdown::convert('<p><del>gone</del></p><pre>kept  as-is</pre>');
+        $this->assertStringContainsString('gone', $md);
+        $this->assertStringContainsString('kept  as-is', $md);
+    }
 }

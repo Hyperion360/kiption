@@ -11,7 +11,7 @@ everything you publish here exports as EPUB or HTML at any time, scheduled
 releases fan out to your followers' inboxes, and the platform takes no fee
 and holds no rights to your text. [SWITCHING.md](SWITCHING.md) covers
 bringing an existing body of work over;
-[value-props.md](value-props.md) is the platform-by-platform comparison.
+[COMPARE.md](COMPARE.md) is the platform-by-platform comparison.
 
 ## Account levels
 

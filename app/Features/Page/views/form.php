@@ -12,6 +12,7 @@
     <?php endif; ?>
     <label><?= \App\Lang::t('common.title') ?> <input name="title" required maxlength="255" value="<?= $this->e($row['title'] ?? '') ?>"></label>
     <label><?= \App\Lang::t('common.body') ?> <textarea name="body" rows="12" placeholder="<?= $this->e(\App\Lang::t('page.body_placeholder')) ?>"><?= $this->e($row['body'] ?? '') ?></textarea></label>
+    <label class="inline"><input type="checkbox" name="noindex" value="1"<?= ($row !== null && (int) ($row['noindex'] ?? 0) === 1) ? ' checked' : '' ?>> <?= \App\Lang::t('page.noindex_label') ?></label>
     <button type="submit"><?= $row === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
 </section>

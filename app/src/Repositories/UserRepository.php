@@ -156,8 +156,12 @@ final class UserRepository
     public function authorFeed(string $slug, int $perPage, int $offset, bool $fullText = false): ?array
     {
         if (!preg_match('#^[a-z0-9_-]+$#', $slug)) return null;
+        // The first_chapter subselect reads the outer alias's own hash: a
+        // story- or chapter-locked work stays listed, its prose withheld
+        // (feedStories's post-password shape).
         $chapter = $fullText ? ',
-                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 ORDER BY c.position LIMIT 1) AS first_chapter' : '';
+                    (SELECT c.content FROM chapters c WHERE c.story_id = s.id AND c.validated = 1
+                       AND c.access_hash IS NULL AND s.access_hash IS NULL ORDER BY c.position LIMIT 1) AS first_chapter' : '';
         return $this->db->all(
             "SELECT u.penname AS feed_title, s.slug, s.title, s.summary, s.updated_at, s.created_at,
                     (SELECT su.penname FROM users su WHERE su.id = s.author_id) AS penname{$chapter}

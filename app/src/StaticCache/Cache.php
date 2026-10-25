@@ -6,6 +6,7 @@ final class Cache
 {
     private const MARKER = '.maintenance-purged';
     private const PUBLIC_CC = 'public, s-maxage=14400';
+    private const FEED_CC = 'public, max-age=300, s-maxage=3600';
 
     public function __construct(private string $dir) {}
 
@@ -26,21 +27,24 @@ final class Cache
 
     /** Route shapes this layer may serve and fill. Mirrors the router's own
      *  segment whitelist; anything else maps to null and is never cached.
-     *  The marketing top paths fold in from TopPaths (the one map), plus the
-     *  /compare index, the only marketing route without its own MAP entry. */
+     *  The marketing top paths fold in from TopPaths (the one map). */
     public function fileFor(string $path): ?string
     {
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $path)) return null;
-        $marketing = '/compare|' . implode('|', array_map(
+        $marketing = implode('|', array_map(
             static fn(string $p): string => preg_quote($p, '#'), \App\Marketing\TopPaths::MAP));
         if (!preg_match('#^(?:/|/browse|/browse/recent|/browse/authors|/browse/authors/[a-z0-9]|/browse/category/[a-z0-9-]+|/story/view/[a-z0-9-]+|/story/read/[a-z0-9-]+(?:/[1-9][0-9]{0,8})?|/series|/series/view/[a-z0-9-]+|/lists/view/[a-z0-9-]+|/challenges|/challenges/view/[a-z0-9-]+|/user/view/[a-z0-9_-]+|/user/stories/[a-z0-9_-]+|/user/favorites/[a-z0-9_-]+|/page/view/[a-z0-9-]+|/news|/news/view/[1-9][0-9]{0,8}|/top|' . $marketing . ')$#', $path)) return null;
         $prefix = $path === '/' ? '' : $path;   // '/' must not become '//'
         return $this->dir . $prefix . '/index.html';
     }
 
-    public function isCacheable(Request $request): bool
+    /** $allowHead widens the method rule to HEAD for the 304 branches only:
+     *  a 304 carries no body and never fills a store, so a HEAD poll is as
+     *  safe as a GET revalidation; a 200 stays GET-only (the file cache
+     *  fills from bodies, and a HEAD 200 has none). */
+    public function isCacheable(Request $request, bool $allowHead = false): bool
     {
-        return $request->method === 'GET'
+        return ($request->method === 'GET' || ($allowHead && $request->method === 'HEAD'))
             && $request->get === []
             && $request->cookies === []
             && $this->fileFor($request->path) !== null;
@@ -60,14 +64,95 @@ final class Cache
     }
 
     /** The Cache-Control a response deserves, decided at the one seam that
-     *  knows store eligibility: a response this layer would store is the only
-     *  response a shared cache may hold (public, s-maxage bounded), and every
-     *  other response is private and uncacheable. Single predicate, shared
-     *  with maybeStore, so the file layer and the header can never disagree.
-     *  The front controller stamps the returned value on every send path. */
+     *  knows store eligibility: a response this layer would store carries the
+     *  page cache's shared bound, a 304 freshening a storable page repeats
+     *  that same bound, the syndication XML carries its own bounded public
+     *  lifetime (feedControl), and every other response is private and
+     *  uncacheable. Single predicate, shared with maybeStore, so the file
+     *  layer and the header can never disagree. The front controller stamps
+     *  the returned value on every send path. */
     public function cacheControlFor(Request $request, Response $response): string
     {
-        return $this->storable($request, $response) ? self::PUBLIC_CC : 'private, no-store';
+        if ($response->status !== 304 && $this->storable($request, $response)) return self::PUBLIC_CC;
+        if ($response->status === 304
+            && $this->isCacheable($request, allowHead: true)
+            && self::headersShareable($response)) {
+            // A 304 repeats the stored 200's policy: RFC 9111 4.3.4 has
+            // caches update the stored entry's headers from the 304's, so a
+            // revalidation stamped no-store evicts the very entry it
+            // freshens. GET or HEAD: a 304 carries no body and never fills
+            // a store, so a HEAD poll (feed readers and monitors use them)
+            // must keep the CDN entry alive exactly like a GET
+            // revalidation. The remaining guards mirror storable()'s.
+            return self::PUBLIC_CC;
+        }
+        return self::feedControl($request, $response) ?? 'private, no-store';
+    }
+
+    /** The syndication XML's Cache-Control: the one app-served response shape
+     *  a shared cache may hold. Every feed renders the same bytes for every
+     *  reader (the queries select only validated, unrestricted, post-password
+     *  rows and read no session state), and readers poll on their own
+     *  schedule and revalidate with the ETag, so the browser window stays
+     *  short while a CDN may hold the document for an hour. /feed/subscribe
+     *  is a personalized HTML page and stays out; a non-200/304 and a
+     *  Set-Cookie never ride a shared cache. Null = not a feed shape. */
+    public static function feedControl(Request $request, Response $response): ?string
+    {
+        // Method by status: a 200 is GET-only (Kip strips a HEAD's body
+        // after the ETag is computed, so a HEAD 200 carries no bytes and
+        // must never ride the public lifetime), while a 304 may also answer
+        // a HEAD poll: it only repeats the stored GET's policy and never
+        // fills a store. Kip answers a reader's If-None-Match on a feed 200
+        // with a 304, RFC 9111 has the 304 repeat the stored response's
+        // Cache-Control, and the fallback would otherwise flip the stored
+        // entry to no-store on the first revalidation.
+        $methodOk = $response->status === 304
+            ? in_array($request->method, ['GET', 'HEAD'], true)
+            : $request->method === 'GET';
+        if (!$methodOk
+            || !in_array($response->status, [200, 304], true)
+            || preg_match('#^/(?:feed(?:/(?:category/[a-z0-9-]+|author/[a-z0-9_-]+))?|rss)$#', $request->path) !== 1) {
+            return null;
+        }
+        if (!self::headersShareable($response)) return null;
+        return self::FEED_CC;
+    }
+
+    /** The header shape every public policy demands, shared by the store
+     *  predicate and both 304 branches: a response that starts a session
+     *  (Set-Cookie) is personalized, and a page barred from indexing is not
+     *  worth holding anywhere. Only the indexing directives withhold (the
+     *  framework PageCache's stance, plus 'none', which is their exact
+     *  synonym): other robots directives such as max-snippet or noimageindex
+     *  do not personalize a response. Name-based, any casing: no guard may
+     *  depend on a writer's spelling of the header (the list-valued scan's
+     *  same stance). */
+    private static function headersShareable(Response $response): bool
+    {
+        foreach (array_keys($response->headers) as $h) {
+            if (strcasecmp((string) $h, 'set-cookie') === 0) return false;
+            if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
+                foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
+                    $directives = strtolower((string) $leaf);
+                    if (str_contains($directives, 'noindex') || str_contains($directives, 'none')) {
+                        return false; // nothing worth indexing, nothing worth caching
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    /** The store predicate: exactly the responses maybeStore may fill with,
+     *  which is exactly the responses the public page policy may name. 200
+     *  only: a 304 freshens a held entry but never fills one (its body is
+     *  empty; cacheControlFor carries its policy separately). */
+    private function storable(Request $request, Response $response): bool
+    {
+        if (!$this->isCacheable($request)) return false;
+        if ($response->status !== 200) return false;
+        return self::headersShareable($response);
     }
 
     /** Fill after a successful anonymous render. Refuses anything that could
@@ -79,22 +164,6 @@ final class Cache
      *  forever-stale version of this window with a deferred re-purge
      *  (StoryController::delete, App::defer) that runs after its response
      *  is sent. */
-    private function storable(Request $request, Response $response): bool
-    {
-        if (!$this->isCacheable($request)) return false;
-        if ($response->status !== 200) return false;
-        foreach (array_keys($response->headers) as $h) {
-            // name-based, any casing: neither guard may depend on a writer's
-            // spelling of the header (the list-valued scan's same stance)
-            if (strcasecmp((string) $h, 'set-cookie') === 0) return false;
-            if (strcasecmp((string) $h, 'x-robots-tag') === 0) {
-                foreach ((array) ($response->headers[$h] ?? []) as $leaf) {
-                    if ((string) $leaf !== '') return false; // nothing worth indexing, nothing worth caching
-                }
-            }
-        }
-        return true;
-    }
     public function maybeStore(Request $request, Response $response): void
     {
         if (!$this->storable($request, $response)) return;
@@ -188,18 +257,11 @@ final class Cache
      *  file's path can never change under an edit. A mapped marketing page
      *  serves at its TopPaths spelling, so its edit purges THERE: purging the
      *  /page/view spelling would unlink a nonexistent file and leave the
-     *  live one stale. A compare row's edit also moves the /compare hub,
-     *  whose link text is the row's title (the news-index idiom): without
-     *  this, an edited title leaves the hub serving the stale or fallback
-     *  spelling to anonymous visitors indefinitely. */
+     *  live one stale. */
     public function purgePage(string $slug): void
     {
         $f = $this->fileFor(\App\Marketing\TopPaths::path($slug) ?? '/page/view/' . $slug);
         if ($f !== null && is_file($f)) @unlink($f);
-        if (str_starts_with($slug, 'compare-')) {
-            $hub = $this->fileFor('/compare');
-            if ($hub !== null && is_file($hub)) @unlink($hub);
-        }
     }
 
     /** A news item's two cached surfaces: the item's own view file plus the

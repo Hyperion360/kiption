@@ -6,6 +6,21 @@ namespace App\Import;
  *  to text, script/style bodies vanish, javascript: URLs drop, entities decode. */
 final class HtmlToMarkdown
 {
+    /** WordPress prose: strips the wrapper shortcodes post_content carries,
+     *  then runs the same converter. Known wrappers lose their brackets and
+     *  keep their content (caption keeps image+text, fcnt keeps the note
+     *  inline in parentheses); known void shortcodes (gallery, embeds,
+     *  Fictioneer's own seventeen) vanish. Unknown shortcodes stay literal
+     *  text: mangling an author's [sic] is worse than a leftover bracket. */
+    public static function wordpress(string $html): string
+    {
+        $html = preg_replace('/\[(?:wp_)?caption(?![\w-])[^\]]*\]/i', '', $html) ?? $html;
+        $html = preg_replace('/\[\/(?:wp_)?caption(?![\w-])\]/i', '', $html) ?? $html;
+        $html = preg_replace('/\[fcnt\](.*?)\[\/fcnt\]/is', ' ($1)', $html) ?? $html;
+        $html = preg_replace('/\[(?:gallery|embed|audio|video|playlist|contact-form|fictioneer_[a-z_]+)(?![\w-])[^\]]*\]/i', '', $html) ?? $html;
+        return self::convert($html);
+    }
+
     public static function convert(string $html): string
     {
         $html = '<?xml encoding="utf-8"?><body>' . $html . '</body>';
@@ -53,6 +68,11 @@ final class HtmlToMarkdown
             'script', 'style' => '',
             'li' => '- ' . trim($inner) . "\n",
             'ul', 'ol' => $inner,
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6' => $inner === '' ? '' : '**' . trim($inner) . "**\n\n",
+            'del', 's', 'strike' => $inner,
+            'sup', 'sub' => $inner,
+            'pre' => trim($inner) . "\n\n",
+            'table' => self::tableText($n),
             default => $inner,
         };
     }
@@ -60,5 +80,22 @@ final class HtmlToMarkdown
     private static function safeUrl(string $url): string
     {
         return preg_match('#^https?://#i', trim($url)) ? trim($url) : '';
+    }
+
+    /** Markdown has no table syntax this flavor renders, so a table becomes
+     *  pipe-joined cell lines in one paragraph: readable, honest, lossy. */
+    private static function tableText(\DOMElement $table): string
+    {
+        $rows = [];
+        foreach ($table->getElementsByTagName('tr') as $tr) {
+            $cells = [];
+            foreach ($tr->childNodes as $cell) {
+                if ($cell instanceof \DOMElement && in_array(strtolower($cell->tagName), ['td', 'th'], true)) {
+                    $cells[] = trim(preg_replace('/\s+/', ' ', self::nodes($cell)) ?? '');
+                }
+            }
+            if ($cells !== []) $rows[] = implode(' | ', $cells);
+        }
+        return $rows === [] ? '' : implode("  \n", $rows) . "\n\n";
     }
 }

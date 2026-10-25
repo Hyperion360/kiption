@@ -4,6 +4,31 @@ All notable changes to Kiption are documented here. Formats follow Keep a Change
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
+### Added
+- eFiction 3.5.7 imports: bcrypt password hashes are carried in `users.legacy_bcrypt`, verified at first login (rehashed, both legacy columns cleared), alongside the existing MD5 path. Version coverage widens to every importable release: 3.0-3.4.x schemas export with their gaps recorded in the manifest's `schema_gaps` and normalized, pre-3.0 archives are refused with the upgrade-chain runbook (the maintained fork's install/upgrade11.php / upgrade20.php) instead of a broken bundle, and any future official 3.5.x release imports with no upper gate (unknown extra columns ride through; hash detection covers the whole `password_hash()` family). The manifest records the source version and a password-format census; unknown formats are counted and imported as reset-required.
+- import:fictioneer, a WordPress/Fictioneer WXR importer (streaming reader with hostile-file bounds, era-tolerant row mapper covering every 5.x schema, channel-author and declared-extension handling, WordPress-era HTML and shortcode conversion on the way in, categories resuming by slug, a legacy-URL 301 map consulted after 404s, and a verify block reporting adoption and gaps; dry-run by default, --commit writes).
+- a config-driven footer legal line (`footer_copyright`, `footer_copyright_url`, `footer_links` in config.php; `KIP_FOOTER_COPYRIGHT`, `KIP_FOOTER_COPYRIGHT_URL`, `KIP_FOOTER_LINKS` as JSON overrides): a copyright holder and legal links render as one `foot-legal` paragraph after the foot-nav, absent when unconfigured, escaped, identical bytes for every visitor. Only https and site-relative URLs link (the nav stance); `javascript:`, `http:`, and `//host` values render their labels as plain text. The year is the render date, so a cached page carries its build year until the next build or purge. README's Operating the archive section documents the keys with the flagship example values.
+- the logomark: the K in the brand serif as favicon.svg (carrying the site's own font stack), a 16/32/48 favicon.ico raster of Iowan Old Style, and a full-bleed 180x180 apple-touch-icon; every layout links all three.
+- an email daily-send cap (mail_daily_cap / KIP_MAIL_DAILY_CAP, 0 = off): non-critical mail pauses as the cap approaches with a log line, verification and password-reset mail always send (App\MailGuard).
+- a per-page noindex flag (admin checkbox on the page form, pages.noindex via migration 045): a flagged page carries the meta tag and X-Robots-Tag on both its /page/view and top-level marketing spelling and leaves the sitemap and the static-cache build.
+- a post-password gate on stories and chapters (per-work access password; a locked work stays listed with title and summary while the prose is withheld, unlock markers are bound to the hash, and locked works leave the sitemap).
+- a config-gated signup terms line on the register form (signup_terms_url / KIP_SIGNUP_TERMS_URL): https and site-relative URLs link, any other scheme renders the label as plain text, unconfigured renders nothing.
+
+### Changed
+- every syndication feed identifies itself: each Atom feed's id and rel=self are its own address and its alternate link points at its page (profile or category) instead of the site root, RSS carries the advisory's atom:link rel=self, and the layout's autodiscovery link keeps the feed's own title instead of borrowing the page title.
+- the caching contract: the syndication XML answers public max-age=300/s-maxage=3600 with 304 revalidations repeating the stored policy, page-shape 304s repeat the page bound, HEAD polls revalidate like GETs, and under Apache the docroot's real files get pinned types (image/webp, text/javascript), nosniff, per-type lifetimes (images and svg one day, unversioned assets four hours, robots and sitemaps hourly), and a refusal of direct /cache/ URLs in every spelling.
+
+### Removed
+- the /compare/* marketing pages; the platform comparison lives in docs/COMPARE.md (the Fictioneer section included) as documentation instead of routed site surface.
+
+### Fixed
+- cache-policy edges: a 304 no longer flips a stored CDN entry to no-store on first revalidation (feed or page), empty feeds pin a stable updated instant so their ETag stops churning every second, and images lost their year-long immutable lifetime in favor of one day (a moderated or deleted upload stops serving from caches within a day).
+- Fictioneer import fidelity: split-file imports seed chapter positions from the database rather than the file alone, the summary fallback caps at the form's 1000 characters, adoption only adopts the same run's prior accounts, and legacy slug rows and shortlinks redirect correctly.
+- the dev-server passthrough serves real files under a symlinked docroot (both sides resolved through realpath, so a /var-style symlink no longer routes assets into the application) and covers every extension the uploads allowlist accepts plus nosniff parity with the Apache path.
+- robots.txt regeneration writes an absolute Sitemap URL (RFC 9309; crawlers ignore a relative one), and a build whose base_url is the unconfigured default skips sitemap and robots regeneration entirely so local runs never rewrite the committed seed.
+
 ## [0.2.0] - 2026-10-21
 
 ### Security

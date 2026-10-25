@@ -89,6 +89,19 @@ final class ImportCliTest extends TestCase
         $this->assertStringContainsString('password file', $out);
         // pages:build ran against the TEST cache dir, never the repo's (finding 6)
         $this->assertDirectoryExists($this->root . '/cache');
+        // Regression (suite isolation, 2026-10-24): the import's internal
+        // pages:build must never rewrite the REPO's committed public/robots.txt
+        // with the unconfigured default base URL. The subprocess inherits the
+        // repo public_dir; only the base_url default gate stops the write.
+        $repoRoot = dirname(__DIR__);
+        $this->assertSame(
+            (string) file_get_contents($repoRoot . '/public/robots.txt'),
+            "User-agent: *
+Disallow: /*?*
+
+Sitemap: /sitemap.xml
+",
+            'the committed robots seed is byte-identical after an import');
     }
 
     public function test_dry_run_writes_nothing_and_reports(): void

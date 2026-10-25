@@ -133,6 +133,79 @@ final class StaticCacheTest extends TestCase
             new Request('GET', '/auth/login', [], [], []), new Response('x', 200)), 'non-whitelisted route never');
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
             $eligible, new Response('x', 200, ['X-Robots-Tag' => 'noindex'])), 'noindexed never');
+        // A page-shape 304 repeats the stored 200's policy (RFC 9111 4.3.4:
+        // caches update the stored entry's headers from the 304's), with the
+        // same guards: whitelisted cookieless GET only, clean headers only.
+        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+            $eligible, new Response('', 304, ['ETag' => '"sha256"'])), 'a page 304 repeats the page policy');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            new Request('GET', '/auth/login', [], [], []), new Response('', 304)), 'a 304 outside the whitelist stays private');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            $eligible, new Response('', 304, ['Set-Cookie' => 'sid=1'])), 'a cookied 304 stays private');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            $eligible, new Response('', 304, ['X-Robots-Tag' => 'noindex'])), 'a noindexed 304 stays private');
+        // A HEAD poll revalidates like a GET: the entry survives.
+        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+            new Request('HEAD', '/story/view/x', [], [], []), new Response('', 304, ['ETag' => '"x"'])), 'a HEAD 304 repeats the page policy');
+        // Only the indexing directives withhold (the framework's stance, plus
+        // 'none', their exact synonym); other robots directives do not
+        // personalize a response.
+        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+            $eligible, new Response('x', 200, ['X-Robots-Tag' => 'max-image-preview:large'])), 'a non-indexing robots directive still caches');
+        $this->assertSame('private, no-store', $this->cache->cacheControlFor(
+            $eligible, new Response('x', 200, ['X-Robots-Tag' => 'none'])), 'none is noindex\'s synonym and withholds too');
+    }
+
+    /** The write path is the 304 rule's mirror and its guard: a 304 carries
+     *  the public policy so held entries survive revalidation, but its empty
+     *  body must never replace a stored page. */
+    public function test_a_304_never_fills_the_cache_file(): void
+    {
+        $req = new Request('GET', '/story/view/x', [], [], []);
+        $this->cache->maybeStore($req, new Response('<html>real</html>', 200));
+        $stored = $this->cache->serve($req);
+        $this->assertNotNull($stored);
+        $this->cache->maybeStore($req, new Response('', 304, ['ETag' => '"sha256"']));
+        $after = $this->cache->serve($req);
+        $this->assertNotNull($after, 'the stored page survives');
+        $this->assertSame($stored->body, $after->body, 'the 304 wrote nothing over it');
+    }
+
+    /** The syndication XML's public lifetime: the one app-served shape a
+     *  shared cache may hold. The path whitelist matches the feed routes and
+     *  nothing else (the subscribe page is a personalized HTML page, slug
+     *  shapes match the router's), a non-200 stays private, and a
+     *  Set-Cookie never rides a shared cache. */
+    public function test_feed_control_times_only_the_syndication_xml(): void
+    {
+        $feed = new Response('<?xml?>', 200);
+        $cc = 'public, max-age=300, s-maxage=3600';
+        foreach (['/feed', '/rss', '/feed/category/fantasy', '/feed/author/wren_field'] as $path) {
+            $this->assertSame($cc, Cache::feedControl(new Request('GET', $path, [], [], []), $feed), $path);
+        }
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/subscribe', [], [], []), $feed), 'the subscribe page is personalized HTML');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/Wrenfield', [], [], []), $feed), 'slug shapes match the router');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/author/x/extra', [], [], []), $feed));
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []), new Response('<?xml?>', 404)), 'non-200 is never shareable');
+        $this->assertNull(Cache::feedControl(new Request('HEAD', '/feed', [], [], []), $feed), 'a HEAD response never rides the public lifetime (its body was stripped)');
+        // A HEAD-sourced 304 repeats the stored policy like a GET's: HEAD
+        // polls (feed readers use them) must not evict the CDN entry.
+        $this->assertSame($cc, Cache::feedControl(new Request('HEAD', '/feed', [], [], []), new Response('', 304, ['ETag' => '"x"'])), 'a HEAD 304 repeats the feed policy');
+        // A conditional GET's 304 must repeat the Cache-Control the 200 would
+        // send (RFC 9111): Kip answers If-None-Match on every feed 200 with a
+        // 304, and a shared cache replaces the stored entry's policy with the
+        // 304's, so the fallback would flip the CDN entry to no-store on the
+        // first revalidation.
+        $this->assertSame($cc, Cache::feedControl(new Request('GET', '/feed', [], [], []), new Response('', 304, ['ETag' => '"sha256"'])), 'a 304 repeats the 200 policy');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed/subscribe', [], [], []), new Response('', 304)), 'a 304 outside the feed paths stays private');
+        $this->assertNull(Cache::feedControl(new Request('GET', '/feed', [], [], []),
+            new Response('<?xml?>', 200, ['Set-Cookie' => 'sid=1'])), 'a Set-Cookie response is personalized');
+        // The seam hands the feed its lifetime and keeps the page rule intact;
+        // with the static cache disabled outright the front controller calls
+        // feedControl directly, so the static method is the whole fallback.
+        $this->assertSame($cc, $this->cache->cacheControlFor(new Request('GET', '/feed', [], [], []), $feed));
+        $this->assertSame('private, no-store',
+            $this->cache->cacheControlFor(new Request('GET', '/feed/subscribe', [], [], []), $feed));
     }
 
     public function test_maybe_store_refuses_a_list_valued_set_cookie(): void

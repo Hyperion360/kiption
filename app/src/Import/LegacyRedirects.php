@@ -87,16 +87,89 @@ final class LegacyRedirects
         }
         $row = $db->one('SELECT target_type, target_id FROM legacy_urls WHERE legacy_path = ? AND params = ?',
             [$path, $params]);
+        if ($row === null) return null; // entity gone: fall through to the honest 404
+        return $this->destination($db, (string) $row['target_type'], (int) $row['target_id']);
+    }
+
+    /** Fictioneer side of the map, post-commit: /story/{slug}, /author/{login},
+     *  and the ?p=&post_type= query fallbacks, all derived from import_map.
+     *  legacy_id is site-scoped ('{host}/{id}' or '{host}/{login}'); the id
+     *  or login is the part after the last slash. Chapter path rows
+     *  (/chapter/{slug}, /story/{story}/{chapter}) are written inside the
+     *  import instead, because chapter slugs exist only in the WXR. INSERT
+     *  OR IGNORE keeps re-runs idempotent. */
+    public function writeForFictioneer(Database $db): void
+    {
+        $tail = static fn(string $legacyId): string => (string) substr(strrchr('/' . $legacyId, '/'), 1);
+        foreach ($db->all("SELECT m.legacy_id, m.new_id, s.slug FROM import_map m
+                           JOIN stories s ON s.id = m.new_id WHERE m.legacy_table = 'fcn_story'") as $m) {
+            $db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, ?, ?, ?)',
+                ['/story/' . $m['slug'], '', 'story', (int) $m['new_id']]);
+            $db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, ?, ?, ?)',
+                ['', 'p=' . $tail((string) $m['legacy_id']) . '&post_type=fcn_story', 'story', (int) $m['new_id']]);
+        }
+        foreach ($db->all("SELECT m.legacy_id, c.story_id FROM import_map m
+                           JOIN chapters c ON c.id = m.new_id WHERE m.legacy_table = 'fcn_chapter'") as $m) {
+            $db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, ?, ?, ?)',
+                ['', 'p=' . $tail((string) $m['legacy_id']) . '&post_type=fcn_chapter', 'story', (int) $m['story_id']]);
+        }
+        foreach ($db->all("SELECT m.legacy_id, m.new_id FROM import_map m
+                           JOIN users u ON u.id = m.new_id WHERE m.legacy_table = 'fcn_user'") as $m) {
+            $db->query('INSERT OR IGNORE INTO legacy_urls (legacy_path, params, target_type, target_id) VALUES (?, ?, ?, ?)',
+                ['/author/' . $tail((string) $m['legacy_id']), '', 'user', (int) $m['new_id']]);
+        }
+    }
+
+    /** Fictioneer path shapes, consulted only after a routed 404: an exact
+     *  path row (params ''), or the sorted query-string fallbacks, or a
+     *  legacy page name (recommendation pages landed in pages). Clean
+     *  pages and static-cache hits never reach here, so the one indexed
+     *  lookup is paid by 404s alone. */
+    public function lookupPath(Request $request, Database $db): ?string
+    {
+        if ($request->method !== 'GET') return null;
+        $path = '/' . trim($request->path, '/');
+        $row = null;
+        if ($request->get === []) {
+            $row = $db->one('SELECT target_type, target_id FROM legacy_urls WHERE legacy_path = ? AND params = ?', [$path, '']);
+            if ($row === null) {
+                $page = $db->one('SELECT p.slug FROM legacy_page_urls l JOIN pages p ON p.slug = l.page_slug WHERE l.legacy_name = ?', [trim($path, '/')]);
+                if ($page !== null) return '/page/view/' . $page['slug'];
+            }
+        } else {
+            $get = [];
+            foreach ($request->get as $k => $v) { if (is_string($v)) $get[$k] = $v; }
+            if (count($get) === count($request->get)) {
+                ksort($get);
+                $row = $db->one('SELECT target_type, target_id FROM legacy_urls WHERE legacy_path = ? AND params = ?', ['', http_build_query($get)]);
+                // WordPress's canonical shortlink arrives as a bare ?p={digits}
+                // (no post_type): try the two Fictioneer post types before
+                // giving up, in the story-then-chapter order the map writes.
+                if ($row === null && count($get) === 1 && ctype_digit((string) ($get['p'] ?? ''))) {
+                    foreach (['p=' . $get['p'] . '&post_type=fcn_story', 'p=' . $get['p'] . '&post_type=fcn_chapter'] as $shaped) {
+                        $row = $db->one('SELECT target_type, target_id FROM legacy_urls WHERE legacy_path = ? AND params = ?', ['', $shaped]);
+                        if ($row !== null) break;
+                    }
+                }
+            }
+        }
         if ($row === null) return null;
-        $slug = match ($row['target_type']) {
-            'story' => $db->one('SELECT slug FROM stories WHERE id = ?', [$row['target_id']])['slug'] ?? null,
-            'series' => $db->one('SELECT slug FROM series WHERE id = ?', [$row['target_id']])['slug'] ?? null,
-            'category' => $db->one('SELECT slug FROM categories WHERE id = ?', [$row['target_id']])['slug'] ?? null,
-            'user' => $db->one('SELECT profile_slug FROM users WHERE id = ?', [$row['target_id']])['profile_slug'] ?? null,
+        return $this->destination($db, (string) $row['target_type'], (int) $row['target_id']);
+    }
+
+    /** target -> current URL, resolved at request time so slug edits
+     *  survive; entity gone = null = the honest 404. */
+    private function destination(Database $db, string $type, int $id): ?string
+    {
+        $slug = match ($type) {
+            'story' => $db->one('SELECT slug FROM stories WHERE id = ?', [$id])['slug'] ?? null,
+            'series' => $db->one('SELECT slug FROM series WHERE id = ?', [$id])['slug'] ?? null,
+            'category' => $db->one('SELECT slug FROM categories WHERE id = ?', [$id])['slug'] ?? null,
+            'user' => $db->one('SELECT profile_slug FROM users WHERE id = ?', [$id])['profile_slug'] ?? null,
             default => null,
         };
-        if ($slug === null) return null; // entity gone: fall through to the honest 404
-        return match ($row['target_type']) {
+        if ($slug === null) return null;
+        return match ($type) {
             'story' => '/story/view/' . $slug,
             'series' => '/series/view/' . $slug,
             'category' => '/browse/category/' . $slug,

@@ -28,8 +28,14 @@
   <link rel="canonical" href="/">
   <?php endif; ?>
   <?php if (\App\Features::on('feeds')): ?>
-  <link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? \App\Lang::t('common.feed_title')) ?>" href="/feed">
+  <?php // The archive feed's own name, never the page's: a reader listing two
+     // autodiscovered feeds (this one plus a profile or category feed) must
+     // not see the archive carrying the page's title. ?>
+  <link rel="alternate" type="application/atom+xml" title="<?= $this->e(\App\Lang::t('common.feed_title')) ?>" href="/feed">
   <?php endif; ?>
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/assets/reader.css">
   <script src="/assets/app.js" defer></script>
 </head>
@@ -86,6 +92,15 @@
 <?php endforeach; ?>
       <?php if (\App\Features::on('feeds')): ?><a href="/feed/subscribe"><?= \App\Lang::t('common.feed_title') ?></a><?php endif; ?>
     </nav>
+    <?php /* The operator's legal line (the Attribution seam's sibling):
+       copyright holder and legal links from the boot config, absent when
+       unconfigured. Identical bytes for every visitor; the year is baked
+       at render time, so a cached page carries its build year until the
+       next build or purge. Only https and site-relative urls link (the
+       nav stance); anything else renders as plain text. */ ?>
+    <?php if (\App\FooterLegal::has()): ?>
+    <p class="foot-legal"><?php foreach (\App\FooterLegal::links() as $l): ?><?php if (\App\FooterLegal::linkable($l['url'])): ?><a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a><?php else: ?><?= $this->e($l['label']) ?><?php endif; ?> <?php endforeach; ?><?php if (\App\FooterLegal::copyright() !== ''): ?><span>© <?= date('Y') ?> <?php if (\App\FooterLegal::linkable(\App\FooterLegal::copyrightUrl())): ?><a href="<?= $this->e(\App\FooterLegal::copyrightUrl()) ?>" rel="noopener"><?= $this->e(\App\FooterLegal::copyright()) ?></a><?php else: ?><?= $this->e(\App\FooterLegal::copyright()) ?><?php endif; ?></span><?php endif; ?></p>
+    <?php endif; ?>
     <?php /* Attribution (the WordPress pattern): on by default, off by the
        powered_by config key, identical bytes for every visitor so cached
        pages stay stable. */ ?>

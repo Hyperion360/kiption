@@ -5,7 +5,7 @@ like. Authoring is covered in [AUTHORS.md](AUTHORS.md).
 
 There are no ads and no algorithmic feed deciding what you see, your
 position is remembered across chapters, and any story downloads as EPUB.
-[value-props.md](value-props.md) compares this archive with the platforms
+[COMPARE.md](COMPARE.md) compares this archive with the platforms
 you may be leaving.
 
 ## Themes

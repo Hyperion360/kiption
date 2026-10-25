@@ -14,5 +14,8 @@
     <?php endif; ?>
     <button type="submit"><?= \App\Lang::t('auth.register.submit') ?></button>
   </form>
+  <?php if (!empty($terms_url)): ?>
+  <p class="auth-terms"><?php if (\App\FooterLegal::linkable($terms_url)): ?><?= \App\Lang::t('auth.terms_pre') ?> <a href="<?= $this->e($terms_url) ?>"><?= \App\Lang::t('auth.terms_label') ?></a>.<?php else: ?><?= \App\Lang::t('auth.terms_link', ['terms' => \App\Lang::t('auth.terms_label')]) ?><?php endif; ?></p>
+  <?php endif; ?>
   <p class="auth-links"><span><?= \App\Lang::t('auth.register.have_account') ?> <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>.</span></p>
 </section>

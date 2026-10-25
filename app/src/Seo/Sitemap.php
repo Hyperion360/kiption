@@ -63,14 +63,18 @@ final class Sitemap
         // Stories: the view URL plus every validated read URL per story, all
         // carrying the story's updated_at; split into segments of
         // $maxPerSegment URLs. The WHERE clause is the Builder's story gate
-        // (validated, not deleted, not restricted) plus canonical_url IS NULL.
+        // (validated, not deleted, not restricted) plus canonical_url IS NULL
+        // plus the lock: a locked work serves a noindex gate, so its URL is
+        // never advertised (the chapter join carries the same gate, so a
+        // locked chapter drops only its read URL while the open story's view
+        // URL stays listed).
         // One query: the LEFT JOIN yields one row per validated chapter and a
         // single NULL-position row for chapterless stories, so the view URL is
         // emitted on each story's first row (the slug change) and one read URL
         // per chapter row.
         $storyUrls = [];
         $lastSlug = null;
-        foreach ($db->all('SELECT s.slug, s.updated_at, c.position FROM stories s LEFT JOIN chapters c ON c.story_id = s.id AND c.validated = 1 WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0 AND s.canonical_url IS NULL ORDER BY s.id, c.position') as $r) {
+        foreach ($db->all('SELECT s.slug, s.updated_at, c.position FROM stories s LEFT JOIN chapters c ON c.story_id = s.id AND c.validated = 1 AND c.access_hash IS NULL WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0 AND s.canonical_url IS NULL AND s.access_hash IS NULL ORDER BY s.id, c.position') as $r) {
             $slug = rawurlencode((string) $r['slug']);
             if ($r['slug'] !== $lastSlug) {
                 $storyUrls[] = [$baseUrl . '/story/view/' . $slug, $r['updated_at']];
@@ -96,10 +100,11 @@ final class Sitemap
             $db->all('SELECT slug, created_at FROM series'))];
         // A mapped marketing slug advertises its TOP-LEVEL spelling (TopPaths
         // owns the map): a sitemap entry is a canonical declaration, so the
-        // /page/view alias, a 301, never appears here.
+        // /page/view alias, a 301, never appears here. A noindex row is
+        // never advertised either (the flag's whole point).
         $segments[] = ['sitemap-pages.xml', array_map(static fn(array $p): array
             => [$baseUrl . (\App\Marketing\TopPaths::path((string) $p['slug']) ?? '/page/view/' . rawurlencode((string) $p['slug'])), $p['updated_at']],
-            $db->all("SELECT slug, updated_at FROM pages WHERE body <> ''"))];
+            $db->all("SELECT slug, updated_at FROM pages WHERE body <> '' AND noindex = 0"))];
         // The news segment gates on its flag (finding 3): uninit the class
         // answers ON (finding 1), so every pre-flag caller keeps the segment.
         if (\App\Features::on('news')) {
@@ -121,10 +126,15 @@ final class Sitemap
     /** Regenerate robots.txt. Permissive is the committed public/robots.txt
      *  verbatim (byte-identical, the 52 bytes incl. the blank line before
      *  Sitemap); restrictive prepends one RFC 9309 group for the named AI
-     *  crawlers: consecutive User-agent lines share the single Disallow. */
-    public static function writeRobots(string $file, bool $permissive): void
+     *  crawlers: consecutive User-agent lines share the single Disallow.
+     *  $baseUrl turns the Sitemap line absolute (RFC 9309 requires an
+     *  absolute URL; a relative one is ignored by crawlers and fails
+     *  Lighthouse's robots-txt audit): every regenerator that knows the
+     *  site's address passes it; empty keeps the committed seed bytes. */
+    public static function writeRobots(string $file, bool $permissive, string $baseUrl = ''): void
     {
-        $body = "User-agent: *\nDisallow: /*?*\n\nSitemap: /sitemap.xml\n";
+        $sitemap = $baseUrl === '' ? '/sitemap.xml' : rtrim($baseUrl, '/') . '/sitemap.xml';
+        $body = "User-agent: *\nDisallow: /*?*\n\nSitemap: {$sitemap}\n";
         $ai = "User-agent: GPTBot\nUser-agent: CCBot\nUser-agent: ClaudeBot\nUser-agent: anthropic-ai\nUser-agent: Google-Extended\nDisallow: /\n\n";
         file_put_contents($file, $permissive ? $body : $ai . $body);
     }

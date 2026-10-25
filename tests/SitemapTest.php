@@ -94,6 +94,31 @@ final class SitemapTest extends TestCase
         $this->assertStringContainsString('sitemap-authors.xml', (string) file_get_contents($dir . '/sitemap.xml'), 'the index lists what was written');
     }
 
+    public function test_locked_stories_leave_the_sitemap(): void
+    {
+        // a locked work serves a noindex gate, so its URLs stop being
+        // advertised: the story gate (view + every read) and the chapter gate
+        // (a locked chapter's read URL drops, its open story stays listed)
+        $dir = $this->publicDir();
+        $this->db()->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [password_hash('pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        \App\Seo\Sitemap::writeAll($this->db(), $dir, 'https://archive.example', []);
+        $stories = (string) file_get_contents($dir . '/sitemap-stories-1.xml');
+        $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $stories);
+        $this->assertStringNotContainsString('/story/read/the-rabbit-hole/1', $stories);
+        $this->assertStringContainsString('/story/view/after-hours', $stories, 'open stories stay listed');
+
+        // unlock the story, lock one chapter: the story entry and the open
+        // chapter's read URL stay, only the locked chapter's read URL drops
+        $this->db()->query('UPDATE stories SET access_hash = NULL WHERE slug = ?', ['the-rabbit-hole']);
+        $this->db()->query('UPDATE chapters SET access_hash = ? WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = 1',
+            [password_hash('pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        \App\Seo\Sitemap::writeAll($this->db(), $dir, 'https://archive.example', []);
+        $stories = (string) file_get_contents($dir . '/sitemap-stories-1.xml');
+        $this->assertStringContainsString('/story/view/the-rabbit-hole', $stories, 'an open story with a locked chapter stays listed');
+        $this->assertStringNotContainsString('/story/read/the-rabbit-hole/1', $stories, 'the locked chapter read URL drops');
+        $this->assertStringContainsString('/story/read/the-rabbit-hole/2', $stories, 'open chapters stay listed');
+    }
+
     public function test_stories_split_at_a_lowered_segment_seam(): void
     {
         $dir = $this->publicDir();
@@ -133,8 +158,8 @@ final class SitemapTest extends TestCase
         // index joins the enumeration; the /series index rides the fixed set;
         // sitemaps stay files, not cache pages; the content-policy page rides
         // the seeded-pages set, and Task 2's dmca page rides it too, at its
-        // top-level spelling; the fix loop adds the /compare index, +1)
-        $this->assertSame(26, $count);
+        // top-level spelling)
+        $this->assertSame(25, $count);
         $this->assertFileExists($this->publicDir() . '/sitemap.xml');
         $this->assertStringContainsString(
             'https://archive.example/story/view/the-rabbit-hole',
@@ -142,6 +167,9 @@ final class SitemapTest extends TestCase
         $this->assertStringContainsString('User-agent: GPTBot',
             (string) file_get_contents($this->publicDir() . '/robots.txt'),
             'the build honors the ai_crawlers toggle');
+        $this->assertStringContainsString('Sitemap: https://archive.example/sitemap.xml',
+            (string) file_get_contents($this->publicDir() . '/robots.txt'),
+            'the build passes its base_url so the Sitemap line is absolute (RFC 9309)');
         $this->assertFileDoesNotExist($cacheDir . '/sitemap.xml',
             'finding 11: sitemaps land in public_dir, never the cache dir');
     }

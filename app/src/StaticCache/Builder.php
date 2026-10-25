@@ -33,10 +33,7 @@ final class Builder
         unset($config['cache_db']);
         $config['log_db'] = ['dsn' => 'sqlite::memory:'];
         $app = new App($config);
-        // The compare index rides the fixed set (the /news idiom): it renders
-        // regardless of page rows (fallback titles), so the build warms it
-        // instead of waiting for a first live request to fill the layer.
-        $urls = ['/', '/browse', '/browse/recent', '/series', '/compare'];
+        $urls = ['/', '/browse', '/browse/recent', '/series'];
         // The four flaggable blocks (finding 3): the /top seed, the lists
         // block, the news block, the directory block. Off flags enumerate
         // nothing, so no gated page is ever rendered or stored.
@@ -78,7 +75,7 @@ final class Builder
         // mapped marketing slug emits its TOP-LEVEL spelling (TopPaths), the
         // one it serves at; the /page/view spelling is a 301 and must never
         // hold a file (this layer answers before routing).
-        foreach ($db->all("SELECT slug FROM pages WHERE body <> ''") as $p) {
+        foreach ($db->all("SELECT slug FROM pages WHERE body <> '' AND noindex = 0") as $p) {
             $urls[] = \App\Marketing\TopPaths::path((string) $p['slug']) ?? '/page/view/' . $p['slug'];
         }
         // News: the index plus every item's view page (public data only).
@@ -125,16 +122,26 @@ final class Builder
         // EXPLICIT public_dir config key, never derived from $cacheDir:
         // KIP_STATIC_CACHE_DIR may relocate the cache off the web root, but
         // sitemap.xml and robots.txt must stay web-served (finding 11).
-        // Skipped when public_dir/base_url are unconfigured: the count above
-        // stays cache pages only (sitemaps are files, not cache pages).
+        // Skipped when public_dir/base_url are unconfigured AND when base_url
+        // still carries the unconfigured default (config.php's localhost
+        // placeholder): a build on an unconfigured checkout (a CLI import,
+        // a test subprocess) must never rewrite the committed robots seed
+        // with a placeholder absolute URL. The setup wizard records the real
+        // base URL into deployment.php, and every configured install leaves
+        // the default behind.
         $publicDir = $config['public_dir'] ?? null;
         $baseUrl = rtrim((string) ($config['base_url'] ?? ''), '/');
-        if ($publicDir !== null && $baseUrl !== '') {
+        if ($publicDir !== null && $baseUrl !== '' && $baseUrl !== rtrim(self::UNCONFIGURED_BASE_URL, '/')) {
             Sitemap::writeAll($db, $publicDir, $baseUrl, $config);
-            Sitemap::writeRobots($publicDir . '/robots.txt', (bool) ($config['ai_crawlers'] ?? true));
+            Sitemap::writeRobots($publicDir . '/robots.txt', (bool) ($config['ai_crawlers'] ?? true), $baseUrl);
         }
         return $written;
     }
+
+    /** config.php's base_url placeholder, the marker of an unconfigured
+     *  install (no deployment record, no KIP_BASE_URL). Kept here as the
+     *  one spelling the gate compares against. */
+    public const UNCONFIGURED_BASE_URL = 'http://localhost:8080';
 
     /** Wipe the static layer and the framework page cache. */
     public static function prune(string $cacheDir, string $appDir): void

@@ -33,7 +33,7 @@ final class LegacyBcryptLoginTest extends TestCase
     private function controller(): AuthController
     {
         $c = (new \ReflectionClass(AuthController::class))->newInstanceWithoutConstructor();
-        foreach (['db' => $this->db, 'mailer' => new \Kip\Mailer(['transport' => 'throws-in-tests'])] as $prop => $val) {
+        foreach (['db' => $this->db, 'mailer' => \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'throws-in-tests']))] as $prop => $val) {
             $p = new \ReflectionProperty(AuthController::class, $prop);
             $p->setAccessible(true);
             $p->setValue($c, $val);

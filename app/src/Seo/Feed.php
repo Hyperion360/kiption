@@ -14,8 +14,18 @@ final class Feed
         return htmlspecialchars($s, self::X, 'UTF-8');
     }
 
-    public static function atom(string $siteName, string $baseUrl, array $stories, bool $fullText = false): string
+    /** One Atom document. $feedPath is the feed's own address: it is both the
+     *  <id> and the rel=self link, because Atom's id must identify THIS feed
+     *  (every feed on the site once shared the site root as its id, so a
+     *  reader keying on id could not tell the fantasy feed from the archive).
+     *  Both paths are required: a default would silently mint the main
+     *  feed's identity for a caller that forgets them. $alternatePath is the
+     *  feed's human-facing page. Entry ids are story URLs and never change:
+     *  readers key entries on those. */
+    public static function atom(string $siteName, string $baseUrl, array $stories, bool $fullText,
+        string $feedPath, string $alternatePath): string
     {
+        $self = $baseUrl . $feedPath;
         $items = '';
         foreach ($stories as $s) {
             $url = $baseUrl . '/story/view/' . rawurlencode($s['slug']);
@@ -37,18 +47,27 @@ final class Feed
                     : '')
                 . "  </entry>\n";
         }
-        $updated = $stories[0]['updated_at'] ?? date('c');
+        // An empty feed pins a stable instant: date() here would move the
+        // <updated> (and so the body-hash ETag) every second, and no reader
+        // revalidation of an empty feed would ever get a 304.
+        $updated = $stories[0]['updated_at'] ?? '1970-01-01T00:00:00+00:00';
         return '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
             . "<feed xmlns=\"http://www.w3.org/2005/Atom\">\n"
             . '  <title>' . self::e($siteName) . "</title>\n"
-            . '  <id>' . self::e($baseUrl . '/') . "</id>\n"
-            . '  <link href="' . self::e($baseUrl) . "\"/>\n"
+            . '  <id>' . self::e($self) . "</id>\n"
+            . '  <link rel="self" href="' . self::e($self) . '" type="application/atom+xml"/>' . "\n"
+            . '  <link rel="alternate" href="' . self::e($baseUrl . $alternatePath) . '" type="text/html"/>' . "\n"
             . '  <updated>' . self::e($updated) . "</updated>\n"
             . $items . "</feed>\n";
     }
 
+    /** RSS 2.0. The atom:link rel=self is RSS best practice's form of the same
+     *  identity (the RSS advisory recommends it; readers use it to pin the
+     *  feed's canonical address after a redirect). /rss is the one RSS
+     *  address the app has, so it is written here and callers pass nothing. */
     public static function rss(string $siteName, string $baseUrl, array $stories): string
     {
+        $self = $baseUrl . '/rss';
         $items = '';
         foreach ($stories as $s) {
             $url = $baseUrl . '/story/view/' . rawurlencode($s['slug']);
@@ -61,10 +80,11 @@ final class Feed
                 . "    </item>\n";
         }
         return '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
-            . "<rss version=\"2.0\">\n  <channel>\n"
+            . "<rss version=\"2.0\" xmlns:atom=\"http://www.w3.org/2005/Atom\">\n  <channel>\n"
             . '    <title>' . self::e($siteName) . "</title>\n"
             . '    <link>' . self::e($baseUrl) . "</link>\n"
             . '    <description>Recently updated stories</description>' . "\n"
+            . '    <atom:link rel="self" href="' . self::e($self) . '" type="application/rss+xml"/>' . "\n"
             . $items . "  </channel>\n</rss>\n";
     }
 }

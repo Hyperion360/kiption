@@ -13,11 +13,12 @@ public/index.php
   |      \-- no  --> static cache maintenancePurge(false)
   |-- static cache serve(request)?  (GET, no cookies, no query, whitelisted path)
   |      |-- HIT  --> send --> exit            (App never boots)
-  |      \-- miss --> legacy .php URL in the 301 map? --> Location 301 --> exit
+  |      \-- miss --> legacy .php URL or /?p=&post_type=fcn_* query in the 301 map? --> Location 301 --> exit
   |                     \-- no --> new Kip\App(config, lazy session)
   |                                    |-- App::handle(request)
   |                                    |     |-- route to App\Features\{Feature}\*
   |                                    |     \-- Response (200/404/...)
+  |                                    |-- 404 and a legacy Fictioneer path? --> Location 301 --> exit
   |                                    |-- static cache maybeStore(request, response)  (anonymous 200 only)
   |                                    \-- send
 */
@@ -30,18 +31,37 @@ declare(strict_types=1);
 // file itself: a `return false` here cannot cross the stable wrapper's require
 // boundary, which is the top-level router the dev server consults.
 if (PHP_SAPI === 'cli-server') {
-    $docroot = rtrim(defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : __DIR__, '/');
+    // Resolved on both sides: a docroot reached through a symlink (/var on
+    // macOS, a symlinked home on a host) never prefixes its own files'
+    // resolved paths otherwise, and every asset falls through to the app.
+    $docroot = realpath(defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : __DIR__);
     $p = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
-    $real = realpath($docroot . $p);
+    $real = $docroot === false ? false : realpath($docroot . $p);
     if ($real !== false && str_starts_with($real, $docroot . '/') && is_file($real)) {
-        // Assets only. A passthrough of anything else would hand out .php
-        // source (setup.php, upgrade.php) on the cli-server: unknown
-        // extensions fall through to the application like any other route.
-        $type = ['css' => 'text/css', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
-            'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'js' => 'text/javascript',
-            'png' => 'image/png', 'svg' => 'image/svg+xml', 'woff2' => 'font/woff2',
-        ][strtolower(pathinfo($real, PATHINFO_EXTENSION))] ?? null;
+        $rel = substr($real, strlen($docroot) + 1);
+        // .htaccess's two by-name refusals, mirrored: any dotted path segment
+        // (.well-known excepted, ACME challenges ride it under Apache too)
+        // and the private setup state, so a misupload into the docroot stays
+        // unreachable on the dev server exactly as it does under Apache.
+        $private = preg_match('#(^|/)\.(?!well-known/)#', $rel) === 1
+            || in_array(basename($rel), ['deployment.php', 'setup-token.txt', 'setup-complete.lock', 'setup.lock', 'setup-attempts'], true);
+        // Known static types only: the assets, every extension the config's
+        // uploads allowlist lets Storage write, and the real-file artifacts
+        // beside index.php (robots.txt, the sitemaps). Anything else, .php
+        // above all (setup.php, upgrade.php), falls through to the
+        // application like any other route instead of being handed out as
+        // source. Text types carry the charset the no-router dev server and
+        // PHP's own responses send.
+        $type = $private ? null : ([
+            'css' => 'text/css; charset=utf-8', 'gif' => 'image/gif', 'ico' => 'image/x-icon',
+            'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'js' => 'text/javascript; charset=utf-8',
+            'png' => 'image/png', 'svg' => 'image/svg+xml', 'txt' => 'text/plain; charset=utf-8',
+            'webp' => 'image/webp', 'woff2' => 'font/woff2', 'xml' => 'application/xml; charset=utf-8',
+        ][strtolower(pathinfo($rel, PATHINFO_EXTENSION))] ?? null);
         if ($type !== null) {
+            // The same header the .htaccess rules put on real files, so the
+            // dev server's file path carries the parity the policy states.
+            header('X-Content-Type-Options: nosniff');
             header('Content-Type: ' . $type);
             header('Content-Length: ' . (string) filesize($real));
             readfile($real);
@@ -130,10 +150,15 @@ if ($static !== null && ($hit = $static->serve($request)) !== null) {
     exit;
 }
 
-// Legacy eFiction URLs: consult the import's 301 map before routing. Only GET
-// requests whose path ends in .php reach the database here; app pages are .php-free.
-if ($request->method === 'GET' && preg_match('#\.php$#', $request->path)) {
-    $target = (new \App\Import\LegacyRedirects())->lookup($request, new \Kip\Database($config['db']['dsn']));
+// Legacy eFiction URLs (.php paths) and Fictioneer's WordPress query fallbacks
+// (/?p=N&post_type=fcn_*, /?fcn_chapter=slug): consult the import's 301 map
+// before routing. A plain / request carries none of those parameters and
+// never reaches the database here.
+$legacyQuery = $request->path === '/' && (isset($request->get['p']) || isset($request->get['fcn_story']) || isset($request->get['fcn_chapter']));
+if ($request->method === 'GET' && (preg_match('#\.php$#', $request->path) || $legacyQuery)) {
+    $redirects = new \App\Import\LegacyRedirects();
+    $legacyDb = new \Kip\Database($config['db']['dsn']);
+    $target = $legacyQuery ? $redirects->lookupPath($request, $legacyDb) : $redirects->lookup($request, $legacyDb);
     if ($target !== null) {
         header('Cache-Control: private, no-store');
         header('Location: ' . $target, true, 301);
@@ -165,6 +190,7 @@ $config = \App\Settings::apply($config);
 // Nothing above reads it (the static-cache HIT serves stored bytes, the
 // maintenance view is standalone), so init-after-apply covers every render.
 \App\Attribution::init($config);
+\App\FooterLegal::init($config); // the legal-line seam, same merged-config order
 // The skins seam (views_override): the operator's chosen skin directory wins
 // over the app defaults template-by-template, '' for the default skin. It sits
 // AFTER the static-cache HIT and the maintenance 503 above by construction:
@@ -173,17 +199,31 @@ $config['views_override'] = \App\Skins::overrideDir($config);
 
 $app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
 $response = $app->handle($request);
+// Fictioneer legacy paths: only a routed 404 pays the consult (one indexed
+// lookup). Every clean page and every static-cache HIT is untouched.
+if ($response->status === 404 && $request->method === 'GET') {
+    $target = (new \App\Import\LegacyRedirects())->lookupPath($request, new \Kip\Database($config['db']['dsn']));
+    if ($target !== null) {
+        header('Cache-Control: private, no-store');
+        header('Location: ' . $target, true, 301);
+        exit;
+    }
+}
 if ($static !== null) {
     $static->maybeStore($request, $response);
 }
-// The shared-cache contract, decided where store eligibility is known: the one
-// response shape a CDN may hold is the one this layer just stored (anonymous,
-// 200, cookieless, queryless, whitelisted GET); everything else, including
-// every render when the static cache is disabled outright, is private and
-// uncacheable. A response that already carries Cache-Control (the reader
-// fragment's private, no-store, the beacon's) is overwritten with the value
-// its eligibility demands, which is always at least as strict.
-$response = $response->withHeader('Cache-Control', $static?->cacheControlFor($request, $response) ?? 'private, no-store');
+// The shared-cache contract, decided where store eligibility is known: the
+// one page shape a CDN may hold is the one this layer just stored (anonymous,
+// 200, cookieless, queryless, whitelisted GET), the syndication XML carries
+// its own bounded public lifetime (identical bytes for every reader, ETag
+// revalidation), and everything else, including every render when the static
+// cache is disabled outright, is private and uncacheable. A response that
+// already carries Cache-Control (the reader fragment's private, no-store, the
+// beacon's) is overwritten with the value its eligibility demands, which is
+// always at least as strict.
+$response = $response->withHeader('Cache-Control', $static?->cacheControlFor($request, $response)
+    ?? \App\StaticCache\Cache::feedControl($request, $response)
+    ?? 'private, no-store');
 // Multi-cookie Set-Cookie needs no wire translation since the Kip 0.5 sync:
 // Response carries list-valued headers and send() emits each leaf with append
 // semantics, so the session cookie survives beside them natively.

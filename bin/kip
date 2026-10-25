@@ -6,6 +6,7 @@ $config = require __DIR__ . '/../config.php';
 \App\Features::init(new Kip\Database($config['db']['dsn']), $config['features'] ?? []); // feature-flag resolution shares the request bootstrap
 $config = \App\Settings::apply($config); // operator settings overlay the config in the same resolution; guarded, so doctor/migrate survive an unmigrated DB
 \App\Attribution::init($config); // the footer seam, from the MERGED config (the index.php order: after the settings overlay, so pages:build renders the board's powered_by row)
+\App\FooterLegal::init($config); // the legal-line seam, same order (pages:build bakes it into cached pages), from the MERGED config (the index.php order: after the settings overlay, so pages:build renders the board's powered_by row)
 $config['views_override'] = \App\Skins::overrideDir($config); // the skins seam: CLI renders (pages:build above all) use the operator skin, and Builder::build() propagates the key into its own App
 
 // Feature folders (Kip guide ch. 3): the migration inventory lives in
@@ -280,7 +281,7 @@ match ($argv[1] ?? 'help') {
     })(),
     'robots' => (function () use ($config) {
         $file = ($config['public_dir'] ?? dirname(__DIR__) . '/public') . '/robots.txt';
-        \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true));
+        \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true), rtrim((string) ($config['base_url'] ?? ''), '/'));
         echo "Wrote {$file}\n";
     })(),
     'digest:send' => (function () use ($config, $argv) {
@@ -299,7 +300,7 @@ match ($argv[1] ?? 'help') {
             $mail['log_path'] = $mailLog;
         }
         $db = new Kip\Database($config['db']['dsn']);
-        $mailer = new Kip\Mailer($mail);
+        $mailer = new \App\MailGuard($db, new Kip\Mailer($mail), new Kip\App($config));
         $digest = new \App\Digest($db, $mailer, rtrim((string) ($config['base_url'] ?? ''), '/'));
         printf("Digest mailed to %d members.\n", $digest->send());
     })(),
@@ -326,7 +327,7 @@ match ($argv[1] ?? 'help') {
         // and challenge riders (QueueController::purge's shape) plus the
         // publish fan-out.
         $cache = new \App\StaticCache\Cache((string) (($config['static_cache'] ?? [])['dir'] ?? dirname(__DIR__) . '/public/cache'));
-        $fanout = new \App\PublishFanout($db, new Kip\Mailer($mail), rtrim((string) ($config['base_url'] ?? ''), '/'));
+        $fanout = new \App\PublishFanout($db, new \App\MailGuard($db, new Kip\Mailer($mail), new Kip\App($config)), rtrim((string) ($config['base_url'] ?? ''), '/'));
         foreach ($released as [$slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs, $storyId]) {
             $listSlugs = (new \App\Repositories\ListsRepository($db))->publicListSlugsForStory($storyId);
             $cache->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs);
@@ -478,6 +479,70 @@ match ($argv[1] ?? 'help') {
             $counts['failed']);
         exit($counts['failed'] > 0 ? 1 : 0);
     })(),
+    'import:fictioneer' => (function () use ($config, $argv) {
+        // a near-cap 1 GiB payload busts the 128M CLI limit mid-stream: 512M holds it
+        ini_set('memory_limit', '512M');
+        $file = $argv[2] ?? '';
+        $rest = array_slice($argv, 2);
+        $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
+        $owner = null;
+        foreach ($rest as $a) { if (str_starts_with($a, '--owner=')) { $owner = substr($a, 8); } }
+        $usage = "Usage: kip import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]\n";
+        // the reader's extensions are declared in composer.json; a host that
+        // skipped composer's platform check still gets a clean sentence here
+        foreach (['XMLReader' => 'xmlreader', 'DOMDocument' => 'dom'] as $class => $ext) {
+            if (!class_exists($class)) {
+                fwrite(STDERR, "PHP extension {$ext} is not enabled; the Fictioneer importer needs it.\n");
+                exit(1);
+            }
+        }
+        if (str_ends_with(strtolower($file), '.gz') && !function_exists('gzopen')) {
+            fwrite(STDERR, "PHP extension zlib is not enabled; pass an uncompressed .xml export instead.\n");
+            exit(1);
+        }
+        if (in_array('--dry-run', $rest, true) && in_array('--commit', $rest, true)) {
+            fwrite(STDERR, "--dry-run and --commit are mutually exclusive.\n{$usage}");
+            exit(1);
+        }
+        if ($owner !== null && $owner === '') {
+            fwrite(STDERR, "--owner wants a value after the =.\n{$usage}");
+            exit(1);
+        }
+        if ($file === '' || $mode === '' || !is_file($file)) {
+            if ($file !== '' && !is_file($file)) fwrite(STDERR, "No such file: {$file}\n");
+            fwrite(STDERR, $usage);
+            exit(1);
+        }
+        try {
+            $db = new Kip\Database($config['db']['dsn']);
+            $ownerId = null;
+            if ($owner !== null) {
+                // penname resolution is the CLI's job (the importer takes ids
+                // only, the import:epub idiom): a numeric owner is an id, an
+                // exact case-insensitive penname otherwise
+                $hit = null;
+                if (ctype_digit($owner)) {
+                    $hit = $db->one('SELECT id FROM users WHERE id = ?', [(int) $owner]);
+                } else {
+                    foreach ($db->all('SELECT id, penname FROM users') as $u) {
+                        if (mb_strtolower((string) $u['penname']) === mb_strtolower($owner)) { $hit = ['id' => $u['id']]; break; }
+                    }
+                }
+                if ($hit === null) {
+                    fwrite(STDERR, "no member carries " . (ctype_digit($owner) ? "id {$owner}" : "the penname '{$owner}'") . ": resolve --owner against users first\n");
+                    exit(1);
+                }
+                $ownerId = (int) $hit['id'];
+            }
+            echo (new \App\Import\FictioneerImport($db, new \App\Import\WxrReader($file), $mode, $ownerId, $config))->run();
+        } catch (\Throwable $e) {
+            // operator-facing failures print clean and exit 1, no stack trace
+            // (a PDOException counts: full disk on VACUUM INTO is an operator
+            // problem too, not a code bug to trace)
+            fwrite(STDERR, $e->getMessage() . "\n");
+            exit(1);
+        }
+    })(),
     'mail:users' => (function () use ($config, $argv) {
         $rest = array_slice($argv, 2);
         $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
@@ -522,7 +587,7 @@ match ($argv[1] ?? 'help') {
             $mail['transport'] = 'log';
             $mail['log_path'] = $mailLog;
         }
-        $mailer = new Kip\Mailer($mail);
+        $mailer = new \App\MailGuard($db, new Kip\Mailer($mail), new Kip\App($config));
         $mailed = 0;
         foreach ($recipients as $email) {
             try { // the Digest idiom: one bad address never stops the batch
@@ -534,5 +599,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
 };

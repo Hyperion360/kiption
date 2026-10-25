@@ -20,22 +20,36 @@ final class RobotsTest extends TestCase
     public function test_robots_regeneration_honors_the_ai_toggle(): void
     {
         $file = $this->root . '/robots.txt';
-        \App\Seo\Sitemap::writeRobots($file, permissive: true);
+        \App\Seo\Sitemap::writeRobots($file, permissive: true, baseUrl: '');
         $this->assertSame(
             (string) file_get_contents(dirname(__DIR__) . '/public/robots.txt'),
             (string) file_get_contents($file),
             'finding 12: the permissive output is byte-identical to the committed robots.txt'
         );
-        \App\Seo\Sitemap::writeRobots($file, permissive: false);
+        \App\Seo\Sitemap::writeRobots($file, permissive: false, baseUrl: '');
         $txt = (string) file_get_contents($file);
         $this->assertStringContainsString('User-agent: GPTBot', $txt);
         $this->assertStringContainsString('Disallow: /', $txt);
     }
 
+    /** RFC 9309 requires the Sitemap line to be an absolute URL: a relative
+     *  one is ignored by crawlers (Lighthouse's robots-txt audit fails it).
+     *  Every regenerator that knows the site's address passes the base. */
+    public function test_base_url_makes_the_sitemap_line_absolute(): void
+    {
+        $file = $this->root . '/robots.txt';
+        \App\Seo\Sitemap::writeRobots($file, permissive: true, baseUrl: 'https://archive.example');
+        $txt = (string) file_get_contents($file);
+        $this->assertStringContainsString('Sitemap: https://archive.example/sitemap.xml', $txt);
+        \App\Seo\Sitemap::writeRobots($file, permissive: true, baseUrl: 'https://archive.example/');
+        $this->assertStringContainsString('Sitemap: https://archive.example/sitemap.xml', (string) file_get_contents($file), 'a trailing slash collapses');
+        $this->assertStringNotContainsString('Sitemap: /sitemap.xml', (string) file_get_contents($file));
+    }
+
     public function test_restrictive_output_prepends_one_rfc9309_group(): void
     {
         $file = $this->root . '/robots.txt';
-        \App\Seo\Sitemap::writeRobots($file, permissive: false);
+        \App\Seo\Sitemap::writeRobots($file, permissive: false, baseUrl: '');
         // consecutive User-agent lines form ONE group sharing the Disallow;
         // the committed permissive bytes ride verbatim after the blank separator
         $this->assertSame(
@@ -70,5 +84,15 @@ final class RobotsTest extends TestCase
             realpath($resolved),
             'the fallback must be the app public dir, not <repo>/../public'
         );
+    }
+
+    /** The arm passes the configured base so the Sitemap line is absolute
+     *  (RFC 9309). Pinned at source, the fallback test's stance: running the
+     *  arm would rewrite the shared checkout's seed robots.txt. */
+    public function test_kip_robots_arm_passes_the_configured_base_url(): void
+    {
+        $src = (string) file_get_contents(dirname(__DIR__) . '/bin/kip');
+        $needle = "writeRobots(\$file, (bool) (\$config['ai_crawlers'] ?? true), rtrim((string) (\$config['base_url'] ?? ''), '/'))";
+        $this->assertStringContainsString($needle, $src, 'the arm passes the absolute-URL base to writeRobots');
     }
 }

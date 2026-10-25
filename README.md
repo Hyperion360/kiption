@@ -9,6 +9,8 @@ PHP 8.3 and SQLite. No JavaScript frameworks, no runtime dependencies
 beyond the [Kip](https://github.com/Hyperion360/kip) framework, no build
 step. Runs on shared hosting.
 
+![The reader: The Lantern Keeper's Daughter, chapter 1, in the Night theme](docs/reader-hero.png)
+
 Kiption is a modern eFiction alternative: eFiction 3.5 has been
 unmaintained since 2018 and breaks on current PHP. Kiption covers the
 eFiction feature set, imports an eFiction archive with one command
@@ -20,7 +22,7 @@ on a one-query-per-page budget.
 
 If you are coming from Wattpad, Royal Road, Fanfiction.net, Archive of
 Our Own, WebNovel, or Substack and want an archive you host and
-control, read [Why Kiption](docs/guides/value-props.md). Hosted flagship:
+control, read [Why Kiption](docs/guides/COMPARE.md). Hosted flagship:
 https://kiption.com (launching); self-hosting is free forever.
 
 ## Requirements
@@ -105,7 +107,7 @@ serve` runs in dev mode, so observe maintenance mode with a plain
 
 Five audience documents live in `docs/guides/`:
 
-- [value-props.md](docs/guides/value-props.md): why Kiption, platform by
+- [COMPARE.md](docs/guides/COMPARE.md): why Kiption, platform by
   platform, every claim mapped to shipped code.
 - [SWITCHING.md](docs/guides/SWITCHING.md): bringing an existing archive
   from eFiction, AO3, Wattpad, FanFiction.net, or Substack, with an honest
@@ -883,6 +885,39 @@ has a bucket; a test drives `/auth/attempt` past the shipped map, so
 deleting or misspelling an entry fails the suite rather than silently
 disabling its limit.
 
+### Footer copyright and legal links
+
+The footer can carry one legal line after the secondary destinations: a
+copyright holder plus a short list of legal links. Both are absent until
+configured (the shipped `config.php` sets neither, so a fresh install
+renders no legal line), the line is identical for every visitor, and the
+year in it is the render date, so a cached page carries its build year
+until the next build or purge. Three keys in `config.php`:
+
+- `footer_copyright`: the holder, rendered as `© <year> <holder>`
+  (plain text when no URL is set).
+- `footer_copyright_url`: the holder's link target.
+- `footer_links`: a list of `['label' => ..., 'url' => ...]` pairs,
+  rendered in order before the copyright.
+
+URLs link only when they are `https://` or site-relative (`/page/...`);
+anything else (`javascript:`, `http:`, `//host`) renders as plain text,
+never an anchor. Environment overrides: `KIP_FOOTER_COPYRIGHT`,
+`KIP_FOOTER_COPYRIGHT_URL`, and `KIP_FOOTER_LINKS` (a JSON array of
+`{"label":...,"url":...}` pairs; invalid JSON reads as no links). The
+flagship values, as an example:
+
+```php
+'footer_copyright' => 'Hyperion360 Inc',
+'footer_copyright_url' => 'https://hyperion360.com/',
+'footer_links' => [
+    ['label' => 'Terms', 'url' => '/page/view/terms'],
+    ['label' => 'Privacy', 'url' => '/page/view/privacy'],
+    ['label' => 'Content policy', 'url' => '/page/view/content-policy'],
+    ['label' => 'Copyright and DMCA', 'url' => '/dmca'],
+],
+```
+
 ## Feature flags
 
 Every discretionary surface is admin-togglable at `/features` (admins only;
@@ -1180,6 +1215,60 @@ AO3 downloads, FanFicFare output, or any EPUB you own:
 One story per file, chapters in spine order, summary and cover from the
 EPUB's own metadata, each file imported once (re-runs skip by content
 hash). Preview everything with `--dry-run`.
+
+## Migrating from Fictioneer
+
+Fictioneer is a WordPress theme, so the export path is WordPress's own:
+in the old site's admin, run Tools > Export, choose All content, and
+download the WXR file. All content is what carries the four Fictioneer
+post types, their metadata, the fandom/genre/character/warning terms,
+and the comments; a posts-only export loses the archive. The file can
+stay gzipped (`export.wordpress.2026-10-21.xml.gz` works as-is).
+
+1. On the new archive (after `php bin/kip migrate`), dry-run it:
+   `php bin/kip import:fictioneer export.wordpress.2026-10-21.xml --dry-run`.
+   Nothing is written; the report is real. Read it end to end: per-type
+   counts, rejects with reasons, dropped features, and the era notes.
+2. Accounts: the export's author block carries each author's login,
+   email, and display name, so accounts arrive with real addresses and
+   pennames. What it never carries is password material (WordPress
+   stores account passwords in a form nobody can carry over), so every
+   imported account is locked until the author uses password reset. An
+   author with no usable email in the export gets a
+   `{login}@wxr-import.invalid` placeholder, counted in the report; fix
+   those under the admin roster before sending resets. Post passwords
+   are different: a password-protected story or chapter keeps its
+   original password and its readers keep their access (an expired
+   password imports open, as it lived on the source).
+3. Collections import as public reading lists owned by one existing
+   member. If the run stops to ask for an owner, re-run with
+   `--owner=<penname>` (a numeric `--owner=<id>` names the member by
+   id).
+4. Expect counted drops, all listed in the report: private, deleted,
+   and unapproved comments (none were public on the source), co-author
+   ids whose author record is missing from the export, story custom
+   pages and per-story fields without a home (support links,
+   changelogs, epub prefaces and afterwords), and http links upgraded
+   to https. Unknown WordPress shortcodes stay literal in the text on
+   purpose; they are visible, not counted. Media never moves: the
+   export carries image URLs, not files, so inline images and links
+   keep pointing at the old site and the report counts them. Keep the
+   old uploads directory reachable (or rehost the images and edit the
+   chapters) before you retire the WordPress install.
+5. Commit: `php bin/kip import:fictioneer export.wordpress.2026-10-21.xml
+   --commit --owner=<penname>`. A `pre-import-*.sqlite` snapshot of the
+   database lands next to the export before anything else happens, then
+   the whole import is one transaction. The report prints again plus a
+   verification block (read versus imported per type), the legacy 301
+   map is written, and pages:build warms the static cache. A failed or
+   interrupted commit re-runs safely: already-mapped rows are
+   recognized and skipped.
+6. Cutover: point DNS at the new archive. `/story/{slug}`,
+   `/chapter/{slug}`, `/story/{story}/{chapter}`, `/author/{login}`,
+   recommendation pages, and the `?p=&post_type=` and `?fcn_chapter=`
+   fallbacks 301 to their new URLs, so search rankings move with the
+   archive. Spot-check a story, a profile, and a comment thread against
+   the old site before you flip.
 
 ## Versioning and releases
 

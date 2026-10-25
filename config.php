@@ -8,6 +8,11 @@ $dataDir = defined('KIPTION_SHARED_DIR') ? KIPTION_SHARED_DIR : __DIR__ . '/app'
 $deploymentFile = $dataDir . '/deployment.php';
 $deployment = is_file($deploymentFile) ? (require $deploymentFile) : [];
 $publicDir = defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : ($deployment['public_dir'] ?? __DIR__ . '/public');
+// The footer legal line's links: KIP_FOOTER_LINKS carries them as a JSON
+// array of {label,url} pairs; unreadable JSON reads as no links (the
+// FooterLegal init filters malformed pairs itself, the NavLinks stance).
+$footerLinks = json_decode((string) (getenv('KIP_FOOTER_LINKS') ?: '[]'), true);
+$footerLinks = is_array($footerLinks) ? $footerLinks : [];
 return [
     'env'     => getenv('KIP_ENV') ?: 'prod', // prod default, D4 info-disclosure rule
     'data_dir' => $dataDir, // the private writable tree: databases, backups, nav, setup state (release layout: site/shared; flat layout: app/)
@@ -15,42 +20,23 @@ return [
     'log_db'  => ['dsn' => 'sqlite:' . $dataDir . '/logs.sqlite', 'retention_days' => 30],
     'cache_db' => ['dsn' => getenv('KIP_CACHE_DB_DSN') ?: 'sqlite:' . $dataDir . '/cache.sqlite', 'ttl_seconds' => 3600], // KIP_CACHE_DB_DSN: tests/CLI point kip cache:clear at a throwaway file
     'rate_limit' => [   // per first URL segment, fixed window, non-GET/HEAD only; table rate_limits (migration 025)
+        // Explicit entries are the DIFFERENTIATED budgets only; everything
+        // else rides the '*' fallback (kip >= 0.5.1), which charges under
+        // the request's own canonical prefix so per-surface buckets stay
+        // independent. A new POST-bearing segment inherits 30/min without
+        // a config edit; tighten it here when a surface needs its own.
         'auth'      => ['max' => 10, 'window' => 60],  // login/register/remind
-        'reader'    => ['max' => 30, 'window' => 60],  // settings, bookmarks, and infinite-scroll progress (one POST per newly reached chapter; a 429 is retried on a later activation)
-        'kudos'     => ['max' => 30, 'window' => 60],
-        'review'    => ['max' => 30, 'window' => 60],
-        'favorites' => ['max' => 30, 'window' => 60],
-        'follow'    => ['max' => 30, 'window' => 60],
-        'recommend' => ['max' => 30, 'window' => 60],  // member recommendations (first URL segment /recommend/*)
-        'story'     => ['max' => 30, 'window' => 60],  // mark, review-add forms
         'report'    => ['max' => 10, 'window' => 60],
         'warning'   => ['max' => 10, 'window' => 60],  // the age gate's continue (POST since the cross-site-img fix)
+        'images'    => ['max' => 10, 'window' => 60],  // per-request upload cost
         'messages'  => ['max' => 20, 'window' => 60],
         'account'   => ['max' => 20, 'window' => 60],
-        // Review follow-up: every POST-bearing first segment is throttled.
-        // 'news' replaces the dead 'comment' key (news comments POST to
-        // /news/comment/{id}; the first segment is 'news'). Admin and
-        // wrangling get looser budgets so bulk moderation never trips.
-        'news'          => ['max' => 30, 'window' => 60],  // news comments
-        'user'          => ['max' => 20, 'window' => 60],  // member contact (messaging-class)
-        'lists'         => ['max' => 30, 'window' => 60],
-        'series'        => ['max' => 30, 'window' => 60],
-        'challenges'    => ['max' => 20, 'window' => 60],
-        'chapter'       => ['max' => 30, 'window' => 60],
-        'coauthor'      => ['max' => 30, 'window' => 60],
-        'mute'          => ['max' => 30, 'window' => 60],
+        'user'      => ['max' => 20, 'window' => 60],  // member contact (messaging-class)
+        'challenges' => ['max' => 20, 'window' => 60],
         'notifications' => ['max' => 60, 'window' => 60],
-        'page'          => ['max' => 30, 'window' => 60],
-        'nav'           => ['max' => 30, 'window' => 60],
-        'queue'         => ['max' => 30, 'window' => 60],
-        'templates'     => ['max' => 30, 'window' => 60],
-        'features'      => ['max' => 30, 'window' => 60],
-        'settings'      => ['max' => 30, 'window' => 60],  // the operator settings board's save
-        'images'        => ['max' => 10, 'window' => 60],  // per-request upload cost
-        'wrangling'     => ['max' => 60, 'window' => 60],
-        'invites'       => ['max' => 30, 'window' => 60],  // invite mint/revoke POSTs
-        'adminstories'  => ['max' => 60, 'window' => 60],
-        'adminmembers'  => ['max' => 30, 'window' => 60],
+        'wrangling' => ['max' => 60, 'window' => 60],  // bulk moderation never trips
+        'adminstories' => ['max' => 60, 'window' => 60],
+        '*'         => ['max' => 30, 'window' => 60],  // reader, kudos, review, favorites, follow, recommend, story, news, lists, series, chapter, coauthor, mute, page, nav, queue, templates, features, settings, invites, adminmembers
     ],
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),
@@ -59,12 +45,17 @@ return [
                   'ext' => ['png', 'jpg', 'jpeg', 'webp', 'gif']],
     'base_url' => getenv('KIP_BASE_URL') ?: ($deployment['base_url'] ?? 'http://localhost:8080'),   // absolute links in emails; setup records the canonical HTTPS URL in deployment.php
     'mail'     => $deployment['mail'] ?? ['transport' => 'log', 'log_path' => $dataDir . '/mail.log', 'from' => 'noreply@localhost'],
+    'signup_terms_url' => getenv('KIP_SIGNUP_TERMS_URL') ?: '', // when set, the register form links it (https or /-relative only)
+    'mail_daily_cap' => (int) (getenv('KIP_MAIL_DAILY_CAP') ?: 0), // the provider's daily send cap (Brevo free: 300); 0 = no guard. Non-critical mail pauses near the cap, verification and resets always send (App\MailGuard).
     'site_name' => 'Kiption',
     'adult_rta' => '',   // site-wide RTA label (the RTA-5042 declaration, e.g. 'RTA-5042-1996-1400-1577-RTA'); empty = off. The /settings board's adult_rta row overrides
     'ui_lang' => getenv('KIP_UI_LANG') ?: 'en', // UI language pack (App\Lang, app/lang/{code}.php); KIP_UI_LANG overrides
     'og_image' => '',   // absolute or root-relative path; renders og:image/twitter cards when set
     'powered_by' => true,   // footer attribution; the /settings board's powered_by row (or this key set false) opts out
     'powered_by_url' => getenv('KIP_POWERED_BY_URL') ?: 'https://cloud.kiption.com',
+    'footer_copyright' => getenv('KIP_FOOTER_COPYRIGHT') ?: '',   // footer copyright holder (e.g. 'Hyperion360 Inc'); empty = no legal line. KIP_FOOTER_COPYRIGHT overrides
+    'footer_copyright_url' => getenv('KIP_FOOTER_COPYRIGHT_URL') ?: '',   // the holder's link target; only https:// or /-relative values link (the nav stance)
+    'footer_links' => $footerLinks,   // legal links (label/url pairs) before the copyright span; KIP_FOOTER_LINKS carries them as a JSON string
     'feeds_full_text' => (bool) getenv('KIP_FEEDS_FULL_TEXT') ?: false, // Atom entries carry the first chapter in <content type="html">
     'ai_crawlers' => getenv('KIP_AI_CRAWLERS') === false || (bool) getenv('KIP_AI_CRAWLERS'), // robots.txt stance; KIP_AI_CRAWLERS=0 disallows GPTBot & co
     'registration_mode' => $deployment['registration_mode'] ?? 'verify',   // open | verify | approval | invite; a browser install starts invite-only

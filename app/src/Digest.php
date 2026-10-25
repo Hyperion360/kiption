@@ -2,11 +2,14 @@
 namespace App;
 
 use Kip\Database;
-use Kip\Mailer;
+
 
 final class Digest
 {
-    public function __construct(private Database $db, private Mailer $mailer, private string $baseUrl) {}
+    public function __construct(private Database $db, private \App\MailGuard $mailer, private string $baseUrl) {}
+
+    /** Mail dropped by the daily cap this run; the command line reports it. */
+    public int $skipped = 0;
 
     /** Batch every digest-eligible member's notifications since their marker.
      *  @return int number of members mailed */
@@ -43,9 +46,21 @@ final class Digest
                     default => $r['kind'],
                 } . " (" . $r['created_at'] . ")\n";
             }
+            $sent = false;
             try {
-                $this->mailer->send($m['email'], $subject,
+                $sent = $this->mailer->send($m['email'], $subject,
                     strtr($body, ['{since}' => $since, '{lines}' => $lines]));
+            } catch (\Throwable $e) {
+                error_log("digest mail failed for member {$m['id']}: {$e->getMessage()}");
+                continue; // a transport failure skips this member's batch, same as a quota drop
+            }
+            if (!$sent) {
+                // The daily cap dropped this member's batch: keep their marker
+                // untouched so the next run re-batches from the same point.
+                $this->skipped++;
+                continue;
+            }
+            try {
                 // Written in SQLite's own created_at format (UTC, milliseconds) so the
                 // next run's string comparison against notifications.created_at is exact:
                 // a PHP date('c') marker sorts around the '.mmmZ' suffix and re-mails rows

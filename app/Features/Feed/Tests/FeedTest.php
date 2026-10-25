@@ -43,6 +43,13 @@ final class FeedTest extends TestCase
         $this->assertNotFalse($xml);
         $this->assertSame('feed', $xml->getName());
         $this->assertSame('Kiption', (string) $xml->title);
+        // Identity: the feed's own address as id and rel=self (every feed
+        // once shared the site root as its id), the home page as alternate.
+        $this->assertSame('https://archive.example/feed', (string) $xml->id);
+        $this->assertSame('self', (string) $xml->link[0]['rel']);
+        $this->assertSame('https://archive.example/feed', (string) $xml->link[0]['href']);
+        $this->assertSame('alternate', (string) $xml->link[1]['rel']);
+        $this->assertSame('https://archive.example/', (string) $xml->link[1]['href']);
         $entries = $xml->entry;
         $this->assertCount(2, $entries);
         $this->assertStringContainsString('after-hours', (string) $entries[0]->link['href']); // newest updated_at first per the seeder
@@ -72,6 +79,13 @@ final class FeedTest extends TestCase
         $xml = simplexml_load_string($res->body);
         $this->assertSame('rss', $xml->getName());
         $this->assertCount(2, $xml->channel->item);
+        // The advisory's rel=self identity, namespaced under the atom prefix.
+        // simplexml's children() accessor reads a namespaced element's plain
+        // attributes as empty, so the link comes out through xpath instead.
+        $self = $xml->channel->xpath('atom:link');
+        $this->assertNotFalse($self);
+        $this->assertSame('self', (string) $self[0]['rel']);
+        $this->assertSame('https://archive.example/rss', (string) $self[0]['href']);
     }
 
     public function test_feed_escapes_markup(): void

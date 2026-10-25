@@ -1,6 +1,7 @@
 <?php // tests/SharedHostReleaseTest.php
 namespace App\Tests;
 
+use App\Tests\Support\DevServerHttp;
 use PHPUnit\Framework\TestCase;
 use ZipArchive;
 
@@ -14,6 +15,8 @@ use ZipArchive;
  */
 final class SharedHostReleaseTest extends TestCase
 {
+    use DevServerHttp;
+
     private array $tmpDirs = [];
 
     protected function tearDown(): void
@@ -391,6 +394,27 @@ final class SharedHostReleaseTest extends TestCase
                 sha1((string) $this->httpBody($port, '/assets/app.js')),
                 'the served asset is the docroot copy'
             );
+            // The cache-control stamp runs in the real front controller: the
+            // home render is storable, the syndication XML rides its own
+            // public lifetime even with zero stories, and the personalized
+            // subscribe page stays private.
+            $this->assertSame('public, s-maxage=14400', $this->httpHeader($port, '/', 'Cache-Control'), 'the home page carries the page cache bound');
+            $this->assertSame('public, max-age=300, s-maxage=3600', $this->httpHeader($port, '/feed', 'Cache-Control'), 'the syndication XML carries its public lifetime');
+            $this->assertSame('private, no-store', $this->httpHeader($port, '/feed/subscribe', 'Cache-Control'), 'the subscribe page stays private');
+            // Wire-level revalidation: the 304 that reaches the reader carries
+            // the same public policy as the 200 it freshens (RFC 9111 4.3.4),
+            // feed and page alike — the unit rows alone cannot prove the
+            // front controller stamps the wire response.
+            [, , $fh] = $this->httpFetch($port, '/feed');
+            $etag = $fh['etag'] ?? '';
+            $this->assertNotSame('', $etag, 'the feed 200 carries an ETag');
+            [$fStatus, , $fh2] = $this->httpFetch($port, '/feed', ['If-None-Match' => $etag]);
+            $this->assertSame(304, $fStatus, 'a conditional feed GET revalidates');
+            $this->assertSame('public, max-age=300, s-maxage=3600', $fh2['cache-control'] ?? '', 'the wire 304 repeats the feed public lifetime');
+            [, , $hh] = $this->httpFetch($port, '/');
+            [$hStatus, , $hh2] = $this->httpFetch($port, '/', ['If-None-Match' => $hh['etag'] ?? '']);
+            $this->assertContains($hStatus, [200, 304], 'a HIT answers 200, a revalidation 304');
+            $this->assertSame('public, s-maxage=14400', $hh2['cache-control'] ?? '', 'either way the home response keeps the page policy');
             // The host-matrix negatives, approximated over the dev server:
             // private names are not present, so they route to 404s.
             foreach (['/config.php', '/vendor/autoload.php', '/.git/config', '/app/data.sqlite'] as $private) {
@@ -430,61 +454,6 @@ final class SharedHostReleaseTest extends TestCase
             proc_terminate($server);
             proc_close($server);
         }
-    }
-
-    // --------------------------------------------------------------- helpers
-
-    private function freePort(int $start): int
-    {
-        for ($port = $start; $port < $start + 8; $port++) {
-            $sock = @fsockopen('127.0.0.1', $port, timeout: 0.2);
-            if ($sock === false) {
-                return $port;
-            }
-            fclose($sock);
-        }
-        $this->fail('no free port in the ad-hoc range');
-    }
-
-    /** @return resource the proc_open handle of the built-in server */
-    private function startServer(int $port, string $docroot, string $router): mixed
-    {
-        $handle = proc_open(
-            [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $docroot, $router],
-            [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
-            $pipes
-        );
-        $this->assertIsResource($handle, 'dev server failed to start');
-        for ($i = 0; $i < 50; $i++) {
-            if (@fsockopen('127.0.0.1', $port, timeout: 0.2) !== false) {
-                return $handle;
-            }
-            usleep(100000);
-        }
-        proc_terminate($handle);
-        $this->fail('dev server never came up');
-    }
-
-    private function httpStatus(int $port, string $path): int
-    {
-        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
-        $body = @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
-        if ($body === false) {
-            return 0;
-        }
-        $code = 0;
-        foreach ($http_response_header ?? [] as $header) {
-            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
-                $code = (int) $m[1];
-            }
-        }
-        return $code;
-    }
-
-    private function httpBody(int $port, string $path): string|false
-    {
-        $context = stream_context_create(['http' => ['ignore_errors' => true, 'timeout' => 10]]);
-        return @file_get_contents("http://127.0.0.1:{$port}{$path}", false, $context);
     }
 
     // ------------------------------------------------------- stable CLI dispatching

@@ -10,6 +10,9 @@ return new class extends Kip\Migrations\Migration {
     }
     public function down(Kip\Database $db): void
     {
+        if (version_compare($db->one('SELECT sqlite_version() AS v')['v'] ?? '0', '3.35', '<')) {
+            throw new RuntimeException('DROP COLUMN needs SQLite >= 3.35, drop users.legacy_bcrypt manually on this host');
+        }
         $db->query('ALTER TABLE users DROP COLUMN legacy_bcrypt');
     }
 };
