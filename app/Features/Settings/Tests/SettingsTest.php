@@ -270,12 +270,15 @@ final class SettingsTest extends TestCase
     }
 
     /** config.php's own comment promises every POST-bearing first segment is
-     *  throttled; /settings/save is the board's POST surface. */
+     *  throttled; /settings/save is the board's POST surface. Since the kip
+     *  0.5.1 differentiated-prefix collapse, /settings rides the '*' fallback
+     *  (config.php: "a new POST-bearing segment inherits 30/min"), so the
+     *  promise holds through either an explicit bucket or the fallback. */
     public function test_the_shipped_config_throttles_the_settings_save(): void
     {
         $config = require dirname(__DIR__, 4) . '/config.php';
-        $bucket = $config['rate_limit']['settings'] ?? null;
-        $this->assertIsArray($bucket, 'rate_limit.settings must exist: /settings/save POSTs under its first segment');
+        $bucket = $config['rate_limit']['settings'] ?? $config['rate_limit']['*'] ?? null;
+        $this->assertIsArray($bucket, 'rate_limit.settings or the * fallback must exist: /settings/save POSTs under its first segment');
         $this->assertGreaterThan(0, (int) ($bucket['max'] ?? 0));
         $this->assertGreaterThan(0, (int) ($bucket['window'] ?? 0));
     }
