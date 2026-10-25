@@ -75,7 +75,7 @@ final class Builder
         // mapped marketing slug emits its TOP-LEVEL spelling (TopPaths), the
         // one it serves at; the /page/view spelling is a 301 and must never
         // hold a file (this layer answers before routing).
-        foreach ($db->all("SELECT slug FROM pages WHERE body <> ''") as $p) {
+        foreach ($db->all("SELECT slug FROM pages WHERE body <> '' AND noindex = 0") as $p) {
             $urls[] = \App\Marketing\TopPaths::path((string) $p['slug']) ?? '/page/view/' . $p['slug'];
         }
         // News: the index plus every item's view page (public data only).

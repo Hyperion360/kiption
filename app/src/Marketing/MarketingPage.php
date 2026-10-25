@@ -10,7 +10,7 @@ final class MarketingPage
     public static function render(View $view, Request $request, Database $db, Session $session, App $app, string $slug): Response|string
     {
         if (!preg_match('#^[a-z0-9-]+$#', $slug)) return new Response('Page not found', 404);
-        $row = $db->one('SELECT slug, title, body, updated_at FROM pages WHERE slug = ?', [$slug]);
+        $row = $db->one('SELECT slug, title, body, updated_at, noindex FROM pages WHERE slug = ?', [$slug]);
         if ($row === null) return new Response('Page not found', 404);
         $path = TopPaths::path($slug) ?? '/page/view/' . $slug;
         $body = (string) $row['body'];
@@ -21,16 +21,17 @@ final class MarketingPage
         )->withTitle((string) $row['title'])->withCanonical($path);
         $text = trim(html_entity_decode(strip_tags(\App\Markdown::render($body)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $head = $head->withDescription((string) preg_replace('/\s+/u', ' ', $text) ?: $text);
+        $noindex = $body === '' || (int) ($row['noindex'] ?? 0) === 1;
         $data = [
             'title' => (string) $row['title'],
-            'head' => $body === '' ? $head->withNoindex() : $head,
+            'head' => $noindex ? $head->withNoindex() : $head,
             'theme' => \App\Theme::current($request),
             'request' => $request,
             'navFile' => (string) $app->config('nav_file', ''),
             'page' => ['slug' => $slug, 'title' => (string) $row['title'], 'body' => $body, 'updated_at' => (string) $row['updated_at']],
             'loggedIn' => \App\Viewer::id($request, $session, $db) !== 0,
         ];
-        return $body === ''
+        return $noindex
             ? (new Response($view->render('page/view', $data), 200))->withHeader('X-Robots-Tag', 'noindex')
             : $view->render('page/view', $data);
     }
