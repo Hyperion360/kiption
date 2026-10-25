@@ -130,6 +130,8 @@ return [
     'browse.filter_aria' => 'Filter stories',
     'browse.filter_wip' => 'In progress',
     'browse.filter_under10k' => 'Under 10k',
+    'browse.filter_10kto50k' => '10k to 50k',
+    'browse.filter_over50k' => 'Over 50k',
     'browse.no_cat_stories' => 'No stories in this category.',
     'browse.continue_pill' => 'Continue · {roman}, {pct}%',
 

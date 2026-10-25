@@ -127,33 +127,67 @@ final class BrowseTest extends TestCase
 
     /** The filter discriminator: the fixture's Rabbit Hole is the WIP,
      *  under-10k side of the split; The Long Finish is the completed,
-     *  over-10k side. One extra story discriminates all three facets. */
+     *  mid-length side; The Doorstop is the completed, over-50k side. Two
+     *  extra stories discriminate all five facets. */
     private function seedFilterFixture(): void
     {
         $db = new Database($this->dsn);
         $db->query("UPDATE stories SET word_count = 5000 WHERE slug = 'the-rabbit-hole'");
         $db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, updated_at) VALUES (?, ?, ?, 1, 1, 1, 1, 20000, ?)",
             ['The Long Finish', 'the-long-finish', 'Done at last.', '2026-09-05T10:00:00Z']);
+        $db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, updated_at) VALUES (?, ?, ?, 1, 1, 1, 1, 60000, ?)",
+            ['The Doorstop', 'the-doorstop', 'It kept going.', '2026-09-06T10:00:00Z']);
     }
 
-    /** @return array<string, list<string>> [filter, shown title, hidden title] */
+    /** @return array<string, list<mixed>> [filter, shown title, list of hidden titles] */
     public static function filters(): array
     {
         return [
-            'complete keeps only completed works' => ['complete', 'The Long Finish', 'The Rabbit Hole'],
-            'wip keeps only unfinished works' => ['wip', 'The Rabbit Hole', 'The Long Finish'],
-            'under10k keeps only short works' => ['under10k', 'The Rabbit Hole', 'The Long Finish'],
+            'complete keeps only completed works' => ['complete', 'The Long Finish', ['The Rabbit Hole']],
+            'wip keeps only unfinished works' => ['wip', 'The Rabbit Hole', ['The Long Finish']],
+            'under10k keeps only short works' => ['under10k', 'The Rabbit Hole', ['The Long Finish', 'The Doorstop']],
+            '10kto50k keeps only mid-length works' => ['10kto50k', 'The Long Finish', ['The Rabbit Hole', 'The Doorstop']],
+            'over50k keeps only long works' => ['over50k', 'The Doorstop', ['The Rabbit Hole', 'The Long Finish']],
         ];
     }
 
     #[DataProvider('filters')]
-    public function test_each_filter_actually_filters_the_listing(string $filter, string $shown, string $hidden): void
+    public function test_each_filter_actually_filters_the_listing(string $filter, string $shown, array $hidden): void
     {
         $this->seedFilterFixture();
         $res = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => $filter], [], []));
         $this->assertSame(200, $res->status, $res->body);
         $this->assertStringContainsString($shown, $res->body);
-        $this->assertStringNotContainsString($hidden, $res->body, "filter={$filter} must drop the non-matching story");
+        foreach ($hidden as $title) {
+            $this->assertStringNotContainsString($title, $res->body, "filter={$filter} must drop {$title}");
+        }
+    }
+
+    public function test_10kto50k_low_boundary_is_inclusive_at_exactly_10000(): void
+    {
+        // The SQL is >= 10000: a story at exactly 10k IS 10kto50k (and is NOT
+        // under10k, pinned above). A drift to > would strand the exact-10k row
+        // outside every facet.
+        $this->seedFilterFixture();
+        (new Database($this->dsn))->query("UPDATE stories SET word_count = 10000 WHERE slug = 'the-long-finish'");
+        $body = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => '10kto50k'], [], []))->body;
+        $this->assertStringContainsString('The Long Finish', $body, 'exactly 10k is in 10kto50k');
+        $this->assertStringNotContainsString('The Rabbit Hole', $body);
+    }
+
+    public function test_10kto50k_high_boundary_exclusive_over50k_inclusive_at_exactly_50000(): void
+    {
+        // Exactly 50k is NOT 10kto50k (exclusive high, mirroring under10k's
+        // exclusive ruling) and IS over50k (inclusive). The Doorstop (60k)
+        // shares neither mid bucket.
+        $this->seedFilterFixture();
+        (new Database($this->dsn))->query("UPDATE stories SET word_count = 50000 WHERE slug = 'the-long-finish'");
+        $mid = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => '10kto50k'], [], []))->body;
+        $this->assertStringNotContainsString('The Long Finish', $mid, 'exactly 50k is not 10kto50k');
+        $this->assertStringNotContainsString('The Doorstop', $mid, '60k is not 10kto50k either');
+        $long = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'over50k'], [], []))->body;
+        $this->assertStringContainsString('The Long Finish', $long, 'exactly 50k is over50k');
+        $this->assertStringNotContainsString('The Rabbit Hole', $long);
     }
 
     public function test_under10k_boundary_is_exclusive_at_exactly_10000(): void

@@ -60,6 +60,7 @@ final class QueryBudgetTest extends TestCase
                 // query as WHERE clauses; every filtered shape stays budget-1
                 // (and cache-ineligible by the queryless rule).
                 ['/browse/recent?filter=complete'], ['/browse/recent?filter=wip'], ['/browse/recent?filter=under10k'],
+                ['/browse/recent?filter=10kto50k'], ['/browse/recent?filter=over50k'],
                 // The category chip's bound facet folds into the same single
                 // statement (the EXISTS probe is a bind, never a second query).
                 ['/browse/recent?cat=general'],
