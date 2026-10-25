@@ -33,7 +33,8 @@
              }
          }
      }
-     $chipSet = [['complete', 'story.complete'], ['wip', 'browse.filter_wip'], ['under10k', 'browse.filter_under10k']]; ?>
+     $chipSet = [['complete', 'story.complete'], ['wip', 'browse.filter_wip'], ['under10k', 'browse.filter_under10k'],
+        ['10kto50k', 'browse.filter_10kto50k'], ['over50k', 'browse.filter_over50k']]; ?>
 <?php if (!empty($feedHref)): ?>
 <link rel="alternate" type="application/atom+xml" title="<?= $this->e($title ?? \App\Lang::t('common.feed_title')) ?>" href="<?= $this->e($feedHref) ?>">
 <?php endif; ?>

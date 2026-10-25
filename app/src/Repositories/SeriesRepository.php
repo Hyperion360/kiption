@@ -104,12 +104,14 @@ final class SeriesRepository
                           WHERE x.series_id = ser.id AND x.confirmed = 1 AND xs.deleted_at IS NULL
                             AND (xs.is_restricted = 0 OR CAST(? AS INTEGER) != 0)) AS TEXT) h,
                     CAST((SELECT COUNT(*) FROM users v WHERE v.id = ? AND v.role = 'admin') AS TEXT) i,
-                    CAST(ser.owner_id AS TEXT) j
+                    CAST(ser.owner_id AS TEXT) j,
+                    ser.cover_path l
              FROM series ser JOIN users u ON u.id = ser.owner_id WHERE ser.slug = ?
              UNION ALL
              SELECT '1' AS k, s.slug a, s.title b, si.position c, CAST(si.id AS TEXT) d,
                     CAST(si.confirmed AS TEXT) e, CAST((SELECT COUNT(*) FROM chapters ch WHERE ch.story_id = s.id AND ch.validated = 1) AS TEXT) f,
-                    s.updated_at g, CAST(s.word_count AS TEXT) h, NULL i, NULL j
+                    s.updated_at g, CAST(s.word_count AS TEXT) h, NULL i, NULL j,
+                    NULL l
              FROM series_items si
              JOIN series ser ON ser.id = si.series_id
              JOIN stories s ON s.id = si.story_id
@@ -135,6 +137,7 @@ final class SeriesRepository
             'slug' => $rows[0]['d'], 'owner_penname' => $rows[0]['e'], 'owner_slug' => $rows[0]['f'],
             'created_at' => $rows[0]['g'], 'item_count' => (int) $rows[0]['h'],
             'is_admin' => (int) $rows[0]['i'], 'owner_id' => (int) $rows[0]['j'],
+            'cover_path' => (string) ($rows[0]['l'] ?? ''),
         ];
         $items = [];
         foreach (array_slice($rows, 1) as $r) {

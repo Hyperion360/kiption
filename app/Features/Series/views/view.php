@@ -9,6 +9,7 @@
     · <?= \App\Lang::t('common.works_count', ['n' => number_format((int) $series['item_count'])]) ?>
     · <?= $this->e(substr((string) $series['created_at'], 0, 10)) ?>
   </p>
+  <?php if (($series['cover_path'] ?? '') !== ''): ?><img class="cover" src="<?= $this->e($series['cover_path']) ?>" alt=""><?php endif; ?>
   <?php if ($series['summary'] !== ''): ?><p class="summary"><?= $this->e($series['summary']) ?></p><?php endif; ?>
   </header>
   <?php if ($loggedIn && $isOwner): ?><p><a href="/series/edit/<?= $this->e($series['slug']) ?>"><?= \App\Lang::t('series.edit') ?></a><span class="chapter-meta"> | <?= \App\Lang::t('series.membership_label') ?>: <?= $this->e(\App\Lang::t('series.m_' . $series['membership'])) ?><?= $series['membership'] === 'moderated' ? \App\Lang::t('series.moderated_note') : '' ?></span></p><?php endif; ?>

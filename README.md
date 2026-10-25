@@ -799,9 +799,10 @@ doubles as the print view: a print-only stylesheet hides the site chrome
 and breaks the page after the table of contents, so printing is simply
 the browser print command, no JavaScript anywhere.
 
-Downloads. Every story page offers two exports behind the identical
+Downloads. Every story page offers three exports behind the identical
 gates: a standalone HTML document that renders offline (its single
-outbound link is the "exported from" attribution), and an EPUB assembled
+outbound link is the "exported from" attribution), the same document
+served under Word headers as a .doc file, and an EPUB assembled
 by a pure-PHP zip writer, no zip extension or third-party tool needed,
 with `mimetype` stored first per the EPUB rule, the cover image when one
 exists, and chapter prose rendered through the same markdown pipeline.

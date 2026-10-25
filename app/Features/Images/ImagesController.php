@@ -82,7 +82,7 @@ final class ImagesController
             return new Response('Invalid file name.', 422);
         }
         if (isset($this->inUseNames()[$name])) {
-            return new Response('File is in use by an avatar or story cover.', 409);
+            return new Response('File is in use by an avatar, story cover, or series cover.', 409);
         }
         $target = $this->uploadsDir() . '/' . $name;
         if (!is_file($target) || !@unlink($target)) return new Response('Page not found', 404);
@@ -95,7 +95,7 @@ final class ImagesController
     private function inUseNames(): array
     {
         $set = [];
-        $rows = $this->db->all('SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL UNION SELECT cover_path FROM stories WHERE cover_path IS NOT NULL');
+        $rows = $this->db->all('SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL UNION SELECT cover_path FROM stories WHERE cover_path IS NOT NULL UNION SELECT cover_path FROM series WHERE cover_path IS NOT NULL');
         foreach ($rows as $r) {
             $p = (string) (array_values($r)[0] ?? '');
             if ($p !== '') $set[basename($p)] = true;

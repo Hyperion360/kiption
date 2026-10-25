@@ -180,7 +180,7 @@
     <div class="section-head"><h2 id="chapters-h"><?= \App\Lang::t('story.chapters') ?></h2>
       <?php if (\App\Features::on('exports')): ?>
       <nav class="section-links">
-        <a href="/story/whole/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.whole_link') ?></a> <a href="/story/download/<?= $this->e($story['slug']) ?>/epub"><?= \App\Lang::t('story.download_epub') ?></a> <a href="/story/download/<?= $this->e($story['slug']) ?>/html"><?= \App\Lang::t('story.download_html') ?></a>
+        <a href="/story/whole/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.whole_link') ?></a> <a href="/story/download/<?= $this->e($story['slug']) ?>/epub"><?= \App\Lang::t('story.download_epub') ?></a> <a href="/story/download/<?= $this->e($story['slug']) ?>/html"><?= \App\Lang::t('story.download_html') ?></a> <a href="/story/download/<?= $this->e($story['slug']) ?>/doc"><?= \App\Lang::t('story.download_doc') ?></a>
       </nav>
       <?php endif; ?>
     </div>

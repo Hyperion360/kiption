@@ -9,7 +9,7 @@ final class BrowseController
     /** The recent screen's facets (C10, frame M6): the chip values the
      *  repository folds into the listing query. Off-whitelist values read
      *  as unfiltered, the junk-page-param coercion. */
-    private const RECENT_FILTERS = ['complete', 'wip', 'under10k'];
+    private const RECENT_FILTERS = ['complete', 'wip', 'under10k', '10kto50k', 'over50k'];
 
     public function __construct(
         private View $view,

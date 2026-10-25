@@ -246,7 +246,7 @@ final class StoryRepository
      *  a DISTINCT would only buy a TEMP B-TREE sort on name.
      *  $applyMute is separate from $viewer: the viewer also drives the
      *  reading-progress fold, which must survive the mute flag being off.
-     *  @param string $filter ''|complete|wip|under10k */
+     *  @param string $filter ''|complete|wip|under10k|10kto50k|over50k */
     public function recentStories(int $perPage, int $offset, int $viewer = 0, string $filter = '', string $catSlug = '', bool $applyMute = true): array
     {
         $muted = $viewer > 0 && $applyMute;
@@ -255,6 +255,8 @@ final class StoryRepository
             'complete' => ' AND s.completed = 1',
             'wip' => ' AND s.completed = 0',
             'under10k' => ' AND s.word_count < 10000',
+            '10kto50k' => ' AND s.word_count >= 10000 AND s.word_count < 50000',
+            'over50k' => ' AND s.word_count >= 50000',
             default => '',
         };
         $catClause = $catSlug !== ''
