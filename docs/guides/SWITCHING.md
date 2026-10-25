@@ -67,6 +67,50 @@ exports as CSV; the archive does not ingest email lists, so readers come
 by pointing at your profile's follow button and the RSS and author feeds,
 then choose inbox, immediate email, or digest themselves.
 
+## How Kiption compares to eFiction
+
+eFiction is the grandparent of self-hosted fiction archives; it has run
+fandom sites since 2003, and Kiption's author was on its original 2005
+development team. The comparison is not a rivalry. If your eFiction
+archive is healthy and you enjoy running PHP software, the maintained
+3.5.5 repair fork (github.com/Hyperion360/efiction) keeps exactly that
+experience alive on modern PHP. This section is for the operator who is
+tired of running PHP software.
+
+Upkeep. Stock eFiction 3.5.5 stops on PHP 8 outright; the official
+line's updates have been sporadic (2018, 2021, then the 2026 revival),
+and its bundled editor dates from 2008. Every archive is its own PHP
+install: files to patch, permissions to check, a database server to
+keep alive. Kiption is one directory and one SQLite file on PHP 8.3 or
+newer, with versioned upgrades that snapshot before they switch and
+restore themselves if a migration fails.
+
+What moves with you. The import is one command and it is the most
+traveled path in this guide: every maintained eFiction line imports
+(3.5.0 through 3.5.9, official, e107-eFiction, and the mod lines, each
+pinned by an automated round-trip test). Stories, chapters, members,
+categories, series, and reviews come across; members keep their
+passwords, logging in the first time re-keys them to modern hashing;
+and old story, chapter, and custom-page URLs 301 to their new homes so
+search rankings follow.
+
+What readers get. eFiction's feature set froze years ago. Kiption
+ships zero-to-ten reviews with author responses, kudos, follows with
+email digests, reading lists, scheduled chapters, and per-story feeds,
+with exact counts and pages that render in one database query.
+
+Security posture. The repair fork's changelog records 61 defects it
+fixed in 3.5.5 with reproductions, from missing write tokens to
+upload validation; Kiption started with that list closed and adds
+argon-grade password hashing, CSRF protection, and a locked browser
+installer by design.
+
+Minimums, not adjectives: eFiction needs a PHP host with a MySQL or
+MariaDB database and hands willing to patch it. Kiption needs PHP 8.3
+and a writable directory. Both are open source; eFiction is GPL,
+Kiption is MIT, so extending Kiption commercially carries no copyleft
+obligations.
+
 ## How Kiption compares to Fictioneer
 
 Fictioneer is a WordPress theme for publishing fiction. Kiption is a
