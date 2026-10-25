@@ -351,6 +351,15 @@ final class SeriesTest extends TestCase
         (new Database('sqlite:' . $this->path))->query("UPDATE series SET cover_path = '/uploads/series-cover.png' WHERE slug = 'down-the-rabbit-hole'");
         $body = $this->app->handle(new \Kip\Http\Request('GET', '/series/view/down-the-rabbit-hole', [], [], []))->body;
         $this->assertStringContainsString('<img class="cover" src="/uploads/series-cover.png" alt="">', $body);
+        // Regression: ISSUE-QA-1 (found by /qa on 2026-10-25, live browser run):
+        // the cover rule once lost its size caps and a 1x1 upload upscaled to
+        // the full 760px column. The clamp is the contract (square edge, 1px
+        // border, 300px/450px box); browser-verified, source-pinned here.
+        $css = (string) file_get_contents(dirname(__DIR__, 4) . '/public/assets/reader.css');
+        $rule = (string) substr($css, (int) strpos($css, '.page-head .cover'), 160);
+        $this->assertStringContainsString('min(300px, 100%)', $rule, 'the cover caps at the 300px column');
+        $this->assertStringContainsString('max-height: 450px', $rule, 'tall covers clamp at 450px');
+        $this->assertStringContainsString('var(--line-strong)', $rule, 'the square edge matches the story twin');
     }
 
     public function test_owner_uploads_series_cover_stranger_404s_junk_422s(): void
