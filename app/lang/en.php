@@ -82,6 +82,9 @@ return [
     'auth.login.lede' => 'Reading is open to everyone. Log in to bookmark, follow authors, review, and write.',
     'auth.forgot.lede' => 'Enter the email on your account and we will send a link to set a new password.',
     'auth.back_to_login' => 'Back to log in',
+    'auth.terms_link' => 'By creating an account you accept {terms}.',
+    'auth.terms_pre' => 'By creating an account you accept the',
+    'auth.terms_label' => 'the terms',
     'auth.email' => 'Email',
     'auth.password' => 'Password',
     'auth.register.title' => 'Register',
@@ -492,6 +495,7 @@ return [
 
     // Pages (custom admin pages).
     'page.new' => 'New page',
+    'page.noindex_label' => 'Hide from search engines',
     'page.edit' => 'Edit page',
     'page.slug' => 'Slug',
     'page.slug_placeholder' => 'about',

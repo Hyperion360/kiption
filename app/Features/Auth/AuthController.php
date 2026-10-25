@@ -276,4 +276,5 @@ final class AuthController
             'head' => $this->head()->withTitle(\App\Lang::t('auth.reset.heading'))->withCanonical($this->request->path)->withNoindex(),
             'token' => $token, 'error' => $error]);
     }
+
 }
