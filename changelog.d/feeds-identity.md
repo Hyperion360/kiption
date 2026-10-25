@@ -1,0 +1,1 @@
+Changed: every syndication feed identifies itself: each Atom feed's id and rel=self are its own address and its alternate link points at its page (profile or category) instead of the site root, RSS carries the advisory's atom:link rel=self, and the layout's autodiscovery link keeps the feed's own title instead of borrowing the page title.

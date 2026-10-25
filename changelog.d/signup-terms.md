@@ -1,0 +1,1 @@
+Added: a config-gated signup terms line on the register form (signup_terms_url / KIP_SIGNUP_TERMS_URL): https and site-relative URLs link, any other scheme renders the label as plain text, unconfigured renders nothing.

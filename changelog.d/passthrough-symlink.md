@@ -1,0 +1,1 @@
+Fixed: the dev-server passthrough serves real files under a symlinked docroot (both sides resolved through realpath, so a /var-style symlink no longer routes assets into the application) and covers every extension the uploads allowlist accepts plus nosniff parity with the Apache path.

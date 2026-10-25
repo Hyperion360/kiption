@@ -1,0 +1,1 @@
+Added: the logomark: the K in the brand serif as favicon.svg (carrying the site's own font stack), a 16/32/48 favicon.ico raster of Iowan Old Style, and a full-bleed 180x180 apple-touch-icon; every layout links all three.

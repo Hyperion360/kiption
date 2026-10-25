@@ -1,0 +1,1 @@
+Fixed: Fictioneer import fidelity: split-file imports seed chapter positions from the database rather than the file alone, the summary fallback caps at the form's 1000 characters, adoption only adopts the same run's prior accounts, and legacy slug rows and shortlinks redirect correctly.
