@@ -46,15 +46,12 @@ it except the items noted. Decisions that cost money stay with the owner.
 
 ## Engineering follow-ups (coordinator-executable, no owner input needed)
 
-- [ ] `import:epub` (proposed 2026-10-15, owner yes pending): a bulk
-      importer for EPUB files, the format every export path produces.
-      It makes the AO3 migration real through AO3's own official per-work
-      downloads (ToS-clean end to end; it realizes the shelved 2026-09-19
-      "Path D" importer design from the otwarchive clone spec), ingests
-      output from third-party export tools without this project shipping
-      a scraper, and gives authors a self-service migration from any
-      platform whose exporter they already use. Route through /write-plan
-      + /plan-eng-review before building.
+- [x] `import:epub`: SHIPPED in v0.2.0 (2026-10-21) as the release headline
+      (bulk EPUB importer: AO3 downloads, FanFicFare output, any EPUB
+      library; dry-run, author resolution, covers, per-file idempotency;
+      app/src/Import/Epub.php + tests/EpubImportTest.php on main, the
+      feature/import-epub branch is merged). This entry predates the ship
+      and was left open by mistake.
 - [ ] Kip-side (route through the Kip repo's own plan process): Backup.php
       artifact modes are DONE on kip main (commit cd929db, 2026-10-15:
       0700 dir re-hardened every run, 0600 artifacts new and stale, checked
