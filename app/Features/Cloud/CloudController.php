@@ -7,9 +7,11 @@ final class CloudController
     public function __construct(private View $view, private Session $session, private Request $request, private App $app, private Database $db) {}
 
     /** /cloud: the hosted-archive page (Page row 'cloud'), signup at
-     *  cloud.kiption.com linked from the body. */
+     *  cloud.kiption.com linked from the body. Renders the page/cloud
+     *  template: hero, plan cards, body, and close band, all copy in the
+     *  page row and the cloud_marketing config. */
     public function index(): Response|string
     {
-        return \App\Marketing\MarketingPage::render($this->view, $this->request, $this->db, $this->session, $this->app, 'cloud');
+        return \App\Marketing\MarketingPage::render($this->view, $this->request, $this->db, $this->session, $this->app, 'cloud', 'page/cloud');
     }
 }

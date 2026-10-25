@@ -1443,3 +1443,89 @@ body.focus .site-head { display: none; }
 .gate-pass input[type="password"] { width: 100%; margin-block-end: .75rem; }
 .gate-pass .gate-actions { display: flex; align-items: center; gap: 1rem; margin-block-start: .25rem; }
 .gate-warning { margin: 0 0 1rem; font: 500 14px/1.5 var(--sans); }
+/* Marketing landing layer (the /cloud hosted page): hero, plan cards,
+   long-form body, close band. Reads the same tokens; the primary action
+   keeps the btn-primary color pair so one green button shape means one
+   thing everywhere. All copy lives in the page row and cloud_marketing
+   config; this layer is structure only. */
+.cloud-page .cloud-hero { max-width: 820px; margin-inline: auto; padding-block: 24px 8px; }
+.cloud-page .cloud-kicker {
+  margin: 0 0 18px; color: var(--accent);
+  font: 500 13px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase;
+}
+.cloud-page .cloud-hero h1 { font-size: clamp(34px, 6vw, 54px); line-height: 1.08; margin-block-end: 20px; }
+.cloud-page .cloud-hero h1::first-letter { text-transform: uppercase; }
+.cloud-page .cloud-lede { max-width: 62ch; margin-block-end: 32px; }
+.cloud-page .cloud-lede p { margin: 0; font: 400 19px/1.65 var(--sans); color: var(--ink-2); text-wrap: pretty; }
+.cloud-page .cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin: 0; }
+.cta-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 52px; padding: 12px 32px;
+  background: #1f4f42; color: #fff; border: 1px solid #1f4f42;
+  font: 500 16px/1 var(--sans); text-decoration: none;
+}
+.cta-primary:hover { background: #1f4f42; color: #fff; opacity: .92; }
+.cta-secondary {
+  display: inline-flex; align-items: center; min-height: 44px;
+  font: 500 15px/1 var(--sans); color: var(--accent);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.cta-secondary:hover { color: var(--accent-hover); }
+.cloud-page .proof-line { margin-block: 36px 0 0; font: 400 14px/1.6 var(--sans); color: var(--muted); }
+.cloud-page .plans-band { max-width: 1080px; margin-block-start: 48px; }
+.cloud-page .plans-label, .cloud-page .plan-pick-label {
+  margin: 0 0 18px; color: var(--muted);
+  font: 500 12px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase;
+}
+.cloud-page .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.cloud-page .plan-card {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line-strong); background: var(--surface);
+  padding: 28px;
+}
+.cloud-page .plan-card > .cta-primary { margin-block-start: auto; align-self: flex-start; }
+@media (max-width: 760px) { .cloud-page .plan-grid { grid-template-columns: 1fr; } }
+.cloud-page .plan-name { margin: 0 0 2px; font-size: 20px; }
+.cloud-page .plan-rec {
+  display: inline-block; margin-inline-start: 10px; padding: 3px 10px; vertical-align: 3px;
+  background: var(--pill-bg); color: var(--accent);
+  font: 500 11px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase;
+}
+.cloud-page .plan-for { margin: 0 0 20px; font: 400 13.5px/1.5 var(--sans); color: var(--muted); }
+.cloud-page .plan-price { margin: 0 0 4px; font-family: var(--serif); font-size: 40px; line-height: 1; }
+.cloud-page .plan-price small { margin-inline-start: 6px; font: 400 14px/1 var(--sans); color: var(--muted); }
+.cloud-page .plan-alt { margin: 0 0 22px; font: 400 13.5px/1.5 var(--sans); color: var(--ink-2); }
+.cloud-page .plan-rows { list-style: none; margin: 0 0 26px; padding: 0; flex: 1 0 auto; }
+.cloud-page .plan-rows li {
+  display: flex; gap: 10px; padding-block: 9px; border-block-start: 1px solid var(--line);
+  font: 400 14px/1.5 var(--sans); color: var(--ink);
+}
+.cloud-page .plan-rows li::before { content: "\2713"; color: var(--accent); font-weight: 500; }
+.cloud-page .plan-rows li:last-child { border-block-end: 1px solid var(--line); }
+.cloud-page .plan-note { margin: 14px 0 0; min-height: 40px; font: 400 13px/1.5 var(--sans); color: var(--muted); }
+.cloud-page .offer-callout {
+  margin-block-start: 24px; padding: 16px 20px;
+  border: 1px solid var(--line-strong); background: var(--pill-bg);
+  font: 400 14.5px/1.6 var(--sans); color: var(--ink);
+}
+.cloud-page .offer-callout p { margin: 0; }
+.cloud-page .offer-callout a { font-weight: 600; text-underline-offset: 3px; }
+.cloud-page .cloud-body { max-width: 1080px; margin-block: 72px 0; }
+.cloud-page .cloud-body .prose { max-width: 660px; line-height: 1.7; }
+.cloud-page .cloud-body .prose p + p { text-indent: 0; margin-block-start: .75em; }
+.cloud-page .cloud-body blockquote {
+  margin: 2.25em 0; padding: 4px 0 4px 22px; border-inline-start: 3px solid var(--accent);
+  font-family: var(--serif); font-size: 24px; line-height: 1.35; color: var(--ink);
+  text-wrap: balance;
+}
+.cloud-page .cloud-body hr { border: 0; border-block-start: 1px solid var(--line); margin-block: 3em; }
+.cloud-page .cloud-body .chapter-meta { max-width: 660px; }
+.cloud-page .close-band {
+  margin-block-start: 24px; padding: 88px 24px; text-align: center;
+  border-block-start: 1px solid var(--line); background: var(--surface);
+}
+.cloud-page .close-band h2 { font-size: clamp(26px, 4vw, 34px); margin-block-end: 12px; }
+.cloud-page .close-band p {
+  max-width: 56ch; margin: 0 auto 28px;
+  font: 400 15.5px/1.65 var(--sans); color: var(--ink-2);
+}

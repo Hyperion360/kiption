@@ -23,3 +23,4 @@ app/run.lock
 app/setup-attempts
 app/upgrade/
 site/
+config.marketing.php
