@@ -26,7 +26,7 @@ Options -Indexes
     <FilesMatch "\.(css|js)$">
         Header set Cache-Control "public, max-age=14400"
     </FilesMatch>
-    <FilesMatch "\.(png|jpe?g|gif|webp|ico)$">
+    <FilesMatch "\.(png|jpe?g|gif|webp|ico|svg)$">
         Header set Cache-Control "public, max-age=86400"
     </FilesMatch>
     <FilesMatch "\.(xml|txt)$">

@@ -231,6 +231,20 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('<link rel="stylesheet" href="/assets/reader.css">', $this->client()->get('/')->body);
     }
 
+    /** The logomark pair (the K in the brand serif): the SVG carries the
+     *  site's own font stack, the ICO is the raster fallback, and the files
+     *  exist beside them so the browser's icon request never 404s. */
+    public function test_icon_links_and_mark_files(): void
+    {
+        $body = $this->client()->get('/')->body;
+        $this->assertStringContainsString('<link rel="icon" href="/favicon.ico" sizes="32x32">', $body);
+        $this->assertStringContainsString('<link rel="icon" href="/favicon.svg" type="image/svg+xml">', $body);
+        $svg = (string) file_get_contents(dirname(__DIR__) . '/public/favicon.svg');
+        $this->assertStringContainsString("'Iowan Old Style'", $svg, 'the mark rides the brand serif stack');
+        $ico = (string) file_get_contents(dirname(__DIR__) . '/public/favicon.ico');
+        $this->assertSame("\x00\x00\x01\x00", substr($ico, 0, 4), 'a real ICO container');
+    }
+
     public function test_reader_css_carries_the_comp_breakpoints_and_safety_switches(): void
     {
         $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');

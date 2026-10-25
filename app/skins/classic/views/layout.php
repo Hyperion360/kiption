@@ -33,6 +33,8 @@
   <?php if (\App\Features::on('feeds')): ?>
   <link rel="alternate" type="application/atom+xml" title="<?= $this->e(\App\Lang::t('common.feed_title')) ?>" href="/feed">
   <?php endif; ?>
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/reader.css">
   <link rel="stylesheet" href="/assets/skins/classic.css">
   <script src="/assets/app.js" defer></script>

@@ -44,7 +44,7 @@ final class HtaccessContractTest extends TestCase
      *  Header line is asserted INSIDE its FilesMatch span. */
     public function test_each_type_family_carries_its_own_lifetime(): void
     {
-        foreach (['css|js' => '14400', 'png|jpe?g|gif|webp|ico' => '86400', 'xml|txt' => '3600'] as $ext => $age) {
+        foreach (['css|js' => '14400', 'png|jpe?g|gif|webp|ico|svg' => '86400', 'xml|txt' => '3600'] as $ext => $age) {
             $this->assertSame(1, preg_match(
                 '#<FilesMatch "\.\(' . $ext . '\)\$">\s*Header set Cache-Control "public, max-age=' . $age . '"#',
                 $this->ht), "the {$ext} block and only it carries max-age={$age}");
