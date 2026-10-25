@@ -215,4 +215,46 @@ final class ImportCliTest extends TestCase
         // columns the importer never reads
         $this->assertSame(11, (int) $db->one('SELECT COUNT(*) c FROM import_map')['c']);
     }
+
+    /** The e107-eFiction line (e107-eFiction/efiction-3.5.x, at 3.5.9)
+     *  round-trips. Its real deltas from the 3.5.5 fixture: the settings
+     *  version row, and a varbinary(16) log_ip written by INET6_ATON (16
+     *  binary bytes) instead of the legacy INT - binary that must survive
+     *  the exporter's utf8Safe substitution without breaking the bundle.
+     *  Passwords stay varchar(40) MD5 on that line, so members carry via
+     *  legacy_md5 exactly like 3.5.5. */
+    public function test_e107_359_schema_round_trips(): void
+    {
+        $src = $this->root . '/src';
+        mkdir($src, 0775, true);
+        $fx = new \EfictionInstall($src);
+        $fx->installShims();
+        $fx->pdo->exec("UPDATE fxs_fanfiction_settings SET version = '3.5.9'");
+        // their log table: same shape, log_ip holds 16 raw bytes
+        $fx->pdo->exec('CREATE TABLE fx_fanfiction_log_359 (log_id INTEGER PRIMARY KEY AUTOINCREMENT, log_action TEXT, log_uid INTEGER, log_ip BLOB, log_timestamp TEXT DEFAULT CURRENT_TIMESTAMP, log_type TEXT)');
+        $fx->pdo->exec('INSERT INTO fx_fanfiction_log_359 (log_action, log_uid, log_ip, log_type) SELECT log_action, log_uid, log_ip, log_type FROM fx_fanfiction_log');
+        $fx->pdo->exec('DROP TABLE fx_fanfiction_log');
+        $fx->pdo->exec('ALTER TABLE fx_fanfiction_log_359 RENAME TO fx_fanfiction_log');
+        // one INET6_ATON-style row: 16 binary bytes, invalid UTF-8
+        $fx->pdo->exec('INSERT INTO fx_fanfiction_log (log_action, log_uid, log_ip, log_type) VALUES (\'binary ip row\', 1, X\'20010DB8000000000000000000000001\', \'RG\')');
+        if (!defined('PHPUNIT_KIP_TEST')) define('PHPUNIT_KIP_TEST', true);
+        require_once dirname(__DIR__) . '/resources/efiction-export.php';
+        $token = str_repeat('a', 64);
+        file_put_contents($src . '/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
+        \EfictionExporter::runner($src, 'fxs_', $token, true, true, false, true);
+        $bundle = '';
+        foreach (glob($src . '/out-*/kiption-export.tar.gz') as $p) $bundle = $p;
+        $this->assertNotSame('', $bundle, 'bundle built with binary log_ip bytes inside');
+        [$code, $out] = $this->kip('migrate');
+        $this->assertSame(0, $code, $out);
+        [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($bundle) . ' --commit');
+        $this->assertSame(0, $code, $out);
+        $db = $this->db();
+        $this->assertSame(3, (int) $db->one('SELECT COUNT(*) c FROM users')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM stories')['c']);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM chapters')['c']);
+        // the seeded binary-IP row replaced, not fatal: the import lands
+        // the same content counts as the plain 3.5.5 fixture
+        $this->assertSame(2, (int) $db->one('SELECT COUNT(*) c FROM reviews')['c']);
+    }
 }
