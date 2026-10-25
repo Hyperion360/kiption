@@ -522,7 +522,7 @@ final class StoryController
                 'returnTo' => '/story/download/' . $slug . '/' . $format,
             ]);
         }
-        if (!in_array($format, ['html', 'epub'], true)) return new Response('Page not found', 404);
+        if (!in_array($format, ['html', 'epub', 'doc'], true)) return new Response('Page not found', 404);
         $baseUrl = rtrim((string) $this->app->config('base_url', ''), '/');
         if ($format === 'epub') {
             // The cover rides along as bytes (basename-confined read), so the
@@ -534,8 +534,10 @@ final class StoryController
             $body = (new \App\Export\Epub())->build($story, array_values($chapters), $baseUrl);
             $type = 'application/epub+zip';
         } else {
+            // doc is the html build served under Word headers (the eFiction
+            // Display Word trick): one builder, no second byte source to drift.
             $body = (new \App\Export\Html())->build($story, array_values($chapters), $baseUrl);
-            $type = 'text/html; charset=utf-8';
+            $type = $format === 'doc' ? 'application/msword' : 'text/html; charset=utf-8';
         }
         return (new Response($body, 200))
             ->withHeader('Content-Type', $type)

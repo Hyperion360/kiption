@@ -307,6 +307,7 @@ return [
     'story.leave_review' => 'Leave a review',
     'story.download_html' => 'HTML',
     'story.download_epub' => 'EPUB',
+    'story.download_doc' => 'Word',
     'story.whole_page_title' => '{title} - the complete work',
     'story.whole_toc' => 'Contents',
     'story.whole_toc_aria' => 'Table of contents',

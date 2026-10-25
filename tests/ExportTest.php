@@ -118,6 +118,24 @@ final class ExportTest extends TestCase
         $z->close();
     }
 
+    /** The eFiction Display Word semantics: the standalone HTML build served
+     *  byte-identical under Word headers. Word opens HTML in a .doc wrapper;
+     *  only the serving type and filename differ from the html format. */
+    public function test_doc_download_is_the_html_build_with_word_headers(): void
+    {
+        $doc = $this->client()->get('/story/download/the-rabbit-hole/doc');
+        $this->assertSame(200, $doc->status);
+        $this->assertSame('application/msword', $doc->headers['Content-Type'] ?? '');
+        $this->assertSame('attachment; filename="the-rabbit-hole.doc"', $doc->headers['Content-Disposition'] ?? '');
+        $this->assertSame((string) strlen($doc->body), $doc->headers['Content-Length'] ?? '');
+        $html = $this->client()->get('/story/download/the-rabbit-hole/html');
+        $this->assertSame($html->body, $doc->body, 'doc is the html build verbatim');
+        $this->assertStringStartsWith('<!DOCTYPE html>', $doc->body);
+        // the link surface: the story view offers the third format
+        $this->assertStringContainsString('/story/download/the-rabbit-hole/doc',
+            $this->client()->get('/story/view/the-rabbit-hole')->body);
+    }
+
     public function test_epub_closes_xhtml_void_tags_while_html_stays_html5(): void
     {
         // Finding 3: scene breaks are routine fiction markdown; the EPUB's

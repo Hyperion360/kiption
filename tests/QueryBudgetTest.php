@@ -81,6 +81,7 @@ final class QueryBudgetTest extends TestCase
                 // a one-query render); the html variant joins pages() and the
                 // epub variant rides the identical query path.
                 ['/story/download/the-rabbit-hole/html'],
+                ['/story/download/the-rabbit-hole/doc'],
                 ['/series/view/down-the-rabbit-hole'],
                 // The series index: title/penname/count in ONE listing query
                 // (comp nav surface; series has no feature flag, so the page
