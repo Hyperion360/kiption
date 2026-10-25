@@ -69,7 +69,10 @@ it except the items noted. Decisions that cost money stay with the owner.
 
 - [ ] Cut a release every time user-facing work lands (releases are the
       strongest sustained search signal; 0.1.1 shipped 2026-10-15, 0.2.0
-      shipped 2026-10-21 with import:epub as the headline).
+      shipped 2026-10-21 with import:epub as the headline, 0.3.0 cut
+      2026-10-25 with import:fictioneer and the post-password gate as the
+      headlines, 15 fragments, tag local: the push and GitHub release stay
+      owner-gated).
 - [ ] Answer every Discussion and issue within a day (community-engagement
       signals feed both GitHub ranking and the eFiction community's trust).
       Checked 2026-10-21: only the pinned issue open, zero Discussions.
