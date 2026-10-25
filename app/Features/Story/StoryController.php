@@ -475,7 +475,7 @@ final class StoryController
      *  the same HTML build served under Word headers as a .doc download,
      *  behind the read() gates verbatim (validated + not-deleted + the
      *  CAST'd restricted gate in wholeWork's SQL, the age cookie for adult
-     *  stories - the download IS reading). Both formats reuse wholeWork's
+     *  stories - the download IS reading). Every format reuses wholeWork's
      *  single query (finding 16: a one-query render; the html variant is a
      *  QueryBudgetTest pages() row). File names derive from the story slug
      *  only, which the repository's regex already confines to [a-z0-9-], so
