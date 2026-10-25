@@ -20,42 +20,23 @@ return [
     'log_db'  => ['dsn' => 'sqlite:' . $dataDir . '/logs.sqlite', 'retention_days' => 30],
     'cache_db' => ['dsn' => getenv('KIP_CACHE_DB_DSN') ?: 'sqlite:' . $dataDir . '/cache.sqlite', 'ttl_seconds' => 3600], // KIP_CACHE_DB_DSN: tests/CLI point kip cache:clear at a throwaway file
     'rate_limit' => [   // per first URL segment, fixed window, non-GET/HEAD only; table rate_limits (migration 025)
+        // Explicit entries are the DIFFERENTIATED budgets only; everything
+        // else rides the '*' fallback (kip >= 0.5.1), which charges under
+        // the request's own canonical prefix so per-surface buckets stay
+        // independent. A new POST-bearing segment inherits 30/min without
+        // a config edit; tighten it here when a surface needs its own.
         'auth'      => ['max' => 10, 'window' => 60],  // login/register/remind
-        'reader'    => ['max' => 30, 'window' => 60],  // settings, bookmarks, and infinite-scroll progress (one POST per newly reached chapter; a 429 is retried on a later activation)
-        'kudos'     => ['max' => 30, 'window' => 60],
-        'review'    => ['max' => 30, 'window' => 60],
-        'favorites' => ['max' => 30, 'window' => 60],
-        'follow'    => ['max' => 30, 'window' => 60],
-        'recommend' => ['max' => 30, 'window' => 60],  // member recommendations (first URL segment /recommend/*)
-        'story'     => ['max' => 30, 'window' => 60],  // mark, review-add forms
         'report'    => ['max' => 10, 'window' => 60],
         'warning'   => ['max' => 10, 'window' => 60],  // the age gate's continue (POST since the cross-site-img fix)
+        'images'    => ['max' => 10, 'window' => 60],  // per-request upload cost
         'messages'  => ['max' => 20, 'window' => 60],
         'account'   => ['max' => 20, 'window' => 60],
-        // Review follow-up: every POST-bearing first segment is throttled.
-        // 'news' replaces the dead 'comment' key (news comments POST to
-        // /news/comment/{id}; the first segment is 'news'). Admin and
-        // wrangling get looser budgets so bulk moderation never trips.
-        'news'          => ['max' => 30, 'window' => 60],  // news comments
-        'user'          => ['max' => 20, 'window' => 60],  // member contact (messaging-class)
-        'lists'         => ['max' => 30, 'window' => 60],
-        'series'        => ['max' => 30, 'window' => 60],
-        'challenges'    => ['max' => 20, 'window' => 60],
-        'chapter'       => ['max' => 30, 'window' => 60],
-        'coauthor'      => ['max' => 30, 'window' => 60],
-        'mute'          => ['max' => 30, 'window' => 60],
+        'user'      => ['max' => 20, 'window' => 60],  // member contact (messaging-class)
+        'challenges' => ['max' => 20, 'window' => 60],
         'notifications' => ['max' => 60, 'window' => 60],
-        'page'          => ['max' => 30, 'window' => 60],
-        'nav'           => ['max' => 30, 'window' => 60],
-        'queue'         => ['max' => 30, 'window' => 60],
-        'templates'     => ['max' => 30, 'window' => 60],
-        'features'      => ['max' => 30, 'window' => 60],
-        'settings'      => ['max' => 30, 'window' => 60],  // the operator settings board's save
-        'images'        => ['max' => 10, 'window' => 60],  // per-request upload cost
-        'wrangling'     => ['max' => 60, 'window' => 60],
-        'invites'       => ['max' => 30, 'window' => 60],  // invite mint/revoke POSTs
-        'adminstories'  => ['max' => 60, 'window' => 60],
-        'adminmembers'  => ['max' => 30, 'window' => 60],
+        'wrangling' => ['max' => 60, 'window' => 60],  // bulk moderation never trips
+        'adminstories' => ['max' => 60, 'window' => 60],
+        '*'         => ['max' => 30, 'window' => 60],  // reader, kudos, review, favorites, follow, recommend, story, news, lists, series, chapter, coauthor, mute, page, nav, queue, templates, features, settings, invites, adminmembers
     ],
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),

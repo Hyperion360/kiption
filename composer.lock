@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "kip/framework",
-            "version": "v0.5.0",
+            "version": "v0.5.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Hyperion360/kip.git",
-                "reference": "2deab2bcedf7d80dc5a07681fd128f6237fa7602"
+                "reference": "6b951361cc5a9f22841a82bb90a41c4e4069c489"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/2deab2bcedf7d80dc5a07681fd128f6237fa7602",
-                "reference": "2deab2bcedf7d80dc5a07681fd128f6237fa7602",
+                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/6b951361cc5a9f22841a82bb90a41c4e4069c489",
+                "reference": "6b951361cc5a9f22841a82bb90a41c4e4069c489",
                 "shasum": ""
             },
             "require": {
@@ -74,7 +74,7 @@
                 "issues": "https://github.com/Hyperion360/kip/issues",
                 "source": "https://github.com/Hyperion360/kip"
             },
-            "time": "2026-10-06T06:49:55+00:00"
+            "time": "2026-10-25T04:59:04+00:00"
         }
     ],
     "packages-dev": [
