@@ -1,1 +1,0 @@
-Added: a post-password gate on stories and chapters (per-work access password; a locked work stays listed with title and summary while the prose is withheld, unlock markers are bound to the hash, and locked works leave the sitemap).

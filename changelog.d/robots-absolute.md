@@ -1,1 +1,0 @@
-Fixed: robots.txt regeneration writes an absolute Sitemap URL (RFC 9309; crawlers ignore a relative one), and a build whose base_url is the unconfigured default skips sitemap and robots regeneration entirely so local runs never rewrite the committed seed.

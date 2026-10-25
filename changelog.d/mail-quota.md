@@ -1,1 +1,0 @@
-Added: an email daily-send cap (mail_daily_cap / KIP_MAIL_DAILY_CAP, 0 = off): non-critical mail pauses as the cap approaches with a log line, verification and password-reset mail always send (App\MailGuard).

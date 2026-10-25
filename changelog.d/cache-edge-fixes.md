@@ -1,1 +1,0 @@
-Fixed: cache-policy edges: a 304 no longer flips a stored CDN entry to no-store on first revalidation (feed or page), empty feeds pin a stable updated instant so their ETag stops churning every second, and images lost their year-long immutable lifetime in favor of one day (a moderated or deleted upload stops serving from caches within a day).

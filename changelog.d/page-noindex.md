@@ -1,1 +1,0 @@
-Added: a per-page noindex flag (admin checkbox on the page form, pages.noindex via migration 045): a flagged page carries the meta tag and X-Robots-Tag on both its /page/view and top-level marketing spelling and leaves the sitemap and the static-cache build.
