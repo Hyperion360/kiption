@@ -10,6 +10,7 @@ return [
     'common.body' => 'Body',
     'common.create' => 'Create',
     'common.save' => 'Save',
+    'common.cover_rejected' => 'Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.',
     'common.pages_aria' => 'Pages',
     'common.delete' => 'Delete',
     'common.edit' => 'Edit',

@@ -136,12 +136,12 @@ final class SeriesController
         catch (\RuntimeException) { return new Response('Page not found', 404); }
         $file = $this->request->file('cover');
         if ($file === null) {
-            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
         try {
             $path = $this->storage->put($file);
         } catch (\Kip\UploadException) {
-            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
         $this->db->query('UPDATE series SET cover_path = ? WHERE slug = ?', [$path, $slug]);
         $this->staticCache()->purgeSeries($slug);

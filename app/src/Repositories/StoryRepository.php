@@ -4,6 +4,12 @@ use Kip\Database;
 
 final class StoryRepository
 {
+    /** The word-count facet partition edges (under10k | 10kto50k | over50k):
+     *  under 10k exclusive, 10k inclusive, 50k exclusive-high/inclusive as
+     *  over50k, per the boundary tests in BrowseTest. */
+    private const WORD_BREAK_10K = 10000;
+    private const WORD_BREAK_50K = 50000;
+
     public function __construct(private Database $db) {}
 
     /** ONE query: story + author + rating + categories + chapter TOC blob,
@@ -251,12 +257,18 @@ final class StoryRepository
     {
         $muted = $viewer > 0 && $applyMute;
         $mute = $muted ? MuteRepository::clause('s') : '';
+        // The word-count partition's two edges, named once: the three facet
+        // fragments below and the BrowseTest boundary pins agree on these
+        // values (the filter also lives in BrowseController::RECENT_FILTERS
+        // and both browse/recent views' chip sets).
+        $w10k = self::WORD_BREAK_10K;
+        $w50k = self::WORD_BREAK_50K;
         $facet = match ($filter) {
             'complete' => ' AND s.completed = 1',
             'wip' => ' AND s.completed = 0',
-            'under10k' => ' AND s.word_count < 10000',
-            '10kto50k' => ' AND s.word_count >= 10000 AND s.word_count < 50000',
-            'over50k' => ' AND s.word_count >= 50000',
+            'under10k' => " AND s.word_count < {$w10k}",
+            '10kto50k' => " AND s.word_count >= {$w10k} AND s.word_count < {$w50k}",
+            'over50k' => " AND s.word_count >= {$w50k}",
             default => '',
         };
         $catClause = $catSlug !== ''

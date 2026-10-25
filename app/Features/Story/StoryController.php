@@ -697,12 +697,12 @@ final class StoryController
         }
         $file = $this->request->file('cover');
         if ($file === null) {
-            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
         try {
             $path = $this->storage->put($file);
         } catch (\Kip\UploadException) {
-            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
         $this->db->query('UPDATE stories SET cover_path = ? WHERE id = ?', [$path, $story['id']]);
         [$seriesSlugs, $authorSlug] = $this->authoring()->purgeData((int) $story['id'], (int) $story['author_id']);

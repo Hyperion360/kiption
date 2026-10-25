@@ -80,6 +80,24 @@ final class SeriesTest extends TestCase
         return (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
     }
 
+    /** A fresh admin row (the seeder ships none; the ImagesTest idiom). */
+    private function makeAdmin(string $penname): int
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, 'admin', 1, ?, ?, ?)",
+            [$penname . '@e.test', password_hash('password123', PASSWORD_DEFAULT), $penname, date('c'), date('c'), $penname]);
+        return (int) $this->db->one('SELECT id FROM users WHERE penname = ?', [$penname])['id'];
+    }
+
+    /** A real 1x1 PNG in a $_FILES shape (the copy-mover Storage seam). */
+    private function pngFiles(string $name): array
+    {
+        $png = (string) base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+        $tmp = tempnam(sys_get_temp_dir(), 'kiption-cover-');
+        file_put_contents($tmp, $png);
+        return ['name' => $name, 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)];
+    }
+
     public function test_public_series_page_renders_for_guests(): void
     {
         $res = $this->client()->get('/series/view/down-the-rabbit-hole');
@@ -350,18 +368,14 @@ final class SeriesTest extends TestCase
         $owner = (new TestClient($this->app))->actingAs($this->authorId());
         $stranger = (new TestClient($this->app))->actingAs(
             (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id']);
-        $png = (string) base64_decode(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
-        $tmp = tempnam(sys_get_temp_dir(), 'kiption-cover-');
-        file_put_contents($tmp, $png);
-        $post = ['name' => 'c.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)];
+        $post = $this->pngFiles('c.png');
 
         // a stranger draws the honest 404 (forEdit, the ownership-unobservable rule)
         $this->assertSame(404, $stranger->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover', $post)->status);
 
         // junk extension draws the Storage 422 before any write
         $this->assertSame(422, $owner->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover',
-            ['name' => 'c.txt', 'type' => 'text/plain', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)])->status);
+            ['name' => 'c.txt', 'type' => 'text/plain', 'tmp_name' => $post['tmp_name'], 'error' => UPLOAD_ERR_OK, 'size' => $post['size']])->status);
 
         // the owner's good upload lands and redirects to the edit form
         $res = $owner->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover', $post);
@@ -387,16 +401,8 @@ final class SeriesTest extends TestCase
         $this->app->container->instance(\Kip\Storage::class,
             new \Kip\Storage($dir, 2097152, ['png', 'jpg', 'jpeg', 'webp', 'gif'], mover: fn (string $t, string $d): bool => copy($t, $d)));
         // the seeder ships no admin (ImagesTest ships its own fixture too)
-        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('seradmin@e.test', ?, 'seradmin', 'admin', 1, ?, ?, 'seradmin')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
-        $adminId = (int) $this->db->one("SELECT id FROM users WHERE role = 'admin'")['id'];
-        $admin = (new TestClient($this->app))->actingAs($adminId);
-        $png = (string) base64_decode(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
-        $tmp = tempnam(sys_get_temp_dir(), 'kiption-lib-');
-        file_put_contents($tmp, $png);
-        $this->assertSame(302, $admin->postWithFile('/images/upload', [], 'file',
-            ['name' => 'x.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)])->status);
+        $admin = (new TestClient($this->app))->actingAs($this->makeAdmin('seradmin'));
+        $this->assertSame(302, $admin->postWithFile('/images/upload', [], 'file', $this->pngFiles('x.png'))->status);
         $files = glob($dir . '/*') ?: [];
         $this->assertCount(1, $files, 'the upload landed in the library dir');
         $name = basename($files[0]);
@@ -428,15 +434,8 @@ final class SeriesTest extends TestCase
         $this->assertNull($this->db->one("SELECT cover_path FROM series WHERE slug = 'down-the-rabbit-hole' AND cover_path IS NOT NULL"));
 
         // the admin leg of forEdit's may_edit (the ImagesTest fixture idiom)
-        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('seradmin3@e.test', ?, 'seradmin3', 'admin', 1, ?, ?, 'seradmin3')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
-        $adminId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'seradmin3'")['id'];
-        $png = (string) base64_decode(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
-        $tmp = tempnam(sys_get_temp_dir(), 'kiption-cover-');
-        file_put_contents($tmp, $png);
-        $res = (new TestClient($this->app))->actingAs($adminId)->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover',
-            ['name' => 'c.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)]);
+        $res = (new TestClient($this->app))->actingAs($this->makeAdmin('seradmin3'))
+            ->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover', $this->pngFiles('c.png'));
         $this->assertSame(302, $res->status, $res->body);
         $this->assertMatchesRegularExpression('#^/uploads/[0-9a-f]{16}\.png$#',
             (string) $this->db->one("SELECT cover_path FROM series WHERE slug = 'down-the-rabbit-hole'")['cover_path']);
@@ -451,10 +450,7 @@ final class SeriesTest extends TestCase
     {
         $owner = $this->client($this->authorId())->get('/series/view/down-the-rabbit-hole')->body;
         $this->assertStringContainsString('href="/series/edit/down-the-rabbit-hole"', $owner);
-        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('seradmin4@e.test', ?, 'seradmin4', 'admin', 1, ?, ?, 'seradmin4')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
-        $adminId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'seradmin4'")['id'];
-        $admin = $this->client($adminId)->get('/series/view/down-the-rabbit-hole')->body;
+        $admin = $this->client($this->makeAdmin('seradmin4'))->get('/series/view/down-the-rabbit-hole')->body;
         $this->assertStringContainsString('href="/series/edit/down-the-rabbit-hole"', $admin, 'admins reach the edit form (and the cover upload)');
         $betaId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         $member = $this->client($betaId)->get('/series/view/down-the-rabbit-hole')->body;
