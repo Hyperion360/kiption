@@ -184,4 +184,16 @@ final class ImagesTest extends TestCase
         $this->assertStringContainsString('2 files', $list);
         $this->assertStringContainsString(round((2048 + 1572864) / 1048576, 1) . ' MiB', $list, 'the total renders in the top tier');
     }
+
+    /** The in-use statement is UNION ALL by design: the PHP basename map
+     *  dedups, so a dedup UNION would pay three TEMP B-TREE sorts for
+     *  nothing on an admin surface (review finding, EXPLAIN-verified). */
+    public function test_in_use_statement_pays_no_temp_btree_sorts(): void
+    {
+        $plan = implode("\n", array_column($this->db()->all(
+            'EXPLAIN QUERY PLAN SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL'
+            . ' UNION ALL SELECT cover_path FROM stories WHERE cover_path IS NOT NULL'
+            . ' UNION ALL SELECT cover_path FROM series WHERE cover_path IS NOT NULL'), 'detail'));
+        $this->assertStringNotContainsString('TEMP B-TREE', $plan, 'UNION ALL must replace the dedup UNION so no arm pays a sort');
+    }
 }

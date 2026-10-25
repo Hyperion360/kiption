@@ -95,7 +95,9 @@ final class ImagesController
     private function inUseNames(): array
     {
         $set = [];
-        $rows = $this->db->all('SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL UNION SELECT cover_path FROM stories WHERE cover_path IS NOT NULL UNION SELECT cover_path FROM series WHERE cover_path IS NOT NULL');
+        // UNION ALL, not UNION: the basename map below already dedups, so the
+        // dedup sorts (three TEMP B-TREEs under EXPLAIN) buy nothing.
+        $rows = $this->db->all('SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL UNION ALL SELECT cover_path FROM stories WHERE cover_path IS NOT NULL UNION ALL SELECT cover_path FROM series WHERE cover_path IS NOT NULL');
         foreach ($rows as $r) {
             $p = (string) (array_values($r)[0] ?? '');
             if ($p !== '') $set[basename($p)] = true;

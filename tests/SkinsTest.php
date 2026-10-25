@@ -114,6 +114,21 @@ final class SkinsTest extends TestCase
         $this->assertStringContainsString('manuscript-opening', (string) $read->body, 'the chapter view is the skin\'s own');
     }
 
+    /** The classic skin overrides browse/recent, so every chip the default
+     *  view offers must also be reachable under the skin (review finding: the
+     *  override carried the old three-chip set after the word-count facets
+     *  landed, making the new filters UI-unreachable on skinned archives). */
+    public function test_classic_skin_recent_page_offers_every_word_count_chip(): void
+    {
+        $this->seed();
+        $client = $this->client(null, ['skin' => 'classic']);
+        $res = $client->get('/browse/recent');
+        $this->assertSame(200, $res->status, (string) $res->body);
+        foreach (['under10k', '10kto50k', 'over50k'] as $facet) {
+            $this->assertStringContainsString("filter={$facet}", (string) $res->body, "classic skin chips must include {$facet}");
+        }
+    }
+
     public function test_skin_switch_on_the_board_purges_the_static_layer(): void
     {
         $this->seed();

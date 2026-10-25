@@ -12,7 +12,7 @@
   <?php if (($series['cover_path'] ?? '') !== ''): ?><img class="cover" src="<?= $this->e($series['cover_path']) ?>" alt=""><?php endif; ?>
   <?php if ($series['summary'] !== ''): ?><p class="summary"><?= $this->e($series['summary']) ?></p><?php endif; ?>
   </header>
-  <?php if ($loggedIn && $isOwner): ?><p><a href="/series/edit/<?= $this->e($series['slug']) ?>"><?= \App\Lang::t('series.edit') ?></a><span class="chapter-meta"> | <?= \App\Lang::t('series.membership_label') ?>: <?= $this->e(\App\Lang::t('series.m_' . $series['membership'])) ?><?= $series['membership'] === 'moderated' ? \App\Lang::t('series.moderated_note') : '' ?></span></p><?php endif; ?>
+  <?php if ($loggedIn && ($isOwner || $isAdmin)): ?><p><a href="/series/edit/<?= $this->e($series['slug']) ?>"><?= \App\Lang::t('series.edit') ?></a><span class="chapter-meta"> | <?= \App\Lang::t('series.membership_label') ?>: <?= $this->e(\App\Lang::t('series.m_' . $series['membership'])) ?><?= $series['membership'] === 'moderated' ? \App\Lang::t('series.moderated_note') : '' ?></span></p><?php endif; ?>
   <ol class="series-items">
     <?php foreach ($items as $n => $it): ?>
       <li>

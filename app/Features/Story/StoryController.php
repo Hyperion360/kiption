@@ -471,7 +471,8 @@ final class StoryController
         return (new Response($rendered, 200))->withHeader('X-Robots-Tag', 'noindex');
     }
 
-    /** The whole-work exports: the standalone HTML document or the EPUB,
+    /** The whole-work exports: the standalone HTML document, the EPUB, or
+     *  the same HTML build served under Word headers as a .doc download,
      *  behind the read() gates verbatim (validated + not-deleted + the
      *  CAST'd restricted gate in wholeWork's SQL, the age cookie for adult
      *  stories - the download IS reading). Both formats reuse wholeWork's

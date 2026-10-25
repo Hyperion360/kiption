@@ -1,6 +1,6 @@
 <?php // app/Features/Series/SeriesController.php
 namespace App\Features\Series;
-use Kip\{App, Database, Http\Request, Http\Response, Session, Storage, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\SeriesRepository;
 

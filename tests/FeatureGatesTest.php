@@ -258,7 +258,7 @@ final class FeatureGatesTest extends TestCase
         $this->assertSame(404, $this->client()->get('/story/download/the-rabbit-hole/html')->status);
         $this->assertSame(404, $this->client()->get('/story/download/the-rabbit-hole/epub')->status);
         $this->assertSame(404, $this->client()->get('/story/download/the-rabbit-hole/doc')->status);
-        // The story view drops its Whole and Download (html/epub) links.
+        // The story view drops its Whole and Download (html/epub/doc) links.
         $story = $this->client()->get('/story/view/the-rabbit-hole');
         $this->assertSame(200, $story->status);
         $this->assertStringNotContainsString('href="/story/whole/', $story->body, 'the Whole link hides');

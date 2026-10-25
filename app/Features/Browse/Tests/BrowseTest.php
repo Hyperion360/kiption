@@ -524,4 +524,19 @@ final class BrowseTest extends TestCase
         $this->assertStringContainsString('data-next-url="/browse/recent?filter=complete&amp;page=2"', $filtered);
     }
 
+    /** The chip surface itself (the plan-review gap): every word-count chip
+     *  renders with its label, and a new facet carries the active state.
+     *  Lang::t falls back to the raw key on a miss, so a missing
+     *  browse.filter_10kto50k key would ship as literal key text. */
+    public function test_every_word_count_chip_renders_and_activates(): void
+    {
+        $body = $this->app->handle(new Request('GET', '/browse/recent', [], [], []))->body;
+        $this->assertStringContainsString('<a class="chip" href="/browse/recent?filter=under10k">Under 10k</a>', $body);
+        $this->assertStringContainsString('<a class="chip" href="/browse/recent?filter=10kto50k">10k to 50k</a>', $body);
+        $this->assertStringContainsString('<a class="chip" href="/browse/recent?filter=over50k">Over 50k</a>', $body);
+        $active = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'over50k'], [], []))->body;
+        $this->assertStringContainsString('<a class="chip is-active" href="/browse/recent?filter=over50k" aria-current="true">Over 50k</a>', $active);
+        $this->assertStringNotContainsString('aria-current="true">' . \App\Lang::t('browse.all') . '</a>', $active, 'the All chip goes inert while a facet is active');
+    }
+
 }

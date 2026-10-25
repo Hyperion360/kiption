@@ -317,6 +317,17 @@ final class SeriesTest extends TestCase
         $this->assertContains('cover_path', $cols());
     }
 
+    /** down() drops a column, which SQLite only parses from 3.35: the guard
+     *  must fail with the actionable instruction on older hosts instead of a
+     *  raw parse error mid-batch (the 010/045 rollback shape). */
+    public function test_046_down_carries_the_sqlite_335_guard(): void
+    {
+        $src = (string) file_get_contents(dirname(__DIR__) . '/migrations/046_series_cover.php');
+        $down = substr($src, (int) strpos($src, 'function down'));
+        $this->assertStringContainsString('sqlite_version', $down);
+        $this->assertStringContainsString('3.35', $down);
+    }
+
     public function test_series_view_renders_uploaded_cover(): void
     {
         (new Database('sqlite:' . $this->path))->query("UPDATE series SET cover_path = '/uploads/series-cover.png' WHERE slug = 'down-the-rabbit-hole'");
@@ -398,5 +409,55 @@ final class SeriesTest extends TestCase
 
         array_map('unlink', glob($dir . '/*') ?: []);
         @rmdir($dir);
+    }
+
+    /** The bare "Upload cover" submit (no file chosen) draws the 422 before
+     *  any Storage call, and the admin leg of the owner-or-admin gate lands:
+     *  both negative/positive arms of the action's first two returns. */
+    public function test_series_cover_without_a_file_422s_and_admin_uploads(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-series-cover-' . uniqid('', true);
+        @mkdir($dir);
+        $this->app = $this->newApp($dir);
+        $this->app->container->instance(\Kip\Storage::class,
+            new \Kip\Storage($dir, 2097152, ['png', 'jpg', 'jpeg', 'webp', 'gif'], mover: fn (string $t, string $d): bool => copy($t, $d)));
+        $owner = (new TestClient($this->app))->actingAs($this->authorId());
+
+        // no file field: the null branch, no write
+        $this->assertSame(422, $owner->postWithToken('/series/cover/down-the-rabbit-hole', [])->status);
+        $this->assertNull($this->db->one("SELECT cover_path FROM series WHERE slug = 'down-the-rabbit-hole' AND cover_path IS NOT NULL"));
+
+        // the admin leg of forEdit's may_edit (the ImagesTest fixture idiom)
+        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('seradmin3@e.test', ?, 'seradmin3', 'admin', 1, ?, ?, 'seradmin3')",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+        $adminId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'seradmin3'")['id'];
+        $png = (string) base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+        $tmp = tempnam(sys_get_temp_dir(), 'kiption-cover-');
+        file_put_contents($tmp, $png);
+        $res = (new TestClient($this->app))->actingAs($adminId)->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover',
+            ['name' => 'c.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)]);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertMatchesRegularExpression('#^/uploads/[0-9a-f]{16}\.png$#',
+            (string) $this->db->one("SELECT cover_path FROM series WHERE slug = 'down-the-rabbit-hole'")['cover_path']);
+
+        array_map('unlink', glob($dir . '/*') ?: []);
+        @rmdir($dir);
+    }
+
+    /** The Edit link follows the upload gate: owner or admin, and nobody
+     *  else (an admin previously had upload rights with no UI path). */
+    public function test_edit_link_shows_for_owner_or_admin_not_members(): void
+    {
+        $owner = $this->client($this->authorId())->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringContainsString('href="/series/edit/down-the-rabbit-hole"', $owner);
+        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('seradmin4@e.test', ?, 'seradmin4', 'admin', 1, ?, ?, 'seradmin4')",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+        $adminId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'seradmin4'")['id'];
+        $admin = $this->client($adminId)->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringContainsString('href="/series/edit/down-the-rabbit-hole"', $admin, 'admins reach the edit form (and the cover upload)');
+        $betaId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $member = $this->client($betaId)->get('/series/view/down-the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('href="/series/edit/down-the-rabbit-hole"', $member);
     }
 }
