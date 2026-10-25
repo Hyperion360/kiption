@@ -74,8 +74,12 @@ it except the items noted. Decisions that cost money stay with the owner.
       `composer update kip/framework` and collapse the 26 rate_limit
       prefixes to '*' (coordinator-executable once the tag exists).
       The kip CI workflow decision stays parked (recurring-cost rule).
-- [ ] README screenshot pass once the hosted flagship is live: a hero shot
-      of the reader is the one discovery gap the star-research flagged.
+- [x] README screenshot pass: SHIPPED 2026-10-25 (owner ruling: the seeded
+      demo beats waiting for the flagship). docs/reader-hero.png is the
+      real reader in the Night theme (The Lantern Keeper's Daughter ch. 1,
+      the seeded content), 1400x900 from a 2x capture, embedded under the
+      README intro. When the hosted flagship is live, re-shoot the same
+      frame there for real data and re-point the image.
 
 ## Ongoing discovery (marketing and SEO cadence)
 

@@ -9,6 +9,8 @@ PHP 8.3 and SQLite. No JavaScript frameworks, no runtime dependencies
 beyond the [Kip](https://github.com/Hyperion360/kip) framework, no build
 step. Runs on shared hosting.
 
+![The reader: The Lantern Keeper's Daughter, chapter 1, in the Night theme](docs/reader-hero.png)
+
 Kiption is a modern eFiction alternative: eFiction 3.5 has been
 unmaintained since 2018 and breaks on current PHP. Kiption covers the
 eFiction feature set, imports an eFiction archive with one command
