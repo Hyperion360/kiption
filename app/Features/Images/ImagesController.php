@@ -82,7 +82,7 @@ final class ImagesController
             return new Response('Invalid file name.', 422);
         }
         if (isset($this->inUseNames()[$name])) {
-            return new Response('File is in use by an avatar or story cover.', 409);
+            return new Response('File is in use by an avatar, story cover, or series cover.', 409);
         }
         $target = $this->uploadsDir() . '/' . $name;
         if (!is_file($target) || !@unlink($target)) return new Response('Page not found', 404);

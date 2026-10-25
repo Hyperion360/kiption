@@ -440,7 +440,7 @@ return [
     'images.total' => 'total',
     'images.upload_aria' => 'Upload an image file',
     'images.upload' => 'Upload',
-    'images.help' => 'PNG, JPG, WEBP, or GIF under 2 MiB. Files an avatar or story cover still uses cannot be deleted.',
+    'images.help' => 'PNG, JPG, WEBP, or GIF under 2 MiB. Files an avatar, story cover, or series cover still uses cannot be deleted.',
     'images.column_file' => 'File',
     'images.column_size' => 'Size',
     'images.column_actions' => 'Actions',
