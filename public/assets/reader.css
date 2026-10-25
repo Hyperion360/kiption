@@ -499,6 +499,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   aspect-ratio: 2 / 3; object-fit: cover;
   border: 1px solid var(--line-strong);
 }
+.page-head .cover { max-width: 300px; height: auto; border-radius: 4px; }
 .cover-card {
   display: flex; flex-direction: column; justify-content: space-between;
   aspect-ratio: 2 / 3; padding: 22px 20px;

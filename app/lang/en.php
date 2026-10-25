@@ -332,6 +332,8 @@ return [
     'story.access_clear_label' => 'Remove password',
     'story.cover_label' => 'Cover (PNG/JPG/WEBP/GIF, max 2 MiB)',
     'story.upload_cover' => 'Upload cover',
+    'series.cover_label' => 'Cover (PNG/JPG/WEBP/GIF, max 2 MiB)',
+    'series.upload_cover' => 'Upload cover',
     'story.coauthors' => 'Coauthors',
     'story.add_coauthor_label' => 'Add coauthor by penname',
     'story.add_coauthor' => 'Add coauthor',

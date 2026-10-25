@@ -26,7 +26,7 @@ final class SeriesTest extends TestCase
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
-    private function newApp(): App
+    private function newApp(string $uploadsDir = ''): App
     {
         return new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
@@ -35,7 +35,7 @@ final class SeriesTest extends TestCase
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-series-mail-') . '.log', 'from' => 'noreply@localhost'],
-            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-series-upl'],
+            'uploads' => ['dir' => $uploadsDir !== '' ? $uploadsDir : sys_get_temp_dir() . '/kiption-series-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             // a throwaway static cache: purges never touch the real public/cache
             'static_cache' => ['enabled' => true, 'dir' => $this->cacheDir()],
@@ -300,7 +300,103 @@ final class SeriesTest extends TestCase
         $this->assertSame(404, $owner->postWithToken('/series/move/actions/999999/up', [])->status);
 
         // owner removes the second item
-        $this->assertSame(302, $owner->postWithToken('/series/remove/actions/after-hours', [])->status);
+        $this->assertSame(302, $owner->postWithToken('/series/remove/actions/after-hours')->status);
         $this->assertStringNotContainsString('after-hours', $owner->get('/series/view/actions')->body);
+    }
+
+    /** The 046 shape: one nullable column, up then down, on the real ledger
+     *  path (every setUp already migrated it; this pins reversibility). */
+    public function test_046_adds_and_drops_series_cover_path(): void
+    {
+        $db = new Database('sqlite:' . $this->path);
+        $cols = fn (): array => array_column($db->all("PRAGMA table_info(series)"), 'name');
+        $this->assertContains('cover_path', $cols(), 'setUp migrated 046');
+        (require dirname(__DIR__) . '/migrations/046_series_cover.php')->down($db);
+        $this->assertNotContains('cover_path', $cols());
+        (require dirname(__DIR__) . '/migrations/046_series_cover.php')->up($db);
+        $this->assertContains('cover_path', $cols());
+    }
+
+    public function test_series_view_renders_uploaded_cover(): void
+    {
+        (new Database('sqlite:' . $this->path))->query("UPDATE series SET cover_path = '/uploads/series-cover.png' WHERE slug = 'down-the-rabbit-hole'");
+        $body = $this->app->handle(new \Kip\Http\Request('GET', '/series/view/down-the-rabbit-hole', [], [], []))->body;
+        $this->assertStringContainsString('<img class="cover" src="/uploads/series-cover.png" alt="">', $body);
+    }
+
+    public function test_owner_uploads_series_cover_stranger_404s_junk_422s(): void
+    {
+        // client() rebuilds the App per call (discarding any container swap),
+        // so this test builds ONE app with the copy-mover Storage seam and
+        // drives every role through TestClients on that same instance
+        // (outside-voice finding 1). The dir is unique per run and the test
+        // cleans it up itself (finding 5): tearDown only removes DB files.
+        $dir = sys_get_temp_dir() . '/kiption-series-cover-' . uniqid('', true);
+        @mkdir($dir);
+        $this->app = $this->newApp($dir);
+        $this->app->container->instance(\Kip\Storage::class,
+            new \Kip\Storage($dir, 2097152, ['png', 'jpg', 'jpeg', 'webp', 'gif'], mover: fn (string $t, string $d): bool => copy($t, $d)));
+        $owner = (new TestClient($this->app))->actingAs($this->authorId());
+        $stranger = (new TestClient($this->app))->actingAs(
+            (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id']);
+        $png = (string) base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+        $tmp = tempnam(sys_get_temp_dir(), 'kiption-cover-');
+        file_put_contents($tmp, $png);
+        $post = ['name' => 'c.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)];
+
+        // a stranger draws the honest 404 (forEdit, the ownership-unobservable rule)
+        $this->assertSame(404, $stranger->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover', $post)->status);
+
+        // junk extension draws the Storage 422 before any write
+        $this->assertSame(422, $owner->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover',
+            ['name' => 'c.txt', 'type' => 'text/plain', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)])->status);
+
+        // the owner's good upload lands and redirects to the edit form
+        $res = $owner->postWithFile('/series/cover/down-the-rabbit-hole', [], 'cover', $post);
+        $this->assertSame(302, $res->status, $res->body);
+        $row = $this->db->one("SELECT cover_path FROM series WHERE slug = 'down-the-rabbit-hole'");
+        $this->assertMatchesRegularExpression('#^/uploads/[0-9a-f]{16}\.png$#', (string) $row['cover_path']);
+        $this->assertFileExists($dir . '/' . basename((string) $row['cover_path']));
+
+        array_map('unlink', glob($dir . '/*') ?: []);
+        @rmdir($dir);
+    }
+
+    /** The library guard: an in-use series cover refuses deletion; clearing
+     *  the reference releases it. Uploads through the real /images/upload so
+     *  the file carries a genuine Storage hex name; the SAME dir backs the
+     *  config uploads.dir so /images/delete's unlink path finds the file
+     *  (ImagesController::uploadsDir reads config, finding 1's second half). */
+    public function test_series_cover_reference_refuses_library_delete(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-series-lib-' . uniqid('', true);
+        @mkdir($dir);
+        $this->app = $this->newApp($dir);
+        $this->app->container->instance(\Kip\Storage::class,
+            new \Kip\Storage($dir, 2097152, ['png', 'jpg', 'jpeg', 'webp', 'gif'], mover: fn (string $t, string $d): bool => copy($t, $d)));
+        // the seeder ships no admin (ImagesTest ships its own fixture too)
+        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('seradmin@e.test', ?, 'seradmin', 'admin', 1, ?, ?, 'seradmin')",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+        $adminId = (int) $this->db->one("SELECT id FROM users WHERE role = 'admin'")['id'];
+        $admin = (new TestClient($this->app))->actingAs($adminId);
+        $png = (string) base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+        $tmp = tempnam(sys_get_temp_dir(), 'kiption-lib-');
+        file_put_contents($tmp, $png);
+        $this->assertSame(302, $admin->postWithFile('/images/upload', [], 'file',
+            ['name' => 'x.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)])->status);
+        $files = glob($dir . '/*') ?: [];
+        $this->assertCount(1, $files, 'the upload landed in the library dir');
+        $name = basename($files[0]);
+
+        $this->db->query("INSERT INTO series (title, slug, owner_id, cover_path) VALUES ('S', 's', 1, ?)", ['/uploads/' . $name]);
+        $this->assertSame(409, $admin->postWithToken('/images/delete', ['name' => $name])->status,
+            'a series-referenced file refuses deletion');
+        $this->db->query("UPDATE series SET cover_path = NULL WHERE slug = 's'");
+        $this->assertSame(302, $admin->postWithToken('/images/delete', ['name' => $name])->status);
+
+        array_map('unlink', glob($dir . '/*') ?: []);
+        @rmdir($dir);
     }
 }

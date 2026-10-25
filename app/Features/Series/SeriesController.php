@@ -1,6 +1,6 @@
 <?php // app/Features/Series/SeriesController.php
 namespace App\Features\Series;
-use Kip\{App, Database, Http\Request, Http\Response, Session, View};
+use Kip\{App, Database, Http\Request, Http\Response, Session, Storage, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 use App\Repositories\SeriesRepository;
 
@@ -13,6 +13,7 @@ final class SeriesController
         private App $app,
         private Database $db,
         private SeriesRepository $series,
+        private \Kip\Storage $storage,
     ) {}
 
     /** The /series index (comp nav surface). ALWAYS-ON by design: series has
@@ -120,6 +121,31 @@ final class SeriesController
         catch (\RuntimeException) { return new Response('Page not found', 404); }
         $this->staticCache()->purgeSeries($slug);
         return Response::redirect('/series/view/' . $slug);
+    }
+
+    /** The StoryController::cover mirror: owner-or-admin only (forEdit's
+     *  stranger-404), the Storage chain whole (size twice, extension
+     *  allowlist, finfo MIME; hex server names), one UPDATE, the series
+     *  purge. A separate multipart form because the main form POSTs
+     *  urlencoded. Replace-by-reupload only; no remove action (the recorded
+     *  story-cover UX). */
+    #[AuthAttr] #[Post]
+    public function cover(string $slug): Response
+    {
+        try { $this->series->forEdit($slug, (int) $this->session->get('user_id')); }
+        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        $file = $this->request->file('cover');
+        if ($file === null) {
+            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+        }
+        try {
+            $path = $this->storage->put($file);
+        } catch (\Kip\UploadException) {
+            return new Response('Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+        }
+        $this->db->query('UPDATE series SET cover_path = ? WHERE slug = ?', [$path, $slug]);
+        $this->staticCache()->purgeSeries($slug);
+        return Response::redirect('/series/edit/' . $slug);
     }
 
     /** title 1-120, summary <= 2000, membership in the enum; junk membership 422s
