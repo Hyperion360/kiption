@@ -9,11 +9,17 @@ it except the items noted. Decisions that cost money stay with the owner.
 
 - [ ] Upload the social preview: repo Settings > Social preview > drag
       `docs/social-preview.png` (GitHub has no API for this; the image is
-      rendered and committed).
-- [ ] Submit both packages on packagist.org under the Hyperion360 account:
-      `https://github.com/Hyperion360/kip` as `hyperion360/kip` and
-      `https://github.com/Hyperion360/kipsaas` as `hyperion360/kipsaas`.
-      Free; enables `composer require` installs and a second search surface.
+      rendered and committed). Image verified 2026-10-25: it is the product
+      composite (the search-first screen beside the value matrix), which
+      sells better than a logo card would, so regeneration is not wanted;
+      the web upload is the only remaining step.
+- [x] Submit both packages on packagist.org: RESOLVED 2026-10-25, both are
+      already live and auto-updating (the entry predated the submissions).
+      `kip/framework` carries v0.5.0 plus dev-main and syncs within hours
+      of each push (last update 2026-10-24 20:11 UTC);
+      `hyperion360/kipsaas` is at v0.1.4 with dev-main (last update
+      2026-10-24 21:20 UTC). Nothing remains unless the owner wants the
+      Packagist profile page filled in.
 - [ ] Post the fan-wiki blurbs (draft exists in the 2026-10-15 coordinator
       summary) to the eFiction community wikis' download/version pages.
 - [ ] Awesome-selfhosted PR: DRAFTED 2026-10-15 (entry text, section fit,
@@ -40,7 +46,8 @@ it except the items noted. Decisions that cost money stay with the owner.
       owner project, not a default.
 - [ ] Either way: watch the fork's CI weekly (green on PHP 8.3/8.4 x
       MySQL/MariaDB), cut a tag when compatibility fixes accumulate.
-      Checked 2026-10-21: latest runs green on main. The weekly cadence
+      Checked 2026-10-25: latest runs green on main (compatibility
+      workflow, 1m9s). Next check by 2026-11-01. The weekly cadence
       is manual: no recurring automation was created (recurring-cost rule;
       ask if wanted).
 
@@ -56,11 +63,16 @@ it except the items noted. Decisions that cost money stay with the owner.
       artifact modes are DONE on kip main (commit cd929db, 2026-10-15:
       0700 dir re-hardened every run, 0600 artifacts new and stale, checked
       chmod failing loud; write-plan + codex adversarial review with six
-      findings folded; composer check green) but UNRELEASED: the framework's
-      only tag is v0.5.0, so kiption cannot consume it and cannot collapse
-      its 26 rate_limit prefixes to '*' (the catch-all is on kip main since
-      the 2026-10-07 branch, also unreleased) until the owner tags and
-      pushes a post-0.5.0 kip release, then runs composer update here.
+      findings folded; composer check green) but UNRELEASED, FULLY STAGED
+      as of 2026-10-25: 25 commits on kip main since v0.5.0 (cd929db's
+      backup modes plus the complete rate_limit '*' fallback series, its
+      own review rounds folded), CI green, three changelog fragments
+      pending (the backup fragment added by c89eb30 after this audit found
+      the fix had none), and the Packagist hook verified live so the tag
+      publishes itself. The owner's whole step, in a kip checkout:
+      `php bin/release 0.5.1 && git push origin main --tags`. Then here:
+      `composer update kip/framework` and collapse the 26 rate_limit
+      prefixes to '*' (coordinator-executable once the tag exists).
       The kip CI workflow decision stays parked (recurring-cost rule).
 - [ ] README screenshot pass once the hosted flagship is live: a hero shot
       of the reader is the one discovery gap the star-research flagged.
@@ -75,7 +87,7 @@ it except the items noted. Decisions that cost money stay with the owner.
       owner-gated).
 - [ ] Answer every Discussion and issue within a day (community-engagement
       signals feed both GitHub ranking and the eFiction community's trust).
-      Checked 2026-10-21: only the pinned issue open, zero Discussions.
+      Checked 2026-10-25: zero Discussions, only the pinned issue open.
 - [ ] Re-check repo topics quarterly against what people actually search
       (last optimized 2026-10-15: the competitor platforms went in as bare
       names plus substack, fanfiction-net, and self-hosting; next review
