@@ -94,7 +94,7 @@ passwords, logging in the first time re-keys them to modern hashing;
 and old story, chapter, and custom-page URLs 301 to their new homes so
 search rankings follow.
 
-What readers get. eFiction's feature set froze years ago. Kiption
+What readers get. eFiction's feature set has not changed in years. Kiption
 ships zero-to-ten reviews with author responses, kudos, follows with
 email digests, reading lists, scheduled chapters, and per-story feeds,
 with exact counts and pages that render in one database query.
