@@ -49,7 +49,29 @@
   };
   window.Kip = Kip;
   document.documentElement.classList.add('js'); /* CSS reveals JS-only affordances */
-  ['prefs', 'position', 'keys', 'infinite', 'toggle'].forEach(function (m) {
+  /* Double-submission guard, core rather than a module because it serves
+   * every form on the site (stories, chapters, reviews, kudos): on submit
+   * the clicked button disables until the POST navigates away, so a double
+   * tap on a slow phone cannot post a review twice. Scoped to UNNAMED
+   * submit buttons - a named button's value is part of the payload (the
+   * reader panel's reset) and must keep submitting. HTML5 validation
+   * failures never reach submit; a server-side re-render brings fresh DOM;
+   * pageshow (back / bfcache) re-enables whatever the restore froze. */
+  Kip.init(function () {
+    document.addEventListener('submit', function (e) {
+      var b = e.submitter;
+      if (b instanceof HTMLButtonElement && !b.name && !b.disabled) {
+        b.disabled = true;
+        b.setAttribute('aria-busy', 'true');
+      }
+    }, true);
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) {
+        Kip.$$('[aria-busy="true"]').forEach(function (b) { b.disabled = false; b.removeAttribute('aria-busy'); });
+      }
+    });
+  });
+  ['prefs', 'position', 'keys', 'infinite', 'toggle', 'chips'].forEach(function (m) {
     if (document.querySelector('[data-js-module="' + m + '"]')) {
       var s = document.createElement('script');
       s.src = '/assets/' + m + '.js';

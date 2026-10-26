@@ -32,7 +32,7 @@
 <div class="page skin-listing">
 <h1><?= $this->e($title ?? \App\Lang::t('browse.recent_heading')) ?></h1>
 <?php if (!empty($chips)): ?>
-<nav class="filter-chips" aria-label="<?= $this->e(\App\Lang::t('browse.filter_aria')) ?>">
+<nav class="filter-chips" data-js-module="chips" data-js="filter-chips" aria-label="<?= $this->e(\App\Lang::t('browse.filter_aria')) ?>">
   <a class="chip<?= $allActive ? ' is-active' : '' ?>" href="<?= $allHref ?>"<?= $allActive ? ' aria-current="true"' : '' ?>><?= \App\Lang::t('browse.all') ?></a>
 <?php foreach ($chipSet as [$value, $key]): ?>
   <a class="chip<?= $activeFilter === $value ? ' is-active' : '' ?>" href="<?= $this->e($baseUrl) ?><?= $value !== '' ? '?filter=' . $value : '' ?>"<?= $activeFilter === $value ? ' aria-current="true"' : '' ?>><?= \App\Lang::t($key) ?></a>

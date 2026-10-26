@@ -98,6 +98,33 @@ final class AppJsContractTest extends TestCase
         $this->assertStringContainsString("'prefs'", $loader, 'the loader knows the prefs module');
     }
 
+    /* ---- chips module (the filter row's scroll legibility) ---- */
+
+    public function test_the_chip_row_carries_the_chips_module(): void
+    {
+        $tag = $this->chipNavTag($this->client()->get('/browse/recent')->body);
+        $this->assertStringContainsString('data-js-module="chips"', $tag, 'the loader keys off this marker');
+        $this->assertStringContainsString('data-js="filter-chips"', $tag, 'the module binds the row itself');
+        $this->assertFileExists(dirname(__DIR__) . '/public/assets/chips.js');
+        $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("'chips'", $loader, 'the loader knows the chips module');
+    }
+
+    public function test_the_double_submission_guard_ships_in_the_core(): void
+    {
+        $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("addEventListener('submit'", $loader, 'the core guards every form');
+        $this->assertStringContainsString('!b.name', $loader, 'named submit buttons keep their payload');
+    }
+
+    /** The element carrying the chips marker on the recent listing. */
+    private function chipNavTag(string $body): string
+    {
+        $this->assertSame(1, preg_match('/<nav[^>]*data-js="filter-chips"[^>]*>/s', $body, $m),
+            'the chip row renders with its filter-chips marker');
+        return $m[0];
+    }
+
     /* ---- position module (merged from wave/position's contract file) ---- */
 
     public function test_progress_bar_carries_the_position_module_and_server_span(): void

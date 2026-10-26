@@ -536,12 +536,15 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .byline { color: var(--ink-2); font-size: 15px; }
 .byline a { color: var(--ink); font-weight: 600; }
 .byline a:hover { color: var(--accent); }
-/* The byline Follow toggle reads as text, not as a control. */
+/* The byline Follow toggle stays quiet, but actionable: the accent color
+   is its persistent affordance (owner call 2026-10-25, usability over
+   quietness on touch, where no hover exists to reveal one); hover adds
+   the underline. */
 .story-info .byline .follow-btn {
   min-height: 0; padding: 0; background: none; border: 0; cursor: pointer;
-  font: 15px/1.5 var(--sans); color: var(--ink-2);
+  font: 15px/1.5 var(--sans); color: var(--accent);
 }
-.story-info .byline .follow-btn:hover { background: none; color: var(--accent); text-decoration: underline; }
+.story-info .byline .follow-btn:hover { background: none; color: var(--accent-hover); text-decoration: underline; }
 .story-info .byline .follow-state { color: var(--muted); }
 .story-info .meta-line { font-size: 13px; }
 .story-stats { display: none; }
@@ -886,6 +889,13 @@ html[data-mode="pages"] .reader-main .prose {
 .filter-chips {
   display: flex; gap: 8px; margin: 0 0 18px;
   overflow-x: auto; padding-block: 3px;
+}
+/* Touch hides scrollbars, so while the row overflows a fade marks the cut
+   edge; chips.js toggles both classes (no JS, no fade, no lie), and the
+   fade drops once the row is scrolled to its end. */
+.js .filter-chips.is-scrollable:not(.at-end) {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 .chip {
   flex: none; display: inline-flex; align-items: center;
