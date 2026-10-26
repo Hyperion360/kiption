@@ -103,6 +103,7 @@ final class StoryController
             'coauthors' => $coauthors,
             'tags' => $tags,
             'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),
+            'isAuthor' => $me !== 0 && $me === (int) $story['author_id'],
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
         // External-canonical stories deindex locally: meta noindex plus the

@@ -346,6 +346,23 @@ final class StoryTest extends TestCase
         $this->assertStringNotContainsString('<div class="cover-card">', $body, 'a real cover displaces the typographic card');
     }
 
+    /** The author's own story page carries no Follow toggle: the repository
+     *  rejects self-follows, so the button did nothing but sit in the byline
+     *  (found by /design-review on the live preview, 2026-10-25). Members
+     *  keep the toggle; the author keeps nothing where nothing works. */
+    public function test_author_sees_no_follow_toggle_on_their_own_story(): void
+    {
+        $authorBody = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('follow-btn', $authorBody, 'the author has no Follow toggle');
+        $guestBody = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringNotContainsString('follow-btn', $guestBody, 'guests never had the form (no csrf)');
+        // a second member still sees the toggle, form action and all
+        (new Database($this->dsn))->query("INSERT INTO users (email, password_hash, penname, profile_slug) VALUES ('b@x.test', 'h', 'byfriend', 'byfriend')");
+        $memberBody = $this->client(2)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('follow-btn', $memberBody, 'other members keep the toggle');
+        $this->assertStringContainsString('action="/follow/author/1"', $memberBody);
+    }
+
     /** category_names is a nullable ", "-joined GROUP_CONCAT string; the
      *  eyebrow re-separates it with middle dots and never leads with a dot.
      *  The D3 "Updated {date}" span rides the eyebrow for the desktop
@@ -399,7 +416,6 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('Kudos · 0', $body, 'cell 1 labels the kudos form with the count');
         $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/favorites/toggle/the-rabbit-hole"', $body);
-        $this->assertStringContainsString('action="/follow/author/1"', $body, 'the Follow toggle rides the byline');
         $this->assertStringContainsString('action="/story/mark/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/report/story/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/review/add/the-rabbit-hole"', $body, 'the guest review form survives');
