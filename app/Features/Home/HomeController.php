@@ -54,6 +54,29 @@ final class HomeController
         // the anonymous render stays at its single content query.
         $isAdmin = $loggedIn
             && (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE id = ? AND role = 'admin'", [(int) $userId])['c'] === 1;
+        // Context from history (the Magic Ink batch): a returning reader's
+        // most relevant datum is where they stopped, so it leads the page in
+        // a constant first position. Member-only extra query, the same
+        // standing as the admin check above; the guest render, and its
+        // static cache file, stay at the pinned single content query. The
+        // resume chapter uses recentStories' clamp (furthest validated
+        // chapter at or below the saved position), so a deleted or
+        // unpublished chapter never yields a dead Continue link; a story
+        // whose clamp lands at zero (nothing validated at or below) reads as
+        // no continue card at all.
+        $continue = null;
+        if ($loggedIn) {
+            $continue = $this->db->one(
+                "SELECT s.slug, s.title, rh.last_position,
+                        (SELECT MAX(c.position) FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.position <= rh.last_position) AS resume,
+                        (SELECT COALESCE(SUM(c2.word_count), 0) FROM chapters c2 WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh.last_position) AS words_before,
+                        (SELECT COALESCE(SUM(c3.word_count), 0) FROM chapters c3 WHERE c3.story_id = s.id AND c3.validated = 1) AS words_total
+                 FROM reading_history rh JOIN stories s ON s.id = rh.story_id
+                 WHERE rh.user_id = ? AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
+                 ORDER BY rh.updated_at DESC LIMIT 1",
+                [(int) $userId]);
+            if ($continue === null || (int) $continue['resume'] === 0) { $continue = null; }
+        }
         $jsonLd = [
             '@context' => 'https://schema.org',
             '@type' => 'WebSite',
@@ -87,6 +110,7 @@ final class HomeController
             'isAdmin' => $isAdmin,
             'featured' => $featured,
             'latest' => $latest,
+            'continue' => $continue,
             'csrf' => $loggedIn ? $this->session->csrfToken() : null,
         ]);
     }

@@ -419,6 +419,8 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('action="/story/mark/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/report/story/the-rabbit-hole"', $body);
         $this->assertStringContainsString('action="/review/add/the-rabbit-hole"', $body, 'the guest review form survives');
+        $this->assertSame(12, substr_count($body, 'name="rating"'), 'the rating is a pip row: none plus 0-10');
+        $this->assertStringNotContainsString('<select name="rating">', $body, 'no mechanical dropdown');
         $this->assertStringContainsString('<h2 id="reviews">', $body);
         $this->assertStringContainsString('</article>', $body);
     }

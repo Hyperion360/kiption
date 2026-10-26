@@ -130,7 +130,7 @@
     </div>
     <div class="story-main">
     <div class="story-info">
-      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => date('M j', strtotime((string) $story['updated_at']))])) ?></span><?php endif; ?></p>
+      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated<?= !empty($loggedIn) && (time() - strtotime((string) $story['updated_at'])) < 172800 ? ' is-fresh' : '' ?>"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => date('M j', strtotime((string) $story['updated_at']))])) ?></span><?php endif; ?></p>
       <h1><?= $this->e($story['title']) ?></h1>
       <?php /* the byline is a div because the Follow toggle is a form: the
            HTML parser auto-closes a p element when a form element opens,
@@ -254,7 +254,12 @@
       <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
       <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
-      <label><?= \App\Lang::t('story.rating_optional') ?> <select name="rating"><option value="">&#8211;</option><?php for ($i = 0; $i <= 10; $i++): ?><option value="<?= $i ?>"><?= $i ?></option><?php endfor; ?></select></label>
+      <fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
+        <input type="radio" name="rating" value="" id="rating-none" checked><label for="rating-none"><?= \App\Lang::t('story.rating_none') ?></label>
+<?php for ($i = 0; $i <= 10; $i++): ?>
+        <input type="radio" name="rating" value="<?= $i ?>" id="rating-<?= $i ?>"><label for="rating-<?= $i ?>"><?= $i ?></label>
+<?php endfor; ?>
+      </fieldset>
       <button type="submit" class="btn-primary"><?= \App\Lang::t('story.post_review') ?></button>
     </form>
   <?php else: ?>
@@ -262,7 +267,12 @@
       <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <label><?= \App\Lang::t('story.name') ?> <input name="guest_name" required maxlength="40"></label>
       <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
-      <label><?= \App\Lang::t('story.rating_optional') ?> <select name="rating"><option value="">&#8211;</option><?php for ($i = 0; $i <= 10; $i++): ?><option value="<?= $i ?>"><?= $i ?></option><?php endfor; ?></select></label>
+      <fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
+        <input type="radio" name="rating" value="" id="rating-none" checked><label for="rating-none"><?= \App\Lang::t('story.rating_none') ?></label>
+<?php for ($i = 0; $i <= 10; $i++): ?>
+        <input type="radio" name="rating" value="<?= $i ?>" id="rating-<?= $i ?>"><label for="rating-<?= $i ?>"><?= $i ?></label>
+<?php endfor; ?>
+      </fieldset>
       <button type="submit" class="btn-primary"><?= \App\Lang::t('story.post_review_guest') ?></button>
     </form>
   <?php endif; ?>

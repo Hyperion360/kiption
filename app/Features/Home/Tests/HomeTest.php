@@ -80,6 +80,29 @@ final class HomeTest extends TestCase
         $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $member);
     }
 
+    /** Context from history (the Magic Ink batch): a returning reader's
+     *  home leads with their Continue card - the seeded resume clamp lands
+     *  on chapter II at 50 percent - while a guest's render (the cached
+     *  bytes) carries no card at all. A reader with no history sees none. */
+    public function test_member_home_leads_with_their_continue_card(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $reader = (int) $db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $storyId = (int) $db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $db->query('INSERT INTO reading_history (user_id, story_id, last_position, marked_at, updated_at) VALUES (?, ?, 2, ?, ?)',
+            [$reader, $storyId, '2026-10-20T10:00:00Z', '2026-10-21T10:00:00Z']);
+        $guest = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
+        $this->assertStringNotContainsString('id="home-continue"', $guest, 'guests get no Continue card');
+        $member = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringContainsString('id="home-continue"', $member);
+        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2"', $member, 'the resume clamp lands on chapter II');
+        $this->assertStringContainsString('Chapter II · 50%', $member, 'percent from the validated word counts');
+        $noHistory = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, 1))->body;
+        $this->assertStringNotContainsString('id="home-continue"', $noHistory, 'a reader with no history sees no card');
+    }
+
     /** A session shaped like a real login: the id AND the password epoch a
      *  login stamps (App\Viewer::id treats an epoch-less session as revoked,
      *  which is the point of the check, so the fixture carries one). */

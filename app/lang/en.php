@@ -75,6 +75,7 @@ return [
     'home.latest' => 'Latest',
     'home.all_recent' => 'All recently updated stories',
     'home.featured' => 'Featured',
+    'home.continue_sub' => 'Chapter {roman} · {pct}%',
 
     // Auth: login, register, forgot, reset.
     'auth.login.heading' => 'Log in',
@@ -204,6 +205,7 @@ return [
     'story.recent_50' => 'Showing the 50 most recent reviews and their 200 most recent replies.',
     'story.review_label' => 'Review',
     'story.rating_optional' => 'Rating (0-10, optional)',
+    'story.rating_none' => 'None',
     'story.post_review' => 'Post review',
     'story.name' => 'Name',
     'story.post_review_guest' => 'Post review as guest',
