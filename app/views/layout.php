@@ -9,6 +9,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <?php /* The WordPress-style generator declaration: one meta line naming
+         the app and its version, so "is this site Powered by Kiption?" is
+         answerable from the head. Gated on the attribution seam - the same
+         powered_by opt-out that hides the footer hides this too, so one
+         operator switch governs the whole advertisement. The version is
+         baked into cached pages at build; the upgrade coordinator rebuilds
+         them on release. */ ?>
+  <?php if (\App\Attribution::on()): ?><meta name="generator" content="Kiption <?= $this->e(\App\Version::VERSION) ?>"><?php endif; ?>
   <title><?= $this->e(isset($head) && $head !== null ? $head->title() : ($title ?? \App\Lang::t('nav.brand'))) ?></title>
   <?php if (isset($head) && $head !== null): ?>
   <?php foreach ($head->metaTags() as $t): ?>

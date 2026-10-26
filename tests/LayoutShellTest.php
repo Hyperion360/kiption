@@ -403,4 +403,19 @@ final class LayoutShellTest extends TestCase
         $off = $this->renderLayout(['powered_by' => false]);
         $this->assertStringNotContainsString('Powered by Kiption', $off);
     }
+
+    /** The WordPress-style generator declaration rides the same attribution
+     *  switch: default-on with the app version (the detection contract -
+     *  tooling reads head meta, not footers), gone when the operator opts
+     *  out of attribution entirely. */
+    public function test_generator_meta_renders_by_default_and_hides_when_disabled(): void
+    {
+        $on = $this->renderLayout(['powered_by' => true]);
+        $this->assertSame(1, preg_match('/<meta name="generator" content="Kiption [^"]+">/', $on),
+            'the generator meta names the app and its version');
+        $this->assertStringContainsString('content="Kiption ' . \App\Version::VERSION . '"', $on,
+            'the version is the single-source App\Version, exact');
+        $off = $this->renderLayout(['powered_by' => false]);
+        $this->assertStringNotContainsString('name="generator"', $off, 'the opt-out covers the whole advertisement');
+    }
 }
