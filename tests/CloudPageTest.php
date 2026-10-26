@@ -16,7 +16,7 @@ final class CloudPageTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-cloudpg-') . '.sqlite';
+        $this->path = tempnam(sys_get_temp_dir(), 'kiption-landing-') . '.sqlite';
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
@@ -39,7 +39,7 @@ final class CloudPageTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
-            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-cloudpg.log', 'from' => 'noreply@localhost'],
+            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-landing.log', 'from' => 'noreply@localhost'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ], $extra));
         return new TestClient($app);
