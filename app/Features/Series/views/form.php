@@ -17,7 +17,7 @@
     <button type="submit"><?= $row === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
   <?php if ($row !== null): ?>
-  <form method="post" action="/series/cover/<?= $this->e($row['slug']) ?>" enctype="multipart/form-data">
+  <form class="form-aside" method="post" action="/series/cover/<?= $this->e($row['slug']) ?>" enctype="multipart/form-data">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('series.cover_label') ?> <input type="file" name="cover" accept="image/png,image/jpeg,image/webp,image/gif"></label>
     <button type="submit"><?= \App\Lang::t('series.upload_cover') ?></button>

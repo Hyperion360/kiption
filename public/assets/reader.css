@@ -274,6 +274,11 @@ html .prose:not(.e-content, section) p + p { text-indent: 0; margin-block-start:
    brand-green primary action per form. Inline forms (one field plus a
    button, or a lone toggle) stay on one row with outline buttons. */
 label { display: block; margin-block-end: .5rem; font: 13px/1.5 var(--sans); color: var(--ink-2); }
+/* A secondary form stacked under an edit form (the story and series cover
+   uploads) reads as its own section: the house 1px rule plus the row
+   rhythm, instead of its label hugging the previous Save button. Opt-in by
+   class; sibling forms elsewhere (inline action rows) keep their own layout. */
+.form-aside { margin-block-start: 1.5rem; padding-block-start: 1.5rem; border-block-start: 1px solid var(--line); }
 input, select, textarea {
   min-height: 44px; padding: 6px 12px;
   border: 1px solid var(--line-strong); border-radius: 0;

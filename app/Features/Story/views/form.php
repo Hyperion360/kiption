@@ -56,7 +56,7 @@
     <button type="submit"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
   <?php if ($story !== null): ?>
-    <form method="post" action="/story/cover/<?= $this->e($story['slug']) ?>" enctype="multipart/form-data">
+    <form class="form-aside" method="post" action="/story/cover/<?= $this->e($story['slug']) ?>" enctype="multipart/form-data">
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
       <label><?= \App\Lang::t('story.cover_label') ?> <input type="file" name="cover" accept="image/png,image/jpeg,image/webp,image/gif"></label>
       <button type="submit"><?= \App\Lang::t('story.upload_cover') ?></button>
