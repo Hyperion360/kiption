@@ -1036,9 +1036,9 @@ Every importable eFiction version keeps every member's password:
 | 3.5.0 – 3.5.6 (MD5) | direct export → import | carried as `legacy_md5`, upgraded at first login |
 | 3.5.7 and the maintained fork's upgrader output (bcrypt or mixed rows) | direct | carried as `legacy_bcrypt`, upgraded at first login |
 | 3.0 – 3.4.x (older column sets) | direct; the manifest's `schema_gaps` lists the optional fields the source lacked | carried as `legacy_md5` |
-| 1.1, 2.0.x | upgrade chain first: the fork's `install/upgrade11.php` (from 1.1) or `install/upgrade20.php` (from 2.0.x) — [github.com/Hyperion360/efiction](https://github.com/Hyperion360/efiction) — then direct | carried as `legacy_md5` |
+| 1.1, 2.0.x | upgrade chain first: the fork's `install/upgrade11.php` (from 1.1) or `install/upgrade20.php` (from 2.0.x) — [github.com/Hyperion360/efiction](https://github.com/Hyperion360/efiction) — then direct. The chain step runs upstream's own upgraders and is documented there; the post-chain import shape is the 3.5.x row this suite pins | carried as `legacy_md5` |
 | e107-eFiction line, 3.5.8 and 3.5.9 | direct; pinned by a round-trip test against that line's real deltas (the `varbinary(16)` INET6 log_ip; passwords are MD5 there) | carried as `legacy_md5` |
-| Ami Sapphire's efiction3-mod line | direct; MD5 rows ride `legacy_md5`, and rows upgraded to bcrypt by her password mod ride `legacy_bcrypt` | carried, upgraded at first login |
+| Ami Sapphire's efiction3-mod line | direct; derives from the e107 3.5.9 schema (same pinned round-trip) with `varchar(255)` passwords: her installer writes bcrypt, upgraded sites carry mixed rows, and the bcrypt/mixed tests pin both shapes | carried, upgraded at first login |
 | SourceForge-era 3.5.2 and earlier 3.5.x downloads | direct; the installer ALTERs nothing the importer reads (pinned by round-trip) | carried as `legacy_md5` |
 | any future official release (3.5.8+) | direct — no upper gate; unknown extra columns ride through untouched | carried (bcrypt or argon) |
 | 4.x / 5.x rewrites | not supported — never-stable lines with no upgrade path to 3.x; the exporter refuses with this runbook | — |
