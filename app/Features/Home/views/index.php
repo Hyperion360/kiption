@@ -28,10 +28,4 @@
     <p class="section-more"><a href="/browse/recent"><?= \App\Lang::t('home.all_recent') ?></a></p>
 <?php endif; ?>
   </section>
-<?php if ($loggedIn): ?>
-  <form method="post" action="/auth/logout" class="inline home-logout">
-    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-    <button class="link-btn"><?= \App\Lang::t('nav.logout') ?></button>
-  </form>
-<?php endif; ?>
 </div>
