@@ -91,8 +91,8 @@ final class HomeTest extends TestCase
         \App\Seeder::run($db);
         $reader = (int) $db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         $storyId = (int) $db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
-        $db->query('INSERT INTO reading_history (user_id, story_id, last_position, marked_at, updated_at) VALUES (?, ?, 2, ?, ?)',
-            [$reader, $storyId, '2026-10-20T10:00:00Z', '2026-10-21T10:00:00Z']);
+        $db->query('INSERT INTO reading_history (user_id, story_id, last_position, marked_at, updated_at) VALUES (?, ?, 2, NULL, ?)',
+            [$reader, $storyId, '2026-10-21T10:00:00Z']);
         $guest = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
         $this->assertStringNotContainsString('id="home-continue"', $guest, 'guests get no Continue card');
         $member = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
@@ -153,6 +153,51 @@ final class HomeTest extends TestCase
         $setAge('-49 hours');
         $outside = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, 1))->body;
         $this->assertStringNotContainsString('fresh-dot', $outside, '49 hours is outside the window');
+        $setAge('+2 hours');
+        $future = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, 1))->body;
+        $this->assertStringNotContainsString('fresh-dot', $future, 'a future-dated import never holds the mark open');
+    }
+
+    /** Saved-for-later never leads Continue (the 2026-10-27 review pass): a
+     *  marked reading_history row is the Account shelf's saved list, so
+     *  marking an unread story must not displace the story actually being
+     *  read; the newest UNMARKED row promotes instead, and when every row is
+     *  marked the card is absent. A restricted story is a different gate: it
+     *  members may read, so its history row still leads the card. */
+    public function test_marked_rows_never_lead_but_restricted_stories_do(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $reader = (int) $db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $storyId = (int) $db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $db->query("INSERT INTO users (email, password_hash, penname, profile_slug) VALUES ('second@x.test', 'h', 'secondauthor', 'secondauthor')");
+        $secondAuthor = (int) $db->one("SELECT id FROM users WHERE penname = 'secondauthor'")['id'];
+        $db->query('INSERT INTO stories (title, slug, author_id, rating_id, validated, language, is_original) VALUES (?, ?, ?, 1, 1, ?, 1)',
+            ['Second Tale', 'second-tale', $secondAuthor, 'en']);
+        $secondStory = (int) $db->one("SELECT id FROM stories WHERE slug = 'second-tale'")['id'];
+        $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 1, ?, ?, 1, 100)',
+            [$secondStory, 'One', 'Saved for later.']);
+
+        // the NEWEST row is marked (saved-for-later); the older real read promotes
+        $db->query("INSERT INTO reading_history (user_id, story_id, last_position, marked_at, updated_at) VALUES (?, ?, 2, NULL, '2026-10-20T10:00:00Z')",
+            [$reader, $storyId]);
+        $db->query("INSERT INTO reading_history (user_id, story_id, last_position, marked_at, updated_at) VALUES (?, ?, 1, '2026-10-22T10:00:00Z', '2026-10-22T10:00:00Z')",
+            [$reader, $secondStory]);
+        $promoted = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2"', $promoted, 'the marked newest row does not displace the real read');
+        $this->assertStringNotContainsString('/story/read/second-tale', $promoted, 'the saved story stays on its shelf');
+
+        // every row marked: the card is absent entirely
+        $db->query('UPDATE reading_history SET marked_at = ? WHERE user_id = ?', ['2026-10-23T10:00:00Z', $reader]);
+        $shelved = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringNotContainsString('id="home-continue"', $shelved, 'an all-saved shelf shows no Continue card');
+
+        // restricted is a different gate: a member may read it, so it leads
+        $db->query('UPDATE reading_history SET marked_at = NULL WHERE user_id = ? AND story_id = ?', [$reader, $storyId]);
+        $db->query('UPDATE stories SET is_restricted = 1 WHERE id = ?', [$storyId]);
+        $restricted = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2"', $restricted, 'a restricted story a member is reading still leads the card');
     }
 
     /** A session shaped like a real login: the id AND the password epoch a

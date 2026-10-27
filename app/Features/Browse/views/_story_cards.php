@@ -5,9 +5,10 @@
      // the exact same card bytes. Every <li> closes; the pill markup
      // exists only when the viewer's reading_history row does, so guest
      // bytes stay reader-neutral. The freshness dot renders only when the
-     // caller passes 'fresh' (member renders of the recent listing and its
-     // fragment); the language listing and search results deliberately skip
-     // it - those are their own information graphics, not the recency list. ?>
+     // caller passes 'fresh' - every member listing render does (recent page
+     // and its fragment, category page and its fragment, the home shelves);
+     // the language listing and search results deliberately skip it - those
+     // are their own information graphics, not the recency list. ?>
 <?php foreach ($stories as $s): ?>
   <li class="story-card">
     <a class="story-title" href="/story/view/<?= $this->e($s['slug']) ?>"><?= $this->e($s['title']) ?></a>

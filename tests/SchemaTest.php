@@ -149,8 +149,10 @@ final class SchemaTest extends TestCase
     /** The home Continue card walks a member's history newest-first
      *  (HomeController): migration 047's index serves WHERE user_id = ?
      *  ORDER BY updated_at DESC LIMIT 1 with no sort. The EXPLAIN uses the
-     *  controller's exact WHERE shape, mute clause excluded (flag-off
-     *  default), so a drift to a TEMP B-TREE sort fails here. */
+     *  controller's exact WHERE shape (member-only, so restricted stories
+     *  are readable; the marked-at shelf exclusion rides the row table and
+     *  cannot change the plan), mute clause excluded (flag-off default), so
+     *  a drift to a TEMP B-TREE sort fails here. */
     public function test_the_continue_card_query_is_sort_free(): void
     {
         $db = $this->db();
@@ -160,7 +162,7 @@ final class SchemaTest extends TestCase
         $plan = implode("\n", array_map(
             static fn(array $r): string => $r['detail'],
             $db->all('EXPLAIN QUERY PLAN SELECT s.slug FROM reading_history rh JOIN stories s ON s.id = rh.story_id
-                      WHERE rh.user_id = 1 AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
+                      WHERE rh.user_id = 1 AND rh.marked_at IS NULL AND s.validated = 1 AND s.deleted_at IS NULL
                       ORDER BY rh.updated_at DESC LIMIT 1')
         ));
         $this->assertStringContainsString('idx_reading_user_updated', $plan, 'the continue query walks the member-recent index');

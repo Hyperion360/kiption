@@ -1562,7 +1562,10 @@ body.focus .site-head { display: none; }
 .rating-pips input:checked + label { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .rating-pips input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: -2px; }
 .rating-pips label:hover { border-color: var(--accent); color: var(--ink); }
-@media (max-width:767px) {
+/* The pips ride the file's established touch pass (1023px, the same block
+   that grows chips and the follow button), not a narrower one: on 768-1023px
+   touch devices they were the smallest target on the page. */
+@media (max-width:1023px) {
   .rating-pips label { min-width: 44px; height: 44px; }
 }
 /* Freshness dot (member renders only, so a cached guest page never lies):

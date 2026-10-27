@@ -276,7 +276,10 @@ final class StoryRepository
                      JOIN categories c2 ON c2.id = sc2.category_id
                      WHERE sc2.story_id = s.id AND c2.slug = ?)'
             : '';
-        $progressJoin = $viewer > 0 ? ' LEFT JOIN reading_history rr ON rr.story_id = s.id AND rr.user_id = ' . $viewer : '';
+        // Marked rows are the save-for-later shelf (the Account split rides
+        // the same column), so they never grow a Continue pill: a story
+        // marked before its first read would otherwise read "Continue I · 0%".
+        $progressJoin = $viewer > 0 ? ' LEFT JOIN reading_history rr ON rr.story_id = s.id AND rr.user_id = ' . $viewer . ' AND rr.marked_at IS NULL' : '';
         // The resume point clamps to the furthest chapter at or below it that
         // still validates (StoryController::progressOf's rule), so a deleted
         // or unpublished chapter never yields a 404 Continue link; NULL when

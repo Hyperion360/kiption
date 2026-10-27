@@ -11,12 +11,15 @@ namespace App;
  */
 final class Freshness
 {
-    public const WINDOW_SECONDS = 172800; // 48 hours
+    private const WINDOW_SECONDS = 172800; // 48 hours
 
     public static function fresh(?string $updatedAt): bool
     {
         if ($updatedAt === null || $updatedAt === '') return false;
         $ts = strtotime($updatedAt);
-        return $ts !== false && (time() - $ts) < self::WINDOW_SECONDS;
+        // Future timestamps count as not fresh: importers write
+        // source-provided dates, and a date ahead of the clock must not hold
+        // the mark open indefinitely.
+        return $ts !== false && $ts <= time() && (time() - $ts) < self::WINDOW_SECONDS;
     }
 }

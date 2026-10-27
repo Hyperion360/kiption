@@ -427,6 +427,29 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('</article>', $body);
     }
 
+    /** The guest review form duplicates the pips fieldset (its own branch of
+     *  the view), so the member render's 12-pip pin says nothing about the
+     *  anonymous one: the same count and no stray select there either. */
+    public function test_the_guest_review_form_carries_the_rating_pips(): void
+    {
+        $guest = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertSame(12, substr_count($guest, 'name="rating"'), 'none plus 0-10 on the guest form too');
+        $this->assertStringNotContainsString('<select name="rating">', $guest);
+    }
+
+    /** The eyebrow's freshness mark is member-only (HomeTest pins the card
+     *  partial; this is the story page's own condition): inside the window a
+     *  member render carries is-fresh, the cacheable guest render never
+     *  does. A dropped loggedIn gate would leak the mark into cached bytes. */
+    public function test_the_eyebrow_fresh_mark_is_member_only(): void
+    {
+        (new Database($this->dsn))->query("UPDATE stories SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE slug = 'the-rabbit-hole'");
+        $member = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringContainsString('eyebrow-updated is-fresh', $member, 'the member render marks a fresh update');
+        $guest = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
+        $this->assertStringNotContainsString('is-fresh', $guest, 'the cached guest bytes never carry the mark');
+    }
+
     /** M1/D3 cells and the assurance line: guests get the kudos form (guest
      *  kudos are IP-keyed) and login links for the member-only cells; the
      *  ratings join's warning_text renders verbatim or as the assurance. */
