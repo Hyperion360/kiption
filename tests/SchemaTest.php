@@ -146,6 +146,27 @@ final class SchemaTest extends TestCase
         $this->assertStringNotContainsString('SCAN', $countPlan);
     }
 
+    /** The home Continue card walks a member's history newest-first
+     *  (HomeController): migration 047's index serves WHERE user_id = ?
+     *  ORDER BY updated_at DESC LIMIT 1 with no sort. The EXPLAIN uses the
+     *  controller's exact WHERE shape, mute clause excluded (flag-off
+     *  default), so a drift to a TEMP B-TREE sort fails here. */
+    public function test_the_continue_card_query_is_sort_free(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $this->seedStory($db);
+        $db->query("INSERT INTO reading_history (user_id, story_id, last_position, updated_at) VALUES (1, 1, 1, '2026-10-20T10:00:00Z')");
+        $plan = implode("\n", array_map(
+            static fn(array $r): string => $r['detail'],
+            $db->all('EXPLAIN QUERY PLAN SELECT s.slug FROM reading_history rh JOIN stories s ON s.id = rh.story_id
+                      WHERE rh.user_id = 1 AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
+                      ORDER BY rh.updated_at DESC LIMIT 1')
+        ));
+        $this->assertStringContainsString('idx_reading_user_updated', $plan, 'the continue query walks the member-recent index');
+        $this->assertStringNotContainsString('TEMP B-TREE', $plan, 'no sort: the index serves the ORDER BY');
+    }
+
     /** Both category listings (/browse and /feed/subscribe) walk the
      *  operator's order through migration 031's index: no TEMP B-TREE. */
     public function test_category_listings_are_sort_free(): void
