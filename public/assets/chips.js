@@ -13,8 +13,12 @@
   function sync() {
     var over = nav.scrollWidth > nav.clientWidth + 1;
     nav.classList.toggle('is-scrollable', over);
-    var atEnd = nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 1;
-    nav.classList.toggle('at-end', atEnd);
+    // RTL rows scroll negative (the row starts at its right edge), so the
+    // end is measured by magnitude, not sign; reveal()'s rect delta is
+    // already direction-agnostic because it adds, not assigns.
+    var end = nav.scrollWidth - nav.clientWidth;
+    var pos = Math.abs(nav.scrollLeft);
+    nav.classList.toggle('at-end', pos >= end - 1);
   }
   function reveal() {
     var active = nav.querySelector('.chip.is-active');

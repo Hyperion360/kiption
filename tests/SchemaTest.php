@@ -147,12 +147,12 @@ final class SchemaTest extends TestCase
     }
 
     /** The home Continue card walks a member's history newest-first
-     *  (HomeController): migration 047's index serves WHERE user_id = ?
-     *  ORDER BY updated_at DESC LIMIT 1 with no sort. The EXPLAIN uses the
-     *  controller's exact WHERE shape (member-only, so restricted stories
-     *  are readable; the marked-at shelf exclusion rides the row table and
-     *  cannot change the plan), mute clause excluded (flag-off default), so
-     *  a drift to a TEMP B-TREE sort fails here. */
+     *  (HomeController's UNION ALL fold): migration 047's index serves
+     *  WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1 with no sort. The
+     *  EXPLAIN uses the arm's exact WHERE shape (member-only, so restricted
+     *  stories are readable; the marked-at shelf exclusion and the
+     *  usable-chapter fall-through filter ride along), mute clause excluded
+     *  (flag-off default), so a drift to a TEMP B-TREE sort fails here. */
     public function test_the_continue_card_query_is_sort_free(): void
     {
         $db = $this->db();
@@ -163,6 +163,7 @@ final class SchemaTest extends TestCase
             static fn(array $r): string => $r['detail'],
             $db->all('EXPLAIN QUERY PLAN SELECT s.slug FROM reading_history rh JOIN stories s ON s.id = rh.story_id
                       WHERE rh.user_id = 1 AND rh.marked_at IS NULL AND s.validated = 1 AND s.deleted_at IS NULL
+                        AND EXISTS (SELECT 1 FROM chapters c4 WHERE c4.story_id = s.id AND c4.validated = 1 AND c4.position <= rh.last_position)
                       ORDER BY rh.updated_at DESC LIMIT 1')
         ));
         $this->assertStringContainsString('idx_reading_user_updated', $plan, 'the continue query walks the member-recent index');

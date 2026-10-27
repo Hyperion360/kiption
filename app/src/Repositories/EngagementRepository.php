@@ -112,13 +112,18 @@ final class EngagementRepository
 
     /** Fire-and-forget progress upsert; NEVER moves the marker backwards.
      *  Exactly THREE params (OV probe: a fourth 'now' param is a binding error;
-     *  updated_at refreshes via excluded.updated_at = the strftime default). */
+     *  updated_at refreshes via excluded.updated_at = the strftime default).
+     *  A real read supersedes the save-for-later mark: every read-side
+     *  filter (the home Continue arm, the listing pill fold, the Account
+     *  split) excludes marked rows, so a story read after being saved would
+     *  otherwise strand on the saved shelf, invisible to Continue. */
     public function recordProgress(int $userId, int $storyId, int $position): void
     {
         $this->db->query(
             'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
              ON CONFLICT (user_id, story_id) DO UPDATE SET
                 last_position = MAX(last_position, excluded.last_position),
+                marked_at = NULL,
                 updated_at = excluded.updated_at',
             [$userId, $storyId, $position]);
     }

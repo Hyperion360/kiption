@@ -114,7 +114,10 @@ final class AppJsContractTest extends TestCase
     {
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         $this->assertStringContainsString("addEventListener('submit'", $loader, 'the core guards every form');
-        $this->assertStringContainsString('!b.name', $loader, 'named submit buttons keep their payload');
+        $this->assertStringContainsString('e.submitter', $loader, 'the guard keys on the clicked submitter');
+        $this->assertStringContainsString('.disabled = true', $loader, 'the submitter disables until the POST lands');
+        $this->assertStringContainsString('UNNAMED', $loader, 'named submit buttons keep their payload (the documented exemption)');
+        $this->assertStringContainsString('e.persisted', $loader, 'the pageshow restore re-enables whatever bfcache froze');
     }
 
     /** The element carrying the chips marker on the recent listing. */

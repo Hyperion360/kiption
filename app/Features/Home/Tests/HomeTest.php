@@ -122,17 +122,34 @@ final class HomeTest extends TestCase
         $clamped = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
         $this->assertStringNotContainsString('id="home-continue"', $clamped, 'resume NULL clamps to no card');
 
+        // fall-through: an older USABLE history row behind the unusable
+        // newest one promotes instead of blanking the card
+        $db->query("INSERT INTO users (email, password_hash, penname, profile_slug) VALUES ('third@x.test', 'h', 'thirdauthor', 'thirdauthor')");
+        $thirdAuthor = (int) $db->one("SELECT id FROM users WHERE penname = 'thirdauthor'")['id'];
+        $db->query('INSERT INTO stories (title, slug, author_id, rating_id, validated, language, is_original) VALUES (?, ?, ?, 1, 1, ?, 1)',
+            ['Third Tale', 'third-tale', $thirdAuthor, 'en']);
+        $thirdStory = (int) $db->one("SELECT id FROM stories WHERE slug = 'third-tale'")['id'];
+        $db->query('INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 1, ?, ?, 1, 100)',
+            [$thirdStory, 'One', 'Still readable.']);
+        $db->query("INSERT INTO reading_history (user_id, story_id, last_position, updated_at) VALUES (?, ?, 1, '2026-10-19T10:00:00Z')",
+            [$reader, $thirdStory]);
+        $fall = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringContainsString('href="/story/read/third-tale/1"', $fall, 'the next-best usable row promotes');
+
         // mute: the card obeys the same page rule as the shelves
         $db->query('UPDATE chapters SET validated = 1 WHERE story_id = ?', [$storyId]);
         $db->query('INSERT INTO muted (user_id, author_id) SELECT ?, author_id FROM stories WHERE slug = ?', [$reader, 'the-rabbit-hole']);
+        $db->query('INSERT INTO muted (user_id, author_id) SELECT ?, author_id FROM stories WHERE slug = ?', [$reader, 'third-tale']);
         $muted = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
         $this->assertStringNotContainsString('id="home-continue"', $muted, 'a muted author is not promoted first');
 
-        // gate: history on an unvalidated story never surfaces
+        // gate: history on an unvalidated story never surfaces (the usable
+        // older row behind it promotes, per the fall-through above)
         $db->query('DELETE FROM muted WHERE user_id = ?', [$reader]);
         $db->query('UPDATE stories SET validated = 0 WHERE id = ?', [$storyId]);
         $gated = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
-        $this->assertStringNotContainsString('id="home-continue"', $gated, 'unvalidated stories stay invisible to the card');
+        $this->assertStringNotContainsString('/story/read/the-rabbit-hole', $gated, 'unvalidated stories stay invisible to the card');
+        $this->assertStringContainsString('href="/story/read/third-tale/1"', $gated, 'the gated story falls through to the usable row');
     }
 
     /** The freshness boundary (the qa-full /review pins): a member render
@@ -198,6 +215,49 @@ final class HomeTest extends TestCase
         $db->query('UPDATE stories SET is_restricted = 1 WHERE id = ?', [$storyId]);
         $restricted = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
         $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2"', $restricted, 'a restricted story a member is reading still leads the card');
+    }
+
+    /** The fold's admin arm (the adversarial pass caught the under-bind):
+     *  with the mute flag OFF the unmuted member shape binds the continue
+     *  arm AND the admin arm, and an admin member's home render must carry
+     *  the operator block. pdo_sqlite swallows a short bind list as a NULL
+     *  match, so only an admin-with-flag-off render can catch it. */
+    public function test_an_admin_members_home_carries_the_operator_block(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $db->query("UPDATE users SET role = 'admin' WHERE penname = 'Demo Author'");
+        $admin = (int) $db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $db->query("INSERT OR REPLACE INTO feature_flags (key, enabled) VALUES ('mute', 0)");
+        \App\Features::init($db, []);
+        try {
+            $body = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $admin))->body;
+            $this->assertStringContainsString('href="/queue"', $body, 'the operator block rides the folded admin arm');
+        } finally {
+            \App\Features::reset();
+        }
+    }
+
+    /** A real read supersedes the save-for-later mark (the Red Team pass):
+     *  every read-side filter excludes marked rows, so a story marked
+     *  before its first read, then actually read, must clear the mark and
+     *  lead Continue again instead of stranding on the saved shelf. */
+    public function test_reading_a_marked_story_returns_it_to_continue(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $reader = (int) $db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $storyId = (int) $db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $db->query('INSERT INTO reading_history (user_id, story_id, last_position, marked_at) VALUES (?, ?, 1, ?)',
+            [$reader, $storyId, '2026-10-20T10:00:00Z']);
+        (new \App\Repositories\EngagementRepository($db))->recordProgress($reader, $storyId, 2);
+        $row = $db->one('SELECT marked_at, last_position FROM reading_history WHERE user_id = ? AND story_id = ?', [$reader, $storyId]);
+        $this->assertNull($row['marked_at'], 'the read supersedes the mark');
+        $this->assertSame(2, (int) $row['last_position'], 'the furthest read keeps its MAX semantics');
+        $body = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringContainsString('href="/story/read/the-rabbit-hole/2"', $body, 'the read story leads Continue again');
     }
 
     /** A session shaped like a real login: the id AND the password epoch a

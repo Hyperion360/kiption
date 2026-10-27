@@ -53,12 +53,11 @@ final class QueryBudgetTest extends TestCase
         $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
     }
 
-    /** The member-home exception, pinned where the gate can see it: a guest
-     *  render is the cached one-query shape, but a member adds two
-     *  single-row probes - the admin check (recorded since the Task 4
-     *  operator block) and the Continue card. Three is the documented
-     *  ceiling; a fourth query on member / fails here. */
-    public function test_member_home_stays_inside_the_documented_three_query_budget(): void
+    /** The member home rides the same UNION ALL fold as the guest render
+     *  (the 2026-10-27 review closed the last exception): the shelves, the
+     *  Continue card, and the operator-block probe are arms of ONE content
+     *  query, so the pinned budget is the contract's 1 for every viewer. */
+    public function test_member_home_stays_inside_the_documented_one_query_budget(): void
     {
         $app = new App($this->config());
         $client = new \Kip\Testing\TestClient($app);
@@ -73,7 +72,7 @@ final class QueryBudgetTest extends TestCase
         $db->onQuery(fn () => null);
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('id="home-latest"', $res->body, 'the member render really ran the home controller');
-        $this->assertLessThanOrEqual(3, $queries, "member / ran {$queries} content queries, documented budget is 3");
+        $this->assertLessThanOrEqual(1, $queries, "member / ran {$queries} content queries, budget is 1");
     }
 
     public static function pages(): array
@@ -184,6 +183,7 @@ final class QueryBudgetTest extends TestCase
             if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
              ON CONFLICT (user_id, story_id) DO UPDATE SET
                 last_position = MAX(last_position, excluded.last_position),
+                marked_at = NULL,
                 updated_at = excluded.updated_at') return; // progress upsert, the logged-in read shape's extra write
             if ($sql === 'UPDATE messages SET read_at = ? WHERE recipient_id = ? AND sender_id = ? AND read_at IS NULL') return; // thread-open mark-read, the PM shape's extra write (finding 4, the reading_history precedent)
             $queries++;
@@ -212,6 +212,7 @@ final class QueryBudgetTest extends TestCase
             if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
              ON CONFLICT (user_id, story_id) DO UPDATE SET
                 last_position = MAX(last_position, excluded.last_position),
+                marked_at = NULL,
                 updated_at = excluded.updated_at') return; // progress upsert, the logged-in read shape's extra write
             $queries++;
         });

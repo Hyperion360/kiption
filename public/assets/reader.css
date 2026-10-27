@@ -898,6 +898,11 @@ html[data-mode="pages"] .reader-main .prose {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
+/* An RTL row overflows toward its LEFT edge, so the fade flips sides. */
+.js[dir="rtl"] .filter-chips.is-scrollable:not(.at-end):not(:focus-within) {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+}
 .chip {
   flex: none; display: inline-flex; align-items: center;
   min-height: 38px; padding-inline: 14px;
