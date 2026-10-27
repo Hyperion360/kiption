@@ -44,7 +44,7 @@
 <?php endif; ?>
 <?php $nextUrl = !empty($hasOlder) ? $pagerPrefix . ($page + 1) : ''; ?>
 <ul class="story-list" data-js-module="infinite" data-next-url="<?= $nextUrl !== '' ? $this->e($baseUrl) . $nextUrl : '' ?>" data-canonical="<?= $this->e($path ?? '') ?>">
-<?= $this->render('browse/_story_cards', ['stories' => $stories]) ?>
+<?= $this->render('browse/_story_cards', ['stories' => $stories, 'fresh' => $loggedIn]) ?>
 <?php if ($stories === []): ?>
   <li class="meta"><?= \App\Lang::t(!empty($chips) && $activeCat !== '' ? 'browse.no_cat_stories' : 'story.no_stories') ?></li>
 <?php endif; ?>

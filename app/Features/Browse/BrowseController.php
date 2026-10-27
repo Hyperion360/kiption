@@ -76,7 +76,7 @@ final class BrowseController
         // cache-ineligible, and a short page renders zero cards, the JS stop
         // signal. Still the ONE listing query, member progress fold included.
         if (($this->request->get['fragment'] ?? '') === '1') {
-            return $this->cardsFragment($stories);
+            return $this->cardsFragment($stories, $me);
         }
         $items = [];
         foreach ($stories as $i => $s) {
@@ -106,9 +106,9 @@ final class BrowseController
 
     /** The infinite-scroll card loop. Member cards carry Continue pills, so
      *  no shared cache may keep it, and a partial list is never indexed. */
-    private function cardsFragment(array $stories): Response
+    private function cardsFragment(array $stories, int $me): Response
     {
-        return (new Response($this->view->render('browse/_story_cards', ['stories' => $stories]), 200))
+        return (new Response($this->view->render('browse/_story_cards', ['stories' => $stories, 'fresh' => $me !== 0]), 200))
             ->withHeader('Cache-Control', 'private, no-store')
             ->withHeader('X-Robots-Tag', 'noindex');
     }
@@ -122,7 +122,7 @@ final class BrowseController
         // The recent listing's fragment mode: the infinite module mounts on
         // this list too and fetches ?fragment=1 for the bare card loop.
         if (($this->request->get['fragment'] ?? '') === '1') {
-            return $this->cardsFragment($stories);
+            return $this->cardsFragment($stories, $me);
         }
         $categoryTitle = \App\Lang::t('browse.category_title', ['name' => $slug]);
         $head = $this->head()->withTitle($categoryTitle)

@@ -130,7 +130,7 @@
     </div>
     <div class="story-main">
     <div class="story-info">
-      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated<?= !empty($loggedIn) && (time() - strtotime((string) $story['updated_at'])) < 172800 ? ' is-fresh' : '' ?>"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => date('M j', strtotime((string) $story['updated_at']))])) ?></span><?php endif; ?></p>
+      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated<?= !empty($loggedIn) && \App\Freshness::fresh($story['updated_at'] ?? null) ? ' is-fresh' : '' ?>"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => date('M j', strtotime((string) $story['updated_at']))])) ?></span><?php endif; ?></p>
       <h1><?= $this->e($story['title']) ?></h1>
       <?php /* the byline is a div because the Follow toggle is a form: the
            HTML parser auto-closes a p element when a form element opens,

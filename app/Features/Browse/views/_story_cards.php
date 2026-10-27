@@ -4,7 +4,10 @@
      // renders it alone for infinite scroll, so page and fragment share
      // the exact same card bytes. Every <li> closes; the pill markup
      // exists only when the viewer's reading_history row does, so guest
-     // bytes stay reader-neutral. ?>
+     // bytes stay reader-neutral. The freshness dot renders only when the
+     // caller passes 'fresh' (member renders of the recent listing and its
+     // fragment); the language listing and search results deliberately skip
+     // it - those are their own information graphics, not the recency list. ?>
 <?php foreach ($stories as $s): ?>
   <li class="story-card">
     <a class="story-title" href="/story/view/<?= $this->e($s['slug']) ?>"><?= $this->e($s['title']) ?></a>
@@ -16,7 +19,7 @@
          foreach ((is_array($cc = json_decode((string) ($s['cats_blob'] ?? ''), true)) ? $cc : []) as $c) {
              if (is_array($c) && isset($c['name'])) $cardCats[] = (string) $c['name'];
          } ?>
-    <p class="meta"><?php if (!empty($fresh) && (time() - strtotime((string) $s['updated_at'])) < 172800): ?><span class="fresh-dot" aria-hidden="true"></span> <?php endif; ?><?= $this->e($s['rating_label']) ?> ·
+    <p class="meta"><?php if (!empty($fresh) && \App\Freshness::fresh($s['updated_at'] ?? null)): ?><span class="fresh-dot" aria-hidden="true"></span> <?php endif; ?><?= $this->e($s['rating_label']) ?> ·
       <?php if ($s['completed']): ?><span class="badge"><?= \App\Lang::t('story.complete') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('story.wip') ?></span><?php endif; ?> ·
       <?= number_format((int) $s['word_count']) ?> <?= \App\Lang::t('story.words') ?><?php if ($cardCats !== []): ?> · <?= $this->e(implode(', ', $cardCats)) ?><?php endif; ?>
       <time class="card-updated" datetime="<?= $this->e((string) $s['updated_at']) ?>"><?= \App\Lang::t('story.updated', ['date' => $this->e(substr((string) $s['updated_at'], 0, 10))]) ?></time></p>
