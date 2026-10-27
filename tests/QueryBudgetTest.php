@@ -53,6 +53,29 @@ final class QueryBudgetTest extends TestCase
         $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
     }
 
+    /** The member-home exception, pinned where the gate can see it: a guest
+     *  render is the cached one-query shape, but a member adds two
+     *  single-row probes - the admin check (recorded since the Task 4
+     *  operator block) and the Continue card. Three is the documented
+     *  ceiling; a fourth query on member / fails here. */
+    public function test_member_home_stays_inside_the_documented_three_query_budget(): void
+    {
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $queries = 0;
+        $db->onQuery(function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            $queries++;
+        });
+        $res = $client->get('/');
+        $db->onQuery(fn () => null);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('id="home-latest"', $res->body, 'the member render really ran the home controller');
+        $this->assertLessThanOrEqual(3, $queries, "member / ran {$queries} content queries, documented budget is 3");
+    }
+
     public static function pages(): array
     {
         return [['/'], ['/browse'], ['/browse/recent'], ['/feed/subscribe'],
