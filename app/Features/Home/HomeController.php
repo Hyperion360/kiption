@@ -66,15 +66,19 @@ final class HomeController
         // no continue card at all.
         $continue = null;
         if ($loggedIn) {
+            // Mutes hold on the Continue card, the same page rule as the
+            // shelves: a muted author's story is not promoted first.
+            $continueGates = 's.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0';
+            if ($muted) { $continueGates .= \App\Repositories\MuteRepository::clause('s'); }
             $continue = $this->db->one(
                 "SELECT s.slug, s.title, rh.last_position,
                         (SELECT MAX(c.position) FROM chapters c WHERE c.story_id = s.id AND c.validated = 1 AND c.position <= rh.last_position) AS resume,
                         (SELECT COALESCE(SUM(c2.word_count), 0) FROM chapters c2 WHERE c2.story_id = s.id AND c2.validated = 1 AND c2.position <= rh.last_position) AS words_before,
                         (SELECT COALESCE(SUM(c3.word_count), 0) FROM chapters c3 WHERE c3.story_id = s.id AND c3.validated = 1) AS words_total
                  FROM reading_history rh JOIN stories s ON s.id = rh.story_id
-                 WHERE rh.user_id = ? AND s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0
+                 WHERE rh.user_id = ? AND {$continueGates}
                  ORDER BY rh.updated_at DESC LIMIT 1",
-                [(int) $userId]);
+                $muted ? [(int) $userId, $viewer] : [(int) $userId]);
             if ($continue === null || (int) $continue['resume'] === 0) { $continue = null; }
         }
         $jsonLd = [

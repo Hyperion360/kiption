@@ -103,6 +103,58 @@ final class HomeTest extends TestCase
         $this->assertStringNotContainsString('id="home-continue"', $noHistory, 'a reader with no history sees no card');
     }
 
+    /** The Continue card's negative branches (the qa-full /review pins): a
+     *  resume position below every validated chapter clamps to no card, a
+     *  muted author's story is not promoted first, and a history row on an
+     *  unvalidated story never surfaces. */
+    public function test_continue_card_honors_clamp_mutes_and_gates(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $reader = (int) $db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        $storyId = (int) $db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+
+        // clamp: history at position 1 with chapter 1 unvalidated -> resume NULL -> no card
+        $db->query('UPDATE chapters SET validated = 0 WHERE story_id = ? AND position = 1', [$storyId]);
+        $db->query('INSERT INTO reading_history (user_id, story_id, last_position, updated_at) VALUES (?, ?, 1, ?)',
+            [$reader, $storyId, '2026-10-20T10:00:00Z']);
+        $clamped = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringNotContainsString('id="home-continue"', $clamped, 'resume NULL clamps to no card');
+
+        // mute: the card obeys the same page rule as the shelves
+        $db->query('UPDATE chapters SET validated = 1 WHERE story_id = ?', [$storyId]);
+        $db->query('INSERT INTO muted (user_id, author_id) SELECT ?, author_id FROM stories WHERE slug = ?', [$reader, 'the-rabbit-hole']);
+        $muted = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringNotContainsString('id="home-continue"', $muted, 'a muted author is not promoted first');
+
+        // gate: history on an unvalidated story never surfaces
+        $db->query('DELETE FROM muted WHERE user_id = ?', [$reader]);
+        $db->query('UPDATE stories SET validated = 0 WHERE id = ?', [$storyId]);
+        $gated = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, $reader))->body;
+        $this->assertStringNotContainsString('id="home-continue"', $gated, 'unvalidated stories stay invisible to the card');
+    }
+
+    /** The freshness boundary (the qa-full /review pins): a member render
+     *  marks updates inside the 48-hour window and never outside it; a
+     *  guest render - the cached bytes - never claims fresh at all. */
+    public function test_fresh_dot_marks_only_the_48_hour_window_for_members(): void
+    {
+        $db = new Database('sqlite::memory:');
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        \App\Seeder::run($db);
+        $setAge = fn (string $offset): bool =>
+            (bool) $db->query("UPDATE stories SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?) WHERE slug = 'the-rabbit-hole'", [$offset]);
+        $setAge('-47 hours');
+        $member = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, 1))->body;
+        $this->assertStringContainsString('fresh-dot', $member, '47 hours is inside the window');
+        $guest = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
+        $this->assertStringNotContainsString('fresh-dot', $guest, 'the cached guest bytes never lie fresh');
+        $setAge('-49 hours');
+        $outside = $this->appOver($db)->handle(new Request('GET', '/', [], [], ['kip_session' => 'x']), $this->memberSession($db, 1))->body;
+        $this->assertStringNotContainsString('fresh-dot', $outside, '49 hours is outside the window');
+    }
+
     /** A session shaped like a real login: the id AND the password epoch a
      *  login stamps (App\Viewer::id treats an epoch-less session as revoked,
      *  which is the point of the check, so the fixture carries one). */
