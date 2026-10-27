@@ -21,11 +21,13 @@ final class RobotsTest extends TestCase
     {
         $file = $this->root . '/robots.txt';
         \App\Seo\Sitemap::writeRobots($file, permissive: true, baseUrl: '');
+        $txt = (string) file_get_contents($file);
         $this->assertSame(
             (string) file_get_contents(dirname(__DIR__) . '/public/robots.txt'),
-            (string) file_get_contents($file),
+            $txt,
             'finding 12: the permissive output is byte-identical to the committed robots.txt'
         );
+        $this->assertStringNotContainsString('Sitemap:', $txt, 'no base, no Sitemap line: a relative one is invalid and ignored');
         \App\Seo\Sitemap::writeRobots($file, permissive: false, baseUrl: '');
         $txt = (string) file_get_contents($file);
         $this->assertStringContainsString('User-agent: GPTBot', $txt);

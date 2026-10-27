@@ -61,6 +61,9 @@ final class ImportCliTest extends TestCase
 
     public function test_full_commit_import_maps_every_table(): void
     {
+        // the import's pages:build must leave the committed seed untouched;
+        // snapshot before so the byte-stability check pins no particular seed
+        $seedBefore = (string) file_get_contents(dirname(__DIR__) . '/public/robots.txt');
         [$code, $out] = $this->kip('migrate');
         $this->assertSame(0, $code, $out);
         [$code, $out] = $this->kip('import:efiction ' . escapeshellarg($this->bundle()) . ' --commit');
@@ -95,12 +98,8 @@ final class ImportCliTest extends TestCase
         // repo public_dir; only the base_url default gate stops the write.
         $repoRoot = dirname(__DIR__);
         $this->assertSame(
+            $seedBefore,
             (string) file_get_contents($repoRoot . '/public/robots.txt'),
-            "User-agent: *
-Disallow: /*?*
-
-Sitemap: /sitemap.xml
-",
             'the committed robots seed is byte-identical after an import');
     }
 

@@ -19,7 +19,11 @@
   function reveal() {
     var active = nav.querySelector('.chip.is-active');
     if (active) {
-      nav.scrollLeft = Math.max(0, active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2);
+      // Rect deltas, not offsetLeft: offsetParent is whatever ancestor is
+      // positioned, rarely the row itself, so offset math centers wrong.
+      var before = nav.getBoundingClientRect();
+      var chip = active.getBoundingClientRect();
+      nav.scrollLeft += (chip.left + chip.width / 2) - (before.left + before.width / 2);
     }
     sync();
   }

@@ -130,11 +130,12 @@ final class Sitemap
      *  $baseUrl turns the Sitemap line absolute (RFC 9309 requires an
      *  absolute URL; a relative one is ignored by crawlers and fails
      *  Lighthouse's robots-txt audit): every regenerator that knows the
-     *  site's address passes it; empty keeps the committed seed bytes. */
+     *  site's address passes it. Empty emits no Sitemap line at all, so the
+     *  committed seed never ships a directive crawlers must ignore. */
     public static function writeRobots(string $file, bool $permissive, string $baseUrl = ''): void
     {
-        $sitemap = $baseUrl === '' ? '/sitemap.xml' : rtrim($baseUrl, '/') . '/sitemap.xml';
-        $body = "User-agent: *\nDisallow: /*?*\n\nSitemap: {$sitemap}\n";
+        $sitemap = $baseUrl === '' ? '' : "\nSitemap: " . rtrim($baseUrl, '/') . '/sitemap.xml';
+        $body = "User-agent: *\nDisallow: /*?*\n{$sitemap}\n";
         $ai = "User-agent: GPTBot\nUser-agent: CCBot\nUser-agent: ClaudeBot\nUser-agent: anthropic-ai\nUser-agent: Google-Extended\nDisallow: /\n\n";
         file_put_contents($file, $permissive ? $body : $ai . $body);
     }
