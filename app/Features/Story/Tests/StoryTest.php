@@ -406,8 +406,10 @@ final class StoryTest extends TestCase
             $body, "the current chapter carries the accent You're-here line under its title");
     }
 
-    /** The comp's three action cells (D3) keep every endpoint and token;
-     *  the Follow toggle moves up into the byline. Reviews survive. */
+    /** The comp's three action cells (D3) keep every endpoint and token
+     *  except the byline Follow toggle, which lives in
+     *  test_author_sees_no_follow_toggle_on_their_own_story (author absent,
+     *  member present, with the form action). Reviews survive. */
     public function test_engagement_and_reviews_structure_survive_the_redesign(): void
     {
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;

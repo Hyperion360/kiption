@@ -63,6 +63,10 @@
       if (b instanceof HTMLButtonElement && !b.name && !b.disabled) {
         b.disabled = true;
         b.setAttribute('aria-busy', 'true');
+        /* A POST that never navigates (user hits Stop, a stalled
+           connection) must not strand the form: the timer re-enables after
+           30 seconds, and pageshow covers the back/bfcache path. */
+        setTimeout(function () { b.disabled = false; b.removeAttribute('aria-busy'); }, 30000);
       }
     }, true);
     window.addEventListener('pageshow', function (e) {

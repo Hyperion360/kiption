@@ -128,10 +128,6 @@ final class LangTest extends TestCase
         // The completeness contract: no hardcoded English UI literals remain in
         // text nodes outside the allowlist. The allowlist is brand + tech tokens
         // plus the code fragments the regex catches once attribute values move
-        // into t() calls (" content=", '" href="', '" alt="', '?page=').
-        // The completeness contract: no hardcoded English UI literals remain in
-        // text nodes outside the allowlist. The allowlist is brand + tech tokens
-        // plus the code fragments the regex catches once attribute values move
         // into t() calls (" content=", '" href="', '" alt="', '?page='), and
         // the rating pips' looped id/for wiring.
         $allowlist = ['Kiption', 'PHP', 'UTF-8', 'aria-', 'data-', 'http', 'page=', 'content=', 'href=', 'alt=', 'placeholder=', 'id="rating-', 'for="rating-'];

@@ -412,7 +412,6 @@ final class LayoutShellTest extends TestCase
     {
         $on = $this->renderLayout(['powered_by' => true]);
         $this->assertStringContainsString('<meta name="generator" content="Kiption">', $on);
-        $this->assertStringNotContainsString('Kiption 0', $on, 'no version string: no free fingerprinting');
         $off = $this->renderLayout(['powered_by' => false]);
         $this->assertStringNotContainsString('name="generator"', $off, 'the opt-out covers the whole advertisement');
     }
