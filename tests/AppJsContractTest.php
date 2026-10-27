@@ -229,7 +229,7 @@ final class AppJsContractTest extends TestCase
 
     /** One owner for the progress fill: the position module marks its bar
      *  is-live and the CSS scroll-timeline animation stands down, so the fill
-     *  is not interpolated twice (qa-full /review, Codex). */
+     *  is not interpolated twice (qa-full /review, review). */
     public function test_the_position_module_owns_the_fill_alone(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/position.js');

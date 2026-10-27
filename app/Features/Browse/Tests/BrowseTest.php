@@ -392,7 +392,7 @@ final class BrowseTest extends TestCase
         $db->query("UPDATE users SET password_hash = 'rotated' WHERE id = 2");
         $this->assertStringNotContainsString('continue-pill', $c->get('/browse/recent')->body);
         // Reading progress is not a mute feature: switching mute off must not
-        // take the member's pill with it (qa-full /review, Codex).
+        // take the member's pill with it (qa-full /review, review).
         $db->query("INSERT OR REPLACE INTO feature_flags (key, enabled) VALUES ('mute', 0)");
         \App\Features::init($db, []); // the public/index.php init, on this DB
         $this->assertFalse(\App\Features::on('mute'));

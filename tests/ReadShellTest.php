@@ -132,7 +132,7 @@ final class ReadShellTest extends TestCase
 
     /** Focus mode works with scripting off: the Text panel carries a plain
      *  link in (the F key is only a shortcut), and focus mode drops it for
-     *  its own exit links (qa-full /review, Codex structured). */
+     *  its own exit links (qa-full review). */
     public function test_focus_mode_has_a_plain_link_in(): void
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
@@ -143,7 +143,7 @@ final class ReadShellTest extends TestCase
 
     /** The keys module's J/K targets are sibling chapter URLs. They were
      *  built on the current chapter's URL, so chapter 2 pointed at
-     *  /story/read/<slug>/2/3, a 404 (qa-full: /review + Codex). */
+     *  /story/read/<slug>/2/3, a 404 (qa-full review). */
     public function test_keyboard_navigation_targets_are_real_chapter_urls(): void
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;

@@ -65,7 +65,7 @@ final class HomeTest extends TestCase
     }
 
     /** A member who muted an author never sees that author on the home
-     *  shelves, as on /browse/recent (qa-full /review, Codex). Guests, whose
+     *  shelves, as on /browse/recent (qa-full /review, review). Guests, whose
      *  render is the cached one, are unaffected. */
     public function test_member_mutes_hide_the_author_from_home(): void
     {

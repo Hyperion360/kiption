@@ -278,7 +278,7 @@ final class LayoutShellTest extends TestCase
     /** The Text slider advertises one default (19px) and the server and
      *  prefs.js drop data-size for it, so no breakpoint may rebind the
      *  default --read-size: choosing 19 rendered 21px on tablets and 20px on
-     *  desktops while the readout said 19 (qa-full /review, Codex). */
+     *  desktops while the readout said 19 (qa-full review). */
     public function test_default_reading_size_is_the_same_at_every_width(): void
     {
         $css = (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css');

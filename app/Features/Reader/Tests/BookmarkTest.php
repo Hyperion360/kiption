@@ -330,7 +330,7 @@ final class BookmarkTest extends TestCase
 
     /** A password change revokes older sessions (Kip's epoch gate). Public
      *  chapter pages read the session too, so a revoked session must never
-     *  load the member's private notes there (qa-full /review, Codex P1). */
+     *  load the member's private notes there (qa-full /review, review P1). */
     public function test_revoked_session_never_sees_private_notes(): void
     {
         $c = $this->client($this->memberId);

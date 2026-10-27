@@ -24,3 +24,6 @@ app/setup-attempts
 app/upgrade/
 site/
 config.marketing.php
+
+# private working memory (local-only)
+TODOS.md
