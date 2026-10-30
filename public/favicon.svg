@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Kiption's logomark: the K from the brand link (reader.css --serif,
-       small-caps), ink on the Paper tile. The font-family is the site's
+  <!-- Kiption's logomark: the K from the brand link (reader.css serif stack,
+       small caps), ink on the Paper tile. The font-family is the site's
        own stack so a supporting browser renders the same face the header
        does; the .ico beside this file is the rasterized fallback. -->
   <rect width="64" height="64" rx="14" fill="#f8f7f3"/>
