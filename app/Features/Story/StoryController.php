@@ -40,14 +40,17 @@ final class StoryController
         // the render never depends on aggregation internals (the TOC discipline).
         $tags = [];
         foreach (json_decode((string) $story['tags_blob'], true) ?: [] as $t) {
-            $tags[(string) $t['type']][] = (string) $t['name'];
+            $tags[(string) $t['type']][(string) $t['name']] = (int) $t['i'];
         }
         foreach ($tags as &$names) {
-            sort($names, SORT_STRING);
+            ksort($names, SORT_STRING); // name => tag id, name-sorted
         }
         unset($names);
         ksort($tags);
         unset($story['tags_blob']);
+        $characters = json_decode((string) $story['characters_blob'], true) ?: [];
+        usort($characters, static fn (array $a, array $b): int => strcasecmp((string) $a['name'], (string) $b['name']));
+        unset($story['characters_blob']);
         $reviewRows = json_decode((string) $story['reviews_blob'], true) ?: [];
         $replyRows = json_decode((string) $story['replies_blob'], true) ?: [];
         // A full 200-row blob means the reply cap may have dropped older replies
@@ -102,6 +105,7 @@ final class StoryController
             'series' => $seriesLinks,
             'coauthors' => $coauthors,
             'tags' => $tags,
+            'characters' => $characters,
             'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),
             'isAuthor' => $me !== 0 && $me === (int) $story['author_id'],
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
@@ -588,16 +592,19 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_title'), null), 422);
         }
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_rating'), null), 422);
         }
+        if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, null)) {
+            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_locked_category'), null), 422);
+        }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds,
-            $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT));
+            $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
         return Response::redirect('/story/edit/' . $slug);
@@ -618,10 +625,13 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, \App\Lang::t('story.err_rating'), null), 422);
+        }
+        if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, $slug)) {
+            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, \App\Lang::t('story.err_locked_category'), null), 422);
         }
         if ($syndicationError !== null) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, $syndicationError, null), 422);
@@ -638,7 +648,7 @@ final class StoryController
         try {
             [$newSlug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
-                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds, $accessPassword, $accessClear);
+                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds, $accessPassword, $accessClear, $characterIds);
         } catch (\RuntimeException) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
@@ -718,11 +728,13 @@ final class StoryController
         $ratings = [];
         $coauthors = [];
         foreach ($rows as $r) {
-            if ($r['k'] === 'cat') $categories[] = $r;
             if ($r['k'] === 'r') $ratings[] = $r;
             if ($r['k'] === 'co') $coauthors[] = ['id' => (int) $r['a'], 'penname' => (string) $r['b']];
         }
+        $selectedCats = $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen');
+        $categories = \App\Repositories\AuthoringRepository::visibleCategories($rows, $selectedCats);
         [$tagGroups, $selectedTags] = \App\Repositories\AuthoringRepository::tagGroups($rows);
+        [$characterGroups, $selectedCharacters] = \App\Repositories\AuthoringRepository::characterGroups($rows);
         $chapters = [];
         if ($story !== null && ($story['h'] ?? null) !== null && $story['h'] !== '[]') {
             $chapters = json_decode((string) $story['h'], true) ?: [];
@@ -753,6 +765,8 @@ final class StoryController
             'ratings' => $ratings,
             'tagGroups' => $tagGroups,
             'selectedTags' => $selectedTags,
+            'characterGroups' => $characterGroups,
+            'selectedCharacters' => $selectedCharacters,
             'chapters' => $chapters,
             // coauthor management is the owner/admin's; l/m ride the 's' row only
             'coauthors' => $coauthors,
@@ -809,7 +823,7 @@ final class StoryController
         return \App\StaticCache\Cache::configured($this->app);
     }
 
-    /** @return array{string,string,string,int,array,bool,bool,string,bool,bool,string,array,string,bool} */
+    /** @return array{string,string,string,int,array,bool,bool,string,bool,bool,string,array,string,bool,?array} */
     private function storyInput(): array
     {
         $post = $this->request->post;
@@ -843,6 +857,13 @@ final class StoryController
             // value-based idiom as the flags above.
             trim((string) ($post['access_password'] ?? '')),
             ($post['access_clear'] ?? '') === '1',
+            // The character picker: null when the form did not offer it (the
+            // hidden characters_shown marker is absent), so a save from an
+            // old form never wipes the story's characters. Unknown ids and
+            // characters of unchosen categories drop in writeCharacters.
+            isset($post['characters_shown'])
+                ? array_values(array_filter((array) ($post['characters'] ?? []), 'is_numeric'))
+                : null,
         ];
     }
 

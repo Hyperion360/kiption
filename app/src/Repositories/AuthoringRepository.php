@@ -23,10 +23,14 @@ final class AuthoringRepository
      *  row (the categories 'e' idiom; the selected ids cannot ride the 's'
      *  branch, all seventeen columns there are occupied). On the create
      *  path the NULL slug bind makes the concat yield NULL: no selection.
+     *  The 'ch' branch (appended after 'tag', so its slug bind is the very
+     *  last) carries every character the same way: f is its category_id (NULL
+     *  = any category), c the category name, e the story's selected ids.
      *  Compound SELECTs may only ORDER BY output columns. */
     public function formData(?string $slug, int $userId): array
     {
-        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
+        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, c.locked AS e,
+                            (SELECT COUNT(*) FROM users cadm WHERE cadm.id = ? AND cadm.role = 'admin') AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
                      FROM categories c
                      UNION ALL
                      SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
@@ -36,11 +40,21 @@ final class AuthoringRepository
                             (SELECT GROUP_CONCAT(st2.tag_id) FROM story_tags st2
                              JOIN stories s3 ON s3.id = st2.story_id WHERE s3.slug = ?) AS e,
                             t.canonical_id AS f,
-                            NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
+                            tt.position AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
                      FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id";
+        // The 'ch' branch is appended after 'tag' (its slug bind is the LAST
+        // bind): every character with its category_id (f), category name (c)
+        // and the story's selected character ids as the per-row concat (e).
+        $characters = " UNION ALL
+                     SELECT 'ch' AS k, ch.id AS a, ch.name AS b, cc.name AS c, COALESCE(ch.category_id, 0) AS d,
+                            (SELECT GROUP_CONCAT(sc2.character_id) FROM story_characters sc2
+                             JOIN stories s4 ON s4.id = sc2.story_id WHERE s4.slug = ?) AS e,
+                            ch.category_id AS f,
+                            NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
+                     FROM characters ch LEFT JOIN categories cc ON cc.id = ch.category_id";
         if ($slug === null) {
-            // ONE bind: the NULL slug makes the selected concat yield NULL.
-            return $this->db->all($taxonomy . $tags . ' ORDER BY k, d', [null]);
+            // The NULL slug binds make the selected concats yield NULL.
+            return $this->db->all($taxonomy . $tags . $characters . ' ORDER BY k, d', [$userId, null, null]);
         }
         return $this->db->all(
             "SELECT 's' AS k, s.id AS a, s.title AS b, s.summary AS c, s.notes AS d,
@@ -63,14 +77,41 @@ final class AuthoringRepository
              SELECT 'co' AS k, cu.id AS a, cu.penname AS b, NULL AS c, cu.id AS d,
                      NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
              FROM coauthors c2 JOIN stories s2 ON s2.id = c2.story_id JOIN users cu ON cu.id = c2.user_id
-             WHERE s2.slug = ?" . $tags . "
+             WHERE s2.slug = ?" . $tags . $characters . "
              ORDER BY k, d",
             // SEVEN binds in text order: the 's' branch's SELECT-list admin scalar
             // first (SELECT-list binds precede WHERE binds), then the 's' WHERE
-            // (slug + three gate binds), then the 'co' branch's slug, then the
-            // 'tag' branch's slug (the branch is appended LAST). Count the ?s
-            // before touching this array.
-            [$userId, $slug, $userId, $userId, $userId, $slug, $slug]);
+            // (slug + three gate binds), then the 'cat' branch's admin scalar, then the 'co' branch's slug, then the
+            // 'tag' branch's slug, then the 'ch' branch's slug (appended LAST).
+            // Count the ?s before touching this array.
+            [$userId, $slug, $userId, $userId, $userId, $userId, $slug, $slug, $slug]);
+    }
+
+    /** The story form's category choices: a locked category (eFiction: admins
+     *  file there only) is hidden from non-admins unless the story already sits
+     *  in it. The 'cat' rows carry locked in e and the viewer-admin scalar in f. */
+    public static function visibleCategories(array $rows, array $selected): array
+    {
+        $selected = array_map('strval', $selected);
+        $out = [];
+        foreach ($rows as $r) {
+            if ($r['k'] !== 'cat') continue;
+            if ((int) $r['e'] === 1 && (int) $r['f'] !== 1 && !in_array((string) $r['a'], $selected, true)) continue;
+            $out[] = $r;
+        }
+        return $out;
+    }
+
+    /** True when a non-admin names a locked category the story is not already in. */
+    public function lockedViolation(int $userId, array $categoryIds, ?string $slug): bool
+    {
+        $ids = array_values(array_filter(array_map('intval', $categoryIds), static fn (int $i): bool => $i > 0));
+        if ($ids === []) return false;
+        if (($this->db->one('SELECT role FROM users WHERE id = ?', [$userId])['role'] ?? '') === 'admin') return false;
+        return $this->db->one(
+            'SELECT 1 AS x FROM categories c WHERE c.locked = 1 AND c.id IN (' . implode(',', $ids) . ')
+             AND c.id NOT IN (SELECT sc.category_id FROM story_categories sc JOIN stories s ON s.id = sc.story_id WHERE s.slug = ?)',
+            [$slug ?? '']) !== null;
     }
 
     public function slugTaken(string $slug): bool
@@ -85,7 +126,7 @@ final class AuthoringRepository
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
                                 array $categoryIds, bool $validated, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '', bool $isOriginal = false,
-                                array $tagIds = [], ?string $accessHash = null): array
+                                array $tagIds = [], ?string $accessHash = null, ?array $characterIds = null): array
     {
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
@@ -96,6 +137,7 @@ final class AuthoringRepository
             $storyId = (int) $this->db->lastInsertId();
             $this->writeCategories($storyId, $categoryIds);
             $this->writeTags($storyId, $tagIds);
+            $this->writeCharacters($storyId, $characterIds);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData($storyId, $userId);
             return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug, $challengeSlugs];
@@ -116,7 +158,8 @@ final class AuthoringRepository
                                 int $ratingId, array $categoryIds, bool $completed, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '',
                                 string $canonicalUrl = '', string $crosspostUrl = '', bool $isOriginal = false,
-                                array $tagIds = [], ?string $accessPassword = null, bool $accessClear = false): array
+                                array $tagIds = [], ?string $accessPassword = null, bool $accessClear = false,
+                                ?array $characterIds = null): array
     {
         $story = $this->ownStory($slug, $userId);
         $accessValue = $this->accessValue($accessClear, $accessPassword, $story['access_hash'] ?? null);
@@ -140,6 +183,7 @@ final class AuthoringRepository
                  date('c'), $story['id']]);
             $this->writeCategories((int) $story['id'], $categoryIds);
             $this->writeTags((int) $story['id'], $tagIds);
+            $this->writeCharacters((int) $story['id'], $characterIds);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
             return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id'])))), $seriesSlugs, $authorSlug, $challengeSlugs];
@@ -221,14 +265,63 @@ final class AuthoringRepository
             [$storyId]);
     }
 
+    /** Replace the story's character rows. NULL means the form did not offer
+     *  the picker (an old form, a script): leave the links alone. Otherwise
+     *  ONE DELETE plus ONE INSERT..SELECT with a numeric-only id list, so an
+     *  unknown id drops. A character is kept only when it is "any category"
+     *  (category_id NULL) or belongs to a category the story has chosen: the
+     *  story_categories rows were just written in the same transaction. */
+    private function writeCharacters(int $storyId, ?array $characterIds): void
+    {
+        if ($characterIds === null) return;
+        $this->db->query('DELETE FROM story_characters WHERE story_id = ?', [$storyId]);
+        $ids = [];
+        foreach ($characterIds as $cid) {
+            $cid = (int) $cid;
+            if ($cid > 0) $ids[$cid] = $cid;
+        }
+        if ($ids === []) return;
+        $this->db->query(
+            'INSERT OR IGNORE INTO story_characters (story_id, character_id)
+             SELECT ?, ch.id FROM characters ch
+             WHERE ch.id IN (' . implode(',', $ids) . ')
+               AND (ch.category_id IS NULL OR ch.category_id IN (SELECT category_id FROM story_categories WHERE story_id = ?))',
+            [$storyId, $storyId]);
+    }
+
+    /** Fold formData's 'ch' rows into [groups, selected ids]: groups keyed by
+     *  category id (0 = any category) with the category name and the
+     *  characters, categories name-sorted, "any category" last.
+     *  @return array{0: array<int, array{name: string, characters: array<int, string>}>, 1: string[]} */
+    public static function characterGroups(array $rows): array
+    {
+        $groups = [];
+        $selected = [];
+        foreach ($rows as $r) {
+            if ($r['k'] !== 'ch') continue;
+            if ($selected === []) {
+                $selected = array_filter(explode(',', (string) ($r['e'] ?? '')), 'strlen');
+            }
+            $cat = (int) ($r['f'] ?? 0);
+            $groups[$cat] ??= ['name' => $cat === 0 ? '' : (string) $r['c'], 'characters' => []];
+            $groups[$cat]['characters'][(int) $r['a']] = (string) $r['b'];
+        }
+        foreach ($groups as &$g) {
+            asort($g['characters'], SORT_STRING);
+        }
+        unset($g);
+        uksort($groups, static fn (int $a, int $b): int => $a === 0 ? 1 : ($b === 0 ? -1 : strcasecmp($groups[$a]['name'], $groups[$b]['name'])));
+        return [$groups, array_values($selected)];
+    }
+
     /** View-shaping fold over formData's 'tag' rows, shared by every renderer
      *  of the story form: ACTIVE tags grouped under their type (id-keyed,
      *  name-sorted, type-sorted: the SQL's compound ORDER BY cannot carry a
      *  per-branch tertiary key without disturbing the category ordering)
-     *  plus the story's selected tag ids off the per-row concat. Retired
+     *  plus the story's selected tag ids off the per-row concat. Types sort by the owner's tag_types.position (it rides column g). Retired
      *  synonyms never offer as checkboxes: wrangling is the taxonomy
      *  control point, and a synonym checked today would silently store its
-     *  canonical. @return array{0: array<int, array{name: string, tags: array<int, string>}>, 1: string[]} */
+     *  canonical. @return array{0: array<int, array{name: string, pos: int, tags: array<int, string>}>, 1: string[]} */
     public static function tagGroups(array $rows): array
     {
         $groups = [];
@@ -240,14 +333,15 @@ final class AuthoringRepository
             }
             if ($r['f'] !== null) continue; // retired synonym: not a form choice
             $typeId = (int) $r['d'];
-            $groups[$typeId] ??= ['name' => (string) $r['c'], 'tags' => []];
+            $groups[$typeId] ??= ['name' => (string) $r['c'], 'pos' => (int) ($r['g'] ?? 0), 'tags' => []];
             $groups[$typeId]['tags'][(int) $r['a']] = (string) $r['b'];
         }
         foreach ($groups as &$g) {
             asort($g['tags'], SORT_STRING);
         }
         unset($g);
-        ksort($groups);
+        // The owner's tag type order (position), then id for a stable tie.
+        uksort($groups, static fn (int $a, int $b): int => [$groups[$a]['pos'], $a] <=> [$groups[$b]['pos'], $b]);
         return [$groups, array_values($selected)];
     }
 

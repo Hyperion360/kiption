@@ -165,10 +165,15 @@
       <?php endif; ?>
       <?php /* D3 chips: one outlined chip per tag (the type rides the
            title attribute), and the warnings line closes the row as the
-           comp's last chip. Tags are not links yet: no tag-browse route. */ ?>
+           comp's last chip. Each chip links to the filtered search. */ ?>
       <div class="story-tags">
       <?php if ($tags !== []): ?>
-      <div class="tag-chips"><?php foreach ($tags as $typeName => $names): ?><?php foreach ($names as $tagName): ?><span class="tag-chip" title="<?= $this->e($typeName) ?>"><?= $this->e($tagName) ?></span><?php endforeach; ?><?php endforeach; ?></div>
+      <div class="tag-chips"><?php foreach ($tags as $typeName => $names): ?><?php foreach ($names as $tagName => $tagId): ?><a class="tag-chip" href="/search?tag=<?= (int) $tagId ?>" title="<?= $this->e($typeName) ?>"><?= $this->e((string) $tagName) ?></a><?php endforeach; ?><?php endforeach; ?></div>
+      <?php endif; ?>
+      <?php if (($characters ?? []) !== []): ?>
+      <p class="meta story-characters"><?= \App\Lang::t('story.characters_label') ?>
+        <?php foreach ($characters as $i => $ch): ?><?= $i > 0 ? ', ' : '' ?><a class="character" href="/search?character=<?= (int) $ch['i'] ?>"><?= $this->e($ch['name']) ?></a><?php endforeach; ?>
+      </p>
       <?php endif; ?>
       <p class="meta story-warnings"><?= $warning !== '' ? $this->e($warning) : \App\Lang::t('story.no_warnings') ?></p>
       </div>

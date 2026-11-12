@@ -85,12 +85,13 @@ final class CoauthorController
         $coauthors = [];
         foreach ($rows as $r) {
             if ($r['k'] === 's') $story = $r;
-            elseif ($r['k'] === 'cat') $categories[] = $r;
             elseif ($r['k'] === 'r') $ratings[] = $r;
             elseif ($r['k'] === 'co') $coauthors[] = ['id' => (int) $r['a'], 'penname' => (string) $r['b']];
         }
         if ($story === null) return null;
+        $categories = AuthoringRepository::visibleCategories($rows, array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'));
         [$tagGroups, $selectedTags] = AuthoringRepository::tagGroups($rows);
+        [$characterGroups, $selectedCharacters] = AuthoringRepository::characterGroups($rows);
         $chapters = ($story['h'] ?? null) !== null && $story['h'] !== '[]' ? json_decode((string) $story['h'], true) ?: [] : [];
         usort($chapters, static fn(array $x, array $y): int => (int) $x['position'] <=> (int) $y['position']);
         return $this->view->render('story/form', [
@@ -111,6 +112,8 @@ final class CoauthorController
             'ratings' => $ratings,
             'tagGroups' => $tagGroups,
             'selectedTags' => $selectedTags,
+            'characterGroups' => $characterGroups,
+            'selectedCharacters' => $selectedCharacters,
             'chapters' => $chapters,
             'coauthors' => $coauthors,
             'canManageCoauthors' => $me === (int) $story['l'] || (int) $story['m'] === 1,
