@@ -32,6 +32,16 @@ final class UserController
             }
         }
         unset($profile['rec_list']);
+        // The owner-defined fields arrive as one JSON array from the same
+        // statement; a link only survives if it is still a plain http(s) URL.
+        $fields = [];
+        foreach ((array) json_decode((string) ($profile['field_list'] ?? '[]'), true) as $f) {
+            if (!\is_array($f) || !isset($f['label'], $f['type'], $f['value'])) continue;
+            $url = $f['type'] === 'url' ? \App\ProfileFields::safeUrl((string) $f['value']) : null;
+            if ($f['type'] === 'url' && $url === null) continue;
+            $fields[] = ['label' => (string) $f['label'], 'type' => (string) $f['type'], 'value' => (string) $f['value'], 'url' => $url];
+        }
+        unset($profile['field_list']);
         $site = (string) $this->app->config('site_name', 'Kiption');
         $head = $this->head()->withTitle($profile['penname'])
             ->withDescription(($profile['bio'] ?? '') !== '' ? (string) $profile['bio'] : \App\Lang::t('user.meta_stories_by', ['name' => $profile['penname'], 'site' => $site]))
@@ -53,6 +63,7 @@ final class UserController
             'slug' => $slug,
             'profile' => $profile,
             'recs' => $recs,
+            'fields' => $fields,
             'me' => $me,
             // The mute button needs a token, but a cookieless render must not
             // grow one (the cacheable-path rule): the ChallengesController idiom.

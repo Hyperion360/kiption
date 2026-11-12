@@ -137,7 +137,10 @@ final class UserRepository
                     (SELECT COUNT(*) FROM series ser WHERE ser.owner_id = u.id) series_count,
                     (SELECT GROUP_CONCAT(s.id || \'|\' || s.title || \'|\' || s.slug || \'|\' || r.note, \'~~\')
                      FROM recommendations r JOIN stories s ON s.id = r.story_id
-                     WHERE r.user_id = u.id) AS rec_list
+                     WHERE r.user_id = u.id) AS rec_list,
+                    (SELECT json_group_array(json_object(\'label\', x.label, \'type\', x.type, \'value\', x.value))
+                     FROM (SELECT f.label, f.type, v.value FROM profile_field_values v JOIN profile_fields f ON f.id = v.field_id
+                           WHERE v.user_id = u.id AND v.value != \'\' ORDER BY f.position, f.id) x) AS field_list
              FROM users u WHERE u.profile_slug = ? AND u.is_locked = 0 AND u.penname IS NOT NULL', [$slug]
         );
     }

@@ -8,6 +8,11 @@ final class AccountController
     /** The ?done= values settings() turns into a confirmation line. */
     private const DONE = ['password', 'emailsent', 'fields'];
 
+    /** Values for the refusal line (already HTML-safe) and the answers a
+     *  member typed, so a refused form comes back as they left it. */
+    private array $errorParams = [];
+    private ?array $submittedFields = null;
+
     public function __construct(
         private View $view,
         private Request $request,
@@ -22,6 +27,23 @@ final class AccountController
     private function mailer(): \App\MailGuard
     {
         return $this->app->container->make(\App\MailGuard::class);
+    }
+
+    /** Save the member's answers to the owner's profile fields. */
+    #[AuthAttr] #[Post]
+    public function fields(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $given = $this->request->post['field'] ?? [];
+        $input = [];
+        foreach (\is_array($given) ? $given : [] as $id => $v) if (\is_scalar($v)) $input[(int) $id] = (string) $v;
+        $err = (new \App\ProfileFields($this->db))->save($me, $input);
+        if ($err !== null) {
+            $this->submittedFields = $input;
+            return $this->refuse($err[0], ['label' => htmlspecialchars($err[1], ENT_QUOTES, 'UTF-8')]);
+        }
+        $this->purgeOwnProfile($me);
+        return Response::redirect('/account/settings?done=fields');
     }
 
     /** Ask to change the email address: password re-checked, a confirm link
@@ -148,9 +170,10 @@ final class AccountController
     }
 
     /** The settings page again with a refusal message, for a failed security form. */
-    private function refuse(string $errorKey): Response
+    private function refuse(string $errorKey, array $params = []): Response
     {
         $status = $errorKey === \App\AccountSecurity::THROTTLED ? 429 : 422;
+        $this->errorParams = $params;
         $html = $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'), null, $errorKey));
         return new Response($html, $status);
     }
@@ -197,8 +220,18 @@ final class AccountController
              SELECT '0mu' AS k, u3.profile_slug AS a, u3.penname AS b, NULL AS c, NULL AS d, u3.penname AS e,
                     NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m, NULL AS n, NULL AS o
              FROM muted mu2 JOIN users u3 ON u3.id = mu2.author_id WHERE mu2.user_id = ?" : '';
+        // The owner's profile fields with this member's answers: one more
+        // branch, '0fl', so settings stays one content query. a=id, b=label,
+        // c=type, d=answer; e carries the display order for the shared ORDER BY.
+        $fieldsBranch = "
+             UNION ALL
+             SELECT '0fl' AS k, CAST(pf.id AS TEXT) AS a, pf.label AS b, pf.type AS c, pv.value AS d,
+                    printf('%08d%08d', pf.position, pf.id) AS e,
+                    NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m, NULL AS n, NULL AS o
+             FROM profile_fields pf LEFT JOIN profile_field_values pv ON pv.field_id = pf.id AND pv.user_id = ?";
         $binds = [$userId, $userId, $userId, $userId, $userId, $userId];
         if ($mutedBranch !== '') $binds[] = $userId;
+        $binds[] = $userId;
         $rows = $this->db->all(
             "SELECT '0me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, u.support_url AS e,
                     (SELECT p.notify_favorite_digest FROM user_prefs p WHERE p.user_id = u.id) AS f,
@@ -233,7 +266,7 @@ final class AccountController
                     CAST((SELECT COUNT(*) FROM series_items si JOIN stories st ON st.id = si.story_id
                           WHERE si.series_id = ser.id AND si.confirmed = 0 AND st.deleted_at IS NULL) AS TEXT) d,
                     ser.membership e, NULL f, NULL g, NULL h, NULL i, NULL j, NULL l, NULL m, NULL n, NULL o
-             FROM series ser WHERE ser.owner_id = ?" . $mutedBranch .
+             FROM series ser WHERE ser.owner_id = ?" . $mutedBranch . $fieldsBranch .
             ' ORDER BY k, e LIMIT 250', $binds);
         // New alias note: the notify toggles are j/l/m because k is already the
         // branch discriminator; all three COALESCE to 1 so a prefs-less member
@@ -248,8 +281,10 @@ final class AccountController
         $progress = [];
         $marked = [];
         $muted = [];
+        $profileFields = [];
         foreach ($rows as $r) {
             if ($r['k'] === '0me') { $me = $r; }
+            elseif ($r['k'] === '0fl') { $profileFields[] = ['id' => (int) $r['a'], 'label' => (string) $r['b'], 'type' => (string) $r['c'], 'value' => (string) ($r['d'] ?? '')]; }
             elseif ($r['k'] === '0mu') { $muted[] = ['profile_slug' => (string) $r['a'], 'penname' => (string) $r['b']]; }
             elseif ($r['k'] === '1follow') { $following[] = $r; }
             elseif ($r['k'] === '2progress') { $progress[] = $r; }
@@ -261,6 +296,10 @@ final class AccountController
             // default_sort is a PHP-side concern here: the fold's shared ORDER BY
             // cannot vary per branch, so the member's own list re-sorts in place.
             usort($stories, static fn(array $x, array $y): int => strcasecmp((string) $x['b'], (string) $y['b']));
+        }
+        if ($this->submittedFields !== null) {
+            foreach ($profileFields as &$pf) $pf['value'] = (string) ($this->submittedFields[$pf['id']] ?? '');
+            unset($pf);
         }
         return [
             'title' => $title,
@@ -283,6 +322,8 @@ final class AccountController
             'loggedIn' => true,
             'notice' => $notice,
             'error' => $error,
+            'errorParams' => $this->errorParams,
+            'profileFields' => $profileFields,
         ];
     }
 
