@@ -65,7 +65,7 @@ final class SettingsController
             try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = $k; }
         }
         if ($invalid !== []) return new Response('Invalid settings: ' . implode(', ', $invalid), 422);
-        $this->purge();
+        \App\CachePurge::run($this->app, $this->db);
         return Response::redirect('/settings');
     }
 
@@ -85,20 +85,5 @@ final class SettingsController
             'skin' => (string) ($all['skin'] ?? $this->app->config('skin', \App\Skins::DEFAULT)),
             'adult_rta' => (string) ($all['adult_rta'] ?? $this->app->config('adult_rta', '')),
         ];
-    }
-
-    /** The full purge set (the FeaturesController::purge precedent, verbatim):
-     *  Builder::prune (the whole static layer, maintenance marker preserved,
-     *  plus the framework page cache file), then the sitemap refreshed under
-     *  the same public_dir + base_url guard as Builder's own rebuild pass. */
-    private function purge(): void
-    {
-        $cacheDir = \App\StaticCache\Cache::configuredDir($this->app);
-        \App\StaticCache\Builder::prune($cacheDir, (string) $this->app->config('app_dir', dirname(__DIR__, 2)));
-        $publicDir = $this->app->config('public_dir');
-        $baseUrl = rtrim((string) $this->app->config('base_url', ''), '/');
-        if ($publicDir !== null && $baseUrl !== '') {
-            \App\Seo\Sitemap::writeAll($this->db, (string) $publicDir, $baseUrl, []);
-        }
     }
 }

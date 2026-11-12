@@ -56,34 +56,7 @@ final class FeaturesController
         } catch (\InvalidArgumentException) {
             return new Response('Unknown feature flag', 422);
         }
-        $this->purge();
+        \App\CachePurge::run($this->app, $this->db);
         return Response::redirect('/features');
-    }
-
-    /** The full purge set (findings 3c + 12): Builder::prune VERBATIM (the
-     *  NavController::update precedent: the whole static layer, maintenance
-     *  marker preserved, plus the framework page cache file), then the sitemap
-     *  refreshed under the same public_dir + base_url guard as Builder's own
-     *  rebuild pass. toggle() dropped the memo, so writeAll resolves fresh
-     *  state: it unlinks every sitemap*.xml and skips gated-off segments, so
-     *  a freshly hidden surface drops out of the index on the same request.
-     *  A configured CDN joins the same write, deferred: the edge call runs
-     *  after the response leaves, and a slow or failed purge can never fail
-     *  (or wait on) the operator's toggle. */
-    private function purge(): void
-    {
-        $cacheDir = \App\StaticCache\Cache::configuredDir($this->app);
-        \App\StaticCache\Builder::prune($cacheDir, (string) $this->app->config('app_dir', dirname(__DIR__, 2)));
-        $publicDir = $this->app->config('public_dir');
-        $baseUrl = rtrim((string) $this->app->config('base_url', ''), '/');
-        if ($publicDir !== null && $baseUrl !== '') {
-            \App\Seo\Sitemap::writeAll($this->db, (string) $publicDir, $baseUrl, []);
-        }
-        $cdn = (array) ($this->app->config('cdn', []) ?? []);
-        if (!empty($cdn['enabled'])) {
-            $client = new \App\Cdn($cdn);
-            $prefix = (string) ($cdn['purge_host'] ?? '');
-            $this->app->defer(fn () => $client->purge($prefix));
-        }
     }
 }

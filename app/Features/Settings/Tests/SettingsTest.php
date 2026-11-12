@@ -21,6 +21,7 @@ final class SettingsTest extends TestCase
     private int $adminUserId = 0;
     private int $memberUserId = 0;
     private int $moderatorUserId = 0;
+    private ?App $lastApp = null;
 
     protected function setUp(): void
     {
@@ -34,6 +35,7 @@ final class SettingsTest extends TestCase
     protected function tearDown(): void
     {
         \App\Features::reset();
+        \App\CachePurge::$cdnTransport = null;
         \App\Attribution::reset(); // the footer-seam test must not leak into later suites
         unset($this->db);
         exec('rm -rf ' . escapeshellarg($this->root));
@@ -70,6 +72,38 @@ final class SettingsTest extends TestCase
         $board = $this->client($this->adminUserId)->get('/settings');
         $this->assertSame(200, $board->status);
         $this->assertStringContainsString('Renamed Archive', (string) $board->body);
+    }
+
+    public function test_a_save_purges_the_cdn_after_the_response(): void
+    {
+        $this->seed();
+        $calls = [];
+        \App\CachePurge::$cdnTransport = function (string $url, string $body, string $token) use (&$calls): bool {
+            $calls[] = [$url, $body, $token];
+            return true;
+        };
+        $admin = $this->client($this->adminUserId, ['cdn' => [
+            'enabled' => true, 'zone_id' => 'zone123', 'api_token' => 'sekrit', 'purge_host' => 'archive.example',
+        ]]);
+        $this->assertSame(302, $admin->postWithToken('/settings/save', [
+            'site_name' => 'Purged', 'registration_mode' => 'open', 'items_per_page' => '20',
+        ])->status);
+        $this->lastApp->runDeferred(); // TestClient drains the queue itself; this proves nothing is left over
+        $this->assertCount(1, $calls);
+        $this->assertStringContainsString('/zones/zone123/purge_cache', $calls[0][0]);
+        $this->assertSame('{"prefixes":["archive.example"]}', $calls[0][1]);
+        $this->assertSame('sekrit', $calls[0][2]);
+    }
+
+    public function test_a_save_without_a_cdn_queues_nothing(): void
+    {
+        $this->seed();
+        $calls = [];
+        \App\CachePurge::$cdnTransport = function () use (&$calls): bool { $calls[] = 1; return true; };
+        $admin = $this->client($this->adminUserId);
+        $admin->postWithToken('/settings/save', ['site_name' => 'Quiet', 'registration_mode' => 'open', 'items_per_page' => '20']);
+        $this->lastApp->runDeferred();
+        $this->assertSame([], $calls);
     }
 
     public function test_non_admin_member_moderator_and_guest_are_barred(): void
@@ -367,7 +401,8 @@ final class SettingsTest extends TestCase
     private function client(?int $as = null, array $extra = []): TestClient
     {
         \App\Features::init(new Database('sqlite:' . $this->path), []);
-        $client = new TestClient(new App(\App\Settings::apply($this->config($extra))));
+        $this->lastApp = new App(\App\Settings::apply($this->config($extra)));
+        $client = new TestClient($this->lastApp);
         return $as === null ? $client : $client->actingAs($as);
     }
 }
