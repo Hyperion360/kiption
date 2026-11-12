@@ -16,7 +16,9 @@
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <form method="post" action="/queue/story/<?= (int) $r['a'] ?>/remove" class="inline">
-          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('common.remove') ?></button>
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <input name="reason" maxlength="1000" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>">
+          <button type="submit"><?= \App\Lang::t('common.remove') ?></button>
         </form>
       </li>
     <?php endforeach; ?>
@@ -48,7 +50,9 @@
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject" class="inline">
-          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.reject') ?></button>
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <input name="reason" maxlength="1000" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>">
+          <button type="submit"><?= \App\Lang::t('queue.reject') ?></button>
         </form>
       </li>
     <?php endforeach; ?>

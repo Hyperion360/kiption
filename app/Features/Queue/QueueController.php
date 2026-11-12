@@ -42,11 +42,22 @@ final class QueueController
     {
         if (!$this->moderator()) return new Response('Forbidden', 403);
         $repo = new AuthoringRepository($this->db);
+        $info = $this->db->one(
+            'SELECT s.title, u.email, u.penname FROM stories s JOIN users u ON u.id = s.author_id
+             WHERE s.id = ? AND s.validated = 0 AND s.deleted_at IS NULL', [(int) $id]);
         $coords = $op === 'approve' ? $repo->approveStory((int) $id) : $repo->removeStory((int) $id);
         if ($coords !== null) {
             $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
             (\App\StaticCache\Cache::configured($this->app))->purgeAuthors(); // story counts changed
             if ($op === 'approve') $this->notifyPublish($coords[0]);
+            if ($info !== null) {
+                $base = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/');
+                $this->mailApplicant($op === 'approve' ? 'story_accepted' : 'story_rejected', (string) $info['email'], [
+                    '{title}' => (string) $info['title'],
+                    '{url}' => $base . '/story/view/' . $coords[0],
+                    '{reason}' => $this->reason('queue.default_story_reason'),
+                ]);
+            }
         }
         return Response::redirect('/queue');
     }
@@ -71,12 +82,39 @@ final class QueueController
         if ($op === 'approve') {
             $this->db->query('UPDATE users SET approved_at = COALESCE(approved_at, ?) WHERE id = ?', [date('c'), (int) $id]);
         } elseif ($op === 'reject') {
+            $who = $this->db->one('SELECT email, penname FROM users WHERE id = ? AND approved_at IS NULL AND is_locked = 0', [(int) $id]);
             $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $id]);
+            if ($who !== null) {
+                $this->mailApplicant('member_rejected', (string) $who['email'], [
+                    '{penname}' => (string) ($who['penname'] ?? ''),
+                    '{reason}' => $this->reason('queue.default_member_reason'),
+                ]);
+            }
         }
         // Both ops change directory membership: approve completes an
         // approval-mode member, reject locks them out of the listing.
         (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
         return Response::redirect('/queue');
+    }
+
+    /** The moderator's typed reason, or a polite default when left empty. */
+    private function reason(string $defaultKey): string
+    {
+        $reason = trim($this->request->postStr('reason'));
+        return $reason !== '' ? $reason : \App\Lang::t($defaultKey);
+    }
+
+    /** Send a decision mail through the editable template. A failed send
+     *  never undoes the decision. */
+    private function mailApplicant(string $template, string $to, array $pairs): void
+    {
+        if ($to === '' || str_ends_with($to, '@deleted.invalid')) return;
+        [$subject, $body] = \App\Templates::get($this->db, $template, ...\App\Templates::pair($template));
+        try {
+            $this->mailer->send($to, strtr($subject, $pairs), strtr($body, $pairs));
+        } catch (\Throwable $e) {
+            error_log("{$template} mail failed: " . $e->getMessage());
+        }
     }
 
     private function moderator(): bool

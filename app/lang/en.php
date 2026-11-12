@@ -575,6 +575,9 @@ return [
     'queue.reports' => 'Reports',
     'queue.nothing_reported' => 'Nothing reported.',
     'queue.dismiss' => 'Dismiss',
+    'queue.reason_placeholder' => 'Reason, sent to them (optional)',
+    'queue.default_story_reason' => 'It did not fit the archive\'s content policy.',
+    'queue.default_member_reason' => 'It did not meet the archive\'s requirements for new members.',
     'queue.remove_content' => 'Remove content',
     // Removing reported content.
     'report.remove_heading' => 'Remove reported content',
