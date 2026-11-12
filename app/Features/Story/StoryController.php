@@ -104,6 +104,7 @@ final class StoryController
             'tags' => $tags,
             'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),
             'isAuthor' => $me !== 0 && $me === (int) $story['author_id'],
+            'viewerRole' => $this->viewerRole($me),
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
         // External-canonical stories deindex locally: meta noindex plus the
@@ -844,6 +845,15 @@ final class StoryController
             trim((string) ($post['access_password'] ?? '')),
             ($post['access_clear'] ?? '') === '1',
         ];
+    }
+
+    /** The signed-in viewer's role, for the owner and moderator tools on the
+     *  story page. Guests cost nothing (no query); a member pays one primary
+     *  key read. The view only shows buttons: every write re-checks the role. */
+    private function viewerRole(int $me): string
+    {
+        if ($me === 0) return '';
+        return (string) ($this->db->one('SELECT role FROM users WHERE id = ?', [$me])['role'] ?? '');
     }
 
     private function head(): \App\Seo\Head

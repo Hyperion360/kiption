@@ -200,6 +200,20 @@
       <?php endforeach; ?>
     </ol>
   </section>
+  <?php if (!empty($csrf) && ($viewerRole ?? '') === 'admin'): ?>
+  <section class="owner-tools form-card" aria-labelledby="owner-tools">
+    <p class="form-card-title" id="owner-tools"><?= \App\Lang::t('story.owner_tools') ?></p>
+    <form method="post" action="/adminstories/featured/<?= $this->e($story['slug']) ?>" class="inline">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <button type="submit"><?= \App\Lang::t((int) ($story['featured'] ?? 0) === 1 ? 'story.unfeature' : 'story.feature') ?></button>
+    </form>
+    <form method="post" action="/adminstories/reassign/<?= $this->e($story['slug']) ?>" class="inline">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <label><?= \App\Lang::t('story.move_label') ?> <input name="penname" required maxlength="100" placeholder="<?= $this->e(\App\Lang::t('story.move_placeholder')) ?>"></label>
+      <button type="submit"><?= \App\Lang::t('story.move') ?></button>
+    </form>
+  </section>
+  <?php endif; ?>
   <section class="story-reviews" aria-labelledby="reviews">
   <h2 id="reviews"><?= \App\Lang::t('story.reviews_heading') . ' (' . number_format((int) $review_count) . ')' ?></h2>
   <?php if ($reviews === []): ?><p class="chapter-meta"><?= \App\Lang::t('common.none_yet') ?></p>
