@@ -24,9 +24,9 @@ final class ReviewController
             $slug, is_int($userId) ? $userId : null,
             $userId === null ? $this->request->postStr('guest_name') : null,
             $this->request->postStr('body'), $rating, $this->request->ip);
-        if ($authorId === 0 && $error === null) return new Response('Page not found', 404);
+        if ($authorId === 0 && $error === null) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($error !== null) {
-            $status = str_starts_with($error, 'You already reviewed') ? 429 : 422;
+            $status = $error === \App\Lang::t('review.err_daily') ? 429 : 422;
             return new Response($error, $status);
         }
         if ($added) {
@@ -55,7 +55,7 @@ final class ReviewController
                AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0)', [$slug, $me]);
         if ($story === null || $pos < 1
             || $this->db->one('SELECT id FROM chapters WHERE story_id = ? AND position = ? AND validated = 1', [(int) $story['id'], $pos]) === null) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $rows = (new ReviewRepository($this->db))->chapterReviews((int) $story['id'], $pos);
         $title = \App\Lang::t('review.chapter_heading', ['n' => $pos]);
@@ -77,9 +77,9 @@ final class ReviewController
             $slug, (int) $position, $me !== 0 ? $me : null,
             $me === 0 ? $this->request->postStr('guest_name') : null,
             $this->request->postStr('body'), $this->request->ip);
-        if ($error === 'not found') return new Response('Page not found', 404);
+        if ($error === 'not found') return new Response(\App\Lang::t('error.not_found'), 404);
         if ($error !== null) {
-            return new Response($error, str_starts_with($error, 'You already reviewed') ? 429 : 422);
+            return new Response($error, $error === \App\Lang::t('review.err_daily') ? 429 : 422);
         }
         if ($added) {
             $row = $this->db->one('SELECT id, title FROM stories WHERE slug = ?', [$slug]);
@@ -97,7 +97,7 @@ final class ReviewController
         $userId = (int) $this->session->get('user_id');
         [$added, $notifyUserId, $storyId, $slug, $error] = (new ReviewRepository($this->db))
             ->addReply((int) $id, $userId, $this->request->postStr('body'));
-        if ($error === 'not found') return new Response('Page not found', 404);
+        if ($error === 'not found') return new Response(\App\Lang::t('error.not_found'), 404);
         if ($error !== null) return new Response($error, 422);
         if ($notifyUserId !== 0 && $notifyUserId !== $userId) {
             // the reply path keeps its own one-query recipient lookup: the parent

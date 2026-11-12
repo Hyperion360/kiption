@@ -55,7 +55,7 @@ final class InvitesController
                 [$code, (int) $this->session->get('user_id')]);
             if ($inserted->rowCount() === 1) return Response::redirect('/invites');
         }
-        return new Response('Could not mint a unique code', 500);
+        return new Response(\App\Lang::t('invites.err_mint'), 500);
     }
 
     #[Post]

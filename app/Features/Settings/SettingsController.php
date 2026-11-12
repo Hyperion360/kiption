@@ -70,7 +70,7 @@ final class SettingsController
         foreach ($submitted as $k => $v) {
             try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = $k; }
         }
-        if ($invalid !== []) return new Response('Invalid settings: ' . implode(', ', $invalid), 422);
+        if ($invalid !== []) return new Response(\App\Lang::t('settings.err_invalid') . ' ' . implode(', ', $invalid), 422);
         \App\CachePurge::run($this->app, $this->db);
         return Response::redirect('/settings');
     }

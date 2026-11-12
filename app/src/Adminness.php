@@ -29,15 +29,15 @@ final class Adminness
     public static function requireModerator(Database $db, Session $session): array|Response
     {
         $id = $session->get('user_id');
-        if (!is_int($id)) return new Response('Forbidden', 403);
-        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response('Forbidden', 403);
+        if (!is_int($id)) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response(\App\Lang::t('error.forbidden'), 403);
         try {
             $row = $db->one('SELECT id, penname, role, is_admin FROM users WHERE id = ?', [$id]);
         } catch (\PDOException) {
-            return new Response('Forbidden', 403);
+            return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         if ($row === null || !in_array($row['role'], ['moderator', 'admin'], true)) {
-            return new Response('Forbidden', 403);
+            return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         return $row;
     }
@@ -60,15 +60,15 @@ final class Adminness
     public static function requireAdmin(Database $db, Session $session): array|Response
     {
         $id = $session->get('user_id');
-        if (!is_int($id)) return new Response('Forbidden', 403);
-        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response('Forbidden', 403);
+        if (!is_int($id)) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response(\App\Lang::t('error.forbidden'), 403);
         try {
             $row = $db->one('SELECT id, penname, role, is_admin FROM users WHERE id = ?', [$id]);
         } catch (\PDOException) {
-            return new Response('Forbidden', 403);
+            return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         if ($row === null || $row['role'] !== 'admin') {
-            return new Response('Forbidden', 403);
+            return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         return $row;
     }

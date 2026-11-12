@@ -39,7 +39,7 @@ final class MuteController
         $me = (int) $this->session->get('user_id');
         $target = (new UserRepository($this->db))->findByProfileSlug($slug);
         if ($target === null || (int) $target['id'] === $me) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         (new MuteRepository($this->db))->toggle($me, (int) $target['id'], $on);
         return Response::redirect('/user/view/' . $slug);

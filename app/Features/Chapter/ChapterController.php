@@ -28,7 +28,7 @@ final class ChapterController
     {
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
         if (trim($content) === '') {
-            return new Response($this->form($slug, null, 'Chapter text is required.'), 422);
+            return new Response($this->form($slug, null, \App\Lang::t('chapter.err_text')), 422);
         }
         try {
             $publishAt = $this->canonicalPublishAt($rawPublishAt);
@@ -47,7 +47,7 @@ final class ChapterController
             [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr,
                 $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT));
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404); // non-owned or unknown story, same contract as story writes
+            return new Response(\App\Lang::t('error.not_found'), 404); // non-owned or unknown story, same contract as story writes
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         // Finding 5: a scheduled create never fans out. storyForNotify only
@@ -91,7 +91,7 @@ final class ChapterController
         try {
             [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt, $accessPassword, $accessClear);
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         if ($locking && $wasOpen) {
@@ -115,7 +115,7 @@ final class ChapterController
         try {
             [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->deleteChapter($slug, $position, $this->uid());
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         return Response::redirect('/story/edit/' . $slug);
@@ -127,7 +127,7 @@ final class ChapterController
         // rr clause to the NEW-chapter branch alone (the edit form stays
         // story-side, matching the update/delete writes it feeds).
         $row = $this->repo()->chapterFormData($slug, $position, $this->uid(), \App\Features::on('roundrobin'));
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->view->render('chapter/form', [
             'title' => $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'),
             'head' => $this->head()->withTitle($position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'))

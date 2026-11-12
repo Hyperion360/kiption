@@ -20,7 +20,7 @@ final class StoryController
     {
         $me = $this->viewerId();
         $story = $this->repo->findStoryBySlug($slug, $me);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         // The post-password gate (Fictioneer parity): the pass form is the
         // crawler's view of a locked work; the TOC never renders under it.
         if (\App\Access::locked($story, 'story', $this->session)) return $this->passGate($story, 'story');
@@ -226,7 +226,7 @@ final class StoryController
     public function fragment(string $slug, string $n): Response|string
     {
         if (preg_match('/^[1-9][0-9]{0,8}$/', $n) !== 1) {
-            return $this->fragmentWrap(new Response('Page not found', 404));
+            return $this->fragmentWrap(new Response(\App\Lang::t('error.not_found'), 404));
         }
         $position = (int) $n;
         $me = $this->viewerId();
@@ -295,7 +295,7 @@ final class StoryController
     private function chapterContext(string $slug, int $position, int $me, bool $gatePage): array|Response|string
     {
         $story = $this->repo->findStoryWithChapter($slug, $position, $me);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
             $chapters[(int) $c['position']] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'word_count' => (int) $c['word_count']];
@@ -304,10 +304,10 @@ final class StoryController
         unset($story['chapters_blob']);
         $positions = array_keys($chapters);
         if ($positions === [] || !in_array($position, $positions, true) || ($story['ch_title'] === null && $story['ch_content'] === null)) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         if (\App\AgeGate::blocks($story, $this->request)) {
-            if (!$gatePage) return new Response('Page not found', 404);
+            if (!$gatePage) return new Response(\App\Lang::t('error.not_found'), 404);
             return $this->view->render('story/gate', [
                 // the gate lives at the story's canonical URL: its index entry
                 // names the work and classifies it as adult (Google's
@@ -334,12 +334,12 @@ final class StoryController
         // /story/read, a bare 404 on /story/fragment - never prose, never the
         // gate's 200 shape there.
         if (\App\Access::locked($story, 'story', $this->session)) {
-            return $gatePage ? $this->passGate($story, 'story') : new Response('Page not found', 404);
+            return $gatePage ? $this->passGate($story, 'story') : new Response(\App\Lang::t('error.not_found'), 404);
         }
         if (\App\Access::locked(['id' => $story['ch_id'], 'access_hash' => $story['ch_access_hash'] ?? null], 'chapter', $this->session)) {
             return $gatePage
                 ? $this->passGate(['id' => $story['ch_id'], 'title' => $story['title'], 'penname' => $story['penname']], 'chapter')
-                : new Response('Page not found', 404);
+                : new Response(\App\Lang::t('error.not_found'), 404);
         }
         $prev = null; $next = null;
         foreach ($positions as $pn) {
@@ -410,7 +410,7 @@ final class StoryController
         if (($r = \App\Features::guard('exports')) !== null) return $r;
         $me = $this->viewerId();
         $story = $this->repo->wholeWork($slug, $me);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         if (\App\Access::locked($story, 'story', $this->session)) return $this->passGate($story, 'story');
         $chapters = [];
         foreach (json_decode((string) $story['chapters_blob'], true) ?: [] as $c) {
@@ -424,7 +424,7 @@ final class StoryController
         }
         ksort($chapters);
         unset($story['chapters_blob']);
-        if ($chapters === []) return new Response('Page not found', 404); // nothing validated to read
+        if ($chapters === []) return new Response(\App\Lang::t('error.not_found'), 404); // nothing validated to read
         if (\App\AgeGate::blocks($story, $this->request)) {
             return $this->view->render('story/gate', [
                 // the gate lives at the story's canonical URL: its index entry
@@ -488,7 +488,7 @@ final class StoryController
         if (($r = \App\Features::guard('exports')) !== null) return $r;
         $me = $this->viewerId();
         $story = $this->repo->wholeWork($slug, $me);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         // Above the build: a locked story never spends the export (the
         // download IS reading, so it answers the gate, never a file).
         if (\App\Access::locked($story, 'story', $this->session)) return $this->passGate($story, 'story');
@@ -503,7 +503,7 @@ final class StoryController
         }
         ksort($chapters);
         unset($story['chapters_blob']);
-        if ($chapters === []) return new Response('Page not found', 404); // nothing validated to export
+        if ($chapters === []) return new Response(\App\Lang::t('error.not_found'), 404); // nothing validated to export
         if (\App\AgeGate::blocks($story, $this->request)) {
             return $this->view->render('story/gate', [
                 // the gate lives at the story's canonical URL: its index entry
@@ -524,7 +524,7 @@ final class StoryController
                 'returnTo' => '/story/download/' . $slug . '/' . $format,
             ]);
         }
-        if (!in_array($format, ['html', 'epub', 'doc'], true)) return new Response('Page not found', 404);
+        if (!in_array($format, ['html', 'epub', 'doc'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $baseUrl = rtrim((string) $this->app->config('base_url', ''), '/');
         if ($format === 'epub') {
             // The cover rides along as bytes (basename-confined read), so the
@@ -574,7 +574,7 @@ final class StoryController
     public function mark(string $slug): Response
     {
         $story = $this->db->one('SELECT id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         (new \App\Repositories\EngagementRepository($this->db))->toggleMark($slug, (int) $this->session->get('user_id'));
         return Response::redirect('/story/view/' . $slug);
     }
@@ -590,10 +590,10 @@ final class StoryController
     {
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword] = $this->storyInput();
         if ($title === '') {
-            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Title is required.', null), 422);
+            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_title'), null), 422);
         }
         if (!$this->validRating($ratingId)) {
-            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
+            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_rating'), null), 422);
         }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds,
@@ -611,7 +611,7 @@ final class StoryController
         foreach ($rows as $r) {
             if ($r['k'] === 's') { $story = $r; break; }
         }
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->renderForm($rows, $story, null, $slug);
     }
 
@@ -621,7 +621,7 @@ final class StoryController
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
-            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
+            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, \App\Lang::t('story.err_rating'), null), 422);
         }
         if ($syndicationError !== null) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, $syndicationError, null), 422);
@@ -640,7 +640,7 @@ final class StoryController
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
                 $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds, $accessPassword, $accessClear);
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         // The list rider (finding 4): a title change re-renders the blob, a
         // restricted flip changes what guests see on public lists containing
@@ -673,7 +673,7 @@ final class StoryController
         try {
             [$slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->deleteStory($slug, $this->uid());
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         // A soft-deleted story leaves every public list's guest render (the rider).
         $listSlugs = (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($this->storyId($slug));
@@ -694,7 +694,7 @@ final class StoryController
         try {
             $story = $this->authoring()->ownStory($slug, $this->uid());
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $file = $this->request->file('cover');
         if ($file === null) {

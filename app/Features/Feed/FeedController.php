@@ -57,7 +57,7 @@ final class FeedController
     {
         if (($r = \App\Features::guard('feeds')) !== null) return $r;
         $rows = (new UserRepository($this->db))->authorFeed($slug, 20, 0, $this->fullText());
-        if ($rows === null || $rows === []) return new Response('Page not found', 404);
+        if ($rows === null || $rows === []) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->serveAtom('/feed/author/' . $slug, '/user/view/' . $slug,
             (string) $rows[0]['feed_title'], $this->entryRows($rows));
     }
@@ -68,7 +68,7 @@ final class FeedController
     {
         if (($r = \App\Features::guard('feeds')) !== null) return $r;
         $rows = (new StoryRepository($this->db))->categoryFeed($slug, 20, 0, $this->fullText());
-        if ($rows === []) return new Response('Page not found', 404);
+        if ($rows === []) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->serveAtom('/feed/category/' . $slug, '/browse/category/' . $slug,
             (string) $rows[0]['feed_title'], $this->entryRows($rows));
     }

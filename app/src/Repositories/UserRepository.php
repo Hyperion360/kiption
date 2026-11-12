@@ -67,7 +67,7 @@ final class UserRepository
             return [false, 'That email address is not valid.'];
         }
         if (strlen($password) < 8) {
-            return [false, 'Password must be at least 8 characters.'];
+            return [false, \App\Lang::t('auth.err_short')];
         }
         if ($this->findByEmail($email) !== null) {
             return [false, 'Email is already registered.'];

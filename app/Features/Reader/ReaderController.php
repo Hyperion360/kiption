@@ -111,7 +111,7 @@ final class ReaderController
     public function bookmarkAdd(string $slug, string $position): Response
     {
         $row = $this->bookmarkTarget($slug, $position);
-        if ($row === null) { return new Response('Page not found', 404); }
+        if ($row === null) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $note = mb_substr(trim($this->request->postStr('note')), 0, self::NOTE_MAX);
         // SQLite's json_object returns NULL for invalid UTF-8, which would
         // blank the member's whole bookmarks blob (the sheet renders "none
@@ -140,7 +140,7 @@ final class ReaderController
     public function progress(string $slug, string $position): Response
     {
         $row = $this->bookmarkTarget($slug, $position);
-        if ($row === null) { return new Response('Page not found', 404); }
+        if ($row === null) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->write(fn () => (new \App\Repositories\EngagementRepository($this->db))->recordProgress($row['me'], $row['sid'], (int) $position));
         return new Response('', 204);
     }
@@ -149,7 +149,7 @@ final class ReaderController
     public function bookmarkRemove(string $slug, string $position): Response
     {
         $row = $this->bookmarkTarget($slug, $position);
-        if ($row === null) { return new Response('Page not found', 404); }
+        if ($row === null) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->write(fn () => $this->db->query(
             'DELETE FROM bookmarks WHERE user_id = ? AND story_id = ? AND chapter_id = ?',
             [$row['me'], $row['sid'], $row['cid']]));

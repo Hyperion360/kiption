@@ -52,7 +52,7 @@ final class ChallengesController
         // The mute gate (finding 9): the item branch filters only while the
         // flag is on; $me itself keeps driving the visibility gates.
         $page = $this->challenges->challengePage($slug, $me, \App\Features::on('mute') ? $me : 0);
-        if ($page === null) return new Response('Page not found', 404);
+        if ($page === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $c = $page['challenge'];
         $items = $page['items'];
         $isOwner = $me !== 0 && $me === $c['owner_id']; // folded into the one query
@@ -102,7 +102,7 @@ final class ChallengesController
     {
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         try { $row = $this->challenges->own($slug, (int) $this->session->get('user_id')); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         return $this->form($row);
     }
 
@@ -114,7 +114,7 @@ final class ChallengesController
         [$title, $summary, $membership, $error] = $this->challengeInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         try { $this->challenges->update($slug, $title, $summary, $membership, $me); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->staticCache()->purgeChallenge($slug);
         return Response::redirect('/challenges/view/' . $slug);
     }
@@ -124,7 +124,7 @@ final class ChallengesController
     {
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         try { $this->challenges->delete($slug, (int) $this->session->get('user_id')); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->staticCache()->purgeChallenge($slug);
         return Response::redirect('/challenges'); // the module index (the Lists delete idiom)
     }
@@ -138,7 +138,7 @@ final class ChallengesController
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         $me = (int) $this->session->get('user_id');
         try { $row = $this->challenges->own($slug, $me); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $text = substr(trim($this->request->postStr('prompt_text')), 0, 500);
         if ($text === '') return new Response($this->form($row, \App\Lang::t('challenges.prompt_required')), 422);
         $this->challenges->addPrompt($slug, $text, $me);
@@ -151,7 +151,7 @@ final class ChallengesController
     {
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         if (!$this->challenges->removePrompt($slug, (int) $promptId, (int) $this->session->get('user_id'))) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->staticCache()->purgeChallenge($slug); // prompts change the public blob
         return Response::redirect('/challenges/edit/' . $slug);
@@ -163,7 +163,7 @@ final class ChallengesController
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         $dir = $dir === 'down' ? 'down' : 'up'; // junk coerces, the browse page-param philosophy
         try { $this->challenges->reorderPrompts($slug, (int) $promptId, $dir, (int) $this->session->get('user_id')); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->staticCache()->purgeChallenge($slug); // the blob's order changed
         return Response::redirect('/challenges/edit/' . $slug);
     }
@@ -200,7 +200,7 @@ final class ChallengesController
         try {
             $info = $this->challenges->confirmItem($slug, (int) $itemId, $me, $this->challenges->viewerIsAdmin($me));
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         if ($info !== null) {
             [$authorId, $title, $storySlug] = $info;
@@ -218,7 +218,7 @@ final class ChallengesController
     {
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         if (!$this->challenges->removeItem($slug, $storySlug, (int) $this->session->get('user_id'), $this->challenges->viewerIsAdmin((int) $this->session->get('user_id')))) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->staticCache()->purgeChallenge($slug);
         return Response::redirect('/challenges/view/' . $slug);

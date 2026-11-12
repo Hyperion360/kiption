@@ -54,7 +54,7 @@ final class FeaturesController
         try {
             Features::toggle($key, !Features::on($key));
         } catch (\InvalidArgumentException) {
-            return new Response('Unknown feature flag', 422);
+            return new Response(\App\Lang::t('admin.err_flag'), 422);
         }
         \App\CachePurge::run($this->app, $this->db);
         return Response::redirect('/features');

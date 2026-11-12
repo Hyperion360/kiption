@@ -32,12 +32,12 @@ final class AdminstoriesController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $penname = trim($this->request->postStr('penname'));
         $target = $penname === '' ? null : $this->db->one(
             'SELECT id FROM users WHERE penname = ? COLLATE NOCASE AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL AND is_locked = 0',
             [$penname]);
-        if ($target === null) return new Response('Page not found', 404);
+        if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
         [$storyId, $oldId, $newId] = [(int) $story['id'], (int) $story['author_id'], (int) $target['id']];
         if ($newId === $oldId) return Response::redirect('/story/view/' . $slug); // no-op: nothing to move or purge
         $this->db->query('UPDATE stories SET author_id = ? WHERE id = ?', [$newId, $storyId]);
@@ -73,7 +73,7 @@ final class AdminstoriesController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $this->db->query('UPDATE stories SET featured = 1 - featured WHERE id = ?', [(int) $story['id']]);
         $repo = new AuthoringRepository($this->db);
         [$seriesSlugs, $authorSlug] = $repo->purgeData((int) $story['id'], (int) $story['author_id']);

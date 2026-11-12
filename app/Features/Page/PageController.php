@@ -20,7 +20,7 @@ final class PageController
     public function view(string $slug): Response|string
     {
         $row = $this->find($slug);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         // A mapped marketing page serves at its top-level path; this spelling
         // is its permanent alias (TopPaths owns the map, one canonical URL).
         // The path guard can only fire on an internal call: routing never
@@ -74,7 +74,7 @@ final class PageController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $row = $this->find($slug);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->form($row);
     }
 
@@ -84,7 +84,7 @@ final class PageController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $row = $this->find($slug);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         [$title, $body, $error] = $this->titleBody(); // the posted slug is ignored: immutable after create
         if ($error !== null) return new Response($this->form($row, $error), 422);
         $noindex = ($this->request->postStr('noindex') ?? '') === '1' ? 1 : 0;
@@ -102,10 +102,10 @@ final class PageController
         [$title, $body, $error] = $this->titleBody();
         if ($error !== null) return [$slug, $title, $body, $error];
         if (!preg_match('#^[a-z0-9-]+$#', $slug)) {
-            return [$slug, $title, $body, 'Slug may only contain lowercase letters, digits, and hyphens.'];
+            return [$slug, $title, $body, \App\Lang::t('page.err_slug')];
         }
         if ((int) $this->db->one('SELECT COUNT(*) c FROM pages WHERE slug = ?', [$slug])['c'] > 0) {
-            return [$slug, $title, $body, 'That slug is already in use.'];
+            return [$slug, $title, $body, \App\Lang::t('page.err_slug_used')];
         }
         return [$slug, $title, $body, null];
     }
@@ -115,7 +115,7 @@ final class PageController
         $title = trim($this->request->postStr('title'));
         $body = trim($this->request->postStr('body'));
         if ($title === '' || mb_strlen($title) > 255) {
-            return [$title, $body, 'Title must be 1 to 255 characters.'];
+            return [$title, $body, \App\Lang::t('form.err_title_255')];
         }
         return [$title, $body, null];
     }

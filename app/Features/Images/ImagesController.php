@@ -59,12 +59,12 @@ final class ImagesController
         if ($gate instanceof Response) return $gate;
         $file = $this->request->file('file');
         if ($file === null) {
-            return new Response('Upload rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('images.err_upload'), 422);
         }
         try {
             $this->storage->put($file);
         } catch (UploadException) {
-            return new Response('Upload rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('images.err_upload'), 422);
         }
         return Response::redirect('/images');
     }
@@ -79,13 +79,13 @@ final class ImagesController
         if ($gate instanceof Response) return $gate;
         $name = (string) ($this->request->post['name'] ?? '');
         if ($name === '' || strpbrk($name, "/\\") !== false || $name !== basename($name)) {
-            return new Response('Invalid file name.', 422);
+            return new Response(\App\Lang::t('images.err_name'), 422);
         }
         if (isset($this->inUseNames()[$name])) {
-            return new Response('File is in use by an avatar, story cover, or series cover.', 409);
+            return new Response(\App\Lang::t('images.err_in_use'), 409);
         }
         $target = $this->uploadsDir() . '/' . $name;
-        if (!is_file($target) || !@unlink($target)) return new Response('Page not found', 404);
+        if (!is_file($target) || !@unlink($target)) return new Response(\App\Lang::t('error.not_found'), 404);
         return Response::redirect('/images');
     }
 

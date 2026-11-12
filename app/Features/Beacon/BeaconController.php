@@ -22,7 +22,7 @@ final class BeaconController
         // (/beacon/read/1/-3 dispatches), so the integer guard lives here.
         if (preg_match('/^[1-9][0-9]{0,8}$/', $storyId) !== 1
             || preg_match('/^[1-9][0-9]{0,8}$/', $chapterId) !== 1) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $pair = $this->db->one(
             'SELECT 1 AS x FROM stories s JOIN chapters c ON c.story_id = s.id

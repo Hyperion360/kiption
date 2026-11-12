@@ -41,7 +41,7 @@ final class NavController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->form($row);
     }
 
@@ -64,7 +64,7 @@ final class NavController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         [$label, $url, $error] = $this->input();
         if ($error !== null) return new Response($this->form($row, $error), 422);
         $this->db->query('UPDATE nav_links SET label = ?, url = ?, position = ?, is_hidden = ? WHERE id = ?',
@@ -79,7 +79,7 @@ final class NavController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         if ($this->db->query('DELETE FROM nav_links WHERE id = ?', [(int) $id])->rowCount() === 0) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->rebuild();
         return Response::redirect('/nav');
@@ -94,7 +94,7 @@ final class NavController
         $label = trim($this->request->postStr('label'));
         $url = trim($this->request->postStr('url'));
         if ($label === '' || mb_strlen($label) > 40) {
-            return [$label, $url, 'Label must be 1 to 40 characters.'];
+            return [$label, $url, \App\Lang::t('nav.err_label')];
         }
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $url)) {
             return [$label, $url, 'URL must be an internal path like /page/about.'];

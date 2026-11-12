@@ -42,7 +42,7 @@ final class AnalyticsController
                     (SELECT COALESCE(SUM(reads), 0) FROM page_stats WHERE chapter_id = 0) reads
              FROM (SELECT 1) x",
             [(int) ($this->session->get('user_id') ?? 0)]);
-        if ((int) ($driver['is_admin'] ?? 0) === 0) return new Response('Forbidden', 403);
+        if ((int) ($driver['is_admin'] ?? 0) === 0) return new Response(\App\Lang::t('error.forbidden'), 403);
         $totals = [
             'stories' => (int) $driver['stories'], 'chapters' => (int) $driver['chapters'],
             'members' => (int) $driver['members'], 'reviews' => (int) $driver['reviews'],

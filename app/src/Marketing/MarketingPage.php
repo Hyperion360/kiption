@@ -14,9 +14,9 @@ final class MarketingPage
 {
     public static function render(View $view, Request $request, Database $db, Session $session, App $app, string $slug, string $template = 'page/view'): Response|string
     {
-        if (!preg_match('#^[a-z0-9-]+$#', $slug)) return new Response('Page not found', 404);
+        if (!preg_match('#^[a-z0-9-]+$#', $slug)) return new Response(\App\Lang::t('error.not_found'), 404);
         $row = $db->one('SELECT slug, title, body, updated_at, noindex FROM pages WHERE slug = ?', [$slug]);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $path = TopPaths::path($slug) ?? '/page/view/' . $slug;
         $body = (string) $row['body'];
         $head = \App\Seo\Head::make(

@@ -33,7 +33,7 @@ final class ReviewRepository
                  WHERE NOT EXISTS (SELECT 1 FROM reviews
                                    WHERE story_id = ? AND user_id IS NULL AND ip = ? AND substr(created_at, 1, 10) = ?)",
                 [$story['id'], $guestName, $body, $rating, $ip, $story['id'], $ip, $today]);
-            if ($stmt->rowCount() !== 1) return [false, 0, '', 'You already reviewed this story today.'];
+            if ($stmt->rowCount() !== 1) return [false, 0, '', \App\Lang::t('review.err_daily')];
             return [true, (int) $story['author_id'], (string) $story['title'], null];
         }
         $this->db->query('INSERT INTO reviews (story_id, user_id, body, rating, ip) VALUES (?, ?, ?, ?, ?)',
@@ -50,7 +50,7 @@ final class ReviewRepository
         $ch = $this->db->one('SELECT id FROM chapters WHERE story_id = ? AND position = ? AND validated = 1', [(int) $story['id'], $position]);
         if ($ch === null) return [false, 0, 'not found'];
         $body = trim($body);
-        if ($body === '' || strlen($body) > 5000) return [false, 0, 'Comment text is required (max 5000 characters).'];
+        if ($body === '' || strlen($body) > 5000) return [false, 0, \App\Lang::t('news.err_comment_text')];
         if ($userId === null) {
             $guestName = trim((string) $guestName);
             if ($guestName === '' || strlen($guestName) > 40) return [false, 0, 'Guest name is required (max 40 characters).'];
@@ -61,7 +61,7 @@ final class ReviewRepository
                  WHERE NOT EXISTS (SELECT 1 FROM reviews
                                    WHERE story_id = ? AND user_id IS NULL AND ip = ? AND substr(created_at, 1, 10) = ?)",
                 [$story['id'], $ch['id'], $guestName, $body, $ip, $story['id'], $ip, $today]);
-            if ($stmt->rowCount() !== 1) return [false, 0, 'You already reviewed this story today.'];
+            if ($stmt->rowCount() !== 1) return [false, 0, \App\Lang::t('review.err_daily')];
             return [true, (int) $story['author_id'], null];
         }
         $this->db->query('INSERT INTO reviews (story_id, chapter_id, user_id, body, ip) VALUES (?, ?, ?, ?, ?)',

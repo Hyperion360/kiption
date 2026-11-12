@@ -34,7 +34,7 @@ final class ReportController
     public function resolve(string $id, string $op): Response
     {
         if (Adminness::requireModerator($this->db, $this->session) instanceof Response) {
-            return new Response('Forbidden', 403);
+            return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         if ($op === 'dismiss') {
             (new ReportRepository($this->db))->resolve((int) $id);
@@ -44,9 +44,9 @@ final class ReportController
 
     private function outcome(bool|string $result, string $slug): Response
     {
-        if ($result === 'notfound') return new Response('Page not found', 404);
-        if ($result === 'empty') return new Response('Reason is required (max 500 characters).', 422);
-        if ($result === 'duplicate') return new Response('You already have an open report for this.', 409);
+        if ($result === 'notfound') return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($result === 'empty') return new Response(\App\Lang::t('report.err_reason'), 422);
+        if ($result === 'duplicate') return new Response(\App\Lang::t('report.err_duplicate'), 409);
         return Response::redirect('/story/view/' . $slug);
     }
 }

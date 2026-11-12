@@ -44,11 +44,11 @@ final class NewsController
     public function view(string $id): Response|string
     {
         if (($r = \App\Features::guard('news')) !== null) return $r;
-        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404); // mirrors the cache whitelist
+        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response(\App\Lang::t('error.not_found'), 404); // mirrors the cache whitelist
         $repo = new NewsRepository($this->db);
         [$perPage, $offset] = $repo->commentWindow();
         $fold = $repo->withComments((int) $id, $perPage, $offset);
-        if ($fold === null) return new Response('Page not found', 404);
+        if ($fold === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $loggedIn = \App\Viewer::id($this->request, $this->session, $this->db) !== 0;
         $head = $this->head()->withTitle($fold['news']['title'])
             ->withDescription($this->description($fold['news']['body']))
@@ -80,15 +80,15 @@ final class NewsController
         // comments sub-flag on; then the sub-flag itself.
         if (($r = \App\Features::guard('news')) !== null) return $r;
         if (($r = \App\Features::guard('comments')) !== null) return $r;
-        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
+        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response(\App\Lang::t('error.not_found'), 404);
         $repo = new NewsRepository($this->db);
-        if ($repo->find((int) $id) === null) return new Response('Page not found', 404); // existence, not the throttle: no check-then-act on the guard
+        if ($repo->find((int) $id) === null) return new Response(\App\Lang::t('error.not_found'), 404); // existence, not the throttle: no check-then-act on the guard
         $body = trim($this->request->postStr('body'));
         if ($body === '' || strlen($body) > 5000) {
-            return new Response('Comment text is required (max 5000 characters).', 422);
+            return new Response(\App\Lang::t('news.err_comment_text'), 422);
         }
         if (!$repo->addComment((int) $id, (int) ($this->session->get('user_id') ?? 0), $body)) {
-            return new Response('You already commented on this post within the last hour.', 429);
+            return new Response(\App\Lang::t('news.err_comment_rate'), 429);
         }
         // The comment moves both cached surfaces: the item's list and the
         // index's comment-count scalar.
@@ -126,9 +126,9 @@ final class NewsController
         if (($r = \App\Features::guard('news')) !== null) return $r;
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
-        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
+        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response(\App\Lang::t('error.not_found'), 404);
         $row = (new NewsRepository($this->db))->find((int) $id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->form($row);
     }
 
@@ -138,9 +138,9 @@ final class NewsController
         if (($r = \App\Features::guard('news')) !== null) return $r;
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
-        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response('Page not found', 404);
+        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response(\App\Lang::t('error.not_found'), 404);
         $row = (new NewsRepository($this->db))->find((int) $id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         [$title, $body, $error] = $this->titleBody();
         if ($error !== null) return new Response($this->form($row, $error), 422);
         // published_at stays put: no re-dating on edit (no scheduled publishing either)
@@ -155,8 +155,8 @@ final class NewsController
     {
         $title = trim($this->request->postStr('title'));
         $body = trim($this->request->postStr('body'));
-        if ($title === '' || mb_strlen($title) > 255) return [$title, $body, 'Title must be 1 to 255 characters.'];
-        if ($body === '') return [$title, $body, 'Body is required.'];
+        if ($title === '' || mb_strlen($title) > 255) return [$title, $body, \App\Lang::t('form.err_title_255')];
+        if ($body === '') return [$title, $body, \App\Lang::t('news.err_body')];
         return [$title, $body, null];
     }
 

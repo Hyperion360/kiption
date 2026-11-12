@@ -45,7 +45,7 @@ final class MessagesController
     {
         if (($r = \App\Features::guard('pms')) !== null) return $r;
         $rows = (new MessageRepository($this->db))->thread($this->uid(), $slug);
-        if ($rows === null) return new Response('Page not found', 404);
+        if ($rows === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $title = \App\Lang::t('messages.with', ['name' => $rows[0]['partner_name']]);
         return $this->view->render('messages/thread', [
             'title' => $title,
@@ -68,7 +68,7 @@ final class MessagesController
         if (($r = \App\Features::guard('pms')) !== null) return $r;
         $partner = (new UserRepository($this->db))->findByProfileSlug($slug);
         if ($partner === null || (int) $partner['id'] === $this->uid()) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         return $this->renderForm($slug, $partner, null);
     }
@@ -79,7 +79,7 @@ final class MessagesController
         if (($r = \App\Features::guard('pms')) !== null) return $r;
         $partner = (new UserRepository($this->db))->findByProfileSlug($slug);
         if ($partner === null || (int) $partner['id'] === $this->uid()) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $body = trim($this->request->postStr('body'));
         if ($body === '' || mb_strlen($body) > 5000) {

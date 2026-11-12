@@ -20,7 +20,7 @@ final class UserController
     {
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $profile = $this->users->findByProfileSlug($slug);
-        if ($profile === null) return new Response('Page not found', 404);
+        if ($profile === null) return new Response(\App\Lang::t('error.not_found'), 404);
         // The recommendation fold arrives as '~~'-joined id|title|slug|note
         // rows (the same statement as the profile row; zero extra queries).
         // The slug is the regex anchor (pipe-free, [a-z0-9-]); id anchors the
@@ -68,7 +68,7 @@ final class UserController
         // junk coerces to 'recent' (the BrowseController page-param philosophy)
         $sort = ($this->request->get['sort'] ?? '') === 'alpha' ? 'alpha' : 'recent';
         $tab = $this->users->storiesTab($slug, $sort, $perPage, $offset);
-        if ($tab === null) return new Response('Page not found', 404);
+        if ($tab === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->renderTab($slug, $tab, \App\Lang::t('user.stories_by'), '/user/stories/' . $slug);
     }
 
@@ -76,7 +76,7 @@ final class UserController
     {
         [$perPage, $offset] = $this->paginate();
         $tab = $this->users->favoritesTab($slug, $perPage, $offset);
-        if ($tab === null) return new Response('Page not found', 404);
+        if ($tab === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->renderTab($slug, $tab, \App\Lang::t('user.favorites_of'), '/user/favorites/' . $slug);
     }
 
@@ -90,7 +90,7 @@ final class UserController
         if ($this->request->method === 'POST') return $this->send($slug);
         $target = $this->users->findByProfileSlug($slug);
         if ($target === null || (int) $target['id'] === (int) $this->session->get('user_id')) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         return $this->renderContactForm($slug, $target, null, false);
     }
@@ -106,10 +106,10 @@ final class UserController
     {
         $me = (int) $this->session->get('user_id');
         $target = $this->users->findByProfileSlug($slug);
-        if ($target === null || (int) $target['id'] === $me) return new Response('Page not found', 404);
+        if ($target === null || (int) $target['id'] === $me) return new Response(\App\Lang::t('error.not_found'), 404);
         $body = trim($this->request->postStr('body'));
         if ($body === '' || strlen($body) > 5000) {
-            return new Response($this->renderContactForm($slug, $target, 'Message must be 1 to 5000 characters.', false), 422);
+            return new Response($this->renderContactForm($slug, $target, \App\Lang::t('contact.err_message'), false), 422);
         }
         $guard = $this->db->query(
             "INSERT INTO contact_log (sender_id, target_id)
@@ -118,7 +118,7 @@ final class UserController
             [$me, (int) $target['id'], $me]
         );
         if ($guard->rowCount() === 0) {
-            return new Response($this->renderContactForm($slug, $target, 'You have sent several messages recently, try again later.', false), 429);
+            return new Response($this->renderContactForm($slug, $target, \App\Lang::t('contact.err_rate'), false), 429);
         }
         $sender = $this->db->one('SELECT penname, profile_slug FROM users WHERE id = ?', [$me]);
         $base = rtrim((string) $this->app->config('base_url', ''), '/');
@@ -135,7 +135,7 @@ final class UserController
             $this->mailer->send((string) $target['email'], strtr($subject, $pairs), strtr($tpl, $pairs));
         } catch (\Throwable $e) {
             error_log("Contact mail failed: {$e->getMessage()}");
-            return new Response($this->renderContactForm($slug, $target, 'The message could not be sent, try again later.', false), 500);
+            return new Response($this->renderContactForm($slug, $target, \App\Lang::t('contact.err_send'), false), 500);
         }
         return $this->renderContactForm($slug, $target, null, true);
     }

@@ -20,7 +20,7 @@ final class QueueController
         foreach ($rows as $r) {
             if ($r['k'] === '0gate') { $moderator = $r; break; }
         }
-        if ($moderator === null) return new Response('Forbidden', 403);
+        if ($moderator === null) return new Response(\App\Lang::t('error.forbidden'), 403);
         return $this->view->render('queue/index', [
             'title' => \App\Lang::t('queue.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('queue.heading'))->withCanonical('/queue')->withNoindex(),
@@ -40,7 +40,7 @@ final class QueueController
     #[AuthAttr] #[Post]
     public function story(string $id, string $op): Response
     {
-        if (!$this->moderator()) return new Response('Forbidden', 403);
+        if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveStory((int) $id) : $repo->removeStory((int) $id);
         if ($coords !== null) {
@@ -54,7 +54,7 @@ final class QueueController
     #[AuthAttr] #[Post]
     public function chapter(string $id, string $op): Response
     {
-        if (!$this->moderator()) return new Response('Forbidden', 403);
+        if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveChapter((int) $id) : $repo->removeChapter((int) $id);
         if ($coords !== null) {
@@ -67,7 +67,7 @@ final class QueueController
     #[AuthAttr] #[Post]
     public function member(string $id, string $op): Response
     {
-        if (!$this->moderator()) return new Response('Forbidden', 403);
+        if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
         if ($op === 'approve') {
             $this->db->query('UPDATE users SET approved_at = COALESCE(approved_at, ?) WHERE id = ?', [date('c'), (int) $id]);
         } elseif ($op === 'reject') {

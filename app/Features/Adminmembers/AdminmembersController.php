@@ -68,10 +68,10 @@ final class AdminmembersController
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
-        if (!in_array($role, Adminness::ROLES, true)) return new Response('Unknown role.', 422);
-        if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return new Response('Page not found', 404);
+        if (!in_array($role, Adminness::ROLES, true)) return new Response(\App\Lang::t('admin.err_role'), 422);
+        if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($this->db->one('SELECT id FROM users WHERE id = ?', [(int) $id]) === null) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         Adminness::setRole($this->db, (int) $id, $role); // the iff invariant lives there
         return Response::redirect('/adminmembers');

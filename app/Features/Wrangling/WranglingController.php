@@ -62,13 +62,13 @@ final class WranglingController
             if ((int) $row['id'] === $synonymId) { $synonym = $row; break; }
         }
         if ($this->request->method === 'POST') {
-            if ($synonym === null) return new Response('Page not found', 404); // missing, forged, or stale synonym id
+            if ($synonym === null) return new Response(\App\Lang::t('error.not_found'), 404); // missing, forged, or stale synonym id
             $canonicalId = (int) ($this->request->post['canonical_id'] ?? 0);
             $canonical = null;
             foreach ($rows as $row) {
                 if ((int) $row['id'] === $canonicalId) { $canonical = $row; break; }
             }
-            if ($canonical === null) return new Response('Page not found', 404);
+            if ($canonical === null) return new Response(\App\Lang::t('error.not_found'), 404);
             // The reject guards, probed BEFORE the transaction opens.
             if ($synonymId === $canonicalId) {
                 return new Response($this->renderMergeForm($rows, $synonym, \App\Lang::t('wrangling.err_self')), 422);
@@ -114,7 +114,7 @@ final class WranglingController
             $this->staticCache()->purgeAll();
             return Response::redirect('/wrangling');
         }
-        if ($synonymId !== 0 && $synonym === null) return new Response('Page not found', 404);
+        if ($synonymId !== 0 && $synonym === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->renderMergeForm($rows, $synonym, null);
     }
 
@@ -125,7 +125,7 @@ final class WranglingController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $tag = $this->db->one('SELECT id, canonical_id FROM tags WHERE id = ?', [(int) $id]);
-        if ($tag === null) return new Response('Page not found', 404);
+        if ($tag === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $this->db->query('UPDATE tags SET canonical_id = NULL WHERE id = ?', [(int) $id]);
         $this->staticCache()->purgeAll(); // the tag's label just changed on every page it sits on
         return Response::redirect('/wrangling');

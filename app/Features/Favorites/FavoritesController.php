@@ -34,7 +34,7 @@ final class FavoritesController
     {
         $userId = (int) $this->session->get('user_id');
         [$added, $authorId, $title] = (new EngagementRepository($this->db))->toggleFavorite($slug, $userId);
-        if ($authorId === 0) return new Response('Page not found', 404);
+        if ($authorId === 0) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($added) {
             $storyId = (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'];
             $notifications = new Notifications($this->db);

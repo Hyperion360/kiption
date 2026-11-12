@@ -22,7 +22,7 @@ final class RecommendController
     {
         $me = (int) $this->session->get('user_id');
         $story = $this->db->one('SELECT id, author_id, title FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $inserted = false;
         $this->db->begin();
         try {
@@ -52,7 +52,7 @@ final class RecommendController
     {
         $me = (int) $this->session->get('user_id');
         $story = $this->db->one('SELECT id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
-        if ($story === null) return new Response('Page not found', 404);
+        if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $stmt = $this->db->query('DELETE FROM recommendations WHERE user_id = ? AND story_id = ?', [$me, (int) $story['id']]);
         if ($stmt->rowCount() === 1) $this->purge($slug, $me);
         return Response::redirect('/story/view/' . $slug);

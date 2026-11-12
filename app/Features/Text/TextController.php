@@ -50,7 +50,7 @@ final class TextController
         if ($ctx instanceof Response) return $ctx;
         [$store, $lang] = $ctx;
         $entries = $this->entries($lang, static fn (string $key): bool => $key !== '' && self::groupOfKey($key) === $prefix);
-        if ($entries === []) return new Response('Not found', 404);
+        if ($entries === []) return new Response(Lang::t('error.not_found'), 404);
         return $this->page('text/group', Lang::t('text.heading') . ': ' . $prefix, '/text/group/' . $prefix, [
             'entries' => $entries, 'lang' => $lang, 'languages' => $store->languages(), 'prefix' => $prefix, 'q' => '',
         ]);

@@ -44,7 +44,7 @@ final class TemplatesController
         if ($gate instanceof Response) return $gate;
         Templates::seedDefaults($this->db); // deep links to a known name work on a fresh database
         $row = $this->find($name);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->form($row['name'], $row['subject'], $row['body'], null);
     }
 
@@ -54,11 +54,11 @@ final class TemplatesController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         $row = $this->find($name);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $subject = trim($this->request->postStr('subject'));
         $body = $this->request->postStr('body');
         if ($subject === '') {
-            return new Response($this->form($row['name'], $subject, $body, 'Subject must not be empty.'), 422);
+            return new Response($this->form($row['name'], $subject, $body, \App\Lang::t('templates.err_subject')), 422);
         }
         $this->db->query('UPDATE mail_templates SET subject = ?, body = ? WHERE name = ?',
             [$subject, $body, $row['name']]);

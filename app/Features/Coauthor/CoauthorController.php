@@ -19,7 +19,7 @@ final class CoauthorController
         try {
             $newUserId = $this->authoring()->addCoauthor($slug, trim($this->request->postStr('penname')), $me);
         } catch (\RuntimeException $e) {
-            if ($e->getMessage() === 'not found') return new Response('Page not found', 404);
+            if ($e->getMessage() === 'not found') return new Response(\App\Lang::t('error.not_found'), 404);
             $form = $this->storyForm($slug, $me, $e->getMessage()); // 422 renders inline in the form's error slot
             return new Response($form ?? 'Page not found', $form === null ? 404 : 422);
         }
@@ -44,7 +44,7 @@ final class CoauthorController
     public function remove(string $slug, int $id): Response
     {
         $me = (int) $this->session->get('user_id');
-        if (!$this->authoring()->removeCoauthor($slug, $id, $me)) return new Response('Page not found', 404);
+        if (!$this->authoring()->removeCoauthor($slug, $id, $me)) return new Response(\App\Lang::t('error.not_found'), 404);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ?', [$slug]);
         $affected = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$id]);
         $this->purges($slug, (int) $story['id'], (int) $story['author_id'], (string) ($affected['profile_slug'] ?? ''));
@@ -55,7 +55,7 @@ final class CoauthorController
     public function leave(string $slug): Response
     {
         $me = (int) $this->session->get('user_id');
-        if (!$this->authoring()->removeCoauthor($slug, $me, $me)) return new Response('Page not found', 404);
+        if (!$this->authoring()->removeCoauthor($slug, $me, $me)) return new Response(\App\Lang::t('error.not_found'), 404);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ?', [$slug]);
         $leaver = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$me]);
         $this->purges($slug, (int) $story['id'], (int) $story['author_id'], (string) ($leaver['profile_slug'] ?? ''));

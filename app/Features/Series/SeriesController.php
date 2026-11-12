@@ -58,7 +58,7 @@ final class SeriesController
         // The mute gate (finding 9): the item branch filters only while the
         // flag is on; $me itself keeps driving the visibility gates.
         $page = $this->series->seriesPage($slug, $me, \App\Features::on('mute') ? $me : 0);
-        if ($page === null) return new Response('Page not found', 404);
+        if ($page === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $s = $page['series'];
         $isOwner = $me !== 0 && $me === $s['owner_id'];   // folded into the one query
         $isAdmin = $s['is_admin'] === 1;                  // (plan review findings 9+12: no
@@ -107,7 +107,7 @@ final class SeriesController
     public function edit(string $slug): Response|string
     {
         try { $row = $this->series->forEdit($slug, (int) $this->session->get('user_id')); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         return $this->form($row);
     }
 
@@ -118,7 +118,7 @@ final class SeriesController
         [$title, $summary, $membership, $error] = $this->seriesInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         try { $this->series->update($slug, $title, $summary, $membership, $me, $this->isAdmin($me)); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->staticCache()->purgeSeries($slug);
         return Response::redirect('/series/view/' . $slug);
     }
@@ -133,7 +133,7 @@ final class SeriesController
     public function cover(string $slug): Response
     {
         try { $this->series->forEdit($slug, (int) $this->session->get('user_id')); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $file = $this->request->file('cover');
         if ($file === null) {
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
@@ -156,10 +156,10 @@ final class SeriesController
         $summary = substr(trim($this->request->postStr('summary')), 0, 2000);
         $membership = $this->request->postStr('membership');
         if ($title === '' || mb_strlen($title) > 120) {
-            return [$title, $summary, $membership, 'Title must be 1 to 120 characters.'];
+            return [$title, $summary, $membership, \App\Lang::t('form.err_title_120')];
         }
         if (!in_array($membership, ['open', 'moderated', 'closed'], true)) {
-            return [$title, $summary, $membership, 'Membership must be open, moderated, or closed.'];
+            return [$title, $summary, $membership, \App\Lang::t('form.err_membership')];
         }
         return [$title, $summary, $membership, null];
     }
@@ -207,7 +207,7 @@ final class SeriesController
     {
         $me = (int) $this->session->get('user_id');
         if (!$this->series->removeItem($slug, $storySlug, $me, $this->isAdmin($me))) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $cache = $this->staticCache();
         $cache->purgeSeries($slug);
@@ -223,7 +223,7 @@ final class SeriesController
         try {
             $this->series->move($slug, (int) $itemId, $dir, $me, $this->isAdmin($me));
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->staticCache()->purgeSeries($slug); // positions live on the series page only
         return Response::redirect('/series/view/' . $slug);
@@ -236,7 +236,7 @@ final class SeriesController
         try {
             $info = $this->series->confirm($slug, (int) $itemId, $me, $this->isAdmin($me));
         } catch (\RuntimeException) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         if ($info !== null) {
             [$authorId, $title, $storySlug] = $info;

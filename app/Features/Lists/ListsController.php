@@ -22,7 +22,7 @@ final class ListsController
         // password change must not open the owner's private list
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $list = $this->lists->view($slug, $me);
-        if ($list === null) return new Response('Page not found', 404);
+        if ($list === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $items = $list['items'];
         unset($list['items']);
         $isOwner = $me !== 0 && $me === $list['owner_id'];
@@ -85,7 +85,7 @@ final class ListsController
     {
         if (($r = \App\Features::guard('lists')) !== null) return $r;
         try { $row = $this->lists->own($slug, (int) $this->session->get('user_id')); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         return $this->form($row);
     }
 
@@ -97,7 +97,7 @@ final class ListsController
         [$title, $summary, $isPublic, $error] = $this->listInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         try { $this->lists->update($slug, $title, $summary, $isPublic, $me); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->staticCache()->purgeList($slug);
         return Response::redirect('/lists/view/' . $slug);
     }
@@ -108,7 +108,7 @@ final class ListsController
         if (($r = \App\Features::guard('lists')) !== null) return $r;
         $me = (int) $this->session->get('user_id');
         try { $this->lists->delete($slug, $me); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->staticCache()->purgeList($slug);
         return Response::redirect('/lists'); // the member's lists index (Task 2)
     }
@@ -125,9 +125,9 @@ final class ListsController
         try {
             $this->lists->addItem($slug, trim($this->request->postStr('story_slug')), $note, $me);
         } catch (\RuntimeException $e) {
-            if ($e->getMessage() === 'not found') return new Response('Page not found', 404);
+            if ($e->getMessage() === 'not found') return new Response(\App\Lang::t('error.not_found'), 404);
             try { $row = $this->lists->own($slug, $me); }
-            catch (\RuntimeException) { return new Response('Page not found', 404); }
+            catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
             return new Response($this->form($row, $this->itemError($e->getMessage())), 422);
         }
         $this->staticCache()->purgeList($slug); // every list write path (finding 4)
@@ -139,7 +139,7 @@ final class ListsController
     {
         if (($r = \App\Features::guard('lists')) !== null) return $r;
         if (!$this->lists->removeItem($slug, $storySlug, (int) $this->session->get('user_id'))) {
-            return new Response('Page not found', 404);
+            return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->staticCache()->purgeList($slug);
         return Response::redirect('/lists/edit/' . $slug);
@@ -151,7 +151,7 @@ final class ListsController
         if (($r = \App\Features::guard('lists')) !== null) return $r;
         $dir = $dir === 'down' ? 'down' : 'up'; // junk coerces, the browse page-param philosophy
         try { $this->lists->move($slug, (int) $itemId, $dir, (int) $this->session->get('user_id')); }
-        catch (\RuntimeException) { return new Response('Page not found', 404); }
+        catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $this->staticCache()->purgeList($slug); // positions live on the list page
         return Response::redirect('/lists/edit/' . $slug);
     }
@@ -176,7 +176,7 @@ final class ListsController
         $summary = substr(trim($this->request->postStr('summary')), 0, 500);
         $isPublic = $this->request->postStr('is_public') === '1' ? 1 : 0;
         if ($title === '' || mb_strlen($title) > 120) {
-            return [$title, $summary, $isPublic, 'Title must be 1 to 120 characters.'];
+            return [$title, $summary, $isPublic, \App\Lang::t('form.err_title_120')];
         }
         return [$title, $summary, $isPublic, null];
     }

@@ -22,7 +22,7 @@ final class KudosController
         $userId = $me !== 0 ? $me : null;
         [$inserted, $authorId, $title] = (new EngagementRepository($this->db))
             ->addKudos($slug, is_int($userId) ? $userId : null, $this->request->ip);
-        if ($authorId === 0) return new Response('Page not found', 404);
+        if ($authorId === 0) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($inserted) {
             $storyId = (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'];
             $notifications = new Notifications($this->db);

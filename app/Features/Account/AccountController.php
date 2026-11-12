@@ -141,12 +141,12 @@ final class AccountController
     {
         $file = $this->request->file('avatar');
         if ($file === null) {
-            return new Response('Avatar rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('images.err_avatar'), 422);
         }
         try {
             $path = $this->storage->put($file);
         } catch (\Kip\UploadException) {
-            return new Response('Avatar rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);
+            return new Response(\App\Lang::t('images.err_avatar'), 422);
         }
         $userId = (int) $this->session->get('user_id');
         $old = $this->db->one('SELECT avatar_path FROM users WHERE id = ?', [$userId]);
@@ -166,7 +166,7 @@ final class AccountController
         $url = trim($this->request->postStr('support_url'));
         // The form's maxlength=200 is client-side only; the server enforces both rules.
         if ($url !== '' && (strlen($url) > 200 || !preg_match('#^https?://#', $url))) {
-            return new Response('Support link must start with http:// or https:// (max 200 characters).', 422);
+            return new Response(\App\Lang::t('settings.err_support'), 422);
         }
         $userId = (int) $this->session->get('user_id');
         $this->db->query('UPDATE users SET support_url = ? WHERE id = ?', [$url === '' ? null : $url, $userId]);

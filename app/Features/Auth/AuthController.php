@@ -6,12 +6,6 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class AuthController
 {
-    /** The refusals a valid credential still meets, shared by the password
-     *  login and the sign-in link so the two cannot drift. */
-    private const LOCKED = 'This account is locked.';
-    private const UNVERIFIED = 'Please verify your email first (check the link we sent).';
-    private const UNAPPROVED = 'Your account is awaiting approval.';
-
     public function __construct(
         private Auth $auth,
         private View $view,
@@ -47,7 +41,7 @@ final class AuthController
         if ($this->auth->throttled($email, $this->request->ip)) {
             return new Response(
                 $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
-                    'error' => 'Too many attempts, try again in 15 minutes.']),
+                    'error' => \App\Lang::t('auth.err_throttle')]),
                 429
             );
         }
@@ -59,22 +53,22 @@ final class AuthController
                 if ((int) $user['is_locked'] === 1) {
                     $this->auth->logout();
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
-                        'error' => self::LOCKED]);
+                        'error' => \App\Lang::t('auth.err_locked')]);
                 }
                 if ($user['email_verified_at'] === null) {
                     $this->auth->logout();
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
-                        'error' => self::UNVERIFIED]);
+                        'error' => \App\Lang::t('auth.err_unverified')]);
                 }
                 if ($user['approved_at'] === null) {
                     $this->auth->logout();
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
-                        'error' => self::UNAPPROVED]);
+                        'error' => \App\Lang::t('auth.err_unapproved')]);
                 }
             }
             return $this->redirectWithPrefCookies((int) ($user['id'] ?? 0));
         }
-        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'error' => 'Wrong email or password']);
+        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'error' => \App\Lang::t('auth.err_wrong')]);
     }
 
     /** The cookie-sync seam (phase 12d ruling 1): the prefs row is the source
@@ -165,7 +159,7 @@ final class AuthController
         $email = $this->request->postStr('email');
         $password = $this->request->postStr('password');
         if ($password !== $this->request->postStr('confirm')) {
-            return $this->registerError($mode, 'Passwords do not match.', $penname, $email);
+            return $this->registerError($mode, \App\Lang::t('auth.err_mismatch'), $penname, $email);
         }
         [$ok, $error] = $this->users->register($mode, $penname, $email, $password, $this->request->postStr('invite'));
         if (!$ok) {
@@ -268,12 +262,12 @@ final class AuthController
         $token = $this->request->postStr('token');
         $password = $this->request->postStr('password');
         if (strlen($password) < 8) {
-            return new Response($this->resetView($token, 'Password must be at least 8 characters.'), 422);
+            return new Response($this->resetView($token, \App\Lang::t('auth.err_short')), 422);
         }
         // Read before resetPassword(), which deletes the row on success.
         $email = $this->db->one('SELECT email FROM password_resets WHERE token_hash = ?', [hash('sha256', $token)])['email'] ?? null;
         if (!$this->auth->resetPassword($token, $password)) {
-            return new Response($this->resetView($token, 'That reset link is invalid or has expired, request a new one.'), 422);
+            return new Response($this->resetView($token, \App\Lang::t('auth.err_reset')), 422);
         }
         // Opening a link mailed to the address proves the member owns it, so a
         // completed reset also verifies the email. Without this a member who
@@ -348,9 +342,9 @@ final class AuthController
             $user = $this->db->one('SELECT * FROM users WHERE id = ?', [$user['id']]) ?? $user;
         }
         $refusal = match (true) {
-            (int) $user['is_locked'] === 1 => self::LOCKED,
-            $user['email_verified_at'] === null => self::UNVERIFIED,
-            $user['approved_at'] === null => self::UNAPPROVED,
+            (int) $user['is_locked'] === 1 => \App\Lang::t('auth.err_locked'),
+            $user['email_verified_at'] === null => \App\Lang::t('auth.err_unverified'),
+            $user['approved_at'] === null => \App\Lang::t('auth.err_unapproved'),
             default => null,
         };
         if ($refusal !== null) {
