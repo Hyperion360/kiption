@@ -5,6 +5,9 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class AccountController
 {
+    /** The ?done= values settings() turns into a confirmation line. */
+    private const DONE = ['password', 'email', 'fields'];
+
     public function __construct(
         private View $view,
         private Request $request,
@@ -26,11 +29,43 @@ final class AccountController
     #[AuthAttr]
     public function settings(): string
     {
-        return $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings')));
+        $done = (string) ($this->request->get['done'] ?? '');
+        $notice = \in_array($done, self::DONE, true) ? 'account.done_' . $done : null;
+        return $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'), $notice));
+    }
+
+    /** The settings page again with a refusal message, for a failed security form. */
+    private function refuse(string $errorKey): Response
+    {
+        $status = $errorKey === \App\AccountSecurity::THROTTLED ? 429 : 422;
+        $html = $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'), null, $errorKey));
+        return new Response($html, $status);
+    }
+
+    private function security(): \App\AccountSecurity
+    {
+        return new \App\AccountSecurity($this->db, new \App\AttemptLimiter($this->db));
+    }
+
+    /** Change the password while signed in: current password, new one twice. */
+    #[AuthAttr] #[Post]
+    public function password(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $err = $this->security()->changePassword($me, $this->request->postStr('current_password'),
+            $this->request->postStr('new_password'), $this->request->postStr('confirm_password'), $this->request->ip);
+        if ($err !== null) return $this->refuse($err);
+        // The hash changed, so every older session is already void. This one
+        // gets a fresh id (fixation defense) and the new epoch so it stays in.
+        $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$me])['password_hash'];
+        if (session_status() === PHP_SESSION_ACTIVE) session_regenerate_id(true);
+        $this->session->rotateCsrf();
+        $this->session->set('pwd_epoch', substr($hash, 0, \Kip\Auth::EPOCH_LEN));
+        return Response::redirect('/account/settings?done=password');
     }
 
     /** @return array<string, mixed> the shared envelope of both account pages */
-    private function page(string $canonical, string $title): array
+    private function page(string $canonical, string $title, ?string $notice = null, ?string $error = null): array
     {
         $userId = (int) $this->session->get('user_id');
         // The muted-authors block folds into the compound as a seventh branch
@@ -133,6 +168,8 @@ final class AccountController
             'themePref' => (string) ($me['o'] ?? ''),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
+            'notice' => $notice,
+            'error' => $error,
         ];
     }
 

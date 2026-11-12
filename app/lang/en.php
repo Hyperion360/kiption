@@ -420,6 +420,17 @@ return [
     'account.marked' => 'Marked for later',
     'account.nothing_marked' => 'Nothing marked for later. Use Later on any story page to keep it here.',
     'account.published' => 'Published',
+    'account.section_security' => 'Sign-in and security',
+    'account.password_heading' => 'Change your password',
+    'account.current_password' => 'Current password',
+    'account.new_password' => 'New password',
+    'account.confirm_new_password' => 'New password again',
+    'account.password_save' => 'Change password',
+    'account.done_password' => 'Your password is changed. Anywhere else you were signed in, you will need to sign in again.',
+    'account.err_wrong_password' => 'That is not your current password.',
+    'account.err_throttled' => 'Too many tries. Please wait about 15 minutes and try again.',
+    'account.err_password_short' => 'Your new password needs at least 8 characters.',
+    'account.err_password_mismatch' => 'The two new passwords do not match.',
 
     // The members admin table.
     'adminmembers.heading' => 'Members',
