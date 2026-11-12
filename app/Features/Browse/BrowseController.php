@@ -174,6 +174,11 @@ final class BrowseController
     public function authors(string $letter = ''): Response|string
     {
         if (($r = \App\Features::guard('directory')) !== null) return $r;
+        // Members-only profiles: the directory of them is for members too.
+        if (!\App\Settings::on('profiles_public')
+            && \App\Viewer::id($this->request, $this->session, $this->db) === 0) {
+            return Response::redirect('/auth/login');
+        }
         $letter = trim($letter);
         if ($letter !== '' && !preg_match('/^[a-z]$/', $letter)) {
             $letter = preg_match('/^[a-z]/', $letter) ? $letter[0] : '0';

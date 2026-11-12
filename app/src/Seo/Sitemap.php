@@ -88,14 +88,15 @@ final class Sitemap
             $segments[] = ['sitemap-stories-' . ($i + 1) . '.xml', $chunk];
         }
         // Authors: the directory gate (approvable members with a penname).
-        $segments[] = ['sitemap-authors.xml', array_map(static fn(array $u): array
+        // Members-only profiles are not advertised to crawlers.
+        if (\App\Settings::on('profiles_public')) $segments[] = ['sitemap-authors.xml', array_map(static fn(array $u): array
             => [$baseUrl . '/user/view/' . rawurlencode((string) $u['profile_slug']), $u['created_at']],
             $db->all('SELECT profile_slug, created_at FROM users WHERE penname IS NOT NULL AND is_locked = 0 AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL'))];
         // Categories carry no timestamp columns: loc only.
         $segments[] = ['sitemap-categories.xml', array_map(static fn(array $c): array
             => [$baseUrl . '/browse/category/' . rawurlencode((string) $c['slug']), null],
             $db->all('SELECT slug FROM categories'))];
-        $segments[] = ['sitemap-series.xml', array_map(static fn(array $s): array
+        if (\App\Settings::on('series_on')) $segments[] = ['sitemap-series.xml', array_map(static fn(array $s): array
             => [$baseUrl . '/series/view/' . rawurlencode((string) $s['slug']), $s['created_at']],
             $db->all('SELECT slug, created_at FROM series'))];
         // A mapped marketing slug advertises its TOP-LEVEL spelling (TopPaths

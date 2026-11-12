@@ -345,4 +345,29 @@ final class SiteSettingsTest extends TestCase
         $this->assertSame(403, $this->client($this->adminId)->postWithToken('/images/upload', [])->status);
         $this->assertSame(403, $this->client($this->memberId)->postWithToken('/account/avatar', [])->status);
     }
+
+    public function test_the_sitemap_leaves_out_series_when_series_is_off(): void
+    {
+        $dir = $this->root . '/sm1';
+        \App\Seo\Sitemap::writeAll($this->db, $dir, 'https://archive.example', []);
+        $this->assertFileExists($dir . '/sitemap-series.xml');
+        $this->set(['series_on' => '0']);
+        $dir = $this->root . '/sm2';
+        \App\Seo\Sitemap::writeAll($this->db, $dir, 'https://archive.example', []);
+        $this->assertFileDoesNotExist($dir . '/sitemap-series.xml');
+        $this->assertStringNotContainsString('sitemap-series', (string) file_get_contents($dir . '/sitemap.xml'));
+    }
+
+    public function test_members_only_profiles_leave_the_sitemap_and_the_directory(): void
+    {
+        $this->assertSame(200, $this->client()->get('/browse/authors')->status);
+        $this->set(['profiles_public' => '0']);
+        $dir = $this->root . '/sm3';
+        \App\Seo\Sitemap::writeAll($this->db, $dir, 'https://archive.example', []);
+        $this->assertFileDoesNotExist($dir . '/sitemap-authors.xml');
+        $res = $this->client()->get('/browse/authors');
+        $this->assertSame(302, $res->status);
+        $this->assertSame('/auth/login', $res->headers['Location'] ?? null);
+        $this->assertSame(200, $this->client($this->memberId)->get('/browse/authors')->status);
+    }
 }
