@@ -57,6 +57,7 @@ final class ImagesController
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
+        if (!\App\Settings::on('uploads_on')) return new Response(\App\Lang::t('uploads.off'), 403);
         $file = $this->request->file('file');
         if ($file === null) {
             return new Response('Upload rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);

@@ -23,7 +23,7 @@
     <p class="meta"><?php if (!empty($fresh) && \App\Freshness::fresh($s['updated_at'] ?? null)): ?><span class="fresh-dot" aria-hidden="true"></span> <?php endif; ?><?= $this->e($s['rating_label']) ?> ·
       <?php if ($s['completed']): ?><span class="badge"><?= \App\Lang::t('story.complete') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('story.wip') ?></span><?php endif; ?> ·
       <?= number_format((int) $s['word_count']) ?> <?= \App\Lang::t('story.words') ?><?php if ($cardCats !== []): ?> · <?= $this->e(implode(', ', $cardCats)) ?><?php endif; ?>
-      <time class="card-updated" datetime="<?= $this->e((string) $s['updated_at']) ?>"><?= \App\Lang::t('story.updated', ['date' => $this->e(substr((string) $s['updated_at'], 0, 10))]) ?></time></p>
+      <time class="card-updated" datetime="<?= $this->e((string) $s['updated_at']) ?>"><?= \App\Lang::t('story.updated', ['date' => $this->e(\App\Dates::format((string) $s['updated_at']))]) ?></time></p>
     <p class="summary clamp-2"><?= $this->e($s['summary']) ?></p>
     <?php if (($s['last_position'] ?? null) !== null): ?>
     <a class="continue-pill" href="/story/read/<?= $this->e($s['slug']) ?>/<?= (int) $s['last_position'] ?>"><?= \App\Lang::t('browse.continue_pill', ['roman' => \App\Features\Reader\Roman::numeral((int) $s['last_position']), 'pct' => (int) $s['read_pct']]) ?></a>

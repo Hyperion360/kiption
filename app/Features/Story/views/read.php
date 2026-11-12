@@ -156,7 +156,7 @@
         <?php endif; ?>
         <?php foreach ($bookmarks as $b): ?>
         <li>
-          <p class="bm-kind"><?= \App\Lang::t('reader.bookmark') ?><?php if ($b['at'] !== ''): ?><time class="bm-date" datetime="<?= $this->e($b['at']) ?>"><?= $this->e(date('M j', strtotime($b['at']))) ?></time><?php endif; ?></p>
+          <p class="bm-kind"><?= \App\Lang::t('reader.bookmark') ?><?php if ($b['at'] !== ''): ?><time class="bm-date" datetime="<?= $this->e($b['at']) ?>"><?= $this->e(\App\Dates::format($b['at'], false)) ?></time><?php endif; ?></p>
           <?php if ($b['position'] !== null): ?>
           <a class="bm-chapter" href="/story/read/<?= $this->e($story['slug']) ?>/<?= (int) $b['position'] ?>"><?= \App\Features\Reader\Roman::numeral((int) $b['position']) ?> · <?= $this->e(($titles[(int) $b['position']] ?? '') !== '' ? $titles[(int) $b['position']] : \App\Lang::t('story.chapter_n', ['n' => (int) $b['position']])) ?></a>
           <?php endif; ?>

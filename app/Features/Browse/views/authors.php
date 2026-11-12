@@ -31,7 +31,7 @@
           <?php endif; ?>
         </td>
         <td class="num"><?= number_format((int) $m['story_count']) ?></td>
-        <td class="mono"><?= $this->e(substr((string) $m['created_at'], 0, 10)) ?></td>
+        <td class="mono"><?= $this->e(\App\Dates::format((string) $m['created_at'])) ?></td>
       </tr>
 <?php endforeach; ?>
 <?php if ($members === []): ?>

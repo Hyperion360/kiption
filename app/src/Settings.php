@@ -12,7 +12,34 @@ final class Settings
 {
     public const KEYS = ['site_name' => 'string', 'registration_mode' => 'oneof:open,verify,approval,invite',
         'validation_required' => 'bool', 'items_per_page' => 'int:1,100', 'powered_by' => 'bool', 'skin' => 'skin',
-        'adult_rta' => 'label'];
+        'adult_rta' => 'label',
+        'slogan' => 'text:120',
+        'submissions_open' => 'bool', 'min_words' => 'int:0,100000', 'max_words' => 'int:0,1000000',
+        'date_format' => 'oneof:short,long,dmy,iso', 'time_format' => 'oneof:12h,24h',
+        'reviews_on' => 'bool', 'guest_reviews' => 'bool', 'rating_only' => 'bool',
+        'coauthors_on' => 'bool', 'series_on' => 'bool',
+        'default_sort' => 'oneof:recent,alpha', 'profiles_public' => 'bool', 'uploads_on' => 'bool'];
+
+    /** What each newer key means when no row exists (they have no config.php
+     *  twin). Existing behavior is the default for every one of them. */
+    public const DEFAULTS = [
+        'slogan' => '', 'submissions_open' => '1', 'min_words' => '0', 'max_words' => '0',
+        'date_format' => 'short', 'time_format' => '12h',
+        'reviews_on' => '1', 'guest_reviews' => '1', 'rating_only' => '0',
+        'coauthors_on' => '1', 'series_on' => '1',
+        'default_sort' => 'recent', 'profiles_public' => '1', 'uploads_on' => '1',
+    ];
+
+    /** A new-style setting's effective value: the stored row, else its default.
+     *  Reads the memo the boot query already filled; never queries. */
+    public static function get(string $key): string
+    {
+        try { $row = self::all()[$key] ?? null; } catch (\Throwable) { $row = null; }
+        return $row ?? self::DEFAULTS[$key] ?? '';
+    }
+
+    public static function on(string $key): bool { return self::get($key) === '1'; }
+
     // powered_by: the board stores the row today; the override activates the
     // moment the app-prep footer lane ships the config key (overrides() skips
     // keys the config lacks, so the row waits harmlessly until then).
@@ -59,6 +86,12 @@ final class Settings
         switch ($kind) {
             case 'string':
                 if ($value === '' || mb_strlen($value) > 60) throw new \InvalidArgumentException("{$key}: 1-60 characters");
+                break;
+            case 'text':
+                // Free text the owner may clear: empty, or up to N characters, no control characters.
+                if (mb_strlen($value) > (int) $rest || preg_match('/[\x00-\x1f\x7f]/', $value)) {
+                    throw new \InvalidArgumentException("{$key}: empty, or up to {$rest} characters");
+                }
                 break;
             case 'label':
                 // A label the operator can switch off: empty is a legal value

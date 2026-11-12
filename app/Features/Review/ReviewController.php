@@ -18,12 +18,14 @@ final class ReviewController
         // doctrine's write twin), never as the victim
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $userId = $me !== 0 ? $me : null;
+        if (!\App\Settings::on('reviews_on')) return new Response('Page not found', 404);
+        if ($userId === null && !\App\Settings::on('guest_reviews')) return new Response(\App\Lang::t('story.sign_in_to_review'), 403);
         $raw = $this->request->postStr('rating');
         $rating = $raw === '' ? null : max(0, min(10, (int) $raw));
         [$added, $authorId, $title, $error] = (new ReviewRepository($this->db))->addReview(
             $slug, is_int($userId) ? $userId : null,
             $userId === null ? $this->request->postStr('guest_name') : null,
-            $this->request->postStr('body'), $rating, $this->request->ip);
+            $this->request->postStr('body'), $rating, $this->request->ip, \App\Settings::on('rating_only'));
         if ($authorId === 0 && $error === null) return new Response('Page not found', 404);
         if ($error !== null) {
             $status = str_starts_with($error, 'You already reviewed') ? 429 : 422;
@@ -48,6 +50,7 @@ final class ReviewController
     public function chapter(string $slug, string $position): Response|string
     {
         $pos = (int) $position;
+        if (!\App\Settings::on('reviews_on')) return new Response('Page not found', 404);
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $story = $this->db->one(
             'SELECT s.id, s.title, s.author_id FROM stories s
@@ -73,6 +76,8 @@ final class ReviewController
     public function addchapter(string $slug, string $position): Response
     {
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        if (!\App\Settings::on('reviews_on')) return new Response('Page not found', 404);
+        if ($me === 0 && !\App\Settings::on('guest_reviews')) return new Response(\App\Lang::t('story.sign_in_to_review'), 403);
         [$added, $authorId, $error] = (new ReviewRepository($this->db))->addChapterReview(
             $slug, (int) $position, $me !== 0 ? $me : null,
             $me === 0 ? $this->request->postStr('guest_name') : null,
@@ -94,6 +99,7 @@ final class ReviewController
     #[AuthAttr] #[Post]
     public function reply(string $id): Response
     {
+        if (!\App\Settings::on('reviews_on')) return new Response('Page not found', 404);
         $userId = (int) $this->session->get('user_id');
         [$added, $notifyUserId, $storyId, $slug, $error] = (new ReviewRepository($this->db))
             ->addReply((int) $id, $userId, $this->request->postStr('body'));

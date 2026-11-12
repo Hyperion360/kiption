@@ -105,7 +105,7 @@
           </form></details>
           <?php endif; ?>
           <?php if (!empty($csrf)): ?>
-            <?php if (!empty($amCoauthor)): ?>
+            <?php if (!empty($amCoauthor) && \App\Settings::on('coauthors_on')): ?>
             <form method="post" action="/coauthor/leave/<?= $this->e($story['slug']) ?>" class="inline">
               <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
               <button type="submit"><?= \App\Lang::t('story.leave_coauthor') ?></button>
@@ -130,7 +130,7 @@
     </div>
     <div class="story-main">
     <div class="story-info">
-      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated<?= !empty($loggedIn) && \App\Freshness::fresh($story['updated_at'] ?? null) ? ' is-fresh' : '' ?>"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => date('M j', strtotime((string) $story['updated_at']))])) ?></span><?php endif; ?></p>
+      <p class="eyebrow"><?= $cats !== '' ? $this->e($cats) . ' · ' : '' ?><?= \App\Lang::t($story['completed'] ? 'story.complete' : 'story.wip') ?><?php if (($story['updated_at'] ?? '') !== ''): ?><span class="eyebrow-updated<?= !empty($loggedIn) && \App\Freshness::fresh($story['updated_at'] ?? null) ? ' is-fresh' : '' ?>"> · <?= $this->e(\App\Lang::t('story.updated_short', ['date' => \App\Dates::format((string) $story['updated_at'], false)])) ?></span><?php endif; ?></p>
       <h1><?= $this->e($story['title']) ?></h1>
       <?php /* the byline is a div because the Follow toggle is a form: the
            HTML parser auto-closes a p element when a form element opens,
@@ -158,7 +158,7 @@
       <?php if (($story['crosspost_url'] ?? '') !== ''): ?>
       <p class="meta"><?= \App\Lang::t('story.crossposted_from') ?> <a href="<?= $this->e($story['crosspost_url']) ?>" rel="nofollow"><?= \App\Lang::t('story.crosspost_original') ?></a>.</p>
       <?php endif; ?>
-      <?php if ($series !== []): ?>
+      <?php if ($series !== [] && \App\Settings::on('series_on')): ?>
       <p class="meta"><?= \App\Lang::t('story.series_label') ?>
         <?php foreach ($series as $i => $ser): ?><?= $i > 0 ? ', ' : '' ?><a href="/series/view/<?= $this->e($ser['s']) ?>"><?= $this->e($ser['t']) ?></a><?php endforeach; ?>
       </p>
@@ -200,6 +200,7 @@
       <?php endforeach; ?>
     </ol>
   </section>
+  <?php if (\App\Settings::on('reviews_on')): ?>
   <section class="story-reviews" aria-labelledby="reviews">
   <h2 id="reviews"><?= \App\Lang::t('story.reviews_heading') . ' (' . number_format((int) $review_count) . ')' ?></h2>
   <?php if ($reviews === []): ?><p class="chapter-meta"><?= \App\Lang::t('common.none_yet') ?></p>
@@ -208,7 +209,7 @@
       <article class="review">
         <?php /* The site's meta convention: middle dots, a short date (the raw
            ISO stamp stays in the datetime attribute for machines). */ ?>
-        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(date('M j, Y', strtotime((string) $r['created_at']))) ?></time></p>
+        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $r['created_at'])) ?></time></p>
         <div class="prose"><?= \App\Markdown::render($r['body'] ?? '') ?></div>
         <?php if (!empty($r['replies'])): ?>
           <?php foreach ($r['replies'] as $rep): ?>
@@ -253,7 +254,7 @@
     <form class="form-card review-form" method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
       <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
+      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4"<?= \App\Settings::on('rating_only') ? '' : ' required' ?> maxlength="5000"></textarea></label>
       <fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
         <input type="radio" name="rating" value="" id="rating-none" checked><label for="rating-none"><?= \App\Lang::t('story.rating_none') ?></label>
 <?php for ($i = 0; $i <= 10; $i++): ?>
@@ -262,11 +263,13 @@
       </fieldset>
       <button type="submit" class="btn-primary"><?= \App\Lang::t('story.post_review') ?></button>
     </form>
+  <?php elseif (!\App\Settings::on('guest_reviews')): ?>
+    <p class="chapter-meta"><a href="/auth/login"><?= \App\Lang::t('story.sign_in_to_review') ?></a></p>
   <?php else: ?>
     <form class="form-card review-form" method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
       <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <label><?= \App\Lang::t('story.name') ?> <input name="guest_name" required maxlength="40"></label>
-      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
+      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4"<?= \App\Settings::on('rating_only') ? '' : ' required' ?> maxlength="5000"></textarea></label>
       <fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
         <input type="radio" name="rating" value="" id="rating-none" checked><label for="rating-none"><?= \App\Lang::t('story.rating_none') ?></label>
 <?php for ($i = 0; $i <= 10; $i++): ?>
@@ -277,6 +280,7 @@
     </form>
   <?php endif; ?>
   </section>
+  <?php endif; ?>
     </div>
   </div>
 </article>

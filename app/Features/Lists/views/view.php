@@ -5,7 +5,7 @@
   <p class="chapter-meta">
     <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($list['owner_slug']) ?>"><?= $this->e($list['owner_penname']) ?></a>
     | <?= \App\Lang::t('common.works_count', ['n' => number_format(count($items))]) ?>
-    | <?= \App\Lang::t('story.published') ?> <?= $this->e(substr((string) $list['created_at'], 0, 10)) ?>
+    | <?= \App\Lang::t('story.published') ?> <?= $this->e(\App\Dates::format((string) $list['created_at'])) ?>
     <?php if ((int) $list['is_public'] !== 1): ?>| <?= \App\Lang::t('lists.private_label') ?><?php endif; ?>
   </p>
   <?php if ($list['summary'] !== ''): ?><p><?= $this->e($list['summary']) ?></p><?php endif; ?>

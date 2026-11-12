@@ -8,12 +8,13 @@ final class ReviewRepository
     public function __construct(private Database $db) {}
 
     /** @return array{0: bool added, 1: int authorId, 2: string title, 3: string|null error} */
-    public function addReview(string $slug, ?int $userId, ?string $guestName, string $body, ?int $rating, string $ip): array
+    public function addReview(string $slug, ?int $userId, ?string $guestName, string $body, ?int $rating, string $ip, bool $ratingOnly = false): array
     {
         $story = $this->db->one('SELECT id, author_id, title, is_restricted FROM stories WHERE slug = ? AND deleted_at IS NULL AND validated = 1', [$slug]);
         if ($story === null) return [false, 0, '', null];
         $body = trim($body);
-        if ($body === '' || strlen($body) > 5000) return [false, 0, '', 'Review text is required (max 5000 characters).'];
+        // rating_only: a score on its own is a review; otherwise words are required.
+        if (($body === '' && !($ratingOnly && $rating !== null)) || strlen($body) > 5000) return [false, 0, '', 'Review text is required (max 5000 characters).'];
         if ($rating !== null && $rating > 10) $rating = 10; // clamp high; negatives clamp to 0
         if ($rating !== null && $rating < 0) $rating = 0;
         if ($userId === null) {

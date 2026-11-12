@@ -11,7 +11,7 @@
   <p class="chapter-meta">
     <?php if (in_array($profile['role'], ['validated_author', 'moderator', 'admin'], true)): ?><span class="badge"><?= \App\Lang::t('user.author_badge') ?></span><?php endif; ?>
     <?php if ((int) $profile['is_beta'] === 1): ?><span class="badge"><?= \App\Lang::t('user.beta_reader') ?></span><?php endif; ?>
-    | <?= \App\Lang::t('user.member_since', ['date' => $this->e(substr((string) $profile['created_at'], 0, 10))]) ?>
+    | <?= \App\Lang::t('user.member_since', ['date' => $this->e(\App\Dates::format((string) $profile['created_at']))]) ?>
     | <?= \App\Lang::t('common.works_count', ['n' => number_format((int) $profile['story_count'])]) ?>
     | <?= \App\Lang::t('user.series_count', ['n' => number_format((int) $profile['series_count'])]) ?>
   </p>

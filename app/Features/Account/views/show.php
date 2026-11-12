@@ -39,6 +39,7 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
+  <?php if (\App\Settings::on('series_on')): ?>
   <h2 class="section-label"><?= \App\Lang::t('account.your_series') ?></h2>
   <?php if ($seriesList !== []): ?>
   <ul class="row-list">
@@ -48,6 +49,7 @@
   </ul>
   <?php endif; ?>
   <p class="section-more"><a href="/series/new"><?= \App\Lang::t('account.new_series') ?></a></p>
+  <?php endif; ?>
   <h2 class="section-label"><?= \App\Lang::t('account.following') ?></h2>
   <?php if ($following === []): ?><p class="empty-state"><?= \App\Lang::t('account.nobody_yet') ?></p>
   <?php else: ?>

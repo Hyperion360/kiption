@@ -18,7 +18,7 @@
     <p class="meta"><?= \App\Lang::t('story.by') ?> <span class="p-author h-card"><?= $this->e($story['penname']) ?></span>
       · <?= $this->e($story['rating_label']) ?><?php if ((int) $story['is_adult'] === 1): ?> <span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
       · <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?>
-      · <?= \App\Lang::t('story.updated_label') ?> <time class="dt-updated" datetime="<?= $this->e($story['updated_at']) ?>"><?= $this->e(substr((string) $story['updated_at'], 0, 10)) ?></time></p>
+      · <?= \App\Lang::t('story.updated_label') ?> <time class="dt-updated" datetime="<?= $this->e($story['updated_at']) ?>"><?= $this->e(\App\Dates::format((string) $story['updated_at'])) ?></time></p>
     <span class="print-hint"><?= \App\Lang::t('story.whole_print_hint') ?></span>
   </header>
   <nav class="whole-toc" aria-label="<?= $this->e(\App\Lang::t('story.whole_toc_aria')) ?>">

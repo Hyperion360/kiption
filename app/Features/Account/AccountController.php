@@ -109,7 +109,8 @@ final class AccountController
             elseif ($r['k'] === '5series') { $seriesList[] = $r; }
             else { $stories[] = $r; }
         }
-        if (($me['i'] ?? null) === 'alpha') {
+        // A member without a saved order gets the owner's default.
+        if (($me['i'] ?? \App\Settings::get('default_sort')) === 'alpha') {
             // default_sort is a PHP-side concern here: the fold's shared ORDER BY
             // cannot vary per branch, so the member's own list re-sorts in place.
             usort($stories, static fn(array $x, array $y): int => strcasecmp((string) $x['b'], (string) $y['b']));
@@ -139,6 +140,7 @@ final class AccountController
     #[AuthAttr] #[Post]
     public function avatar(): Response
     {
+        if (!\App\Settings::on('uploads_on')) return new Response(\App\Lang::t('uploads.off'), 403);
         $file = $this->request->file('avatar');
         if ($file === null) {
             return new Response('Avatar rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.', 422);

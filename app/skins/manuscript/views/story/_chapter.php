@@ -26,8 +26,8 @@
       <a class="u-url" href="/story/view/<?= $this->e($story['slug']) ?>"><?= $this->e($story['title']) ?></a>
       <?= \App\Lang::t('story.by') ?> <span class="p-author h-card"><?= $this->e($story['penname']) ?></span>
       | <?= \App\Lang::t('story.chapter_of', ['n' => $position, 'm' => $total]) ?>
-      | <?= \App\Lang::t('story.published') ?> <time class="dt-published" datetime="<?= $this->e($story['created_at']) ?>"><?= $this->e(substr((string) $story['created_at'], 0, 10)) ?></time>
-      | <?= \App\Lang::t('story.updated_label') ?> <time class="dt-updated" datetime="<?= $this->e($story['updated_at']) ?>"><?= $this->e(substr((string) $story['updated_at'], 0, 10)) ?></time>
+      | <?= \App\Lang::t('story.published') ?> <time class="dt-published" datetime="<?= $this->e($story['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $story['created_at'])) ?></time>
+      | <?= \App\Lang::t('story.updated_label') ?> <time class="dt-updated" datetime="<?= $this->e($story['updated_at']) ?>"><?= $this->e(\App\Dates::format((string) $story['updated_at'])) ?></time>
     </header>
     <div class="prose e-content">
       <div class="manuscript-opening" aria-hidden="true"><span class="mo-rule"></span></div>

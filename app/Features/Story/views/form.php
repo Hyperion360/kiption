@@ -61,7 +61,7 @@
       <label><?= \App\Lang::t('story.cover_label') ?> <input type="file" name="cover" accept="image/png,image/jpeg,image/webp,image/gif"></label>
       <button type="submit"><?= \App\Lang::t('story.upload_cover') ?></button>
     </form>
-    <?php if (!empty($canManageCoauthors)): ?>
+    <?php if (!empty($canManageCoauthors) && \App\Settings::on('coauthors_on')): ?>
     <h2><?= \App\Lang::t('story.coauthors') ?></h2>
     <?php if ($coauthors === []): ?><p class="chapter-meta"><?= \App\Lang::t('common.none_yet') ?></p>
     <?php else: ?>

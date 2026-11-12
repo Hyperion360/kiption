@@ -6,7 +6,7 @@
     <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($challenge['owner_slug']) ?>"><?= $this->e($challenge['owner_penname']) ?></a>
     | <?= \App\Lang::t('common.works_count', ['n' => number_format((int) $challenge['item_count'])]) ?>
     | <?= \App\Lang::t('challenges.m_' . $challenge['membership']) ?>
-    | <?= $this->e(substr((string) $challenge['created_at'], 0, 10)) ?>
+    | <?= $this->e(\App\Dates::format((string) $challenge['created_at'])) ?>
   </p>
   <?php if ($challenge['summary'] !== ''): ?><p><?= $this->e($challenge['summary']) ?></p><?php endif; ?>
   <?php if ($loggedIn && $isOwner): ?><p><a href="/challenges/edit/<?= $this->e($challenge['slug']) ?>"><?= \App\Lang::t('challenges.edit') ?></a></p><?php endif; ?>
@@ -33,7 +33,7 @@
         <span class="chapter-meta">
           (<?= \App\Lang::t('challenges.chapters_count', ['n' => number_format((int) $it['chapter_count'])]) ?>
           | <?= number_format((int) $it['word_count']) ?> <?= \App\Lang::t('story.words') ?>
-          | <?= \App\Lang::t('story.updated', ['date' => $this->e(substr((string) $it['updated_at'], 0, 10))]) ?>)
+          | <?= \App\Lang::t('story.updated', ['date' => $this->e(\App\Dates::format((string) $it['updated_at']))]) ?>)
         </span>
         <?php if ((int) $it['confirmed'] === 0): ?><span class="badge"><?= \App\Lang::t('challenges.pending') ?></span><?php endif; ?>
         <?php if ($isOwner || $isAdmin): ?>

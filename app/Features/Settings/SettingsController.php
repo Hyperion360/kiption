@@ -37,6 +37,8 @@ final class SettingsController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'current' => $this->current(),
+            'dateExamples' => \App\Dates::examples(),
+            'timeExamples' => \App\Dates::timeExamples(),
             'skins' => \App\Skins::installed(['app_dir' => (string) $this->app->config('app_dir', dirname(__DIR__, 2))]),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
@@ -60,7 +62,17 @@ final class SettingsController
             'skin' => (string) ($this->request->post['skin'] ?? \App\Skins::DEFAULT),
             'adult_rta' => (string) ($this->request->post['adult_rta'] ?? ''),
         ];
+        // The newer keys: a checkbox that did not post is OFF, a text or choice that did not post
+        // falls back to its default, so a stale or partial form can never write junk.
+        foreach (\App\Settings::DEFAULTS as $k => $default) {
+            $off = \App\Settings::KEYS[$k] === 'bool' ? '0' : $default;
+            $submitted[$k] = trim((string) ($this->request->post[$k] ?? $off));
+        }
         $invalid = [];
+        $min = (int) $submitted['min_words'];
+        $max = (int) $submitted['max_words'];
+        if ($min > 0 && $max > 0 && $min > $max) $invalid[] = 'min_words';
+        if ($invalid !== []) return new Response('Invalid settings: ' . implode(', ', $invalid), 422);
         foreach ($submitted as $k => $v) {
             try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = $k; }
         }
@@ -76,7 +88,9 @@ final class SettingsController
     {
         $all = \App\Settings::all();
         $bool = static fn (mixed $v): string => ($v === true || $v === '1' || $v === 1) ? '1' : '0';
-        return [
+        $fresh = [];
+        foreach (\App\Settings::DEFAULTS as $k => $_) $fresh[$k] = \App\Settings::get($k);
+        return $fresh + [
             'site_name' => (string) ($all['site_name'] ?? $this->app->config('site_name', 'Kiption')),
             'registration_mode' => (string) ($all['registration_mode'] ?? $this->app->config('registration_mode', 'verify')),
             'validation_required' => (string) ($all['validation_required'] ?? $bool($this->app->config('validation_required'))),

@@ -7,7 +7,7 @@
   <p class="byline">
     <?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($series['owner_slug']) ?>"><?= $this->e($series['owner_penname']) ?></a>
     · <?= \App\Lang::t('common.works_count', ['n' => number_format((int) $series['item_count'])]) ?>
-    · <?= $this->e(substr((string) $series['created_at'], 0, 10)) ?>
+    · <?= $this->e(\App\Dates::format((string) $series['created_at'])) ?>
   </p>
   <?php if (($series['cover_path'] ?? '') !== ''): ?><img class="cover" src="<?= $this->e($series['cover_path']) ?>" alt=""><?php endif; ?>
   <?php if ($series['summary'] !== ''): ?><p class="summary"><?= $this->e($series['summary']) ?></p><?php endif; ?>
@@ -22,7 +22,7 @@
         <span class="meta">
           <?= \App\Lang::t('series.chapters_count', ['n' => number_format((int) $it['chapter_count'])]) ?>
           · <?= number_format((int) $it['word_count']) ?> <?= \App\Lang::t('story.words') ?>
-          · <?= \App\Lang::t('story.updated', ['date' => $this->e(substr((string) $it['updated_at'], 0, 10))]) ?>
+          · <?= \App\Lang::t('story.updated', ['date' => $this->e(\App\Dates::format((string) $it['updated_at']))]) ?>
         </span>
         <?php if ((int) $it['confirmed'] === 0): ?><span class="badge"><?= \App\Lang::t('series.pending') ?></span><?php endif; ?>
         <?php if ($isOwner || $isAdmin): ?>

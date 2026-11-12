@@ -74,6 +74,9 @@ input, select, textarea { caret-color: var(--accent); }
   font-size: 20px; color: var(--ink); text-decoration: none; white-space: nowrap;
 }
 .site-nav { display: flex; align-items: center; gap: 2px; min-height: 44px; }
+/* The owner's tagline: hidden on phones (no room beside the nav), a quiet
+   one-line caption beside the name from 768px up. */
+.tagline { display: none; color: var(--muted); font: 14px/1.2 var(--sans); }
 .site-nav a, .nav-account {
   display: inline-flex; align-items: center; min-height: 44px;
   padding-inline: 12px; white-space: nowrap; text-decoration: none;
@@ -1384,6 +1387,7 @@ body.focus .site-head { display: none; }
   :root { --read-lh:1.72; --read-width:600px; }
   .site-head { min-height: 64px; padding-inline: 40px 28px; }
   .brand { font-size: 22px; }
+  .tagline { display: block; max-width: 22ch; margin-inline-start: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nav-account { display: inline-flex; }
   .nav-menu-link { font-size: 15px; }
   h1 { font-size: 40px; }

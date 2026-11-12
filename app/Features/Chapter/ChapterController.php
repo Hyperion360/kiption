@@ -14,6 +14,7 @@ final class ChapterController
     #[AuthAttr]
     public function new(string $slug): Response|string
     {
+        if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         return $this->form($slug, null, null);
     }
 
@@ -26,9 +27,13 @@ final class ChapterController
     #[AuthAttr] #[Post]
     public function create(string $slug): Response|string
     {
+        if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
         if (trim($content) === '') {
             return new Response($this->form($slug, null, 'Chapter text is required.'), 422);
+        }
+        if (($wordError = $this->wordLimitError($content)) !== null) {
+            return new Response($this->form($slug, null, $wordError), 422);
         }
         try {
             $publishAt = $this->canonicalPublishAt($rawPublishAt);
@@ -70,6 +75,9 @@ final class ChapterController
     public function update(string $slug, int $position): Response|string
     {
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
+        if (($wordError = $this->wordLimitError($content)) !== null) {
+            return new Response($this->form($slug, $position, $wordError), 422);
+        }
         try {
             $publishAt = $this->canonicalPublishAt($rawPublishAt);
         } catch (\InvalidArgumentException) {
@@ -142,6 +150,18 @@ final class ChapterController
             'error' => $error,
             'loggedIn' => true,
         ]);
+    }
+
+    /** The owner's per-chapter word limits (0 means none): a friendly message with the count, or null when fine. */
+    private function wordLimitError(string $content): ?string
+    {
+        $min = (int) \App\Settings::get('min_words');
+        $max = (int) \App\Settings::get('max_words');
+        if ($min === 0 && $max === 0) return null;
+        $n = \App\Markdown::wordCount($content);
+        if ($min > 0 && $n < $min) return \App\Lang::t('chapter.too_short', ['n' => number_format($n), 'min' => number_format($min)]);
+        if ($max > 0 && $n > $max) return \App\Lang::t('chapter.too_long', ['n' => number_format($n), 'max' => number_format($max)]);
+        return null;
     }
 
     private function repo(): AuthoringRepository { return new AuthoringRepository($this->db); }

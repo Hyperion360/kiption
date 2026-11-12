@@ -15,6 +15,7 @@ final class CoauthorController
     #[AuthAttr] #[Post]
     public function add(string $slug): Response|string
     {
+        if (!\App\Settings::on('coauthors_on')) return new Response('Page not found', 404);
         $me = (int) $this->session->get('user_id');
         try {
             $newUserId = $this->authoring()->addCoauthor($slug, trim($this->request->postStr('penname')), $me);
@@ -43,6 +44,7 @@ final class CoauthorController
     #[AuthAttr] #[Post]
     public function remove(string $slug, int $id): Response
     {
+        if (!\App\Settings::on('coauthors_on')) return new Response('Page not found', 404);
         $me = (int) $this->session->get('user_id');
         if (!$this->authoring()->removeCoauthor($slug, $id, $me)) return new Response('Page not found', 404);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ?', [$slug]);
@@ -54,6 +56,7 @@ final class CoauthorController
     #[AuthAttr] #[Post]
     public function leave(string $slug): Response
     {
+        if (!\App\Settings::on('coauthors_on')) return new Response('Page not found', 404);
         $me = (int) $this->session->get('user_id');
         if (!$this->authoring()->removeCoauthor($slug, $me, $me)) return new Response('Page not found', 404);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ?', [$slug]);
