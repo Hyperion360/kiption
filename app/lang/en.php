@@ -105,6 +105,7 @@ return [
     'auth.register.invite_code' => 'Invite code',
     'auth.register.submit' => 'Register',
     'auth.register.have_account' => 'Already have an account?',
+    'auth.register.leave_empty' => 'Leave this empty',
     'auth.register.err_check' => 'That did not look like a person signing up. Please reload the page and try again.',
     'auth.register.err_question' => 'That answer was not right. Please try again.',
     'auth.forgot.title' => 'Reset password',

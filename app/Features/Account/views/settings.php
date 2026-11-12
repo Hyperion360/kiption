@@ -74,11 +74,15 @@
   <h2 class="section-label"><?= \App\Lang::t('account.section_fields') ?></h2>
   <form method="post" action="/account/fields">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-    <?php foreach ($profileFields as $pf): ?>
+    <?php foreach ($profileFields as $pf):
+      $pfName = 'field[' . (int) $pf['id'] . ']';
+      $pfKind = $pf['type'] === 'url' ? 'url' : 'text';
+      $pfMax = $pf['type'] === 'url' ? 500 : 200;
+      $pfOn = $pf['value'] === '1' ? ' checked' : ''; ?>
     <?php if ($pf['type'] === 'yesno'): ?>
-    <label><input type="checkbox" name="field[<?= (int) $pf['id'] ?>]" value="1"<?= $pf['value'] === '1' ? ' checked' : '' ?>> <?= $this->e($pf['label']) ?></label>
+    <label><input type="checkbox" value="1" name="<?= $this->e($pfName) ?>"<?= $pfOn ?>> <?= $this->e($pf['label']) ?></label>
     <?php else: ?>
-    <label><?= $this->e($pf['label']) ?> <input type="<?= $pf['type'] === 'url' ? 'url' : 'text' ?>" name="field[<?= (int) $pf['id'] ?>]" maxlength="<?= $pf['type'] === 'url' ? 500 : 200 ?>" value="<?= $this->e($pf['value']) ?>"></label>
+    <label><?= $this->e($pf['label']) ?> <input <?= 'type="' . $pfKind . '" maxlength="' . $pfMax . '" name="' . $this->e($pfName) . '" value="' . $this->e($pf['value']) . '"' ?>></label>
     <?php endif; ?>
     <?php endforeach; ?>
     <button type="submit"><?= \App\Lang::t('account.fields_save') ?></button>
