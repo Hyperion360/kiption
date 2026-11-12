@@ -5,6 +5,14 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class AccountController
 {
+    /** The ?done= values settings() turns into a confirmation line. */
+    private const DONE = ['password', 'emailsent', 'fields'];
+
+    /** Values for the refusal line (already HTML-safe) and the answers a
+     *  member typed, so a refused form comes back as they left it. */
+    private array $errorParams = [];
+    private ?array $submittedFields = null;
+
     public function __construct(
         private View $view,
         private Request $request,
@@ -13,6 +21,136 @@ final class AccountController
         private App $app,
         private Storage $storage,
     ) {}
+
+    /** Resolved on use: only the email actions need mail, so a page that never
+     *  sends does not require a configured transport. */
+    private function mailer(): \App\MailGuard
+    {
+        return $this->app->container->make(\App\MailGuard::class);
+    }
+
+    /** Save the member's answers to the owner's profile fields. */
+    #[AuthAttr] #[Post]
+    public function fields(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $given = $this->request->post['field'] ?? [];
+        $input = [];
+        foreach (\is_array($given) ? $given : [] as $id => $v) if (\is_scalar($v)) $input[(int) $id] = (string) $v;
+        $err = (new \App\ProfileFields($this->db))->save($me, $input);
+        if ($err !== null) {
+            $this->submittedFields = $input;
+            return $this->refuse($err[0], ['label' => htmlspecialchars($err[1], ENT_QUOTES, 'UTF-8')]);
+        }
+        $this->purgeOwnProfile($me);
+        return Response::redirect('/account/settings?done=fields');
+    }
+
+    /** Ask to change the email address: password re-checked, a confirm link
+     *  goes to the NEW address, and nothing changes until it is used. */
+    #[AuthAttr] #[Post]
+    public function email(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $new = trim($this->request->postStr('new_email'));
+        [$err, $token] = $this->security()->requestEmailChange($me, $new, $this->request->postStr('current_password'), $this->request->ip);
+        if ($err !== null) return $this->refuse($err);
+        $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/account/emailconfirm?t=' . $token;
+        [$subject, $body] = \App\Templates::get($this->db, 'email_change_confirm', 'Confirm your new email address',
+            "Someone asked to use this address for an account on the archive. To confirm it is yours, open this link:\n\n{url}\n\n"
+            . "The link works once and expires in 24 hours. If this wasn't you, ignore this email and nothing will change.");
+        try {
+            $this->mailer()->send($new, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
+        } catch (\Throwable $e) {
+            error_log("Email change mail failed: {$e->getMessage()}");
+            return $this->refuse('account.err_email_mail');
+        }
+        return Response::redirect('/account/settings?done=emailsent');
+    }
+
+    /** The emailed link lands here. Opening it changes nothing (mail scanners
+     *  prefetch links); the button POSTs to emailapply. No sign-in needed. */
+    public function emailconfirm(): Response
+    {
+        $token = (string) ($this->request->get['t'] ?? '');
+        if (!$this->security()->peekEmailChange($token)) return $this->emailView(null, 410);
+        return $this->emailView($token, 200);
+    }
+
+    #[Post]
+    public function emailapply(): Response
+    {
+        $res = $this->security()->applyEmailChange($this->request->postStr('t'));
+        if (\is_string($res)) return $this->emailView(null, 410, $res);
+        [$subject, $body] = \App\Templates::get($this->db, 'email_changed_notice', 'Your email address was changed',
+            "The email address on your archive account was changed to {new_email}.\n\n"
+            . "If you did this, there is nothing more to do. If you didn't, contact the archive owner right away.");
+        try {
+            $this->mailer()->send($res['old'], $subject, strtr($body, ['{new_email}' => $res['new']]), \App\MailGuard::CRITICAL);
+        } catch (\Throwable $e) {
+            error_log("Email change notice failed: {$e->getMessage()}");
+        }
+        return $this->emailView(null, 200, 'account.email_link_done');
+    }
+
+    private function emailView(?string $token, int $status, ?string $message = null): Response
+    {
+        $title = \App\Lang::t('account.email_confirm_heading');
+        $html = $this->view->render('account/emailconfirm', ['title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical('/account/emailconfirm')->withNoindex(),
+            'csrf' => $this->session->csrfToken(), 'token' => $token, 'message' => $message]);
+        return (new Response($html, $status))
+            ->withHeader('Referrer-Policy', 'no-referrer')
+            ->withHeader('Cache-Control', 'private, no-store');
+    }
+
+    /** The confirm step for deleting the account: password and what happens
+     *  to the stories. Nothing is deleted by opening this page. */
+    #[AuthAttr]
+    public function delete(): string
+    {
+        $me = (int) $this->session->get('user_id');
+        $title = \App\Lang::t('account.delete_heading');
+        return $this->view->render('account/delete', ['title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical('/account/delete')->withNoindex(),
+            'csrf' => $this->session->csrfToken(), 'error' => null,
+            'lastAdmin' => $this->security()->isLastAdmin($me)]);
+    }
+
+    #[AuthAttr] #[Post]
+    public function destroy(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $stories = $this->request->postStr('stories');
+        $avatar = $this->db->one('SELECT avatar_path FROM users WHERE id = ?', [$me])['avatar_path'] ?? null;
+        $title = \App\Lang::t('account.delete_heading');
+        $err = !\in_array($stories, ['keep', 'remove'], true) ? 'account.err_delete_choice'
+            : $this->security()->deleteAccount($me, $this->request->postStr('current_password'), $stories === 'keep', $this->request->ip);
+        if ($err !== null) {
+            $html = $this->view->render('account/delete', ['title' => $title,
+                'head' => $this->head()->withTitle($title)->withCanonical('/account/delete')->withNoindex(),
+                'csrf' => $this->session->csrfToken(), 'error' => $err,
+                'lastAdmin' => $this->security()->isLastAdmin($me)]);
+            return new Response($html, $err === \App\AccountSecurity::THROTTLED ? 429 : 422);
+        }
+        $this->afterDelete($avatar === null ? null : (string) $avatar);
+        return Response::redirect('/')
+            ->withAddedHeader('Set-Cookie', \App\Cookie::long('lang', ''))
+            ->withAddedHeader('Set-Cookie', \App\Cookie::pref(\App\Theme::COOKIE, ''));
+    }
+
+    /** The row is gone: end the session and refresh the public pages that
+     *  showed this member or their stories. */
+    private function afterDelete(?string $avatar): void
+    {
+        if ($avatar !== null && $avatar !== '') {
+            // basename() keeps the delete inside the configured uploads dir.
+            $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
+            @unlink($dir . '/' . basename($avatar));
+        }
+        (new \Kip\Auth($this->db, $this->session))->logout();
+        \App\StaticCache\Cache::configured($this->app)->purgeAll();
+    }
 
     /** The Library: the reading shelf, the member's own work and follows. */
     #[AuthAttr]
@@ -26,11 +164,44 @@ final class AccountController
     #[AuthAttr]
     public function settings(): string
     {
-        return $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings')));
+        $done = (string) ($this->request->get['done'] ?? '');
+        $notice = \in_array($done, self::DONE, true) ? 'account.done_' . $done : null;
+        return $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'), $notice));
+    }
+
+    /** The settings page again with a refusal message, for a failed security form. */
+    private function refuse(string $errorKey, array $params = []): Response
+    {
+        $status = $errorKey === \App\AccountSecurity::THROTTLED ? 429 : 422;
+        $this->errorParams = $params;
+        $html = $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'), null, $errorKey));
+        return new Response($html, $status);
+    }
+
+    private function security(): \App\AccountSecurity
+    {
+        return new \App\AccountSecurity($this->db, new \App\AttemptLimiter($this->db));
+    }
+
+    /** Change the password while signed in: current password, new one twice. */
+    #[AuthAttr] #[Post]
+    public function password(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $err = $this->security()->changePassword($me, $this->request->postStr('current_password'),
+            $this->request->postStr('new_password'), $this->request->postStr('confirm_password'), $this->request->ip);
+        if ($err !== null) return $this->refuse($err);
+        // The hash changed, so every older session is already void. This one
+        // gets a fresh id (fixation defense) and the new epoch so it stays in.
+        $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$me])['password_hash'];
+        if (session_status() === PHP_SESSION_ACTIVE) session_regenerate_id(true);
+        $this->session->rotateCsrf();
+        $this->session->set('pwd_epoch', substr($hash, 0, \Kip\Auth::EPOCH_LEN));
+        return Response::redirect('/account/settings?done=password');
     }
 
     /** @return array<string, mixed> the shared envelope of both account pages */
-    private function page(string $canonical, string $title): array
+    private function page(string $canonical, string $title, ?string $notice = null, ?string $error = null): array
     {
         $userId = (int) $this->session->get('user_id');
         // The muted-authors block folds into the compound as a seventh branch
@@ -49,8 +220,18 @@ final class AccountController
              SELECT '0mu' AS k, u3.profile_slug AS a, u3.penname AS b, NULL AS c, NULL AS d, u3.penname AS e,
                     NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m, NULL AS n, NULL AS o
              FROM muted mu2 JOIN users u3 ON u3.id = mu2.author_id WHERE mu2.user_id = ?" : '';
+        // The owner's profile fields with this member's answers: one more
+        // branch, '0fl', so settings stays one content query. a=id, b=label,
+        // c=type, d=answer; e carries the display order for the shared ORDER BY.
+        $fieldsBranch = "
+             UNION ALL
+             SELECT '0fl' AS k, CAST(pf.id AS TEXT) AS a, pf.label AS b, pf.type AS c, pv.value AS d,
+                    printf('%08d%08d', pf.position, pf.id) AS e,
+                    NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS l, NULL AS m, NULL AS n, NULL AS o
+             FROM profile_fields pf LEFT JOIN profile_field_values pv ON pv.field_id = pf.id AND pv.user_id = ?";
         $binds = [$userId, $userId, $userId, $userId, $userId, $userId];
         if ($mutedBranch !== '') $binds[] = $userId;
+        $binds[] = $userId;
         $rows = $this->db->all(
             "SELECT '0me' AS k, u.penname AS a, u.email AS b, u.role AS c, u.avatar_path AS d, u.support_url AS e,
                     (SELECT p.notify_favorite_digest FROM user_prefs p WHERE p.user_id = u.id) AS f,
@@ -85,7 +266,7 @@ final class AccountController
                     CAST((SELECT COUNT(*) FROM series_items si JOIN stories st ON st.id = si.story_id
                           WHERE si.series_id = ser.id AND si.confirmed = 0 AND st.deleted_at IS NULL) AS TEXT) d,
                     ser.membership e, NULL f, NULL g, NULL h, NULL i, NULL j, NULL l, NULL m, NULL n, NULL o
-             FROM series ser WHERE ser.owner_id = ?" . $mutedBranch .
+             FROM series ser WHERE ser.owner_id = ?" . $mutedBranch . $fieldsBranch .
             ' ORDER BY k, e LIMIT 250', $binds);
         // New alias note: the notify toggles are j/l/m because k is already the
         // branch discriminator; all three COALESCE to 1 so a prefs-less member
@@ -100,8 +281,10 @@ final class AccountController
         $progress = [];
         $marked = [];
         $muted = [];
+        $profileFields = [];
         foreach ($rows as $r) {
             if ($r['k'] === '0me') { $me = $r; }
+            elseif ($r['k'] === '0fl') { $profileFields[] = ['id' => (int) $r['a'], 'label' => (string) $r['b'], 'type' => (string) $r['c'], 'value' => (string) ($r['d'] ?? '')]; }
             elseif ($r['k'] === '0mu') { $muted[] = ['profile_slug' => (string) $r['a'], 'penname' => (string) $r['b']]; }
             elseif ($r['k'] === '1follow') { $following[] = $r; }
             elseif ($r['k'] === '2progress') { $progress[] = $r; }
@@ -114,6 +297,10 @@ final class AccountController
             // default_sort is a PHP-side concern here: the fold's shared ORDER BY
             // cannot vary per branch, so the member's own list re-sorts in place.
             usort($stories, static fn(array $x, array $y): int => strcasecmp((string) $x['b'], (string) $y['b']));
+        }
+        if ($this->submittedFields !== null) {
+            foreach ($profileFields as &$pf) $pf['value'] = (string) ($this->submittedFields[$pf['id']] ?? '');
+            unset($pf);
         }
         return [
             'title' => $title,
@@ -134,6 +321,10 @@ final class AccountController
             'themePref' => (string) ($me['o'] ?? ''),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
+            'notice' => $notice,
+            'error' => $error,
+            'errorParams' => $this->errorParams,
+            'profileFields' => $profileFields,
         ];
     }
 

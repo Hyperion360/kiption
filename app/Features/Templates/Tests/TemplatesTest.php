@@ -89,8 +89,8 @@ final class TemplatesTest extends TestCase
         \App\Templates::seedDefaults($db);
         $this->assertGreaterThan(5, (int) $db->one('SELECT COUNT(*) c FROM mail_templates')['c'], 'seeded rows exist');
         \App\Templates::seedDefaults($db); // idempotent
-        $this->assertSame(8, (int) $db->one('SELECT COUNT(*) c FROM mail_templates')['c'],
-            'the seven distinct names, the earlier override preserved, no duplicates');
+        $this->assertSame(11, (int) $db->one('SELECT COUNT(*) c FROM mail_templates')['c'],
+            'the eleven distinct names, the earlier override preserved, no duplicates');
     }
 
     public function test_call_site_uses_the_template(): void
@@ -114,7 +114,7 @@ final class TemplatesTest extends TestCase
         $this->assertSame(200, $index->status);
         $this->assertStringContainsString('password_reset', $index->body);
         $this->assertStringContainsString('Reset your password', $index->body);
-        $this->assertSame(8, (int) $this->db()->one('SELECT COUNT(*) c FROM mail_templates')['c'], 'index seeds the eight names');
+        $this->assertSame(11, (int) $this->db()->one('SELECT COUNT(*) c FROM mail_templates')['c'], 'index seeds the eleven names');
         // the editor prefills and documents the placeholder vocabulary
         $edit = $admin->get('/templates/edit/password_reset');
         $this->assertSame(200, $edit->status);

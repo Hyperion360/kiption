@@ -66,6 +66,7 @@ final class InvitesTest extends TestCase
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-invite-upl'],
+            'signup_min_seconds' => 0, // the register post below skips loading the form
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ], $config)));
         return $as === null ? $client : $client->actingAs($as);

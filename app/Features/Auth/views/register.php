@@ -9,6 +9,11 @@
     <label><?= \App\Lang::t('auth.email') ?> <input type="email" name="email" required value="<?= $this->e($email ?? '') ?>"></label>
     <label><?= \App\Lang::t('auth.password') ?> <input type="password" name="password" required minlength="8"></label>
     <label><?= \App\Lang::t('auth.register.confirm_password') ?> <input type="password" name="confirm" required minlength="8"></label>
+    <div hidden aria-hidden="true"><label><?= \App\Lang::t('auth.register.leave_empty') ?> <input type="text" name="homepage" value="" tabindex="-1" autocomplete="off"></label></div>
+    <input type="hidden" name="form_ts" value="<?= $this->e($stamp ?? '') ?>">
+    <?php if (!empty($question)): ?>
+      <label><?= $this->e($question) ?> <input name="check_answer" required maxlength="100" autocomplete="off"></label>
+    <?php endif; ?>
     <?php if (($mode ?? '') === 'invite'): ?>
       <label><?= \App\Lang::t('auth.register.invite_code') ?> <input name="invite" required value="<?= $this->e($invite ?? '') ?>"></label>
     <?php endif; ?>

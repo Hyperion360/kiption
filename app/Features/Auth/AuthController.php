@@ -148,7 +148,20 @@ final class AuthController
             'error' => null,
             'mode' => (string) $this->app->config('registration_mode', 'verify'),
             'terms_url' => (string) $this->app->config('signup_terms_url', ''),
-        ]);
+        ] + $this->checkFields());
+    }
+
+    private function signupCheck(): \App\SignupCheck
+    {
+        return new \App\SignupCheck($this->db, $this->session, (int) $this->app->config('signup_min_seconds', 3));
+    }
+
+    /** The view variables for the signup spam checks: the signed fill-time
+     *  stamp and the owner's question, when there is one. */
+    private function checkFields(): array
+    {
+        $check = $this->signupCheck();
+        return ['stamp' => $check->stamp(), 'question' => $check->question()['question'] ?? null];
     }
 
     #[Post]
@@ -158,6 +171,12 @@ final class AuthController
         $penname = $this->request->postStr('penname');
         $email = $this->request->postStr('email');
         $password = $this->request->postStr('password');
+        $refusal = $this->signupCheck()->verify([
+            \App\SignupCheck::HONEYPOT => $this->request->postStr(\App\SignupCheck::HONEYPOT),
+            \App\SignupCheck::STAMP => $this->request->postStr(\App\SignupCheck::STAMP),
+            \App\SignupCheck::ANSWER => $this->request->postStr(\App\SignupCheck::ANSWER),
+        ]);
+        if ($refusal !== null) return $this->registerError($mode, \App\Lang::t($refusal), $penname, $email);
         if ($password !== $this->request->postStr('confirm')) {
             return $this->registerError($mode, \App\Lang::t('auth.err_mismatch'), $penname, $email);
         }
@@ -203,7 +222,7 @@ final class AuthController
             'mode' => $mode,
             'terms_url' => (string) $this->app->config('signup_terms_url', ''),
             'penname' => $penname, 'email' => $email, 'invite' => $this->request->postStr('invite'),
-        ]), 422);
+        ] + $this->checkFields()), 422);
     }
 
     #[AuthAttr] #[Post]

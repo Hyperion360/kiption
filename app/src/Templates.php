@@ -10,7 +10,7 @@ use Kip\Database;
  *  below carry the same {placeholders} the call sites feed to strtr, which is
  *  what keeps the fallthrough byte-identical after seeding too.
  *
- *  Seven distinct names: the queue's approve/publish path and the chapter
+ *  Distinct names: the queue's approve/publish path and the chapter
  *  controller's publish path send the SAME story_update mail (finding 15). */
 final class Templates
 {
@@ -22,6 +22,11 @@ final class Templates
         'we_moved' => [],
         'password_reset' => ['{url}' => 'the password reset link'],
         'signin_link' => ['{url}' => 'the one-time sign-in link'],
+        'site_contact' => [
+            '{name}' => 'the sender\'s name', '{email}' => 'the sender\'s email address', '{message}' => 'the message text',
+        ],
+        'email_change_confirm' => ['{url}' => 'the link that confirms the new email address'],
+        'email_changed_notice' => ['{new_email}' => 'the new email address'],
         'coauthor_added' => [
             '{title}' => 'the story title',
             '{slug}' => 'the story slug',
@@ -61,6 +66,15 @@ final class Templates
             "Here is the sign-in link you asked for:\n\n{url}\n\n"
             . "It works once, for the next 30 minutes. Open it on the device you want to sign in on.\n\n"
             . "If you didn't ask for this, you can ignore this email."],
+        'site_contact' => ['New message from the contact form',
+            "{name} ({email}) wrote through the contact form:\n\n{message}\n\n"
+            . "Reply to this person at {email}. They are not signed in."],
+        'email_change_confirm' => ['Confirm your new email address',
+            "Someone asked to use this address for an account on the archive. To confirm it is yours, open this link:\n\n{url}\n\n"
+            . "The link works once and expires in 24 hours. If this wasn't you, ignore this email and nothing will change."],
+        'email_changed_notice' => ['Your email address was changed',
+            "The email address on your archive account was changed to {new_email}.\n\n"
+            . "If you did this, there is nothing more to do. If you didn't, contact the archive owner right away."],
         'coauthor_added' => ['You were added as a coauthor on {title}',
             "You were added as a coauthor on \"{title}\".\n\nView and manage the story:\n{url}"],
         'member_contact' => ['Message from {penname}',

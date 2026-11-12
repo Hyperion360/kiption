@@ -18,6 +18,14 @@
   <?php if (($profile['bio'] ?? '') !== ''): ?>
     <div class="prose p-note"><?= \App\Markdown::render((string) $profile['bio']) /* markdown at rest; raw HTML cannot be stored */ ?></div>
   <?php endif; ?>
+  <?php if ($fields !== []): ?>
+  <dl class="profile-fields">
+    <?php foreach ($fields as $f): ?>
+    <dt><?= $this->e($f['label']) ?></dt>
+    <dd><?php if ($f['type'] === 'url'): ?><a href="<?= $this->e($f['url']) ?>" rel="noopener nofollow"><?= $this->e($f['value']) ?></a><?php elseif ($f['type'] === 'yesno'): ?><?= \App\Lang::t('profilefields.yes') ?><?php else: ?><?= $this->e($f['value']) ?><?php endif; ?></dd>
+    <?php endforeach; ?>
+  </dl>
+  <?php endif; ?>
   <?php if (!empty($profile['support_url'])): ?>
   <p><a href="<?= $this->e($profile['support_url']) ?>" rel="noopener nofollow"><?= \App\Lang::t('user.support', ['name' => $this->e($profile['penname'])]) ?></a></p>
   <?php endif; ?>

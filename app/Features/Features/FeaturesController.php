@@ -56,6 +56,7 @@ final class FeaturesController
         } catch (\InvalidArgumentException) {
             return new Response(\App\Lang::t('admin.err_flag'), 422);
         }
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'features.toggle', $key);
         \App\CachePurge::run($this->app, $this->db);
         return Response::redirect('/features');
     }

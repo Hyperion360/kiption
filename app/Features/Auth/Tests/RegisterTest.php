@@ -38,6 +38,7 @@ final class RegisterTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
             'site_name' => 'Kiption',
             'base_url' => 'https://archive.example',
+            'signup_min_seconds' => 0, // these tests post the form without loading it first
         ], $overrides);
         return new TestClient(new App($config));
     }

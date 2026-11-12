@@ -9,6 +9,8 @@
     <h1><?= \App\Lang::t('account.settings') ?></h1>
     <p class="lede"><?= $this->e($me['a']) ?> · <?= $this->e($me['b']) ?> · <span class="badge"><?= $this->e($me['c']) ?></span></p>
   </header>
+  <?php if (!empty($notice)): ?><p class="notice" role="status"><?= \App\Lang::t($notice) ?></p><?php endif; ?>
+  <?php if (!empty($error)): ?><p class="error" role="alert"><?= \App\Lang::t($error, $errorParams ?? []) ?></p><?php endif; ?>
   <div class="settings-group">
   <h2 class="section-label"><?= \App\Lang::t('account.section_profile') ?></h2>
 
@@ -69,6 +71,45 @@
     <button type="submit"><?= \App\Lang::t('account.save_prefs') ?></button>
   </form>
     </div>
+  <?php if (!empty($profileFields)): ?>
+  <div class="settings-group">
+  <h2 class="section-label"><?= \App\Lang::t('account.section_fields') ?></h2>
+  <form method="post" action="/account/fields">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <?php foreach ($profileFields as $pf):
+      $pfName = 'field[' . (int) $pf['id'] . ']';
+      $pfKind = $pf['type'] === 'url' ? 'url' : 'text';
+      $pfMax = $pf['type'] === 'url' ? 500 : 200;
+      $pfOn = $pf['value'] === '1' ? ' checked' : ''; ?>
+    <?php if ($pf['type'] === 'yesno'): ?>
+    <label><input type="checkbox" value="1" name="<?= $this->e($pfName) ?>"<?= $pfOn ?>> <?= $this->e($pf['label']) ?></label>
+    <?php else: ?>
+    <label><?= $this->e($pf['label']) ?> <input <?= 'type="' . $pfKind . '" maxlength="' . $pfMax . '" name="' . $this->e($pfName) . '" value="' . $this->e($pf['value']) . '"' ?>></label>
+    <?php endif; ?>
+    <?php endforeach; ?>
+    <button type="submit"><?= \App\Lang::t('account.fields_save') ?></button>
+  </form>
+  </div>
+  <?php endif; ?>
+  <div class="settings-group">
+  <h2 class="section-label"><?= \App\Lang::t('account.section_security') ?></h2>
+  <form method="post" action="/account/password">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <h3><?= \App\Lang::t('account.password_heading') ?></h3>
+    <label><?= \App\Lang::t('account.current_password') ?> <input type="password" name="current_password" required autocomplete="current-password"></label>
+    <label><?= \App\Lang::t('account.new_password') ?> <input type="password" name="new_password" required minlength="8" autocomplete="new-password"></label>
+    <label><?= \App\Lang::t('account.confirm_new_password') ?> <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password"></label>
+    <button type="submit"><?= \App\Lang::t('account.password_save') ?></button>
+  </form>
+  <form method="post" action="/account/email">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <h3><?= \App\Lang::t('account.email_heading') ?></h3>
+    <label><?= \App\Lang::t('account.new_email') ?> <input type="email" name="new_email" required maxlength="254" autocomplete="email"></label>
+    <label><?= \App\Lang::t('account.current_password') ?> <input type="password" name="current_password" required autocomplete="current-password"></label>
+    <button type="submit"><?= \App\Lang::t('account.email_save') ?></button>
+  </form>
+  <p><a href="/account/delete"><?= \App\Lang::t('account.delete_link') ?></a></p>
+  </div>
   <?php if (\App\Features::on('mute')): ?>
   <h2 class="section-label"><?= \App\Lang::t('account.muted') ?></h2>
   <?php if ($muted === []): ?><p class="empty-state"><?= \App\Lang::t('account.nobody_muted') ?></p>

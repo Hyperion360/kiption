@@ -74,6 +74,7 @@ final class AdminmembersController
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
         Adminness::setRole($this->db, (int) $id, $role); // the iff invariant lives there
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.role', 'member ' . (int) $id . ' is now ' . $role);
         return Response::redirect('/adminmembers');
     }
 
