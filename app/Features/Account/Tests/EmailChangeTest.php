@@ -166,4 +166,34 @@ final class EmailChangeTest extends TestCase
         $this->ask('two@example.test');
         $this->assertFalse((new \App\AccountSecurity($this->db, new \App\AttemptLimiter($this->db)))->peekEmailChange($first));
     }
+
+    /** @return iterable<string, array{string}> */
+    public static function deadAccounts(): iterable
+    {
+        yield 'locked' => ['UPDATE users SET is_locked = 1 WHERE penname = \'betafriend\''];
+        yield 'deleted' => ['UPDATE users SET email = \'deleted-9@deleted.invalid\' WHERE penname = \'betafriend\''];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('deadAccounts')]
+    public function test_a_locked_or_deleted_account_cannot_apply_an_email_change(string $sql): void
+    {
+        $this->ask();
+        $t = $this->token();
+        $this->db->query($sql);
+        $before = $this->email();
+        $acc = new \App\AccountSecurity($this->db, new \App\AttemptLimiter($this->db));
+        $this->assertSame('account.email_link_expired', $acc->applyEmailChange($t));
+        $this->assertSame($before, $this->email());
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM email_changes')['c'], 'the token is burned');
+    }
+
+    public function test_applying_a_change_deletes_pending_sign_in_links(): void
+    {
+        $id = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
+        (new \App\LoginLinks($this->db))->mint($id, 1800);
+        $this->ask();
+        $acc = new \App\AccountSecurity($this->db, new \App\AttemptLimiter($this->db));
+        $this->assertIsArray($acc->applyEmailChange($this->token()));
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM login_links WHERE user_id = ?', [$id])['c']);
+    }
 }

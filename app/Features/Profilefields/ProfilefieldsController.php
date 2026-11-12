@@ -2,7 +2,7 @@
 namespace App\Features\Profilefields;
 use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
-use Kip\Routing\Post;
+use Kip\Routing\{Auth as AuthAttr, Post};
 
 /** Admin screen for the author profile fields: add, rename, reorder, delete
  *  (deleting asks first, on its own page). Same epoch-checked admin gate as
@@ -21,7 +21,7 @@ final class ProfilefieldsController
         return $this->page(null, 200);
     }
 
-    #[Post]
+    #[AuthAttr] #[Post]
     public function add(): Response|string
     {
         if (($gate = $this->gate()) !== null) return $gate;
@@ -29,14 +29,14 @@ final class ProfilefieldsController
         return $this->done($err, 'add', $this->request->postStr('label'));
     }
 
-    #[Post]
+    #[AuthAttr] #[Post]
     public function rename(string $id): Response|string
     {
         if (($gate = $this->gate()) !== null) return $gate;
         return $this->done($this->fields()->rename((int) $id, $this->request->postStr('label')), 'rename', $this->request->postStr('label'));
     }
 
-    #[Post]
+    #[AuthAttr] #[Post]
     public function move(string $id): Response|string
     {
         if (($gate = $this->gate()) !== null) return $gate;
@@ -54,7 +54,7 @@ final class ProfilefieldsController
             'csrf' => $this->session->csrfToken(), 'loggedIn' => true, 'isAdmin' => true, 'field' => $field]);
     }
 
-    #[Post]
+    #[AuthAttr] #[Post]
     public function destroy(string $id): Response|string
     {
         if (($gate = $this->gate()) !== null) return $gate;

@@ -28,11 +28,23 @@ final class Boot
     public static function late(array $config, Database $db, mixed $cookie = null, bool $cookieAllowed = false): void
     {
         if (!Lang::siteTextReady()) {
-            try {
-                $db->one('SELECT 1 FROM site_text LIMIT 1'); // throws when the table is not migrated yet
-                Compiler::compile($db, self::dir($config));
-            } catch (\Throwable $e) {
-                // an unmigrated or unwritable setup keeps the built-in text
+            // Back off for five minutes after a failed compile, so a read-only
+            // or unmigrated deploy does not retry (and log) on every request.
+            $marker = self::dir($config) . '.failed';
+            $mtime = @filemtime($marker);
+            if ($mtime === false || time() - $mtime >= 300) {
+                $ok = false;
+                try {
+                    $db->one('SELECT 1 FROM site_text LIMIT 1'); // throws when the table is not migrated yet
+                    $ok = Compiler::compile($db, self::dir($config)) !== false;
+                } catch (\Throwable $e) {
+                    // an unmigrated or unwritable setup keeps the built-in text
+                }
+                if ($ok) {
+                    @unlink($marker);
+                } else {
+                    @touch($marker);
+                }
             }
         }
         self::choose($config['ui_lang'] ?? 'en', $cookieAllowed ? $cookie : null);

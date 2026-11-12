@@ -1135,6 +1135,8 @@ return [
     'wordfilter.saved' => 'Word filter saved.',
     'wordfilter.count' => '{count} entries',
     'wordfilter.err_too_many' => 'The list is limited to {max} entries.',
+    'wordfilter.err_too_long' => 'A word or phrase can be at most {max} characters.',
+    'wordfilter.err_chars' => 'A word or phrase cannot contain <, > or " characters.',
     'wordfilter.err_utf8' => 'The list contains characters that cannot be saved.',
     'wordfilter.blocked' => 'Your text includes a word this archive does not allow ("{word}"). Please change it and try again.',
     'manage.heading' => 'Archive admin',

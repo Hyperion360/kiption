@@ -120,6 +120,18 @@ final class TextTest extends TestCase
         $this->assertSame(404, $c->get('/text', ['lang' => 'zz'])->status);
     }
 
+    public function test_a_save_that_cannot_reach_the_live_site_is_not_a_success(): void
+    {
+        file_put_contents($this->root . "/blocker", "x"); // a file where the folder should go
+        $c = $this->client($this->adminId, ["site_text_dir" => $this->root . "/blocker/site-text"]);
+        try {
+            $status = $c->postWithToken("/text/save", ["lang" => "en", "key" => "nav.login", "value" => "Sign in"])->status;
+        } catch (\RuntimeException $e) {
+            $status = 500;
+        }
+        $this->assertNotSame(302, $status, "the owner must not be told the save went live");
+    }
+
     public function test_save_changes_the_site_and_an_empty_value_reverts(): void
     {
         $c = $this->client($this->adminId);

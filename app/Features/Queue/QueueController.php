@@ -80,11 +80,11 @@ final class QueueController
     {
         if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
         if ($op === 'approve') {
-            $this->db->query('UPDATE users SET approved_at = COALESCE(approved_at, ?) WHERE id = ?', [date('c'), (int) $id]);
+            $this->db->query('UPDATE users SET approved_at = ? WHERE id = ? AND approved_at IS NULL', [date('c'), (int) $id]);
         } elseif ($op === 'reject') {
-            $who = $this->db->one('SELECT email, penname FROM users WHERE id = ? AND approved_at IS NULL AND is_locked = 0', [(int) $id]);
-            $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $id]);
-            if ($who !== null) {
+            $who = $this->db->one('SELECT email, penname FROM users WHERE id = ? AND approved_at IS NULL AND is_locked = 0 AND role = \'member\'', [(int) $id]);
+            $locked = $this->db->query("UPDATE users SET is_locked = 1 WHERE id = ? AND approved_at IS NULL AND role = 'member'", [(int) $id])->rowCount();
+            if ($who !== null && $locked === 1) {
                 $this->mailApplicant('member_rejected', (string) $who['email'], [
                     '{penname}' => (string) ($who['penname'] ?? ''),
                     '{reason}' => $this->reason('queue.default_member_reason'),

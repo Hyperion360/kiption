@@ -71,8 +71,9 @@ final class LoginLinks
      *  not the address has an account; returns the token only when it does. */
     public function request(string $email, string $ip): ?string
     {
+        $email = mb_strtolower(trim($email));
         if (!$this->claim($email, $ip)) return null;
-        $user = $this->db->one('SELECT id FROM users WHERE email = ?', [$email]);
+        $user = $this->db->one('SELECT id FROM users WHERE lower(email) = ?', [$email]);
         return $user === null ? null : $this->mint((int) $user['id'], self::REQUEST_TTL);
     }
 

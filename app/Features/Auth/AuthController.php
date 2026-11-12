@@ -358,7 +358,11 @@ final class AuthController
         // The link went to the account's address, so using it verifies the
         // email, the same as the verification link would.
         if ($user['email_verified_at'] === null) {
-            $this->markVerified('id = ?', (int) $user['id']);
+            // Someone may have pre-registered this address with a password of
+            // their own: verifying by link retires that password too.
+            $changed = $this->db->query('UPDATE users SET email_verified_at = ?, password_hash = ? WHERE id = ? AND email_verified_at IS NULL',
+                [date('c'), password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT), (int) $user['id']])->rowCount();
+            if ($changed > 0) (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
             $user = $this->db->one('SELECT * FROM users WHERE id = ?', [$user['id']]) ?? $user;
         }
         $refusal = match (true) {
@@ -389,7 +393,7 @@ final class AuthController
         if ($changed > 0) (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
     }
 
-        /** @param null|'sent'|'expired' $state */
+    /** @param null|'sent'|'expired' $state */
     private function linkView(?string $state, int $status): Response
     {
         $title = \App\Lang::t('auth.link.title');

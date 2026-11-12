@@ -27,8 +27,7 @@ final class MassMail
         $mailed = 0;
         foreach ($recipients as $email) {
             try {
-                $mailer->send($email, $subject, $body);
-                $mailed++;
+                if ($mailer->send($email, $subject, $body) === true) $mailed++;
             } catch (\Throwable $e) {
                 error_log("mail:users failed for {$email}: " . $e->getMessage());
             }

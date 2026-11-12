@@ -32,7 +32,7 @@ final class ContactTest extends TestCase
         \App\Features::reset();
     }
 
-    private function client(): TestClient
+    private function client(array $extra = []): TestClient
     {
         return new TestClient(new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
@@ -43,7 +43,7 @@ final class ContactTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->log, 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-ct-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-        ]));
+        ] + $extra));
     }
 
     private function form(array $over = []): array
@@ -135,6 +135,13 @@ final class ContactTest extends TestCase
         $c = $this->client();
         $this->assertSame(404, $c->get('/contact')->status);
         $this->assertSame(404, $c->postWithToken('/contact/send', $this->form())->status);
+        $this->assertSame('', $this->mail());
+    }
+
+    public function test_a_mail_dropped_by_the_daily_cap_is_not_reported_as_sent(): void
+    {
+        $res = $this->client(['mail_daily_cap' => 10])->postWithToken('/contact/send', $this->form());
+        $this->assertSame(502, $res->status);
         $this->assertSame('', $this->mail());
     }
 

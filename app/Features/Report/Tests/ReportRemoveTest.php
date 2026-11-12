@@ -115,6 +115,14 @@ final class ReportRemoveTest extends TestCase
         $this->assertStringContainsString('Your review was removed', $this->mail());
     }
 
+    public function test_takedown_skips_placeholder_addresses(): void
+    {
+        $this->db->query("UPDATE users SET email = ? WHERE id = ?", ["imported-7@wxr-import.invalid", $this->targetId]);
+        $rid = $this->report($this->story(), null);
+        $this->assertSame(302, $this->client($this->moderatorId)->postWithToken("/report/takedown/" . $rid, ["reason" => "x"])->status);
+        $this->assertSame("", $this->mail());
+    }
+
     public function test_dismiss_still_works_and_sends_nothing(): void
     {
         $sid = $this->story();

@@ -56,6 +56,28 @@ final class SiteTextBootTest extends TestCase
         $this->assertSame('fr', Lang::current(), 'a cookie for a language nobody installed is ignored');
     }
 
+    public function test_a_failed_compile_backs_off_instead_of_retrying_every_request(): void
+    {
+        mkdir($this->dir);
+        file_put_contents($this->dir . '/site-text', 'x'); // a file where the folder should go, so compile fails
+        $this->config['site_text_dir'] = $this->dir . '/site-text';
+        $marker = $this->dir . '/site-text.failed';
+        (new Store($this->db))->addLanguage('fr', 'Francais', 'ltr');
+
+        Boot::early($this->config);
+        Boot::late($this->config, $this->db);
+        $this->assertFileExists($marker, 'a failed compile leaves a back-off marker');
+
+        $past = time() - 100;
+        touch($marker, $past);
+        Boot::late($this->config, $this->db);
+        $this->assertSame($past, filemtime($marker), 'within five minutes compile is not attempted again');
+
+        touch($marker, time() - 400);
+        Boot::late($this->config, $this->db);
+        $this->assertGreaterThan(time() - 50, filemtime($marker), 'after five minutes it tries again and re-marks');
+    }
+
     public function test_an_uninstalled_default_falls_back_to_english_and_an_unmigrated_db_is_not_fatal(): void
     {
         $this->config['ui_lang'] = 'zz';

@@ -76,14 +76,6 @@ final class ProfileFields
         return $this->db->query('DELETE FROM profile_fields WHERE id = ?', [$id])->rowCount() === 1;
     }
 
-    /** The member's saved answers keyed by field id. */
-    public function valuesFor(int $userId): array
-    {
-        $out = [];
-        foreach ($this->db->all('SELECT field_id, value FROM profile_field_values WHERE user_id = ?', [$userId]) as $r) $out[(int) $r['field_id']] = (string) $r['value'];
-        return $out;
-    }
-
     /** Save a member's answers. $input maps field id => submitted string; a
      *  yes/no field is on when its key is present. Empty clears an answer. One
      *  bad value refuses the whole save, so nothing is half-saved.

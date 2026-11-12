@@ -31,7 +31,10 @@ final class WordfilterController
         $words = WordFilter::parse($raw);
         foreach ($words as $w) {
             if (mb_strlen($w) > WordFilter::MAX_WORD_LENGTH) {
-                return new Response($this->page(Lang::t('wordfilter.err_utf8'), null), 422);
+                return new Response($this->page(Lang::t('wordfilter.err_too_long', ['max' => WordFilter::MAX_WORD_LENGTH]), null), 422);
+            }
+            if (preg_match('/[<>"]/', $w) === 1) {
+                return new Response($this->page(Lang::t('wordfilter.err_chars'), null), 422);
             }
         }
         if (count($words) > WordFilter::MAX_ENTRIES) {

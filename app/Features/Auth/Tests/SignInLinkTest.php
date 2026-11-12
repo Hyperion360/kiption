@@ -138,6 +138,15 @@ final class SignInLinkTest extends TestCase
         $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) c FROM login_attempts WHERE kind = 'link' AND email = 'nobody@kiption.test'")['c']);
     }
 
+    public function test_request_throttle_ignores_email_case_and_padding(): void
+    {
+        $this->registerUser('qa@kiption.test');
+        foreach (['QA@kiption.test', ' Qa@Kiption.test', 'qa@kiption.TEST'] as $i => $e) {
+            $this->assertNotNull($this->links()->request($e, '10.0.1.' . $i));
+        }
+        $this->assertNull($this->links()->request('qa@kiption.test', '10.0.1.9'));
+    }
+
     public function test_request_is_throttled_per_ip(): void
     {
         for ($i = 0; $i < 10; $i++) $this->links()->request("n{$i}@kiption.test", '10.0.0.1');
@@ -235,6 +244,29 @@ final class SignInLinkTest extends TestCase
         $this->assertSame(302, $res->status);
         $this->assertSame($id, (int) $this->app->session->peek('user_id'));
         $this->assertNotNull($this->db->one('SELECT email_verified_at FROM users WHERE id = ?', [$id])['email_verified_at']);
+    }
+
+    public function test_a_link_that_verifies_an_account_replaces_the_pre_registered_password(): void
+    {
+        $id = $this->registerUser('victim@kiption.test', 'squatter-password1');
+        $this->db->query('UPDATE users SET email_verified_at = NULL WHERE id = ?', [$id]);
+        $old = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$id])['password_hash'];
+        $res = $this->post('/auth/enter', ['t' => $this->links()->mint($id, 1800)]);
+        $this->assertSame(302, $res->status);
+        $new = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$id])['password_hash'];
+        $this->assertNotSame($old, $new);
+        $this->assertFalse(password_verify('squatter-password1', $new));
+        $this->assertSame($id, (int) $this->app->session->peek('user_id'));
+        $this->assertSame(substr($new, 0, Auth::EPOCH_LEN), $this->app->session->peek('pwd_epoch'));
+        $this->assertTrue((new Auth($this->db, $this->app->session))->sessionValid());
+    }
+
+    public function test_a_link_for_an_already_verified_account_keeps_its_password(): void
+    {
+        $id = $this->registerUser();
+        $old = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$id])['password_hash'];
+        $this->post('/auth/enter', ['t' => $this->links()->mint($id, 1800)]);
+        $this->assertSame($old, (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$id])['password_hash']);
     }
 
     public function test_a_completed_password_reset_verifies_the_email(): void

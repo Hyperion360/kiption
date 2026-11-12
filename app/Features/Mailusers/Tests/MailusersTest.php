@@ -45,7 +45,7 @@ final class MailusersTest extends TestCase
         return (int) $this->db->lastInsertId();
     }
 
-    private function client(?int $as = null): TestClient
+    private function client(?int $as = null, array $extra = []): TestClient
     {
         $client = new TestClient(new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
@@ -57,7 +57,7 @@ final class MailusersTest extends TestCase
             'uploads' => ['dir' => $this->root . '/upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'nav_file' => $this->root . '/nav.json',
-        ]));
+        ] + $extra));
         return $as === null ? $client : $client->actingAs($as);
     }
 
@@ -108,6 +108,13 @@ final class MailusersTest extends TestCase
             $this->assertSame(1, substr_count($mail, 'To: ' . $to), $to);
         }
         $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) c FROM mass_mail_log')['c']);
+    }
+
+    public function test_mails_dropped_by_the_daily_cap_are_not_counted_as_sent(): void
+    {
+        $res = $this->client($this->adminId, ['mail_daily_cap' => 10])->postWithToken('/mailusers/send', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertStringContainsString('Sent to 0 of ' . $this->eligible(), $res->body);
+        $this->assertSame('', $this->mail());
     }
 
     public function test_a_second_send_within_ten_minutes_is_refused(): void

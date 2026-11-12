@@ -255,7 +255,10 @@ final class TextController
             'site_text_dir' => $this->app->config('site_text_dir'),
             'data_dir' => $this->app->config('data_dir'),
         ], static fn ($v): bool => is_string($v) && $v !== '');
-        Compiler::compile($this->db, Boot::dir($cfg));
+        // A save that cannot reach the live site must not look like a success.
+        if (Compiler::compile($this->db, Boot::dir($cfg)) === false) {
+            throw new \RuntimeException("Site text saved but the compiled folder could not be written");
+        }
         CachePurge::run($this->app, $this->db);
     }
 

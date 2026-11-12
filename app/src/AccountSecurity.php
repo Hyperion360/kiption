@@ -84,6 +84,11 @@ final class AccountSecurity
                 return 'account.email_link_expired';
             }
             $id = (int) $row['user_id'];
+            $owner = $this->db->one('SELECT is_locked, email FROM users WHERE id = ?', [$id]);
+            if ($owner === null || (int) $owner['is_locked'] === 1 || str_ends_with(strtolower((string) $owner['email']), '@deleted.invalid')) {
+                $this->db->commit();
+                return 'account.email_link_expired';
+            }
             if ($this->emailTaken((string) $row['new_email'], $id)) {
                 $this->db->commit();
                 return 'account.email_link_taken';
@@ -95,6 +100,7 @@ final class AccountSecurity
             // Anything still waiting on the old address dies with it.
             $this->db->query('DELETE FROM password_resets WHERE email = ?', [$old]);
             $this->db->query('DELETE FROM email_verifications WHERE email = ?', [$old]);
+            $this->db->query('DELETE FROM login_links WHERE user_id = ?', [$id]);
             $this->db->commit();
             return ['old' => $old, 'new' => (string) $row['new_email']];
         } catch (\Throwable $e) {

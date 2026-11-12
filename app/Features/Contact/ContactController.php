@@ -52,8 +52,7 @@ final class ContactController
         $sent = 0;
         foreach ($admins as $a) {
             try {
-                $mailer->send((string) $a['email'], $subject, $text);
-                $sent++;
+                if ($mailer->send((string) $a['email'], $subject, $text) === true) $sent++;
             } catch (\Throwable $e) {
                 error_log("Contact form mail failed: {$e->getMessage()}");
             }

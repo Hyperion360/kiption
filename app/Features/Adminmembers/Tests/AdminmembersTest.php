@@ -208,4 +208,80 @@ final class AdminmembersTest extends TestCase
         $this->assertSame(302, $res->status);
         $this->assertNull($this->db->one('SELECT penname FROM users WHERE id = ?', [$this->heirId])['penname']);
     }
+
+    private function seedPending(int $id, string $email): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $exp = date('c', time() + 3600);
+        $this->db->query('INSERT INTO email_changes (user_id, new_email, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+            [$id, 'taken-over@e.test', hash('sha256', $token), $exp, date('c')]);
+        $this->db->query('INSERT INTO password_resets (email, token_hash, expires_at) VALUES (?, ?, ?)',
+            [$email, hash('sha256', 'r' . $token), $exp]);
+        $this->db->query('INSERT INTO email_verifications (email, token_hash, expires_at) VALUES (?, ?, ?)',
+            [$email, hash('sha256', 'v' . $token), $exp]);
+        (new \App\LoginLinks($this->db))->mint($id, 1800);
+        return $token;
+    }
+
+    private function rows(string $table, string $col, string|int $v): int
+    {
+        return (int) $this->db->one("SELECT COUNT(*) c FROM $table WHERE $col = ?", [$v])['c'];
+    }
+
+    public function test_deleting_a_member_drops_their_pending_tokens_and_a_late_email_change_does_nothing(): void
+    {
+        $token = $this->seedPending($this->targetId, 'leaving-member@e.test');
+        $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'remove']);
+        $this->assertSame(0, $this->rows('email_changes', 'user_id', $this->targetId));
+        $this->assertSame(0, $this->rows('login_links', 'user_id', $this->targetId));
+        $this->assertSame(0, $this->rows('password_resets', 'email', 'leaving-member@e.test'));
+        $this->assertSame(0, $this->rows('email_verifications', 'email', 'leaving-member@e.test'));
+        $this->client()->postWithToken('/account/emailapply', ['t' => $token]);
+        $row = $this->db->one('SELECT email, is_locked FROM users WHERE id = ?', [$this->targetId]);
+        $this->assertSame('deleted-' . $this->targetId . '@deleted.invalid', $row['email']);
+        $this->assertSame(1, (int) $row['is_locked']);
+    }
+
+    public function test_locking_a_member_drops_their_pending_email_change_and_sign_in_links(): void
+    {
+        $this->seedPending($this->targetId, 'leaving-member@e.test');
+        $this->client($this->adminId)->postWithToken('/adminmembers/lock/' . $this->targetId);
+        $this->assertSame(0, $this->rows('email_changes', 'user_id', $this->targetId));
+        $this->assertSame(0, $this->rows('login_links', 'user_id', $this->targetId));
+    }
+
+    public function test_locking_a_locked_member_and_unlocking_an_active_one_change_nothing(): void
+    {
+        $admin = $this->client($this->adminId);
+        $admin->postWithToken('/adminmembers/lock/' . $this->targetId);
+        $admin->postWithToken('/adminmembers/lock/' . $this->targetId);
+        $this->assertSame(1, $this->locked($this->targetId));
+        $admin->postWithToken('/adminmembers/unlock/' . $this->heirId);
+        $this->assertSame(0, $this->locked($this->heirId));
+    }
+
+    public function test_a_deleted_member_stays_locked_and_scrubbed_through_lock_and_unlock(): void
+    {
+        $admin = $this->client($this->adminId);
+        $admin->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'remove']);
+        $before = $this->db->one('SELECT * FROM users WHERE id = ?', [$this->targetId]);
+        $admin->postWithToken('/adminmembers/lock/' . $this->targetId);
+        $admin->postWithToken('/adminmembers/unlock/' . $this->targetId);
+        $after = $this->db->one('SELECT * FROM users WHERE id = ?', [$this->targetId]);
+        $this->assertSame(1, (int) $after['is_locked']);
+        $this->assertSame($before, $after);
+    }
+
+    public function test_deleting_a_locked_member_scrubs_it_and_deleting_again_changes_nothing(): void
+    {
+        $admin = $this->client($this->adminId);
+        $admin->postWithToken('/adminmembers/lock/' . $this->targetId);
+        $this->assertSame(302, $admin->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'remove'])->status);
+        $before = $this->db->one('SELECT * FROM users WHERE id = ?', [$this->targetId]);
+        $this->assertNull($before['penname']);
+        $this->assertSame('deleted-' . $this->targetId . '@deleted.invalid', $before['email']);
+        $res = $admin->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'remove']);
+        $this->assertSame(422, $res->status);
+        $this->assertSame($before, $this->db->one('SELECT * FROM users WHERE id = ?', [$this->targetId]));
+    }
 }

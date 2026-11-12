@@ -90,7 +90,13 @@ final class AdminmembersController
         if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
         if ((int) $target['id'] === (int) $gate['id']) return new Response(\App\Lang::t('adminmembers.err_self_lock'), 422);
         if ($this->isLastAdmin($target)) return new Response(\App\Lang::t('adminmembers.err_last_admin'), 422);
-        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $target['id']]);
+        $this->db->begin();
+        try {
+            $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $target['id']]);
+            $this->db->query('DELETE FROM email_changes WHERE user_id = ?', [(int) $target['id']]);
+            $this->db->query('DELETE FROM login_links WHERE user_id = ?', [(int) $target['id']]);
+            $this->db->commit();
+        } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         $this->purgeMember($target);
         return Response::redirect('/adminmembers');
     }
@@ -157,6 +163,12 @@ final class AdminmembersController
                 $this->db->query('UPDATE stories SET deleted_at = ? WHERE author_id = ? AND deleted_at IS NULL', [date('c'), $uid]);
             }
             $this->db->query('DELETE FROM coauthors WHERE user_id = ?', [$uid]);
+            // Pending tokens die with the account; the email-keyed ones need
+            // the address from before the scrub.
+            $this->db->query('DELETE FROM email_changes WHERE user_id = ?', [$uid]);
+            $this->db->query('DELETE FROM login_links WHERE user_id = ?', [$uid]);
+            $this->db->query('DELETE FROM password_resets WHERE email = ?', [(string) $target['email']]);
+            $this->db->query('DELETE FROM email_verifications WHERE email = ?', [(string) $target['email']]);
             $this->db->query(
                 "UPDATE users SET email = ?, password_hash = ?, penname = NULL, profile_slug = NULL, bio = '', avatar_path = NULL,
                         support_url = NULL, legacy_md5 = NULL, legacy_bcrypt = NULL, role = 'member', is_admin = 0, is_locked = 1

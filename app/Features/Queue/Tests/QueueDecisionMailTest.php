@@ -112,6 +112,15 @@ final class QueueDecisionMailTest extends TestCase
         $this->assertStringContainsString('We could not verify you', $mail);
     }
 
+    public function test_rejecting_a_non_pending_or_non_member_id_changes_nothing(): void
+    {
+        $this->assertSame(302, $this->client($this->moderatorId)->postWithToken('/queue/member/' . $this->adminId . '/reject', ['reason' => 'x'])->status);
+        $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->adminId])['is_locked']);
+        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $this->targetId . '/reject', ['reason' => 'x']);
+        $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->targetId])['is_locked']);
+        $this->assertSame('', $this->mail());
+    }
+
     public function test_an_empty_member_reason_sends_a_polite_default(): void
     {
         $id = $this->applicant();
