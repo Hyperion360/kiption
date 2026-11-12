@@ -6,7 +6,7 @@
      $this->layout('layout'); ?>
 <div class="page page-home">
   <header class="page-head">
-    <h1><?= \App\Lang::t('nav.brand') ?></h1>
+    <h1><?= $this->e(\App\SiteName::get()) ?></h1>
     <p class="lede"><?= \App\Lang::t('home.intro') ?></p>
   </header>
 <?php if (!empty($continue)): ?>

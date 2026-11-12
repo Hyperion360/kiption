@@ -19,7 +19,7 @@
          uncached render is one static bool read; cached pages bake the
          line and never execute it. */ ?>
   <?php if (\App\Attribution::on()): ?><meta name="generator" content="Kiption"><?php endif; ?>
-  <title><?= $this->e(isset($head) && $head !== null ? $head->title() : ($title ?? \App\Lang::t('nav.brand'))) ?></title>
+  <title><?= $this->e(isset($head) && $head !== null ? $head->title() : ($title ?? \App\SiteName::get())) ?></title>
   <?php if (isset($head) && $head !== null): ?>
   <?php foreach ($head->metaTags() as $t): ?>
   <meta name="<?= $this->e($t['name']) ?>" content="<?= $this->e($t['content']) ?>">
@@ -51,7 +51,7 @@
 </head>
 <body<?= ($focus ?? false) ? ' class="focus"' : '' ?>>
   <header class="site-head">
-    <a class="brand" href="/"><?= \App\Lang::t('nav.brand') ?></a>
+    <a class="brand" href="/"><?= $this->e(\App\SiteName::get()) ?></a>
     <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
       <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
@@ -91,7 +91,7 @@
      $footSeen = ['/' => 1, '/browse' => 1, '/browse/recent' => 1, '/browse/authors' => 1, '/series' => 1, '/search' => 1,
                   '/account' => 1, '/auth/login' => 1, '/news' => 1, '/top' => 1, '/lists' => 1, '/challenges' => 1, '/feed' => 1]; ?>
   <footer class="site-foot">
-    <p class="foot-brand"><a href="/"><?= \App\Lang::t('nav.brand') ?></a> <span><?= \App\Lang::t('foot.built_with') ?> <a href="https://github.com/Hyperion360/kip" rel="noopener"><?= \App\Lang::t('foot.kip') ?></a></span></p>
+    <p class="foot-brand"><a href="/"><?= $this->e(\App\SiteName::get()) ?></a> <span><?= \App\Lang::t('foot.built_with') ?> <a href="https://github.com/Hyperion360/kip" rel="noopener"><?= \App\Lang::t('foot.kip') ?></a></span></p>
     <nav class="foot-nav" aria-label="<?= $this->e(\App\Lang::t('foot.more_label')) ?>">
       <?php if (\App\Features::on('news')): ?><a href="/news"><?= \App\Lang::t('news.heading') ?></a><?php endif; ?>
       <?php if (\App\Features::on('toplists')): ?><a href="/top"><?= \App\Lang::t('top.heading') ?></a><?php endif; ?>

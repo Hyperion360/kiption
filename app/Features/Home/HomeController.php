@@ -120,7 +120,7 @@ final class HomeController
             ->withCanonical($this->request->path)
             ->withJsonLd($jsonLd);
         return $this->view->render('home/index', [
-            'title' => \App\Lang::t('nav.brand'),
+            'title' => \App\SiteName::get(),
             'head' => $head,
             'theme' => \App\Theme::current($this->request),
             'request' => $this->request,

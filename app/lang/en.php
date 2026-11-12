@@ -26,7 +26,6 @@ return [
     'common.works_count' => '{n} works',
 
     // Site chrome: the layout's header nav, the menu sheet, and feed fallbacks.
-    'nav.brand' => 'Kiption',
     'nav.home' => 'Home',
     'nav.browse' => 'Browse',
     'nav.recent' => 'Recent',
@@ -71,7 +70,7 @@ return [
 
     // The default meta description (Head's fallback) and the home page.
     'site.meta_description' => 'A self-hosted fiction archive.',
-    'home.intro' => 'Original fiction, read a chapter at a time or all at once.',
+    'home.intro' => 'Original stories and fan fiction, read a chapter at a time or all at once.',
     'home.latest' => 'Latest',
     'home.all_recent' => 'All recently updated stories',
     'home.featured' => 'Featured',

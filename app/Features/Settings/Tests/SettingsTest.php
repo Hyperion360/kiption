@@ -269,6 +269,46 @@ final class SettingsTest extends TestCase
         }
     }
 
+    /** The archive name seam: a stored site_name row must reach the header,
+     *  footer and home heading, not only <title> (QA 2026-11-12: a Cloud
+     *  archive named on /settings still showed "Kiption" in all three). The
+     *  name is operator text, so it renders escaped. */
+    public function test_a_stored_site_name_governs_the_visible_brand(): void
+    {
+        $this->seed();
+        \App\Features::init($this->db(), []);
+        \App\Settings::put('site_name', 'The <Smallville> Gazette');
+        $config = \App\Settings::apply($this->config() + ['site_name' => 'Kiption']);
+        \App\SiteName::init($config);
+        try {
+            $html = (new \Kip\View($this->config()['views']))
+                ->render('layout', ['content' => '', 'navFile' => '', 'title' => 'Seam']);
+            $this->assertStringContainsString('<a class="brand" href="/">The &lt;Smallville&gt; Gazette</a>', $html, 'header brand');
+            $this->assertStringContainsString('<p class="foot-brand"><a href="/">The &lt;Smallville&gt; Gazette</a>', $html, 'footer brand');
+            $this->assertStringNotContainsString('<Smallville>', $html, 'operator text is escaped');
+            $home = (string) file_get_contents(dirname(__DIR__, 2) . '/Home/views/index.php');
+            $this->assertStringContainsString('<h1><?= $this->e(\\App\\SiteName::get()) ?></h1>', $home, 'home heading reads the archive name');
+        } finally {
+            \App\SiteName::reset();
+        }
+        $this->assertSame('Kiption', \App\SiteName::get(), 'reset restores the default');
+    }
+
+    /** Same textual pin as the Attribution seam: SiteName must init after the
+     *  settings overlay in both entrypoints, or pages:build bakes the
+     *  config-file name into cached pages. */
+    public function test_both_entrypoints_init_the_site_name_after_the_settings_overlay(): void
+    {
+        foreach (['public/index.php', 'bin/kip'] as $entry) {
+            $src = (string) preg_replace('#/\*.*?\*/#s', '',
+                (string) file_get_contents(dirname(__DIR__, 4) . '/' . $entry));
+            $init = strpos($src, '\App\SiteName::init(');
+            $apply = strpos($src, '\App\Settings::apply(');
+            $this->assertNotFalse($init, "{$entry} must init the SiteName seam");
+            $this->assertGreaterThan((int) $apply, $init, "{$entry} inits SiteName after the settings overlay");
+        }
+    }
+
     /** config.php's own comment promises every POST-bearing first segment is
      *  throttled; /settings/save is the board's POST surface. Since the
      *  collapse onto the '*' fallback (kip 0.5.1), an explicit settings
