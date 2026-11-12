@@ -80,18 +80,22 @@ final class AdminmembersTest extends TestCase
 
     public function test_locking_signs_out_a_member_who_is_already_in(): void
     {
-        $member = $this->client($this->targetId);
-        $this->assertSame(200, $member->get('/account')->status, 'signed in before the lock');
-        $this->client($this->adminId)->postWithToken('/adminmembers/lock/' . $this->targetId);
-        $this->assertNotSame(200, $member->get('/account')->status, 'signed out on the next request');
+        $other = $this->user('second-admin', 'admin');
+        $session = $this->client($other);
+        $this->assertSame(200, $session->get('/adminmembers')->status, 'signed in before the lock');
+        $this->client($this->adminId)->postWithToken('/adminmembers/lock/' . $other);
+        $res = $session->get('/adminmembers');
+        $this->assertSame(302, $res->status, 'sent to sign in on the next request');
+        $this->assertSame('/auth/login?locked=1', $res->headers['Location'] ?? null);
     }
 
     public function test_deleting_signs_out_a_member_who_is_already_in(): void
     {
-        $member = $this->client($this->heirId);
-        $this->assertSame(200, $member->get('/account')->status);
+        \App\Adminness::setRole($this->db, $this->heirId, 'admin');
+        $heir = $this->client($this->heirId);
+        $this->assertSame(200, $heir->get('/adminmembers')->status);
         $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->heirId, ['stories' => 'remove']);
-        $this->assertNotSame(200, $member->get('/account')->status);
+        $this->assertSame(302, $heir->get('/adminmembers')->status);
     }
 
     public function test_locked_member_cannot_sign_in_and_unlock_restores_it(): void
@@ -100,19 +104,15 @@ final class AdminmembersTest extends TestCase
         $this->assertSame(302, $admin->postWithToken('/adminmembers/lock/' . $this->targetId)->status);
         $this->assertSame(1, $this->locked($this->targetId));
         $res = $this->client()->post('/auth/attempt', ['email' => 'leaving-member@e.test', 'password' => 'password123']);
-        $this->assertNotSame(302, $res->status, 'a locked member cannot sign in');
+        $this->assertStringContainsString('This account is locked.', $res->body);
         $this->assertSame(302, $admin->postWithToken('/adminmembers/unlock/' . $this->targetId)->status);
         $this->assertSame(0, $this->locked($this->targetId));
+        $this->assertSame(302, $this->client()->post('/auth/attempt', ['email' => 'leaving-member@e.test', 'password' => 'password123'])->status);
     }
 
-    public function test_cannot_lock_yourself_or_the_last_unlocked_admin(): void
+    public function test_cannot_lock_yourself(): void
     {
         $this->assertSame(422, $this->client($this->adminId)->postWithToken('/adminmembers/lock/' . $this->adminId)->status);
-        $this->assertSame(0, $this->locked($this->adminId));
-        // a second admin exists but is already locked: the actor is then the last working admin
-        $other = $this->user('second-admin', 'admin');
-        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [$other]);
-        $this->assertSame(422, $this->client($other)->postWithToken('/adminmembers/lock/' . $this->adminId)->status);
         $this->assertSame(0, $this->locked($this->adminId));
     }
 
@@ -173,12 +173,13 @@ final class AdminmembersTest extends TestCase
         $this->assertSame(404, $admin->postWithToken('/adminmembers/destroy/99999', ['stories' => 'remove'])->status);
     }
 
-    public function test_delete_refuses_the_last_working_admin(): void
+    public function test_a_locked_admin_cannot_delete_anyone(): void
     {
         $other = $this->user('second-admin', 'admin');
         $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [$other]);
+        // a locked admin is signed out, so the only working admin cannot be removed by them
         $res = $this->client($other)->postWithToken('/adminmembers/destroy/' . $this->adminId, ['stories' => 'remove']);
-        $this->assertSame(422, $res->status);
+        $this->assertSame(302, $res->status);
         $this->assertSame('roster-admin', $this->db->one('SELECT penname FROM users WHERE id = ?', [$this->adminId])['penname']);
     }
 

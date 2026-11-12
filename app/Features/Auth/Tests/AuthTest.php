@@ -55,6 +55,13 @@ final class AuthTest extends TestCase
         $this->assertStringContainsString('autocomplete="current-password"', $res->body);
     }
 
+    public function test_login_page_says_the_account_is_locked_after_a_forced_sign_out(): void
+    {
+        $this->assertStringNotContainsString('This account is locked.', $this->app->handle(new Request('GET', '/auth/login', [], [], []))->body);
+        $res = $this->app->handle(new Request('GET', '/auth/login', ['locked' => '1'], [], []));
+        $this->assertStringContainsString('This account is locked.', $res->body);
+    }
+
     public function test_wrong_password_and_unknown_email_show_the_same_error(): void
     {
         $this->registerUser();

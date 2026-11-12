@@ -35,7 +35,7 @@ final class AuthController
     public function login(): string
     {
         return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'head' => $this->head()->withTitle(\App\Lang::t('auth.login.heading'))->withCanonical('/auth/login')->withNoindex(),
-            'csrf' => $this->session->csrfToken(), 'error' => null,
+            'csrf' => $this->session->csrfToken(), 'error' => isset($this->request->get['locked']) ? self::LOCKED : null,
             'verified' => isset($this->request->get['verified'])]);
     }
 
