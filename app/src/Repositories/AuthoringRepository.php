@@ -36,7 +36,7 @@ final class AuthoringRepository
                             (SELECT GROUP_CONCAT(st2.tag_id) FROM story_tags st2
                              JOIN stories s3 ON s3.id = st2.story_id WHERE s3.slug = ?) AS e,
                             t.canonical_id AS f,
-                            NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
+                            tt.position AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
                      FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id";
         if ($slug === null) {
             // ONE bind: the NULL slug makes the selected concat yield NULL.
@@ -225,10 +225,10 @@ final class AuthoringRepository
      *  of the story form: ACTIVE tags grouped under their type (id-keyed,
      *  name-sorted, type-sorted: the SQL's compound ORDER BY cannot carry a
      *  per-branch tertiary key without disturbing the category ordering)
-     *  plus the story's selected tag ids off the per-row concat. Retired
+     *  plus the story's selected tag ids off the per-row concat. Types sort by the owner's tag_types.position (it rides column g). Retired
      *  synonyms never offer as checkboxes: wrangling is the taxonomy
      *  control point, and a synonym checked today would silently store its
-     *  canonical. @return array{0: array<int, array{name: string, tags: array<int, string>}>, 1: string[]} */
+     *  canonical. @return array{0: array<int, array{name: string, pos: int, tags: array<int, string>}>, 1: string[]} */
     public static function tagGroups(array $rows): array
     {
         $groups = [];
@@ -240,14 +240,15 @@ final class AuthoringRepository
             }
             if ($r['f'] !== null) continue; // retired synonym: not a form choice
             $typeId = (int) $r['d'];
-            $groups[$typeId] ??= ['name' => (string) $r['c'], 'tags' => []];
+            $groups[$typeId] ??= ['name' => (string) $r['c'], 'pos' => (int) ($r['g'] ?? 0), 'tags' => []];
             $groups[$typeId]['tags'][(int) $r['a']] = (string) $r['b'];
         }
         foreach ($groups as &$g) {
             asort($g['tags'], SORT_STRING);
         }
         unset($g);
-        ksort($groups);
+        // The owner's tag type order (position), then id for a stable tie.
+        uksort($groups, static fn (int $a, int $b): int => [$groups[$a]['pos'], $a] <=> [$groups[$b]['pos'], $b]);
         return [$groups, array_values($selected)];
     }
 
