@@ -1,6 +1,6 @@
 <?php // app/src/Viewer.php
 namespace App;
-use Kip\{Auth, Database, Session};
+use Kip\{Database, Session};
 use Kip\Http\Request;
 
 /** Who is viewing a public page, or 0 for a guest. Kip checks the password
@@ -15,7 +15,7 @@ final class Viewer
     public static function id(Request $request, Session $session, Database $db): int
     {
         $me = $request->cookies !== [] ? (int) ($session->get('user_id') ?? 0) : 0;
-        if ($me !== 0 && !(new Auth($db, $session))->sessionValid()) return 0;
+        if ($me !== 0 && !SessionGuard::valid($db, $session)) return 0;
         return $me;
     }
 }

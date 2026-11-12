@@ -272,7 +272,10 @@ final class AdminToolsTest extends TestCase
         $page2 = $admin->get('/adminmembers', ['page' => '2'])->body;
         $this->assertStringContainsString('zz-filler-19', $page2);
         // non-admins never see the roster
-        $this->assertSame(403, $this->client($this->memberId())->get('/adminmembers')->status);
+        // the member was locked above, so the guard signs them out and sends them to sign-in
+        $locked = $this->client($this->memberId())->get('/adminmembers');
+        $this->assertSame(302, $locked->status);
+        $this->assertSame('/auth/login?locked=1', $locked->headers['Location'] ?? null);
         $this->assertSame(403, $this->client($this->moderatorId())->get('/adminmembers')->status, 'moderators cannot manage roles');
     }
 

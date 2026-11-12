@@ -9,4 +9,5 @@
     <label><?= \App\Lang::t('common.body') ?> <textarea name="body" rows="12" required placeholder="<?= $this->e(\App\Lang::t('news.body_placeholder')) ?>"><?= $this->e($row['body'] ?? '') ?></textarea></label>
     <button type="submit"><?= $row === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
+  <?php if ($row !== null): ?><p><a href="/news/remove/<?= (int) $row['id'] ?>"><?= \App\Lang::t('news.delete') ?></a></p><?php endif; ?>
 </section>

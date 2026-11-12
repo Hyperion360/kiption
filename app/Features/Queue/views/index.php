@@ -16,7 +16,9 @@
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <form method="post" action="/queue/story/<?= (int) $r['a'] ?>/remove" class="inline">
-          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('common.remove') ?></button>
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <input name="reason" maxlength="1000" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>">
+          <button type="submit"><?= \App\Lang::t('common.remove') ?></button>
         </form>
       </li>
     <?php endforeach; ?>
@@ -48,7 +50,9 @@
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject" class="inline">
-          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.reject') ?></button>
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <input name="reason" maxlength="1000" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>">
+          <button type="submit"><?= \App\Lang::t('queue.reject') ?></button>
         </form>
       </li>
     <?php endforeach; ?>
@@ -62,6 +66,7 @@
         <strong><?= $this->e($r['b']) ?></strong>
         <?php if ($r['d'] !== null): ?><blockquote class="chapter-meta"><?= $this->e($r['d']) ?></blockquote><?php endif; ?>
         <?php if ($r['c'] !== ''): ?><?= \App\Lang::t('queue.on') ?> <a href="/story/view/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a><?php endif; ?>
+        <a href="/report/remove/<?= (int) $r['a'] ?>"><?= \App\Lang::t('queue.remove_content') ?></a>
         <form method="post" action="/report/resolve/<?= (int) $r['a'] ?>/dismiss" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.dismiss') ?></button>
         </form>

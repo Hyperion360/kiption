@@ -49,7 +49,9 @@ final class NewsController
         [$perPage, $offset] = $repo->commentWindow();
         $fold = $repo->withComments((int) $id, $perPage, $offset);
         if ($fold === null) return new Response(\App\Lang::t('error.not_found'), 404);
-        $loggedIn = \App\Viewer::id($this->request, $this->session, $this->db) !== 0;
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        $loggedIn = $me !== 0;
+        $isAdmin = $loggedIn && ($this->db->one('SELECT role FROM users WHERE id = ?', [$me])['role'] ?? '') === 'admin';
         $head = $this->head()->withTitle($fold['news']['title'])
             ->withDescription($this->description($fold['news']['body']))
             ->withCanonical('/news/view/' . (int) $fold['news']['id'])
@@ -65,6 +67,7 @@ final class NewsController
             'comments' => $fold['comments'],
             'comment_count' => $fold['comment_count'],
             'loggedIn' => $loggedIn,
+            'isAdmin' => $isAdmin,
             'csrf' => $loggedIn ? $this->session->csrfToken() : null, // never start a session for a cookieless guest
         ]);
     }
@@ -147,6 +150,40 @@ final class NewsController
         $this->db->query('UPDATE news SET title = ?, body = ? WHERE id = ?', [$title, $body, (int) $id]);
         $this->cache()->purgeNews((int) $id);
         return Response::redirect('/news/view/' . (int) $id);
+    }
+
+    #[AuthAttr]
+    public function remove(string $id): Response|string
+    {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response(\App\Lang::t('error.not_found'), 404);
+        $row = (new NewsRepository($this->db))->find((int) $id);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        $title = \App\Lang::t('news.delete_heading');
+        return $this->view->render('news/remove', [
+            'title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
+            'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'row' => $row, 'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+        ]);
+    }
+
+    /** Delete a post. Its comments go with it (foreign key cascade). */
+    #[AuthAttr] #[Post]
+    public function delete(string $id): Response
+    {
+        if (($r = \App\Features::guard('news')) !== null) return $r;
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        if (!preg_match('#^[1-9][0-9]{0,8}$#', $id)) return new Response(\App\Lang::t('error.not_found'), 404);
+        if ((new NewsRepository($this->db))->find((int) $id) === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        $this->db->query('DELETE FROM news WHERE id = ?', [(int) $id]);
+        $this->cache()->purgeNews((int) $id);
+        return Response::redirect('/news');
     }
 
     /** Title 1-255; the body is markdown at rest and must say something (an

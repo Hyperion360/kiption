@@ -203,7 +203,13 @@ $config = \App\Settings::apply($config);
 // both serve before the skin layer exists, so neither is ever skinned.
 $config['views_override'] = \App\Skins::overrideDir($config);
 
-$app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
+$session = Kip\Session::lazy(new Kip\SessionStarter($https));
+// A request carrying a session cookie signs out a member locked or deleted since
+// they signed in, before any page (#[Auth] ones included) runs. Cookieless requests skip it.
+if (isset($request->cookies[session_name()])) {
+    \App\SessionGuard::enforce(new \Kip\Database($config['db']['dsn']), $session);
+}
+$app = new Kip\App($config, $session);
 $response = $app->handle($request);
 // Fictioneer legacy paths: only a routed 404 pays the consult (one indexed
 // lookup). Every clean page and every static-cache HIT is untouched.

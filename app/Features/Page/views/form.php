@@ -15,4 +15,5 @@
     <label class="inline"><input type="checkbox" name="noindex" value="1"<?= ($row !== null && (int) ($row['noindex'] ?? 0) === 1) ? ' checked' : '' ?>> <?= \App\Lang::t('page.noindex_label') ?></label>
     <button type="submit"><?= $row === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
+  <?php if ($row !== null && !in_array($row['slug'], \App\Features\Page\PageController::PROTECTED, true)): ?><p><a href="/page/remove/<?= $this->e($row['slug']) ?>"><?= \App\Lang::t('page.delete') ?></a></p><?php endif; ?>
 </section>

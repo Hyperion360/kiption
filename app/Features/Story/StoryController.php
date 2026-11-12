@@ -108,6 +108,7 @@ final class StoryController
             'characters' => $characters,
             'amCoauthor' => $me !== 0 && in_array($me, array_map(static fn (array $c): int => (int) $c['i'], $coauthors), true),
             'isAuthor' => $me !== 0 && $me === (int) $story['author_id'],
+            'viewerRole' => $this->viewerRole($me),
             'csrf' => $me !== 0 ? $this->session->csrfToken() : null,
         ]);
         // External-canonical stories deindex locally: meta noindex plus the
@@ -867,6 +868,15 @@ final class StoryController
                 ? array_values(array_filter((array) ($post['characters'] ?? []), 'is_numeric'))
                 : null,
         ];
+    }
+
+    /** The signed-in viewer's role, for the owner and moderator tools on the
+     *  story page. It comes from the session check Viewer::id already ran on
+     *  this request (no query); the view only shows buttons, every write
+     *  re-checks the role. */
+    private function viewerRole(int $me): string
+    {
+        return $me === 0 ? '' : \App\SessionGuard::role();
     }
 
     private function head(): \App\Seo\Head

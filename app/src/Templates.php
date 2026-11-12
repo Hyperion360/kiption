@@ -10,7 +10,7 @@ use Kip\Database;
  *  below carry the same {placeholders} the call sites feed to strtr, which is
  *  what keeps the fallthrough byte-identical after seeding too.
  *
- *  Distinct names: the queue's approve/publish path and the chapter
+ *  Distinct names (one per mail): the queue's approve/publish path and the chapter
  *  controller's publish path send the SAME story_update mail (finding 15). */
 final class Templates
 {
@@ -48,7 +48,28 @@ final class Templates
             '{since}' => 'the digest window start',
             '{lines}' => 'the notification lines',
         ],
+        'story_accepted' => [
+            '{title}' => 'the story title',
+            '{url}' => 'the link to the live story',
+        ],
+        'story_rejected' => [
+            '{title}' => 'the story title',
+            '{reason}' => 'the moderator reason, or a polite default',
+        ],
+        'member_rejected' => [
+            '{penname}' => 'the applicant pen name',
+            '{reason}' => 'the moderator reason, or a polite default',
+        ],
+        'content_removed' => [
+            '{what}' => 'what was removed (story or review)',
+            '{title}' => 'the story title',
+            '{reason}' => 'the moderator reason, or a polite default',
+        ],
     ];
+
+    /** The content_removed pair, shared by the call site and seedDefaults. */
+    public const DEFAULT_CONTENT_REMOVED = ['Your {what} was removed',
+        "A moderator removed your {what} on \"{title}\".\n\n{reason}\n\nIf you think this was a mistake, reply to this email or contact the archive's owner."];
 
     /** Today's literals. These must stay byte-identical to the defaults the
      *  call sites pass: the pair a member receives before any admin edit is
@@ -83,7 +104,21 @@ final class Templates
             "A story you follow has a new chapter:\n\n{title}\n{url}"],
         'digest' => ['Your archive digest',
             "Since {since}:\n\n{lines}\n--\nYou receive this because at least one follow is in digest mode."],
+        'story_accepted' => ['Your story {title} was approved',
+            "Good news. \"{title}\" was approved and is now live in the archive.\n\n{url}"],
+        'story_rejected' => ['Your story {title} was not approved',
+            "Thanks for submitting \"{title}\". A moderator decided not to publish it.\n\n{reason}\n\nYou are welcome to reply to this email with questions."],
+        'member_rejected' => ['About your membership request',
+            "Hello {penname},\n\nThanks for asking to join. A moderator decided not to approve the account.\n\n{reason}\n\nYou are welcome to reply to this email with questions."],
+        'content_removed' => self::DEFAULT_CONTENT_REMOVED,
     ];
+
+    /** The built-in [subject, body] for a known name, for call sites that
+     *  pass them to get() as the fallthrough. */
+    public static function pair(string $name): array
+    {
+        return self::DEFAULTS[$name];
+    }
 
     /** @return array{0: string, 1: string} the [subject, body] pair: the saved
      *  row when an admin edited the name, the passed literals otherwise. No
@@ -95,7 +130,7 @@ final class Templates
         return [(string) $row['subject'], (string) $row['body']];
     }
 
-    /** INSERT OR IGNORE the eight known names (name is the PK), so the admin
+    /** INSERT OR IGNORE every known name (name is the PK), so the admin
      *  edit surface always has rows to edit; existing overrides survive.
      *  Idempotent by construction. */
     public static function seedDefaults(Database $db): void

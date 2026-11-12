@@ -30,7 +30,7 @@ final class Adminness
     {
         $id = $session->get('user_id');
         if (!is_int($id)) return new Response(\App\Lang::t('error.forbidden'), 403);
-        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if (!SessionGuard::valid($db, $session)) return self::refused($session);
         try {
             $row = $db->one('SELECT id, penname, role, is_admin FROM users WHERE id = ?', [$id]);
         } catch (\PDOException) {
@@ -61,7 +61,7 @@ final class Adminness
     {
         $id = $session->get('user_id');
         if (!is_int($id)) return new Response(\App\Lang::t('error.forbidden'), 403);
-        if (!(new \Kip\Auth($db, $session))->sessionValid()) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if (!SessionGuard::valid($db, $session)) return self::refused($session);
         try {
             $row = $db->one('SELECT id, penname, role, is_admin FROM users WHERE id = ?', [$id]);
         } catch (\PDOException) {
@@ -71,5 +71,12 @@ final class Adminness
             return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         return $row;
+    }
+
+    /** A locked or deleted member was just signed out (user_id cleared) and goes
+     *  to the sign-in page, which says why; any other failure is a plain 403. */
+    private static function refused(Session $session): Response
+    {
+        return $session->get('user_id') === null ? Response::redirect('/auth/login?locked=1') : new Response(\App\Lang::t('error.forbidden'), 403);
     }
 }

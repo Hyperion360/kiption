@@ -205,6 +205,20 @@
       <?php endforeach; ?>
     </ol>
   </section>
+  <?php if (!empty($csrf) && ($viewerRole ?? '') === 'admin'): ?>
+  <section class="owner-tools form-card" aria-labelledby="owner-tools">
+    <p class="form-card-title" id="owner-tools"><?= \App\Lang::t('story.owner_tools') ?></p>
+    <form method="post" action="/adminstories/featured/<?= $this->e($story['slug']) ?>" class="inline">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <button type="submit"><?= \App\Lang::t((int) ($story['featured'] ?? 0) === 1 ? 'story.unfeature' : 'story.feature') ?></button>
+    </form>
+    <form method="post" action="/adminstories/reassign/<?= $this->e($story['slug']) ?>" class="inline">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <label><?= \App\Lang::t('story.move_label') ?> <input name="penname" required maxlength="100" placeholder="<?= $this->e(\App\Lang::t('story.move_placeholder')) ?>"></label>
+      <button type="submit"><?= \App\Lang::t('story.move') ?></button>
+    </form>
+  </section>
+  <?php endif; ?>
   <?php if (\App\Settings::on('reviews_on')): ?>
   <section class="story-reviews" aria-labelledby="reviews">
   <h2 id="reviews"><?= \App\Lang::t('story.reviews_heading') . ' (' . number_format((int) $review_count) . ')' ?></h2>
@@ -216,11 +230,13 @@
            ISO stamp stays in the datetime attribute for machines). */ ?>
         <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $r['created_at'])) ?></time></p>
         <div class="prose"><?= \App\Markdown::render($r['body'] ?? '') ?></div>
+        <?php if (!empty($csrf) && (in_array($viewerRole ?? '', ['moderator', 'admin'], true) || !empty($isAuthor))): ?> <a class="review-delete" href="/review/remove/<?= (int) $r['id'] ?>"><?= \App\Lang::t('review.delete') ?></a><?php endif; ?>
         <?php if (!empty($r['replies'])): ?>
           <?php foreach ($r['replies'] as $rep): ?>
             <blockquote class="review-reply">
               <p class="chapter-meta"><?= $this->e($rep['penname'] ?? $rep['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $rep['is_author_reply'] ? ' · ' . \App\Lang::t('story.author_reply') : '' ?></p>
               <div class="prose"><?= \App\Markdown::render($rep['body'] ?? '') ?></div>
+              <?php if (!empty($csrf) && (in_array($viewerRole ?? '', ['moderator', 'admin'], true) || !empty($isAuthor))): ?> <a class="review-delete" href="/review/remove/<?= (int) $rep['id'] ?>"><?= \App\Lang::t('review.delete') ?></a><?php endif; ?>
               <?php if (!empty($csrf)): ?>
                 <div class="review-tools"><details class="report-disclosure"><summary><?= \App\Lang::t('story.report_short') ?></summary>
                 <form method="post" action="/report/review/<?= (int) $rep['id'] ?>" class="inline">
