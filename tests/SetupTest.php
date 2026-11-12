@@ -996,6 +996,7 @@ define("KIPTION_PUBLIC_DIR", ' . var_export($public, true) . ');
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'base_url' => 'https://archive.example.com',
             'registration_mode' => 'verify',
+            'signup_min_seconds' => 0, // posts the form without loading it first
             'mail' => $config['mail'],
             'features' => ['comments' => false, 'pms' => false],
         ]);
