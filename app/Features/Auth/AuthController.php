@@ -6,6 +6,12 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class AuthController
 {
+    /** The refusals a valid credential still meets, shared by the password
+     *  login and the sign-in link so the two cannot drift. */
+    private const LOCKED = 'This account is locked.';
+    private const UNVERIFIED = 'Please verify your email first (check the link we sent).';
+    private const UNAPPROVED = 'Your account is awaiting approval.';
+
     public function __construct(
         private Auth $auth,
         private View $view,
@@ -53,17 +59,17 @@ final class AuthController
                 if ((int) $user['is_locked'] === 1) {
                     $this->auth->logout();
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
-                        'error' => 'This account is locked.']);
+                        'error' => self::LOCKED]);
                 }
                 if ($user['email_verified_at'] === null) {
                     $this->auth->logout();
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
-                        'error' => 'Please verify your email first (check the link we sent).']);
+                        'error' => self::UNVERIFIED]);
                 }
                 if ($user['approved_at'] === null) {
                     $this->auth->logout();
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
-                        'error' => 'Your account is awaiting approval.']);
+                        'error' => self::UNAPPROVED]);
                 }
             }
             return $this->redirectWithPrefCookies((int) ($user['id'] ?? 0));
@@ -264,9 +270,15 @@ final class AuthController
         if (strlen($password) < 8) {
             return new Response($this->resetView($token, 'Password must be at least 8 characters.'), 422);
         }
+        // Read before resetPassword(), which deletes the row on success.
+        $email = $this->db->one('SELECT email FROM password_resets WHERE token_hash = ?', [hash('sha256', $token)])['email'] ?? null;
         if (!$this->auth->resetPassword($token, $password)) {
             return new Response($this->resetView($token, 'That reset link is invalid or has expired, request a new one.'), 422);
         }
+        // Opening a link mailed to the address proves the member owns it, so a
+        // completed reset also verifies the email. Without this a member who
+        // never got the verification mail resets, then still cannot sign in.
+        if ($email !== null) $this->markVerified('email = ?', (string) $email);
         return Response::redirect('/auth/login');
     }
 
@@ -275,6 +287,101 @@ final class AuthController
         return $this->view->render('auth/reset', ['title' => \App\Lang::t('auth.reset.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('auth.reset.heading'))->withCanonical($this->request->path)->withNoindex(),
             'token' => $token, 'error' => $error]);
+    }
+
+    public function link(): Response
+    {
+        return $this->linkView(null, 200);
+    }
+
+    #[Post]
+    public function send(): Response
+    {
+        $email = $this->request->postStr('email');
+        $token = (new \App\LoginLinks($this->db))->request($email, $this->request->ip);
+        if ($token !== null) {
+            $url = \App\LoginLinks::url((string) $this->app->config('base_url', 'http://localhost:8080'), $token);
+            [$subject, $body] = \App\Templates::get($this->db, 'signin_link', 'Your sign-in link',
+                "Here is the sign-in link you asked for:\n\n{url}\n\n"
+                . "It works once, for the next 30 minutes. Open it on the device you want to sign in on.\n\n"
+                . "If you didn't ask for this, you can ignore this email.");
+            // Deferred past the response, like remind(): this send happens only
+            // for real accounts, so its duration must not show in the timing.
+            $this->app->defer(function () use ($email, $subject, $body, $url): void {
+                try {
+                    $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
+                } catch (\Throwable $e) {
+                    error_log("Sign-in link mail failed for a known address: {$e->getMessage()}");
+                }
+            });
+        }
+        // Same page whether the account exists or not, no enumeration.
+        return $this->linkView('sent', 200);
+    }
+
+    /** The emailed link lands here. Opening it never signs in: mail scanners
+     *  prefetch links, so the visitor presses a button that POSTs to enter(). */
+    public function magic(): Response
+    {
+        $token = (string) ($this->request->get['t'] ?? '');
+        if (!(new \App\LoginLinks($this->db))->peek($token)) return $this->linkView('expired', 410);
+        $heading = \App\Lang::t('auth.link.magic_heading');
+        $html = $this->view->render('auth/magic', ['title' => $heading,
+            'head' => $this->head()->withTitle($heading)->withCanonical('/auth/magic')->withNoindex(),
+            'csrf' => $this->session->csrfToken(), 'token' => $token]);
+        // The page carries a live credential: never let it leave as a
+        // Referer, and never let any cache keep it.
+        return (new Response($html, 200))
+            ->withHeader('Referrer-Policy', 'no-referrer')
+            ->withHeader('Cache-Control', 'private, no-store');
+    }
+
+    #[Post]
+    public function enter(): Response
+    {
+        $user = (new \App\LoginLinks($this->db))->consume($this->request->postStr('t'));
+        if ($user === null) return $this->linkView('expired', 410);
+        // The link went to the account's address, so using it verifies the
+        // email, the same as the verification link would.
+        if ($user['email_verified_at'] === null) {
+            $this->markVerified('id = ?', (int) $user['id']);
+            $user = $this->db->one('SELECT * FROM users WHERE id = ?', [$user['id']]) ?? $user;
+        }
+        $refusal = match (true) {
+            (int) $user['is_locked'] === 1 => self::LOCKED,
+            $user['email_verified_at'] === null => self::UNVERIFIED,
+            $user['approved_at'] === null => self::UNAPPROVED,
+            default => null,
+        };
+        if ($refusal !== null) {
+            return new Response($this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'),
+                'csrf' => $this->session->csrfToken(), 'error' => $refusal]), 403);
+        }
+        // Kip\Auth::establishSession's order (private upstream): a new session
+        // id first, so a planted id never carries the signed-in state.
+        if (session_status() === PHP_SESSION_ACTIVE) session_regenerate_id(true);
+        $this->session->rotateCsrf();
+        $this->session->set('user_id', (int) $user['id']);
+        $this->session->set('pwd_epoch', substr((string) $user['password_hash'], 0, Auth::EPOCH_LEN));
+        return $this->redirectWithPrefCookies((int) $user['id']);
+    }
+
+    /** Stamp email_verified_at once (never move an existing stamp). A newly
+     *  verified, approved member joins the directory, as in verify(). */
+    private function markVerified(string $where, int|string $value): void
+    {
+        $changed = $this->db->query("UPDATE users SET email_verified_at = ? WHERE {$where} AND email_verified_at IS NULL",
+            [date('c'), $value])->rowCount();
+        if ($changed > 0) (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
+    }
+
+        /** @param null|'sent'|'expired' $state */
+    private function linkView(?string $state, int $status): Response
+    {
+        $title = \App\Lang::t('auth.link.title');
+        return new Response($this->view->render('auth/link', ['title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical('/auth/link')->withNoindex(),
+            'state' => $state]), $status);
     }
 
 }
