@@ -108,6 +108,7 @@
       <span class="sheet-group"><?= \App\Lang::t('nav.operator') ?></span>
       <a href="/admin"><?= \App\Lang::t('nav.admin') ?></a>
       <a href="/queue"><?= \App\Lang::t('nav.queue') ?></a>
+      <a href="/text"><?= \App\Lang::t('nav.site_text') ?></a>
       <?php if (\App\Features::on('news')): ?><a href="/news/new"><?= \App\Lang::t('nav.post_news') ?></a><?php endif; ?>
       <?php endif; ?>
     </nav>
