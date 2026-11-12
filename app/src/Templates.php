@@ -22,6 +22,9 @@ final class Templates
         'we_moved' => [],
         'password_reset' => ['{url}' => 'the password reset link'],
         'signin_link' => ['{url}' => 'the one-time sign-in link'],
+        'site_contact' => [
+            '{name}' => 'the sender\'s name', '{email}' => 'the sender\'s email address', '{message}' => 'the message text',
+        ],
         'email_change_confirm' => ['{url}' => 'the link that confirms the new email address'],
         'email_changed_notice' => ['{new_email}' => 'the new email address'],
         'coauthor_added' => [
@@ -63,6 +66,9 @@ final class Templates
             "Here is the sign-in link you asked for:\n\n{url}\n\n"
             . "It works once, for the next 30 minutes. Open it on the device you want to sign in on.\n\n"
             . "If you didn't ask for this, you can ignore this email."],
+        'site_contact' => ['New message from the contact form',
+            "{name} ({email}) wrote through the contact form:\n\n{message}\n\n"
+            . "Reply to this person at {email}. They are not signed in."],
         'email_change_confirm' => ['Confirm your new email address',
             "Someone asked to use this address for an account on the archive. To confirm it is yours, open this link:\n\n{url}\n\n"
             . "The link works once and expires in 24 hours. If this wasn't you, ignore this email and nothing will change."],
