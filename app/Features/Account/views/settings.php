@@ -79,6 +79,13 @@
     <label><?= \App\Lang::t('account.confirm_new_password') ?> <input type="password" name="confirm_password" required minlength="8" autocomplete="new-password"></label>
     <button type="submit"><?= \App\Lang::t('account.password_save') ?></button>
   </form>
+  <form method="post" action="/account/email">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <h3><?= \App\Lang::t('account.email_heading') ?></h3>
+    <label><?= \App\Lang::t('account.new_email') ?> <input type="email" name="new_email" required maxlength="254" autocomplete="email"></label>
+    <label><?= \App\Lang::t('account.current_password') ?> <input type="password" name="current_password" required autocomplete="current-password"></label>
+    <button type="submit"><?= \App\Lang::t('account.email_save') ?></button>
+  </form>
   </div>
   <?php if (\App\Features::on('mute')): ?>
   <h2 class="section-label"><?= \App\Lang::t('account.muted') ?></h2>

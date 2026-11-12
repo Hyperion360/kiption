@@ -6,7 +6,7 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 final class AccountController
 {
     /** The ?done= values settings() turns into a confirmation line. */
-    private const DONE = ['password', 'email', 'fields'];
+    private const DONE = ['password', 'emailsent', 'fields'];
 
     public function __construct(
         private View $view,
@@ -16,6 +16,71 @@ final class AccountController
         private App $app,
         private Storage $storage,
     ) {}
+
+    /** Resolved on use: only the email actions need mail, so a page that never
+     *  sends does not require a configured transport. */
+    private function mailer(): \App\MailGuard
+    {
+        return $this->app->container->make(\App\MailGuard::class);
+    }
+
+    /** Ask to change the email address: password re-checked, a confirm link
+     *  goes to the NEW address, and nothing changes until it is used. */
+    #[AuthAttr] #[Post]
+    public function email(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $new = trim($this->request->postStr('new_email'));
+        [$err, $token] = $this->security()->requestEmailChange($me, $new, $this->request->postStr('current_password'), $this->request->ip);
+        if ($err !== null) return $this->refuse($err);
+        $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/account/emailconfirm?t=' . $token;
+        [$subject, $body] = \App\Templates::get($this->db, 'email_change_confirm', 'Confirm your new email address',
+            "Someone asked to use this address for an account on the archive. To confirm it is yours, open this link:\n\n{url}\n\n"
+            . "The link works once and expires in 24 hours. If this wasn't you, ignore this email and nothing will change.");
+        try {
+            $this->mailer()->send($new, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
+        } catch (\Throwable $e) {
+            error_log("Email change mail failed: {$e->getMessage()}");
+            return $this->refuse('account.err_email_mail');
+        }
+        return Response::redirect('/account/settings?done=emailsent');
+    }
+
+    /** The emailed link lands here. Opening it changes nothing (mail scanners
+     *  prefetch links); the button POSTs to emailapply. No sign-in needed. */
+    public function emailconfirm(): Response
+    {
+        $token = (string) ($this->request->get['t'] ?? '');
+        if (!$this->security()->peekEmailChange($token)) return $this->emailView(null, 410);
+        return $this->emailView($token, 200);
+    }
+
+    #[Post]
+    public function emailapply(): Response
+    {
+        $res = $this->security()->applyEmailChange($this->request->postStr('t'));
+        if (\is_string($res)) return $this->emailView(null, 410, $res);
+        [$subject, $body] = \App\Templates::get($this->db, 'email_changed_notice', 'Your email address was changed',
+            "The email address on your archive account was changed to {new_email}.\n\n"
+            . "If you did this, there is nothing more to do. If you didn't, contact the archive owner right away.");
+        try {
+            $this->mailer()->send($res['old'], $subject, strtr($body, ['{new_email}' => $res['new']]), \App\MailGuard::CRITICAL);
+        } catch (\Throwable $e) {
+            error_log("Email change notice failed: {$e->getMessage()}");
+        }
+        return $this->emailView(null, 200, 'account.email_link_done');
+    }
+
+    private function emailView(?string $token, int $status, ?string $message = null): Response
+    {
+        $title = \App\Lang::t('account.email_confirm_heading');
+        $html = $this->view->render('account/emailconfirm', ['title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical('/account/emailconfirm')->withNoindex(),
+            'csrf' => $this->session->csrfToken(), 'token' => $token, 'message' => $message]);
+        return (new Response($html, $status))
+            ->withHeader('Referrer-Policy', 'no-referrer')
+            ->withHeader('Cache-Control', 'private, no-store');
+    }
 
     /** The Library: the reading shelf, the member's own work and follows. */
     #[AuthAttr]

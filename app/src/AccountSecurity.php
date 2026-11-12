@@ -37,4 +37,75 @@ final class AccountSecurity
         $this->db->query('DELETE FROM password_resets WHERE email = (SELECT email FROM users WHERE id = ?)', [$userId]);
         return null;
     }
+
+    public const EMAIL_TTL = 86400;
+
+    /** Start an email change: the password is re-checked, the new address must
+     *  be valid and free, and a one-time token is stored (hashed) for the link
+     *  mailed to the NEW address. Returns [lang key of the refusal or null,
+     *  raw token or null]. The address on the account does not change here. */
+    public function requestEmailChange(int $userId, string $newEmail, string $password, string $ip): array
+    {
+        if (($err = $this->checkPassword($userId, $password, $ip)) !== null) return [$err, null];
+        $newEmail = trim($newEmail);
+        if ($newEmail === '' || strlen($newEmail) > 254 || !filter_var($newEmail, FILTER_VALIDATE_EMAIL)) return ['account.err_email_invalid', null];
+        $me = $this->db->one('SELECT email FROM users WHERE id = ?', [$userId]);
+        if ($me === null) return ['account.err_wrong_password', null];
+        if (strcasecmp((string) $me['email'], $newEmail) === 0) return ['account.err_email_same', null];
+        if ($this->emailTaken($newEmail, $userId)) return ['account.err_email_taken', null];
+        $token = bin2hex(random_bytes(32));
+        $this->db->query('INSERT OR REPLACE INTO email_changes (user_id, new_email, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
+            [$userId, $newEmail, hash('sha256', $token), date('c', time() + self::EMAIL_TTL), date('c')]);
+        return [null, $token];
+    }
+
+    /** Whether the mailed link would still change an address. Read only, so a
+     *  mail scanner that prefetches the link cannot burn it. */
+    public function peekEmailChange(string $token): bool
+    {
+        if (preg_match('/^[0-9a-f]{64}$/', $token) !== 1) return false;
+        $row = $this->db->one('SELECT expires_at FROM email_changes WHERE token_hash = ?', [hash('sha256', $token)]);
+        return $row !== null && strtotime((string) $row['expires_at']) >= time();
+    }
+
+    /** Use the link: burns the token (the deleted row is the single-use
+     *  proof), re-checks the address is still free, then swaps it in.
+     *  Returns ['old' => ..., 'new' => ...] or the lang key of the refusal. */
+    public function applyEmailChange(string $token): array|string
+    {
+        if (preg_match('/^[0-9a-f]{64}$/', $token) !== 1) return 'account.email_link_expired';
+        $hash = hash('sha256', $token);
+        $this->db->begin();
+        try {
+            $row = $this->db->one('SELECT user_id, new_email, expires_at FROM email_changes WHERE token_hash = ?', [$hash]);
+            $burned = $row === null ? 0 : $this->db->query('DELETE FROM email_changes WHERE token_hash = ?', [$hash])->rowCount();
+            if ($burned !== 1 || strtotime((string) $row['expires_at']) < time()) {
+                $this->db->commit();
+                return 'account.email_link_expired';
+            }
+            $id = (int) $row['user_id'];
+            if ($this->emailTaken((string) $row['new_email'], $id)) {
+                $this->db->commit();
+                return 'account.email_link_taken';
+            }
+            $old = (string) $this->db->one('SELECT email FROM users WHERE id = ?', [$id])['email'];
+            // Opening a link mailed to the new address proves it is theirs.
+            $this->db->query('UPDATE users SET email = ?, email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?',
+                [$row['new_email'], date('c'), $id]);
+            // Anything still waiting on the old address dies with it.
+            $this->db->query('DELETE FROM password_resets WHERE email = ?', [$old]);
+            $this->db->query('DELETE FROM email_verifications WHERE email = ?', [$old]);
+            $this->db->commit();
+            return ['old' => $old, 'new' => (string) $row['new_email']];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    private function emailTaken(string $email, int $exceptUserId): bool
+    {
+        return $this->db->one('SELECT 1 AS x FROM users WHERE LOWER(email) = LOWER(?) AND id != ?', [$email, $exceptUserId]) !== null
+            || $this->db->one('SELECT 1 AS x FROM email_verifications WHERE LOWER(email) = LOWER(?)', [$email]) !== null;
+    }
 }
