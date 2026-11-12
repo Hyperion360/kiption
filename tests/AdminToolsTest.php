@@ -228,6 +228,19 @@ final class AdminToolsTest extends TestCase
         $this->assertStringNotContainsString('Ghosted', $body, 'soft-deleted stories stay off the guest home');
     }
 
+    public function test_demote_confirm_text_cannot_break_out_of_the_handler(): void
+    {
+        file_put_contents($this->root . '/xx.php', '<?php return ["adminmembers.demote_confirm" => "x\');alert(1);(\'&#39;&quot;"];');
+        \App\Lang::addPackPath('xx', $this->root . '/xx.php');
+        \App\Lang::setCurrent('xx');
+        try {
+            $body = $this->client($this->adminId())->get('/adminmembers')->body;
+        } finally {
+            \App\Lang::setCurrent('en');
+        }
+        $this->assertStringContainsString('onclick="return confirm(&quot;x\\u0027);alert(1);(\\u0027\\u0026#39;\\u0026quot;&quot;)"', $body);
+    }
+
     public function test_admin_members_index_lists_roles_and_searches(): void
     {
         $db = $this->db();
