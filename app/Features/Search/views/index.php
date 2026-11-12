@@ -7,7 +7,8 @@
      $this->layout('layout');
      $asked = $q !== '' || array_filter($filters, static fn ($v): bool => $v !== null && $v !== '' && $v !== false) !== [];
      $refined = ($filters['category'] ?? null) !== null || ($filters['rating_id'] ?? null) !== null
-         || ($filters['completed'] ?? null) === true || (string) ($filters['language'] ?? '') !== ''; ?>
+         || ($filters['completed'] ?? null) === true || (string) ($filters['language'] ?? '') !== ''
+         || ($filters['tag'] ?? null) !== null || ($filters['character'] ?? null) !== null; ?>
 <div class="page page-search">
   <header class="page-head">
     <h1><?= \App\Lang::t('search.heading') ?></h1>
@@ -39,6 +40,12 @@
         </label>
         <label><?= \App\Lang::t('common.language_hint') ?> <input name="language" maxlength="10" value="<?= $this->e($filters['language'] ?? '') ?>"></label>
         <label class="inline"><input type="checkbox" name="completed" value="1" <?= ($filters['completed'] ?? null) === true ? 'checked' : '' ?>> <?= \App\Lang::t('search.completed_only') ?></label>
+        <?php if (($filters['tag'] ?? null) !== null): ?>
+        <input type="hidden" name="tag" value="<?= (int) $filters['tag'] ?>"><p class="hint"><?= \App\Lang::t('search.filtered_tag') ?> <a href="/search?<?= $this->e(http_build_query(array_filter(['q' => $q, 'character' => $filters['character'] ?? '']))) ?>"><?= \App\Lang::t('search.clear_filter') ?></a></p>
+        <?php endif; ?>
+        <?php if (($filters['character'] ?? null) !== null): ?>
+        <input type="hidden" name="character" value="<?= (int) $filters['character'] ?>"><p class="hint"><?= \App\Lang::t('search.filtered_character') ?> <a href="/search?<?= $this->e(http_build_query(array_filter(['q' => $q, 'tag' => $filters['tag'] ?? '']))) ?>"><?= \App\Lang::t('search.clear_filter') ?></a></p>
+        <?php endif; ?>
       </div>
     </details>
   </form>
@@ -57,7 +64,9 @@ $carry = ['q' => $q,
           'category' => (string) ($filters['category'] ?? ''),
           'rating' => (string) ($filters['rating_id'] ?? ''),
           'completed' => ($filters['completed'] ?? null) === true ? '1' : '',
-          'language' => (string) ($filters['language'] ?? '')];
+          'language' => (string) ($filters['language'] ?? ''),
+          'tag' => (string) ($filters['tag'] ?? ''),
+          'character' => (string) ($filters['character'] ?? '')];
 $keep = array_filter($carry, fn (string $v): bool => $v !== '');
 $prevQ = http_build_query($keep + ['page' => max(1, $page - 1)]);
 $nextQ = http_build_query($keep + ['page' => $page + 1]);

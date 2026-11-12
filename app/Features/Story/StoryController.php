@@ -40,10 +40,10 @@ final class StoryController
         // the render never depends on aggregation internals (the TOC discipline).
         $tags = [];
         foreach (json_decode((string) $story['tags_blob'], true) ?: [] as $t) {
-            $tags[(string) $t['type']][] = (string) $t['name'];
+            $tags[(string) $t['type']][(string) $t['name']] = (int) $t['i'];
         }
         foreach ($tags as &$names) {
-            sort($names, SORT_STRING);
+            ksort($names, SORT_STRING); // name => tag id, name-sorted
         }
         unset($names);
         ksort($tags);

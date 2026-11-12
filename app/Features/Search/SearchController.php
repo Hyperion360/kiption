@@ -28,6 +28,9 @@ final class SearchController
             'rating_id' => ctype_digit((string) ($this->request->get['rating'] ?? '')) ? (int) $this->request->get['rating'] : null,
             'completed' => ($this->request->get['completed'] ?? '') === '1' ? true : null,
             'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($this->request->get['language'] ?? '')) ? (string) $this->request->get['language'] : null,
+            // Tag and character ids from the story page links; junk and 0 coerce to no filter.
+            'tag' => $this->positiveId('tag'),
+            'character' => $this->positiveId('character'),
         ];
         [$perPage, $offset] = $this->paginate();
         // the gate binds the member id: a revoked session filters as a guest
@@ -45,6 +48,12 @@ final class SearchController
             'page' => $this->page(), 'perPage' => $perPage, 'loggedIn' => $me !== 0,
         ]);
         return (new \Kip\Http\Response($out, 200))->withHeader('X-Robots-Tag', 'noindex');
+    }
+
+    private function positiveId(string $key): ?int
+    {
+        $raw = (string) ($this->request->get[$key] ?? '');
+        return ctype_digit($raw) && strlen($raw) <= 18 && (int) $raw > 0 ? (int) $raw : null;
     }
 
     private function head(): \App\Seo\Head

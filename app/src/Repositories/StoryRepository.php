@@ -84,7 +84,7 @@ final class StoryRepository
                      WHERE si.story_id = s.id AND si.confirmed = 1) AS series_blob,
                     (SELECT json_group_array(json_object(\'i\', cu.id, \'n\', cu.penname, \'p\', cu.profile_slug))
                      FROM coauthors ca JOIN users cu ON cu.id = ca.user_id WHERE ca.story_id = s.id) AS coauthors_blob,
-                    (SELECT json_group_array(json_object(\'type\', tt.name, \'name\', COALESCE(cu2.name, t.name)))
+                    (SELECT json_group_array(json_object(\'type\', tt.name, \'name\', COALESCE(cu2.name, t.name), \'i\', COALESCE(t.canonical_id, t.id)))
                      FROM story_tags st
                      JOIN tags t ON t.id = st.tag_id
                      LEFT JOIN tags cu2 ON cu2.id = t.canonical_id
