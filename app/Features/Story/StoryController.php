@@ -848,12 +848,12 @@ final class StoryController
     }
 
     /** The signed-in viewer's role, for the owner and moderator tools on the
-     *  story page. Guests cost nothing (no query); a member pays one primary
-     *  key read. The view only shows buttons: every write re-checks the role. */
+     *  story page. It comes from the session check Viewer::id already ran on
+     *  this request (no query); the view only shows buttons, every write
+     *  re-checks the role. */
     private function viewerRole(int $me): string
     {
-        if ($me === 0) return '';
-        return (string) ($this->db->one('SELECT role FROM users WHERE id = ?', [$me])['role'] ?? '');
+        return $me === 0 ? '' : \App\SessionGuard::role();
     }
 
     private function head(): \App\Seo\Head

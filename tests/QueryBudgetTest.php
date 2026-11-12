@@ -65,7 +65,7 @@ final class QueryBudgetTest extends TestCase
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/');
@@ -179,7 +179,7 @@ final class QueryBudgetTest extends TestCase
         }
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
              ON CONFLICT (user_id, story_id) DO UPDATE SET
                 last_position = MAX(last_position, excluded.last_position),
@@ -208,7 +208,7 @@ final class QueryBudgetTest extends TestCase
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
              ON CONFLICT (user_id, story_id) DO UPDATE SET
                 last_position = MAX(last_position, excluded.last_position),
@@ -248,7 +248,7 @@ final class QueryBudgetTest extends TestCase
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent');
@@ -276,7 +276,7 @@ final class QueryBudgetTest extends TestCase
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent', ['filter' => 'under10k']);
@@ -304,7 +304,7 @@ final class QueryBudgetTest extends TestCase
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent', ['cat' => 'general']);
@@ -332,7 +332,7 @@ final class QueryBudgetTest extends TestCase
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent', ['page' => '1', 'fragment' => '1']);
@@ -358,7 +358,7 @@ final class QueryBudgetTest extends TestCase
         $db = $app->container->make(Database::class);
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/story/fragment/the-rabbit-hole/2');

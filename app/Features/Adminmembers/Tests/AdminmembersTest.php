@@ -89,6 +89,17 @@ final class AdminmembersTest extends TestCase
         $this->assertSame('/auth/login?locked=1', $res->headers['Location'] ?? null);
     }
 
+    public function test_the_request_hook_bounces_a_locked_member_from_account(): void
+    {
+        $member = $this->client($this->targetId);
+        $this->assertSame(200, $member->get('/account')->status, 'signed in before the lock');
+        $this->client($this->adminId)->postWithToken('/adminmembers/lock/' . $this->targetId);
+        \App\SessionGuard::enforce($this->db, $member->session); // what public/index.php runs per request
+        $res = $member->get('/account');
+        $this->assertSame(302, $res->status);
+        $this->assertSame('/auth/login', $res->headers['Location'] ?? null);
+    }
+
     public function test_deleting_signs_out_a_member_who_is_already_in(): void
     {
         \App\Adminness::setRole($this->db, $this->heirId, 'admin');
@@ -110,8 +121,13 @@ final class AdminmembersTest extends TestCase
         $this->assertSame(302, $this->client()->post('/auth/attempt', ['email' => 'leaving-member@e.test', 'password' => 'password123'])->status);
     }
 
-    public function test_cannot_lock_yourself(): void
+    public function test_cannot_lock_yourself_or_the_last_unlocked_admin(): void
     {
+        $other = $this->user('second-admin', 'admin');
+        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [$other]);
+        // a locked admin's old session is bounced before the lock runs
+        $this->assertSame(302, $this->client($other)->postWithToken('/adminmembers/lock/' . $this->adminId)->status);
+        $this->assertSame(0, $this->locked($this->adminId));
         $this->assertSame(422, $this->client($this->adminId)->postWithToken('/adminmembers/lock/' . $this->adminId)->status);
         $this->assertSame(0, $this->locked($this->adminId));
     }
@@ -173,14 +189,17 @@ final class AdminmembersTest extends TestCase
         $this->assertSame(404, $admin->postWithToken('/adminmembers/destroy/99999', ['stories' => 'remove'])->status);
     }
 
-    public function test_a_locked_admin_cannot_delete_anyone(): void
+    public function test_delete_refuses_the_last_working_admin(): void
     {
         $other = $this->user('second-admin', 'admin');
         $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [$other]);
-        // a locked admin is signed out, so the only working admin cannot be removed by them
+        // the sole unlocked admin cannot delete themselves, and a locked admin's old session is bounced before any change
+        $this->assertSame(422, $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->adminId, ['stories' => 'remove'])->status);
         $res = $this->client($other)->postWithToken('/adminmembers/destroy/' . $this->adminId, ['stories' => 'remove']);
         $this->assertSame(302, $res->status);
-        $this->assertSame('roster-admin', $this->db->one('SELECT penname FROM users WHERE id = ?', [$this->adminId])['penname']);
+        $row = $this->db->one('SELECT penname, is_locked FROM users WHERE id = ?', [$this->adminId]);
+        $this->assertSame('roster-admin', $row['penname']);
+        $this->assertSame(0, (int) $row['is_locked']);
     }
 
     public function test_a_member_with_no_stories_can_be_deleted_without_a_choice(): void
