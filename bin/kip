@@ -58,6 +58,29 @@ match ($argv[1] ?? 'help') {
         if ($ran) echo 'Auto-migrated: ' . implode(', ', $ran) . "\n";
         passthru('KIP_ENV=dev php -S localhost:8080 -t ' . escapeshellarg(__DIR__ . '/../public'));
     })(),
+    'auth:link' => (function () use ($config, $argv) {
+        // Mint a one-time sign-in link for a member, to paste into a support
+        // reply. Prints only the URL on stdout; warnings go to stderr.
+        $email = (string) ($argv[2] ?? '');
+        $hours = 24;
+        foreach (array_slice($argv, 3) as $arg) {
+            if (preg_match('/^--hours=(\d+)$/', $arg, $m) === 1) { $hours = (int) $m[1]; continue; }
+            $email = '';                                // unknown flag: show usage
+        }
+        if ($email === '' || $hours < 1 || $hours > 168) {
+            fwrite(STDERR, "Usage: kip auth:link <email> [--hours=1..168]   (default 24)\n"
+                . "Example: kip auth:link member@example.com --hours=72\n");
+            exit(1);
+        }
+        $db = new Kip\Database($config['db']['dsn']);
+        $user = $db->one('SELECT id, is_locked, approved_at FROM users WHERE email = ?', [$email]);
+        if ($user === null) { fwrite(STDERR, "No account for {$email}.\n"); exit(1); }
+        if ((int) $user['is_locked'] === 1) fwrite(STDERR, "Warning: this account is locked; the link will be refused until it is unlocked.\n");
+        if ($user['approved_at'] === null) fwrite(STDERR, "Warning: this account is awaiting approval; the link will be refused until it is approved.\n");
+        $token = (new \App\LoginLinks($db))->mint((int) $user['id'], $hours * 3600);
+        echo \App\LoginLinks::url((string) ($config['base_url'] ?? 'http://localhost:8080'), $token), "\n";
+        fwrite(STDERR, "Valid once, for {$hours} hours. Using it also verifies the member's email.\n");
+    })(),
     'user:create' => (function () use ($config, $argv) {
         $rest    = array_slice($argv, 2);
         $isAdmin = in_array('--admin', $rest, true);
@@ -599,5 +622,5 @@ match ($argv[1] ?? 'help') {
         }
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]|auth:link <email> [--hours=1..168]]\n"),
 };
