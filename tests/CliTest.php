@@ -22,6 +22,7 @@ final class CliTest extends TestCase
         if ($this->fixtures !== '') { exec('rm -rf ' . escapeshellarg($this->fixtures)); $this->fixtures = ''; }
         $staticDir = $this->path . '-static';
         if (is_dir($staticDir)) { exec('rm -rf ' . escapeshellarg($staticDir)); }
+        if (is_dir($this->path . '-sitetext')) { exec('rm -rf ' . escapeshellarg($this->path . '-sitetext')); }
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
@@ -35,7 +36,7 @@ final class CliTest extends TestCase
         $staticDir = $this->path . '-static';
         if (!is_dir($staticDir)) { mkdir($staticDir); }
         $cmd = sprintf('KIP_DB_DSN=%s%s KIP_STATIC_CACHE_DIR=%s %s %s %s %s 2>&1',
-            escapeshellarg('sqlite:' . $this->path),
+            escapeshellarg('sqlite:' . $this->path) . ($extraEnv === '' || !str_contains($extraEnv, 'KIP_SITE_TEXT_DIR') ? ' KIP_SITE_TEXT_DIR=' . escapeshellarg($this->path . '-sitetext') : ''),
             $cacheDsn === '' ? '' : ' KIP_CACHE_DB_DSN=' . escapeshellarg($cacheDsn),
             escapeshellarg($staticDir),
             $extraEnv,
@@ -71,6 +72,29 @@ final class CliTest extends TestCase
         ]);
         $res = (new TestClient($app))->post('/auth/attempt', ['email' => 'cli@e.test', 'password' => 'password123']);
         $this->assertSame(302, $res->status, 'CLI-created admin must pass the login gates: ' . substr($res->body, 0, 200));
+    }
+
+    public function test_text_compile_writes_the_compiled_files_from_the_database(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-cli-data-' . bin2hex(random_bytes(4));
+        $this->fixtures = $dir;
+        mkdir($dir);
+        $this->kip('migrate');
+        $db = new Database('sqlite:' . $this->path);
+        $db->query("INSERT INTO site_text (lang, key, value) VALUES ('en', 'nav.login', 'Sign in')");
+        [$code, $out] = $this->kip('text:compile', '', 'KIP_SITE_TEXT_DIR=' . escapeshellarg($dir . '/site-text'));
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString("Sign in", (string) file_get_contents($dir . '/site-text/en.php'));
+    }
+
+    public function test_text_compile_says_so_when_the_tables_are_missing(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-cli-data-' . bin2hex(random_bytes(4));
+        $this->fixtures = $dir;
+        mkdir($dir);
+        [$code, $out] = $this->kip('text:compile', '', 'KIP_SITE_TEXT_DIR=' . escapeshellarg($dir . '/site-text'));
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('migrate', $out);
     }
 
     public function test_rollback_undoes_the_last_batch_and_migrate_restores_it(): void

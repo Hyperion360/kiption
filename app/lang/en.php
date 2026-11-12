@@ -837,4 +837,10 @@ return [
     'text.err_newline' => 'Line breaks are not allowed in this text.',
     'text.err_placeholder_missing' => 'The text must keep {name} exactly as written.',
     'text.err_placeholder_extra' => 'This text has no {name} to fill in. Remove it.',
+    'text.err_language' => 'That language is not installed.',
+    'text.err_code' => 'Use a language code of two or three lowercase letters, like fr or fil.',
+    'text.err_name' => 'The name must be 1 to 40 characters, with no angle brackets, quotes or line breaks.',
+    'text.err_dir' => 'The direction must be left to right or right to left.',
+    'text.err_exists' => 'That language already exists.',
+    'text.err_remove' => 'Only a language you added can be removed.',
 ];

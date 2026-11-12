@@ -16,6 +16,7 @@ $footerLinks = is_array($footerLinks) ? $footerLinks : [];
 return [
     'env'     => getenv('KIP_ENV') ?: 'prod', // prod default, D4 info-disclosure rule
     'data_dir' => $dataDir, // the private writable tree: databases, backups, nav, setup state (release layout: site/shared; flat layout: app/)
+    'site_text_dir' => getenv('KIP_SITE_TEXT_DIR') ?: $dataDir . '/site-text', // compiled owner text (App\SiteText\Compiler); KIP_SITE_TEXT_DIR: tests/CLI point it at a throwaway dir
     'db'      => ['dsn' => getenv('KIP_DB_DSN') ?: 'sqlite:' . $dataDir . '/data.sqlite'], // KIP_DB_DSN: tests/CLI point bin/kip at a throwaway DB
     'log_db'  => ['dsn' => 'sqlite:' . $dataDir . '/logs.sqlite', 'retention_days' => 30],
     'cache_db' => ['dsn' => getenv('KIP_CACHE_DB_DSN') ?: 'sqlite:' . $dataDir . '/cache.sqlite', 'ttl_seconds' => 3600], // KIP_CACHE_DB_DSN: tests/CLI point kip cache:clear at a throwaway file

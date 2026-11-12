@@ -38,10 +38,95 @@ final class Lang
     /** @var array<int, string>|null the app/lang pack basenames, memoized */
     private static ?array $installed = null;
 
-    /** The active UI language. Codes outside [a-z]{2} coerce to en (soft, like a missing key). */
+    /** @var string|null the folder of compiled owner text (see SiteText\Compiler) */
+    private static ?string $siteDir = null;
+
+    /** @var array<string, array{name: string, dir: string}>|null owner-added languages, memoized */
+    private static ?array $siteIndex = null;
+
+    /** The active UI language. Codes outside [a-z]{2,3} coerce to en (soft, like a missing key). */
     public static function setCurrent(string $lang): void
     {
-        self::$current = preg_match('/^[a-z]{2}$/', $lang) === 1 ? $lang : 'en';
+        self::$current = preg_match('/^[a-z]{2,3}$/', $lang) === 1 ? $lang : 'en';
+    }
+
+    /** Point the layer at the folder of compiled owner text (null turns it off). Clears the caches. */
+    public static function useSiteText(?string $dir): void
+    {
+        self::$siteDir = $dir;
+        self::$cache = [];
+        self::$siteIndex = null;
+        self::$installed = null;
+    }
+
+    /** Forget everything loaded and the site text folder (tests). */
+    public static function reset(): void
+    {
+        self::$siteDir = null;
+        self::$cache = [];
+        self::$siteIndex = null;
+        self::$installed = null;
+        self::$packPaths = [];
+        self::$current = 'en';
+    }
+
+    /** Has the compiled folder been built yet? */
+    public static function siteTextReady(): bool
+    {
+        return self::$siteDir !== null && is_file(self::$siteDir . '/index.php');
+    }
+
+    /** Owner-added languages: code => name and dir, from the compiled index. */
+    private static function siteIndex(): array
+    {
+        if (self::$siteIndex !== null) return self::$siteIndex;
+        $index = [];
+        if (self::$siteDir !== null) {
+            foreach (self::load(self::$siteDir . '/index.php') as $code => $meta) {
+                if (is_string($code) && preg_match('/^[a-z]{2,3}$/', $code) === 1 && is_array($meta)) {
+                    $index[$code] = [
+                        'name' => is_string($meta['name'] ?? null) ? $meta['name'] : $code,
+                        'dir' => ($meta['dir'] ?? '') === 'rtl' ? 'rtl' : 'ltr',
+                    ];
+                }
+            }
+        }
+        return self::$siteIndex = $index;
+    }
+
+    /** Codes that ship as pack files in app/lang. */
+    public static function builtinCodes(): array
+    {
+        $codes = [];
+        foreach (glob(self::DIR . '/*.php') ?: [] as $file) {
+            $codes[] = basename($file, '.php');
+        }
+        sort($codes);
+        return $codes;
+    }
+
+    /** True for a language the owner added (not a shipped pack). */
+    public static function isOwned(string $code): bool
+    {
+        return isset(self::siteIndex()[$code]) && !in_array($code, self::builtinCodes(), true);
+    }
+
+    /** The language's display name: owner name, the pack's _name, English, else the code. */
+    public static function name(string $code): string
+    {
+        $owned = self::siteIndex()[$code]['name'] ?? null;
+        if ($owned !== null) return $owned;
+        $pack = self::builtin($code)['_name'] ?? null;
+        if (is_string($pack) && $pack !== '') return $pack;
+        return $code === 'en' ? 'English' : $code;
+    }
+
+    /** en overlaid with the shipped pack for a code, without any owner text. */
+    public static function builtin(string $lang): array
+    {
+        $en = self::base();
+        if ($lang === 'en') return $en;
+        return array_replace($en, self::load(self::$packPaths[$lang] ?? self::DIR . '/' . $lang . '.php'));
     }
 
     /** Register a pack file for a code, ahead of autodiscovery. Re-registration reloads. */
@@ -77,10 +162,7 @@ final class Lang
     public static function installed(): array
     {
         if (self::$installed !== null) return self::$installed;
-        $codes = [];
-        foreach (glob(self::DIR . '/*.php') ?: [] as $file) {
-            $codes[] = basename($file, '.php');
-        }
+        $codes = array_values(array_unique(array_merge(self::builtinCodes(), array_keys(self::siteIndex()))));
         sort($codes);
         return self::$installed = $codes;
     }
@@ -111,11 +193,11 @@ final class Lang
     public static function all(string $lang): array
     {
         if (isset(self::$cache[$lang])) return self::$cache[$lang];
-        $en = self::load(self::DIR . '/en.php');
-        if ($lang === 'en') return self::$cache[$lang] = $en;
-        return self::$cache[$lang] = array_replace($en, self::load(
-            self::$packPaths[$lang] ?? self::DIR . '/' . $lang . '.php'
-        ));
+        $map = self::builtin($lang);
+        if (self::$siteDir !== null && preg_match('/^[a-z]{2,3}$/', $lang) === 1) {
+            $map = array_replace($map, self::load(self::$siteDir . '/' . $lang . '.php'));
+        }
+        return self::$cache[$lang] = $map;
     }
 
     /** @return array<string, string> an unloadable or non-file pack reads as empty (en underneath) */

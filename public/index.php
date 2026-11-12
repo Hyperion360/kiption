@@ -107,7 +107,7 @@ if ($runLock !== false && flock($runLock, LOCK_SH)) {
 }
 
 $config['views'] = $config['app_dir'] . '/views';
-\App\Lang::setCurrent($config['ui_lang'] ?? 'en'); // every view's strings render through the pack layer
+\App\SiteText\Boot::early($config); // every view's strings render through the pack layer, owner text included
 
 $request = Kip\Http\Request::fromGlobals(trustedProxy: $config['trusted_proxy']);
 
@@ -126,7 +126,8 @@ $request = Kip\Http\Request::fromGlobals(trustedProxy: $config['trusted_proxy'])
 // already carrying the cookie keeps its language until the next logout.
 $cookieLang = $request->cookies['lang'] ?? '';
 if (($config['features']['peruserlang'] ?? true)
-    && is_string($cookieLang) && preg_match('/^[a-z]{2}$/', $cookieLang) === 1) {
+    && is_string($cookieLang) && preg_match('/^[a-z]{2,3}$/', $cookieLang) === 1
+    && in_array($cookieLang, \App\Lang::installed(), true)) {
     \App\Lang::setCurrent($cookieLang);
 }
 
@@ -180,6 +181,10 @@ $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 // point picks up DB values with zero downstream edits. Guarded: an unmigrated
 // database keeps the config-file values instead of fataling the first page.
 $config = \App\Settings::apply($config);
+// The saved default language is known now: pick it, then let a member's own
+// cookie choice win when per-user language is on. Compiles the owner text once
+// if the compiled folder is missing.
+\App\SiteText\Boot::late($config, new \Kip\Database($config['db']['dsn']), $cookieLang, \App\Features::on('peruserlang'));
 // The RTA seam: the operator's site-wide adult label (config 'adult_rta',
 // the settings board's row overrides it). Set once at boot, zero queries;
 // a page-level withRating() call still wins inside Head.
