@@ -82,6 +82,54 @@ final class AccountController
             ->withHeader('Cache-Control', 'private, no-store');
     }
 
+    /** The confirm step for deleting the account: password and what happens
+     *  to the stories. Nothing is deleted by opening this page. */
+    #[AuthAttr]
+    public function delete(): string
+    {
+        $me = (int) $this->session->get('user_id');
+        $title = \App\Lang::t('account.delete_heading');
+        return $this->view->render('account/delete', ['title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical('/account/delete')->withNoindex(),
+            'csrf' => $this->session->csrfToken(), 'error' => null,
+            'lastAdmin' => $this->security()->isLastAdmin($me)]);
+    }
+
+    #[AuthAttr] #[Post]
+    public function destroy(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $stories = $this->request->postStr('stories');
+        $avatar = $this->db->one('SELECT avatar_path FROM users WHERE id = ?', [$me])['avatar_path'] ?? null;
+        $title = \App\Lang::t('account.delete_heading');
+        $err = !\in_array($stories, ['keep', 'remove'], true) ? 'account.err_delete_choice'
+            : $this->security()->deleteAccount($me, $this->request->postStr('current_password'), $stories === 'keep', $this->request->ip);
+        if ($err !== null) {
+            $html = $this->view->render('account/delete', ['title' => $title,
+                'head' => $this->head()->withTitle($title)->withCanonical('/account/delete')->withNoindex(),
+                'csrf' => $this->session->csrfToken(), 'error' => $err,
+                'lastAdmin' => $this->security()->isLastAdmin($me)]);
+            return new Response($html, $err === \App\AccountSecurity::THROTTLED ? 429 : 422);
+        }
+        $this->afterDelete($avatar === null ? null : (string) $avatar);
+        return Response::redirect('/')
+            ->withAddedHeader('Set-Cookie', \App\Cookie::long('lang', ''))
+            ->withAddedHeader('Set-Cookie', \App\Cookie::pref(\App\Theme::COOKIE, ''));
+    }
+
+    /** The row is gone: end the session and refresh the public pages that
+     *  showed this member or their stories. */
+    private function afterDelete(?string $avatar): void
+    {
+        if ($avatar !== null && $avatar !== '') {
+            // basename() keeps the delete inside the configured uploads dir.
+            $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
+            @unlink($dir . '/' . basename($avatar));
+        }
+        (new \Kip\Auth($this->db, $this->session))->logout();
+        \App\StaticCache\Cache::configured($this->app)->purgeAll();
+    }
+
     /** The Library: the reading shelf, the member's own work and follows. */
     #[AuthAttr]
     public function index(): string

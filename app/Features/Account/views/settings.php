@@ -86,6 +86,7 @@
     <label><?= \App\Lang::t('account.current_password') ?> <input type="password" name="current_password" required autocomplete="current-password"></label>
     <button type="submit"><?= \App\Lang::t('account.email_save') ?></button>
   </form>
+  <p><a href="/account/delete"><?= \App\Lang::t('account.delete_link') ?></a></p>
   </div>
   <?php if (\App\Features::on('mute')): ?>
   <h2 class="section-label"><?= \App\Lang::t('account.muted') ?></h2>

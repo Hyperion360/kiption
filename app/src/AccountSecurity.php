@@ -108,4 +108,59 @@ final class AccountSecurity
         return $this->db->one('SELECT 1 AS x FROM users WHERE LOWER(email) = LOWER(?) AND id != ?', [$email, $exceptUserId]) !== null
             || $this->db->one('SELECT 1 AS x FROM email_verifications WHERE LOWER(email) = LOWER(?)', [$email]) !== null;
     }
+
+    /** The reserved address of the placeholder account that keeps the work of
+     *  members who delete their account but leave their stories up. */
+    public const ANON_EMAIL = 'anonymous@kiption.invalid';
+
+    /** Whether this member is the only admin left (a locked admin cannot act,
+     *  so it does not count as one). */
+    public function isLastAdmin(int $userId): bool
+    {
+        $me = $this->db->one('SELECT role FROM users WHERE id = ?', [$userId]);
+        if ($me === null || $me['role'] !== 'admin') return false;
+        return $this->db->one("SELECT 1 AS x FROM users WHERE role = 'admin' AND is_locked = 0 AND id != ?", [$userId]) === null;
+    }
+
+    /** Delete the member's account after a password re-check. $keepStories
+     *  true moves their stories and series to a placeholder "Anonymous"
+     *  account; false lets the database cascade remove them. Returns the
+     *  lang key of the refusal, or null once it is done. */
+    public function deleteAccount(int $userId, string $password, bool $keepStories, string $ip): ?string
+    {
+        if (($err = $this->checkPassword($userId, $password, $ip)) !== null) return $err;
+        if ($this->isLastAdmin($userId)) return 'account.err_last_admin';
+        $this->db->begin();
+        try {
+            if ($keepStories) {
+                $anon = $this->anonymousId();
+                $this->db->query('UPDATE stories SET author_id = ? WHERE author_id = ?', [$anon, $userId]);
+                $this->db->query('UPDATE series SET owner_id = ? WHERE owner_id = ?', [$anon, $userId]);
+            }
+            $this->db->query('DELETE FROM password_resets WHERE email = (SELECT email FROM users WHERE id = ?)', [$userId]);
+            $this->db->query('DELETE FROM email_verifications WHERE email = (SELECT email FROM users WHERE id = ?)', [$userId]);
+            $this->db->query('DELETE FROM users WHERE id = ?', [$userId]);
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+        return null;
+    }
+
+    /** The placeholder account, made on first use. It can never sign in (the
+     *  hash is not a valid hash, the address cannot receive mail) and is not
+     *  verified or approved, so it stays out of the member directory. */
+    private function anonymousId(): int
+    {
+        $row = $this->db->one('SELECT id FROM users WHERE email = ?', [self::ANON_EMAIL]);
+        if ($row !== null) return (int) $row['id'];
+        $name = 'Anonymous';
+        for ($n = 2; $this->db->one('SELECT 1 AS x FROM users WHERE penname = ? OR profile_slug = ?', [$name, strtolower(str_replace(' ', '-', $name))]) !== null; $n++) {
+            $name = 'Anonymous ' . $n;
+        }
+        $this->db->query('INSERT INTO users (email, password_hash, penname, profile_slug) VALUES (?, ?, ?, ?)',
+            [self::ANON_EMAIL, '!', $name, strtolower(str_replace(' ', '-', $name))]);
+        return (int) $this->db->lastInsertId();
+    }
 }

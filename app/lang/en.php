@@ -445,6 +445,16 @@ return [
     'account.email_link_done' => 'Your email address is changed. Use it the next time you sign in.',
     'account.email_link_expired' => 'This link has expired or was already used. Ask for a new one from your account settings.',
     'account.email_link_taken' => 'That email address is no longer available, so nothing was changed.',
+    'account.delete_link' => 'Delete my account',
+    'account.delete_heading' => 'Delete your account',
+    'account.delete_lede' => 'This removes your account, your reading history, favorites, follows and messages. It cannot be undone.',
+    'account.delete_stories_legend' => 'What should happen to your stories and series?',
+    'account.delete_keep' => 'Keep them, shown under the name Anonymous',
+    'account.delete_remove' => 'Delete them with my account',
+    'account.delete_submit' => 'Delete my account for good',
+    'account.delete_back' => 'Keep my account',
+    'account.err_delete_choice' => 'Choose what should happen to your stories.',
+    'account.err_last_admin' => 'You are the only admin, so this account cannot be deleted. Make someone else an admin first.',
 
     // The members admin table.
     'adminmembers.heading' => 'Members',
