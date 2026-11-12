@@ -26,21 +26,21 @@ final class ProfilefieldsController
     {
         if (($gate = $this->gate()) !== null) return $gate;
         $err = $this->fields()->add($this->request->postStr('label'), $this->request->postStr('type'));
-        return $this->done($err);
+        return $this->done($err, 'add', $this->request->postStr('label'));
     }
 
     #[Post]
     public function rename(string $id): Response|string
     {
         if (($gate = $this->gate()) !== null) return $gate;
-        return $this->done($this->fields()->rename((int) $id, $this->request->postStr('label')));
+        return $this->done($this->fields()->rename((int) $id, $this->request->postStr('label')), 'rename', $this->request->postStr('label'));
     }
 
     #[Post]
     public function move(string $id): Response|string
     {
         if (($gate = $this->gate()) !== null) return $gate;
-        return $this->done($this->fields()->move((int) $id, $this->request->postStr('dir')));
+        return $this->done($this->fields()->move((int) $id, $this->request->postStr('dir')), 'move', 'field ' . (int) $id . ' ' . $this->request->postStr('dir'));
     }
 
     /** The confirm step: nothing is deleted by opening it. */
@@ -58,12 +58,14 @@ final class ProfilefieldsController
     public function destroy(string $id): Response|string
     {
         if (($gate = $this->gate()) !== null) return $gate;
-        return $this->done($this->fields()->delete((int) $id) ? null : 'profilefields.err_missing');
+        $label = (string) ($this->fields()->find((int) $id)['label'] ?? '');
+        return $this->done($this->fields()->delete((int) $id) ? null : 'profilefields.err_missing', 'delete', $label);
     }
 
-    private function done(?string $err): Response|string
+    private function done(?string $err, string $action, string $detail): Response|string
     {
         if ($err !== null) return $this->page($err, 422);
+        \App\ActivityLog::record($this->db, (int) $this->session->get('user_id'), 'profilefields.' . $action, $detail);
         \App\StaticCache\Cache::configured($this->app)->purgeAll();
         return Response::redirect('/profilefields');
     }

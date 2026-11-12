@@ -56,6 +56,7 @@ final class FeaturesController
         } catch (\InvalidArgumentException) {
             return new Response('Unknown feature flag', 422);
         }
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'features.toggle', $key);
         $this->purge();
         return Response::redirect('/features');
     }

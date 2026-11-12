@@ -53,7 +53,10 @@ final class InvitesController
             $inserted = $this->db->query(
                 'INSERT OR IGNORE INTO invites (code, created_by) VALUES (?, ?)',
                 [$code, (int) $this->session->get('user_id')]);
-            if ($inserted->rowCount() === 1) return Response::redirect('/invites');
+            if ($inserted->rowCount() === 1) {
+                \App\ActivityLog::record($this->db, (int) $gate['id'], 'invites.create');
+                return Response::redirect('/invites');
+            }
         }
         return new Response('Could not mint a unique code', 500);
     }
@@ -66,6 +69,7 @@ final class InvitesController
         // The delete only reaches unused codes: a consumed code is part of
         // the audit trail (who invited whom), so revoke is a no-op for it.
         $this->db->query('DELETE FROM invites WHERE id = ? AND used_by IS NULL', [(int) $id]);
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'invites.revoke');
         return Response::redirect('/invites');
     }
 

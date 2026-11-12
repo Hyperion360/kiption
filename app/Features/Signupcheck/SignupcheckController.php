@@ -29,6 +29,7 @@ final class SignupcheckController
         $a = $this->request->postStr('answer');
         $err = $this->check()->save($this->request->postStr('enabled') === '1', $q, $a);
         if ($err !== null) return new Response($this->page($err, false, ['enabled' => (int) ($this->request->postStr('enabled') === '1'), 'question' => $q, 'answer' => $a]), 422);
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'signupcheck.save', $this->request->postStr('enabled') === '1' ? 'on' : 'off');
         return Response::redirect('/signupcheck?saved=1');
     }
 
