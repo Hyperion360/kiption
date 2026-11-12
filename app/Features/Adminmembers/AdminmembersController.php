@@ -89,7 +89,12 @@ final class AdminmembersController
         if ($target === null) return new Response('Page not found', 404);
         if ((int) $target['id'] === (int) $gate['id']) return new Response(\App\Lang::t('adminmembers.err_self_lock'), 422);
         if ($this->isLastAdmin($target)) return new Response(\App\Lang::t('adminmembers.err_last_admin'), 422);
-        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $target['id']]);
+        // A new random password hash changes the password epoch Kip's session
+        // check reads, so every session the member holds ends on its next
+        // request. They get back in after an unlock through a password reset
+        // or a sign-in link.
+        $this->db->query('UPDATE users SET is_locked = 1, password_hash = ? WHERE id = ?',
+            [password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), (int) $target['id']]);
         $this->purgeMember($target);
         return Response::redirect('/adminmembers');
     }

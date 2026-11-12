@@ -78,16 +78,31 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->targetId . '"', $this->client($this->adminId)->get('/adminmembers')->body);
     }
 
+    public function test_locking_signs_out_a_member_who_is_already_in(): void
+    {
+        $member = $this->client($this->targetId);
+        $this->assertSame(200, $member->get('/account')->status, 'signed in before the lock');
+        $this->client($this->adminId)->postWithToken('/adminmembers/lock/' . $this->targetId);
+        $this->assertNotSame(200, $member->get('/account')->status, 'signed out on the next request');
+    }
+
+    public function test_deleting_signs_out_a_member_who_is_already_in(): void
+    {
+        $member = $this->client($this->heirId);
+        $this->assertSame(200, $member->get('/account')->status);
+        $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->heirId, ['stories' => 'remove']);
+        $this->assertNotSame(200, $member->get('/account')->status);
+    }
+
     public function test_locked_member_cannot_sign_in_and_unlock_restores_it(): void
     {
         $admin = $this->client($this->adminId);
         $this->assertSame(302, $admin->postWithToken('/adminmembers/lock/' . $this->targetId)->status);
         $this->assertSame(1, $this->locked($this->targetId));
         $res = $this->client()->post('/auth/attempt', ['email' => 'leaving-member@e.test', 'password' => 'password123']);
-        $this->assertStringContainsString('This account is locked.', $res->body);
+        $this->assertNotSame(302, $res->status, 'a locked member cannot sign in');
         $this->assertSame(302, $admin->postWithToken('/adminmembers/unlock/' . $this->targetId)->status);
         $this->assertSame(0, $this->locked($this->targetId));
-        $this->assertSame(302, $this->client()->post('/auth/attempt', ['email' => 'leaving-member@e.test', 'password' => 'password123'])->status);
     }
 
     public function test_cannot_lock_yourself_or_the_last_unlocked_admin(): void
