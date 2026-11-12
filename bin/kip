@@ -595,11 +595,7 @@ match ($argv[1] ?? 'help') {
                 $body = $b;
             }
         }
-        // Eligibility is the member directory gate (UserRepository::authorsDirectory):
-        // approved + verified + unlocked members with a penname.
-        $recipients = array_column($db->all(
-            'SELECT email FROM users WHERE penname IS NOT NULL AND is_locked = 0
-             AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL ORDER BY id'), 'email');
+        $recipients = \App\MassMail::recipients($db); // the one recipient rule, shared with /mailusers
         if ($mode === 'dry-run') {
             $first = array_slice($recipients, 0, 5);
             echo 'would mail ' . count($recipients) . ' recipient(s)'
@@ -612,15 +608,7 @@ match ($argv[1] ?? 'help') {
             $mail['log_path'] = $mailLog;
         }
         $mailer = new \App\MailGuard($db, new Kip\Mailer($mail), new Kip\App($config));
-        $mailed = 0;
-        foreach ($recipients as $email) {
-            try { // the Digest idiom: one bad address never stops the batch
-                $mailer->send($email, $subject, $body);
-                $mailed++;
-            } catch (\Throwable $e) {
-                error_log("mail:users failed for {$email}: " . $e->getMessage());
-            }
-        }
+        $mailed = \App\MassMail::send($mailer, $recipients, $subject, $body);
         echo "mailed {$mailed}\n";
     })(),
     default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]|auth:link <email> [--hours=1..168]]\n"),
