@@ -6,6 +6,7 @@
     <?= \App\Lang::t('story.by') ?> <?= $this->e($news['penname'] ?? \App\Lang::t('common.anonymous')) ?>
     | <?= $this->e(substr($news['published_at'], 0, 10)) ?>
   </p>
+  <?php if (!empty($isAdmin)): ?><p class="chapter-meta"><a href="/news/edit/<?= (int) $news['id'] ?>"><?= \App\Lang::t('news.edit_link') ?></a></p><?php endif; ?>
   <div class="prose"><?= \App\Markdown::render($news['body']) /* markdown at rest; raw HTML cannot be stored */ ?></div>
   <h2 id="comments"><?= \App\Lang::t('news.comments_heading') . ' (' . number_format((int) $comment_count) . ')' ?></h2>
   <?php if ($comments === []): ?><p class="chapter-meta"><?= \App\Lang::t('common.none_yet') ?></p>

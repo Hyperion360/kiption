@@ -31,6 +31,8 @@ final class PageController
         $head = $this->head()->withTitle($row['title'])
             ->withDescription($this->description($body))
             ->withCanonical('/page/view/' . $slug);
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        $isAdmin = $me !== 0 && ($this->db->one('SELECT role FROM users WHERE id = ?', [$me])['role'] ?? '') === 'admin';
         $noindex = $body === '' || (int) ($row['noindex'] ?? 0) === 1;
         $data = [
             'title' => $row['title'],
@@ -39,7 +41,8 @@ final class PageController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'page' => $row,
-            'loggedIn' => \App\Viewer::id($this->request, $this->session, $this->db) !== 0,
+            'loggedIn' => $me !== 0,
+            'isAdmin' => $isAdmin,
         ];
         // An empty body is the empty-category precedent: meta noindex plus the
         // X-Robots-Tag header, which also keeps it out of the static layer.
@@ -92,6 +95,42 @@ final class PageController
             [$title, $body, $noindex, $slug]);
         $this->cache()->purgePage($slug);
         return Response::redirect('/page/view/' . $slug);
+    }
+
+    /** Pages the site links to by name (footer, policies, sign-up text) and
+     *  that therefore cannot be deleted. */
+    public const PROTECTED = ['about', 'content-policy', 'dmca'];
+
+    #[AuthAttr]
+    public function remove(string $slug): Response|string
+    {
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        $row = $this->find($slug);
+        if ($row === null) return new Response('Page not found', 404);
+        $title = \App\Lang::t('page.delete_heading');
+        return $this->view->render('page/remove', [
+            'title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
+            'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'row' => $row, 'protected' => in_array($slug, self::PROTECTED, true),
+            'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+        ]);
+    }
+
+    #[AuthAttr] #[Post]
+    public function delete(string $slug): Response|string
+    {
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        $row = $this->find($slug);
+        if ($row === null) return new Response('Page not found', 404);
+        if (in_array($slug, self::PROTECTED, true)) return new Response(\App\Lang::t('page.err_protected'), 422);
+        $this->db->query('DELETE FROM pages WHERE slug = ?', [$slug]);
+        $this->cache()->purgePage($slug);
+        return Response::redirect('/');
     }
 
     /** slug ^[a-z0-9-]+$ and unique, title 1-255; the body is free-form
