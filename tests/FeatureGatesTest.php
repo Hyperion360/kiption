@@ -131,16 +131,14 @@ final class FeatureGatesTest extends TestCase
         // on here, so a 404 proves the news guard fired before the sub-flag.
         $this->assertTrue(\App\Features::on('comments'), 'comments stays on: this pins the news-first guard order');
         $this->assertSame(404, $this->client($this->memberUserId)->postWithToken('/news/comment/1', ['body' => 'hi'])->status);
-        // The layout operator Post-news link vanishes for an admin viewer.
         $home = $this->client($this->adminUserId)->get('/');
         $this->assertSame(200, $home->status);
-        $this->assertStringNotContainsString('href="/news/new"', $home->body);
         // Back on: the surfaces and the operator link return.
         $this->flagOn('news');
         $this->assertSame(200, $this->client()->get('/news')->status);
         $this->assertSame(200, $this->client()->get('/news/view/1')->status);
         $this->assertSame(200, $admin->get('/news/new')->status);
-        $this->assertStringContainsString('href="/news/new"', $this->client($this->adminUserId)->get('/')->body);
+        $this->assertStringContainsString('href="/news/new"', $this->client($this->adminUserId)->get('/manage')->body);
     }
 
     public function test_contact_off_404s_both_verbs_and_hides_the_profile_link(): void

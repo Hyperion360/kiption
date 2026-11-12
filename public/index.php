@@ -203,7 +203,13 @@ $config = \App\Settings::apply($config);
 // both serve before the skin layer exists, so neither is ever skinned.
 $config['views_override'] = \App\Skins::overrideDir($config);
 
-$app = new Kip\App($config, Kip\Session::lazy(new Kip\SessionStarter($https)));
+$session = Kip\Session::lazy(new Kip\SessionStarter($https));
+// The owner's maintenance switch: visitors get the 503, admins browse (never cached or stored).
+if (($closed = \App\Maintenance::gate($config, $request, $session)) !== null) {
+    $closed->withHeader('Cache-Control', 'private, no-store')->send();
+    exit;
+}
+$app = new Kip\App($config, $session);
 $response = $app->handle($request);
 // Fictioneer legacy paths: only a routed 404 pays the consult (one indexed
 // lookup). Every clean page and every static-cache HIT is untouched.

@@ -41,6 +41,9 @@
   <script src="/assets/app.js" defer></script>
 </head>
 <body class="skin-classic<?= ($focus ?? false) ? ' focus' : '' ?>">
+<?php if (($isAdmin ?? false) && \App\Maintenance::on()): ?>
+  <p class="maintenance-banner" role="status"><?= \App\Lang::t('maintenance.banner') ?> <a href="/settings"><?= \App\Lang::t('maintenance.banner_link') ?></a></p>
+<?php endif; ?>
   <header class="site-head">
     <a class="brand" href="/"><?= $this->e(\App\SiteName::get()) ?></a>
     <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
@@ -70,6 +73,9 @@
       <?php if (\App\Features::on('challenges')): ?><a href="/challenges"><?= \App\Lang::t('challenges.index') ?></a><?php endif; ?>
 <?php foreach (\App\NavLinks::all($navFile ?? '') as $l): if (isset($footSeen[$l['url']])) continue; ?>
       <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
+<?php endforeach; ?>
+<?php foreach (\App\Notices::footerLinks() as $noticeUrl => $noticeLabel): ?>
+      <a href="<?= $noticeUrl ?>"><?= \App\Lang::t($noticeLabel) ?></a>
 <?php endforeach; ?>
       <?php if (\App\Features::on('feeds')): ?><a href="/feed/subscribe"><?= \App\Lang::t('common.feed_title') ?></a><?php endif; ?>
     </nav>
@@ -106,10 +112,8 @@
       <?php endif; ?>
       <?php if ($isAdmin ?? false): ?>
       <span class="sheet-group"><?= \App\Lang::t('nav.operator') ?></span>
-      <a href="/admin"><?= \App\Lang::t('nav.admin') ?></a>
+      <a href="/manage"><?= \App\Lang::t('nav.manage') ?></a>
       <a href="/queue"><?= \App\Lang::t('nav.queue') ?></a>
-      <a href="/text"><?= \App\Lang::t('nav.site_text') ?></a>
-      <?php if (\App\Features::on('news')): ?><a href="/news/new"><?= \App\Lang::t('nav.post_news') ?></a><?php endif; ?>
       <?php endif; ?>
     </nav>
     <?php if (($loggedIn ?? false) && !empty($csrf)): ?>

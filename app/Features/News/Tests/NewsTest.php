@@ -184,15 +184,15 @@ final class NewsTest extends TestCase
         // the recorded scope: home and queue pass isAdmin cheaply; other pages
         // show the block when their controllers eventually pass the datum.
         $guestHome = $this->client()->get('/')->body;
-        $this->assertStringNotContainsString('href="/admin"', $guestHome);
+        $this->assertStringNotContainsString('href="/manage"', $guestHome);
         $this->assertStringNotContainsString('href="/queue"', $guestHome);
         $memberHome = $this->client($this->memberId())->get('/')->body;
-        $this->assertStringNotContainsString('href="/admin"', $memberHome);
+        $this->assertStringNotContainsString('href="/manage"', $memberHome);
         $adminHome = $this->client($this->adminId())->get('/')->body;
-        $this->assertStringContainsString('href="/admin"', $adminHome);
+        $this->assertStringContainsString('href="/manage"', $adminHome);
         $this->assertStringContainsString('href="/queue"', $adminHome);
-        $this->assertStringContainsString('href="/news/new"', $adminHome, 'news admin linked for admins');
+        $this->assertStringContainsString('href="/news/new"', $this->client($this->adminId())->get('/manage')->body, 'news admin linked for admins on /manage');
         // the queue gate row already carries the viewer's role
-        $this->assertStringContainsString('href="/admin"', $this->client($this->adminId())->get('/queue')->body);
+        $this->assertStringContainsString('href="/manage"', $this->client($this->adminId())->get('/queue')->body);
     }
 }

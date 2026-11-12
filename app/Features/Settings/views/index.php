@@ -40,5 +40,29 @@
     <input name="adult_rta" maxlength="60" value="<?= $this->e($current['adult_rta']) ?>" placeholder="RTA-5042-1996-1400-1577-RTA">
   </label>
   <p class="chapter-meta"><?= \App\Lang::t('settings.adult_rta_note') ?></p>
+  <input type="hidden" name="footer_present" value="1">
+  <label><?= \App\Lang::t('settings.footer_copyright') ?>
+    <input name="footer_copyright" maxlength="60" value="<?= $this->e($current['footer_copyright']) ?>">
+  </label>
+  <label><?= \App\Lang::t('settings.footer_copyright_url') ?>
+    <input name="footer_copyright_url" maxlength="300" value="<?= $this->e($current['footer_copyright_url']) ?>">
+  </label>
+  <label><?= \App\Lang::t('settings.footer_links') ?>
+    <textarea name="footer_links" rows="4"><?= $this->e($current['footer_links']) ?></textarea>
+  </label>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.footer_links_note') ?></p>
+  <label><?= \App\Lang::t('settings.og_image') ?>
+    <select name="og_image">
+      <option value=""><?= \App\Lang::t('settings.og_image_none') ?></option>
+      <?php foreach (($images ?? []) as $img): ?>
+      <option value="<?= $this->e($img) ?>"<?= $current['og_image'] === $img ? ' selected' : '' ?>><?= $this->e(basename($img)) ?></option>
+      <?php endforeach; ?>
+      <?php if ($current['og_image'] !== '' && !in_array($current['og_image'], $images ?? [], true)): ?>
+      <option value="<?= $this->e($current['og_image']) ?>" selected><?= $this->e($current['og_image']) ?></option>
+      <?php endif; ?>
+    </select>
+  </label>
+  <label><input type="checkbox" name="maintenance_on" value="1"<?= $current['maintenance_on'] === '1' ? ' checked' : '' ?>> <?= \App\Lang::t('settings.maintenance_on') ?></label>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.maintenance_note') ?></p>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save') ?></button>
 </form>

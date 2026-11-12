@@ -10,8 +10,9 @@ namespace App\Export;
 final class Html
 {
     /** @param array<string,mixed> $story a wholeWork row
+     *  @param string $notice the owner's printer disclaimer as safe HTML (App\Notices::html), '' for none
      *  @param array{position:int,title:string,content:string,word_count:int}[] $chapters */
-    public function build(array $story, array $chapters, string $baseUrl): string
+    public function build(array $story, array $chapters, string $baseUrl, string $notice = ''): string
     {
         $title = self::e((string) $story['title']);
         $language = preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($story['language'] ?? '')) === 1
@@ -27,7 +28,8 @@ final class Html
             . ' | ' . number_format((int) $story['word_count']) . " words</p>\n"
             . '<p>' . self::e((string) $story['summary']) . "</p>\n"
             . '<p>Exported from <a href="' . self::e($url) . '">' . self::e($url) . '</a></p>' . "\n"
-            . "</header>\n";
+            . "</header>\n"
+            . ($notice === '' ? '' : '<section class="printer-notice">' . "\n" . $notice . "</section>\n");
         foreach ($chapters as $c) {
             $n = (int) $c['position'];
             $chapterTitle = (string) $c['title'] !== '' ? (string) $c['title'] : 'Chapter ' . $n;

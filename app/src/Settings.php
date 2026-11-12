@@ -12,7 +12,8 @@ final class Settings
 {
     public const KEYS = ['site_name' => 'string', 'registration_mode' => 'oneof:open,verify,approval,invite',
         'validation_required' => 'bool', 'items_per_page' => 'int:1,100', 'powered_by' => 'bool', 'skin' => 'skin',
-        'adult_rta' => 'label', 'ui_lang' => 'lang'];
+        'adult_rta' => 'label', 'ui_lang' => 'lang',
+        'footer_copyright' => 'label', 'footer_copyright_url' => 'link', 'footer_links' => 'links', 'og_image' => 'link', 'maintenance_on' => 'bool'];
     // powered_by: the board stores the row today; the override activates the
     // moment the app-prep footer lane ships the config key (overrides() skips
     // keys the config lacks, so the row waits harmlessly until then).
@@ -26,6 +27,7 @@ final class Settings
         $out = [];
         foreach (self::all() as $k => $v) {
             $current = $config[$k] ?? null;
+            if ($k === 'maintenance_on') { $out[$k] = ($v === '1'); continue; } // the owner's switch has no config.php key
             if ($current === null && !\in_array($k, ['skin'], true)) continue; // unknown keys stay config.php territory
             if ($current === true || $current === false) { $out[$k] = ($v === '1' || $v === 'on'); continue; }
             if (\is_int($current)) { $out[$k] = max(1, (int) $v); continue; }
@@ -64,6 +66,24 @@ final class Settings
                 // A label the operator can switch off: empty is a legal value
                 // (adult_rta's off state), 1-60 characters otherwise.
                 if ($value !== '' && mb_strlen($value) > 60) throw new \InvalidArgumentException("{$key}: empty, or 1-60 characters");
+                break;
+            case 'link':
+                // Empty, an https address, or a path on this site (the footer's own stance).
+                if ($value !== '' && (mb_strlen($value) > 300 || preg_match('/\s/', $value) === 1 || !FooterLegal::linkable($value))) {
+                    throw new \InvalidArgumentException("{$key}: empty, https:// or /path");
+                }
+                break;
+            case 'links':
+                // A JSON list of at most ten {label, url} pairs (what the footer reads).
+                $list = $value === '' ? [] : json_decode($value, true);
+                if (!is_array($list) || count($list) > 10) throw new \InvalidArgumentException("{$key}: at most ten links");
+                foreach ($list as $l) {
+                    if (!is_array($l) || !is_string($l['label'] ?? null) || !is_string($l['url'] ?? null)
+                        || $l['label'] === '' || mb_strlen($l['label']) > 40 || strlen($l['url']) > 300
+                        || preg_match('/\s/', $l['url']) === 1 || !FooterLegal::linkable($l['url'])) {
+                        throw new \InvalidArgumentException("{$key}: label and https:// or /path");
+                    }
+                }
                 break;
             case 'lang':
                 // The archive default: only a language that is installed right now.

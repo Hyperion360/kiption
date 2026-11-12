@@ -538,7 +538,7 @@ final class StoryController
         } else {
             // doc is the html build served under Word headers (the eFiction
             // Display Word trick): one builder, no second byte source to drift.
-            $body = (new \App\Export\Html())->build($story, array_values($chapters), $baseUrl);
+            $body = (new \App\Export\Html())->build($story, array_values($chapters), $baseUrl, \App\Notices::html('msg.printer'));
             $type = $format === 'doc' ? 'application/msword' : 'text/html; charset=utf-8';
         }
         return (new Response($body, 200))
@@ -600,7 +600,8 @@ final class StoryController
             $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT));
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
-        return Response::redirect('/story/edit/' . $slug);
+        $heard = \App\Notices::has('msg.thanks') || \App\Notices::has('msg.held'); // only carry the flag when the owner wrote a message
+        return Response::redirect('/story/edit/' . $slug . ($heard ? '?submitted=' . ($this->autoValidates() ? 'live' : 'held') : ''));
     }
 
     #[AuthAttr]
@@ -759,8 +760,17 @@ final class StoryController
             'canManageCoauthors' => $story !== null && ($this->uid() === (int) $story['l'] || (int) $story['m'] === 1),
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
+            'notice' => $story === null ? '' : $this->submitNotice(),
             'loggedIn' => true,
         ]);
+    }
+
+    /** The owner's thank-you (and held notice) shown once after a new story is submitted. */
+    private function submitNotice(): string
+    {
+        $state = (string) ($this->request->get['submitted'] ?? '');
+        if ($state !== 'live' && $state !== 'held') return '';
+        return \App\Notices::html('msg.thanks') . ($state === 'held' ? \App\Notices::html('msg.held') : '');
     }
 
     private function authoring(): \App\Repositories\AuthoringRepository
