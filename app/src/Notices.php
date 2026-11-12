@@ -50,6 +50,8 @@ final class Notices
         foreach (['/help' => 'msg.help', '/rules' => 'msg.rules', '/terms' => 'msg.terms'] as $url => $key) {
             if (self::has($key)) $out[$url] = 'foot.' . substr($key, 4);
         }
+        // The contact form ships with the accounts slice; link it only once that screen exists.
+        if (class_exists('App\\Features\\Contact\\ContactController')) $out['/contact'] = 'foot.contact';
         return $out;
     }
 

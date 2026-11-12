@@ -207,7 +207,7 @@ final class MessagesMenuTest extends TestCase
         $this->assertSame(302, $this->client()->get('/manage')->status);
         $res = $this->client($this->adminId)->get('/manage');
         $this->assertSame(200, $res->status);
-        foreach (['/queue', '/images', '/wordfilter', '/text/group/msg', '/settings', '/adminmembers', '/mailusers', '/categories', '/tags', '/templates'] as $url) {
+        foreach (['/queue', '/images', '/wordfilter', '/text/group/msg', '/settings', '/adminmembers', '/mailusers', '/categories', '/tags', '/templates', '/profilefields', '/signupcheck', '/activity'] as $url) {
             $this->assertStringContainsString('href="' . $url . '"', $res->body, $url);
         }
         $this->assertStringContainsString('href="/admin"', $res->body);

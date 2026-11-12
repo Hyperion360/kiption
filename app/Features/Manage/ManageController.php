@@ -33,6 +33,8 @@ final class ManageController
         ['members', '/adminmembers', 'manage.members'],
         ['members', '/mailusers', 'manage.mailusers'],
         ['members', '/invites', 'manage.invites'],
+        ['members', '/profilefields', 'manage.profilefields'],
+        ['members', '/signupcheck', 'manage.signupcheck'],
         ['look', '/text/group/msg', 'manage.messages'],
         ['look', '/text', 'manage.site_text'],
         ['look', '/nav', 'manage.nav'],
@@ -40,6 +42,7 @@ final class ManageController
         ['settings', '/settings', 'manage.settings'],
         ['settings', '/features', 'manage.features'],
         ['settings', '/wordfilter', 'manage.wordfilter'],
+        ['settings', '/activity', 'manage.activity'],
     ];
 
     public function __construct(
