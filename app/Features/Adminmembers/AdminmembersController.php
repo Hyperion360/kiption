@@ -77,6 +77,142 @@ final class AdminmembersController
         return Response::redirect('/adminmembers');
     }
 
+    /** Lock a member out: sign-in answers with a plain "locked" message and
+     *  the member leaves the public author directory. Never yourself, never
+     *  the last admin who can still sign in. */
+    #[AuthAttr] #[Post]
+    public function lock(string $id): Response
+    {
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        $target = $this->target($id);
+        if ($target === null) return new Response('Page not found', 404);
+        if ((int) $target['id'] === (int) $gate['id']) return new Response(\App\Lang::t('adminmembers.err_self_lock'), 422);
+        if ($this->isLastAdmin($target)) return new Response(\App\Lang::t('adminmembers.err_last_admin'), 422);
+        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $target['id']]);
+        $this->purgeMember($target);
+        return Response::redirect('/adminmembers');
+    }
+
+    #[AuthAttr] #[Post]
+    public function unlock(string $id): Response
+    {
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        $target = $this->target($id);
+        if ($target === null) return new Response('Page not found', 404);
+        if ($this->isDeleted($target)) return new Response(\App\Lang::t('adminmembers.err_deleted'), 422);
+        $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [(int) $target['id']]);
+        $this->purgeMember($target);
+        return Response::redirect('/adminmembers');
+    }
+
+    /** The confirm step before a delete: asks what happens to their stories. */
+    #[AuthAttr]
+    public function remove(string $id): Response|string
+    {
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        $target = $this->target($id);
+        if ($target === null) return new Response('Page not found', 404);
+        return $this->removeForm($target, null);
+    }
+
+    /** Delete a member. The account row is scrubbed and locked rather than
+     *  dropped: the database would cascade-delete their stories, series and
+     *  lists with the row, and a soft-deleted story should stay recoverable.
+     *  Email, penname, bio and password are wiped, so the address is free to
+     *  register again. Stories either move to another member or are
+     *  soft-deleted. */
+    #[AuthAttr] #[Post]
+    public function destroy(string $id): Response|string
+    {
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        $target = $this->target($id);
+        if ($target === null) return new Response('Page not found', 404);
+        $refuse = fn (string $key): Response => new Response($this->removeForm($target, \App\Lang::t($key)), 422);
+        if ((int) $target['id'] === (int) $gate['id']) return $refuse('adminmembers.err_self_delete');
+        if ($this->isDeleted($target)) return $refuse('adminmembers.err_deleted');
+        if ($this->isLastAdmin($target)) return $refuse('adminmembers.err_last_admin');
+        $choice = $this->request->postStr('stories');
+        if (!in_array($choice, ['move', 'remove'], true)) return $refuse('adminmembers.err_choose');
+        $heir = null;
+        if ($choice === 'move') {
+            $heir = $this->db->one(
+                'SELECT id FROM users WHERE penname = ? COLLATE NOCASE AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL AND is_locked = 0 AND id != ?',
+                [trim($this->request->postStr('penname')), (int) $target['id']]);
+            if ($heir === null) return $refuse('adminmembers.err_heir');
+        }
+        $uid = (int) $target['id'];
+        $this->db->begin();
+        try {
+            if ($heir !== null) {
+                $heirId = (int) $heir['id'];
+                $this->db->query('DELETE FROM coauthors WHERE user_id = ? AND story_id IN (SELECT id FROM stories WHERE author_id = ?)', [$heirId, $uid]);
+                $this->db->query('UPDATE stories SET author_id = ? WHERE author_id = ?', [$heirId, $uid]);
+                $this->db->query('UPDATE series SET owner_id = ? WHERE owner_id = ?', [$heirId, $uid]);
+            } else {
+                $this->db->query('UPDATE stories SET deleted_at = ? WHERE author_id = ? AND deleted_at IS NULL', [date('c'), $uid]);
+            }
+            $this->db->query('DELETE FROM coauthors WHERE user_id = ?', [$uid]);
+            $this->db->query(
+                "UPDATE users SET email = ?, password_hash = ?, penname = NULL, profile_slug = NULL, bio = '', avatar_path = NULL,
+                        support_url = NULL, legacy_md5 = NULL, legacy_bcrypt = NULL, role = 'member', is_admin = 0, is_locked = 1
+                 WHERE id = ?",
+                ['deleted-' . $uid . '@deleted.invalid', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $uid]);
+            $this->db->commit();
+        } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+        // Stories, series and author pages all changed hands: clear the lot.
+        \App\StaticCache\Cache::configured($this->app)->purgeAll();
+        return Response::redirect('/adminmembers');
+    }
+
+    private function target(string $id): ?array
+    {
+        if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return null;
+        return $this->db->one('SELECT id, penname, email, role, is_locked, profile_slug FROM users WHERE id = ?', [(int) $id]);
+    }
+
+    private function isDeleted(array $target): bool
+    {
+        return str_ends_with((string) $target['email'], '@deleted.invalid');
+    }
+
+    /** True when the target is an admin who can sign in and no other
+     *  sign-in-capable admin exists. */
+    private function isLastAdmin(array $target): bool
+    {
+        if ($target['role'] !== 'admin' || (int) $target['is_locked'] === 1) return false;
+        return (int) $this->db->one("SELECT COUNT(*) c FROM users WHERE role = 'admin' AND is_locked = 0 AND id != ?", [(int) $target['id']])['c'] === 0;
+    }
+
+    private function purgeMember(array $target): void
+    {
+        $cache = \App\StaticCache\Cache::configured($this->app);
+        if ((string) $target['profile_slug'] !== '') $cache->purgeUser((string) $target['profile_slug']);
+        $cache->purgeAuthors();
+    }
+
+    private function removeForm(array $target, ?string $error): string
+    {
+        $title = \App\Lang::t('adminmembers.remove_heading');
+        return $this->view->render('adminmembers/remove', [
+            'title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical($this->request->path)->withNoindex(),
+            'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'path' => $this->request->path,
+            'member' => $target,
+            'storyCount' => (int) $this->db->one('SELECT COUNT(*) c FROM stories WHERE author_id = ? AND deleted_at IS NULL', [(int) $target['id']])['c'],
+            'error' => $error,
+            'csrf' => $this->session->csrfToken(),
+            'loggedIn' => true,
+            'isAdmin' => true,
+        ]);
+    }
+
     private function head(): \App\Seo\Head
     {
         return \App\Seo\Head::make(

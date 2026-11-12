@@ -31,10 +31,19 @@
         <?php endif; endforeach; ?>
       </td>
       <td>
-        <?php if ((int) $m['is_locked'] === 1): ?><span class="badge"><?= \App\Lang::t('adminmembers.locked') ?></span><?php endif; ?>
+        <?php $deleted = str_ends_with((string) $m['email'], '@deleted.invalid'); ?>
+        <?php if ($deleted): ?><span class="badge"><?= \App\Lang::t('adminmembers.deleted') ?></span><?php endif; ?>
+        <?php if ((int) $m['is_locked'] === 1 && !$deleted): ?><span class="badge"><?= \App\Lang::t('adminmembers.locked') ?></span><?php endif; ?>
         <?php if ($m['email_verified_at'] === null): ?><span class="badge"><?= \App\Lang::t('adminmembers.unverified') ?></span><?php endif; ?>
         <?php if ($m['approved_at'] === null): ?><span class="badge"><?= \App\Lang::t('adminmembers.unapproved') ?></span><?php endif; ?>
         <?php if ((int) $m['is_locked'] === 0 && $m['email_verified_at'] !== null && $m['approved_at'] !== null): ?><span class="chapter-meta"><?= \App\Lang::t('adminmembers.active') ?></span><?php endif; ?>
+        <?php if (!$isSelf && !$deleted): ?>
+        <form method="post" action="/adminmembers/<?= (int) $m['is_locked'] === 1 ? 'unlock' : 'lock' ?>/<?= (int) $m['id'] ?>" class="inline">
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+          <button type="submit"><?= \App\Lang::t((int) $m['is_locked'] === 1 ? 'adminmembers.unlock' : 'adminmembers.lock') ?></button>
+        </form>
+        <a href="/adminmembers/remove/<?= (int) $m['id'] ?>"><?= \App\Lang::t('adminmembers.delete') ?></a>
+        <?php endif; ?>
       </td>
     </tr>
 <?php endforeach; ?>
