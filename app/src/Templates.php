@@ -10,7 +10,7 @@ use Kip\Database;
  *  below carry the same {placeholders} the call sites feed to strtr, which is
  *  what keeps the fallthrough byte-identical after seeding too.
  *
- *  Seven distinct names: the queue's approve/publish path and the chapter
+ *  Distinct names (one per mail): the queue's approve/publish path and the chapter
  *  controller's publish path send the SAME story_update mail (finding 15). */
 final class Templates
 {
@@ -43,7 +43,16 @@ final class Templates
             '{since}' => 'the digest window start',
             '{lines}' => 'the notification lines',
         ],
+        'content_removed' => [
+            '{what}' => 'what was removed (story or review)',
+            '{title}' => 'the story title',
+            '{reason}' => 'the moderator reason, or a polite default',
+        ],
     ];
+
+    /** The content_removed pair, shared by the call site and seedDefaults. */
+    public const DEFAULT_CONTENT_REMOVED = ['Your {what} was removed',
+        "A moderator removed your {what} on \"{title}\".\n\n{reason}\n\nIf you think this was a mistake, reply to this email or contact the archive's owner."];
 
     /** Today's literals. These must stay byte-identical to the defaults the
      *  call sites pass: the pair a member receives before any admin edit is
@@ -69,6 +78,7 @@ final class Templates
             "A story you follow has a new chapter:\n\n{title}\n{url}"],
         'digest' => ['Your archive digest',
             "Since {since}:\n\n{lines}\n--\nYou receive this because at least one follow is in digest mode."],
+        'content_removed' => self::DEFAULT_CONTENT_REMOVED,
     ];
 
     /** @return array{0: string, 1: string} the [subject, body] pair: the saved
@@ -81,7 +91,7 @@ final class Templates
         return [(string) $row['subject'], (string) $row['body']];
     }
 
-    /** INSERT OR IGNORE the eight known names (name is the PK), so the admin
+    /** INSERT OR IGNORE every known name (name is the PK), so the admin
      *  edit surface always has rows to edit; existing overrides survive.
      *  Idempotent by construction. */
     public static function seedDefaults(Database $db): void

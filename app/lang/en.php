@@ -575,6 +575,17 @@ return [
     'queue.reports' => 'Reports',
     'queue.nothing_reported' => 'Nothing reported.',
     'queue.dismiss' => 'Dismiss',
+    'queue.remove_content' => 'Remove content',
+    // Removing reported content.
+    'report.remove_heading' => 'Remove reported content',
+    'report.remove_story_intro' => 'This hides the story {title} from the archive. Its author is told by email.',
+    'report.remove_review_intro' => 'This deletes a review on {title}, and any replies to it. Its author is told by email.',
+    'report.no_author_mail' => 'This was posted by a guest, so there is nobody to email.',
+    'report.reason_label' => 'Reason for the author (optional)',
+    'report.remove_submit' => 'Remove and notify',
+    'report.what_story' => 'story',
+    'report.what_review' => 'review',
+    'report.default_reason' => 'It did not meet the archive\'s content policy.',
 
     // Search.
     'search.heading' => 'Search',
