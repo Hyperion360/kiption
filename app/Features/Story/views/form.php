@@ -40,6 +40,22 @@
       <?php endforeach; ?>
     </fieldset>
     <?php endif; ?>
+    <?php if (($characterGroups ?? []) !== []): ?>
+    <fieldset>
+      <legend><?= \App\Lang::t('story.characters') ?></legend>
+      <input type="hidden" name="characters_shown" value="1">
+      <p class="hint"><?= \App\Lang::t('story.characters_help') ?></p>
+      <?php foreach ($characterGroups as $group): ?>
+        <p class="chapter-meta"><?= $group['name'] === '' ? \App\Lang::t('characters.any_category') : $this->e($group['name']) ?></p>
+        <?php foreach ($group['characters'] as $characterId => $characterName): ?>
+        <label class="inline">
+          <input type="checkbox" name="characters[]" value="<?= (int) $characterId ?>"<?= in_array((string) $characterId, array_map('strval', $selectedCharacters ?? []), true) ? ' checked' : '' ?>>
+          <?= $this->e($characterName) ?>
+        </label>
+        <?php endforeach; ?>
+      <?php endforeach; ?>
+    </fieldset>
+    <?php endif; ?>
     <label class="inline"><input type="checkbox" name="completed" value="1" <?= $story !== null && (int) $story['completed'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.completed') ?></label>
     <label class="inline"><input type="checkbox" name="restricted" value="1" <?= $story !== null && (int) $story['restricted'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.registered_only') ?></label>
     <label><?= \App\Lang::t('story.access_password_label') ?> <input type="password" name="access_password" autocomplete="new-password"></label>

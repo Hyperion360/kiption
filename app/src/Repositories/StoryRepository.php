@@ -89,7 +89,10 @@ final class StoryRepository
                      JOIN tags t ON t.id = st.tag_id
                      LEFT JOIN tags cu2 ON cu2.id = t.canonical_id
                      JOIN tag_types tt ON tt.id = t.tag_type_id
-                     WHERE st.story_id = s.id) AS tags_blob' . $progressCols . $bookmarksCols . '
+                     WHERE st.story_id = s.id) AS tags_blob,
+                    (SELECT json_group_array(json_object(\'i\', ch.id, \'name\', ch.name))
+                     FROM story_characters sch JOIN characters ch ON ch.id = sch.character_id
+                     WHERE sch.story_id = s.id) AS characters_blob' . $progressCols . $bookmarksCols . '
              FROM stories s
              JOIN users u ON u.id = s.author_id
              JOIN ratings r ON r.id = s.rating_id' . $progressJoin . '

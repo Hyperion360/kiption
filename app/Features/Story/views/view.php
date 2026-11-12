@@ -170,6 +170,11 @@
       <?php if ($tags !== []): ?>
       <div class="tag-chips"><?php foreach ($tags as $typeName => $names): ?><?php foreach ($names as $tagName): ?><span class="tag-chip" title="<?= $this->e($typeName) ?>"><?= $this->e($tagName) ?></span><?php endforeach; ?><?php endforeach; ?></div>
       <?php endif; ?>
+      <?php if (($characters ?? []) !== []): ?>
+      <p class="meta story-characters"><?= \App\Lang::t('story.characters_label') ?>
+        <?php foreach ($characters as $i => $ch): ?><?= $i > 0 ? ', ' : '' ?><span class="character"><?= $this->e($ch['name']) ?></span><?php endforeach; ?>
+      </p>
+      <?php endif; ?>
       <p class="meta story-warnings"><?= $warning !== '' ? $this->e($warning) : \App\Lang::t('story.no_warnings') ?></p>
       </div>
       <?php if (($story['notes'] ?? '') !== ''): ?>

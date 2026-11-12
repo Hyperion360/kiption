@@ -796,6 +796,9 @@ return [
     'tagsadmin.err_in_use' => '{n} stories use this tag. Remove it from those stories, then delete it.',
     'tagsadmin.err_type_in_use' => 'This type still has {n} tags. Delete or move its tags first.',
     'story.tags' => 'Tags',
+    'story.characters' => 'Characters',
+    'story.characters_help' => 'Pick the characters in this story. Characters tied to a category only count if you also pick that category.',
+    'story.characters_label' => 'Characters:',
     'story.tags_label' => 'Tags:',
 
     // The admin invite-code surface (list, mint, revoke-unused). Registration
