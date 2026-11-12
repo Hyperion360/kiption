@@ -20,6 +20,7 @@ final class ReviewController
         $userId = $me !== 0 ? $me : null;
         $raw = $this->request->postStr('rating');
         $rating = $raw === '' ? null : max(0, min(10, (int) $raw));
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $this->request->postStr('body'), $this->request->postStr('guest_name'))) !== null) return new Response($blocked, 422);
         [$added, $authorId, $title, $error] = (new ReviewRepository($this->db))->addReview(
             $slug, is_int($userId) ? $userId : null,
             $userId === null ? $this->request->postStr('guest_name') : null,
@@ -73,6 +74,7 @@ final class ReviewController
     public function addchapter(string $slug, string $position): Response
     {
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $this->request->postStr('body'), $this->request->postStr('guest_name'))) !== null) return new Response($blocked, 422);
         [$added, $authorId, $error] = (new ReviewRepository($this->db))->addChapterReview(
             $slug, (int) $position, $me !== 0 ? $me : null,
             $me === 0 ? $this->request->postStr('guest_name') : null,
@@ -95,6 +97,7 @@ final class ReviewController
     public function reply(string $id): Response
     {
         $userId = (int) $this->session->get('user_id');
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $this->request->postStr('body'))) !== null) return new Response($blocked, 422);
         [$added, $notifyUserId, $storyId, $slug, $error] = (new ReviewRepository($this->db))
             ->addReply((int) $id, $userId, $this->request->postStr('body'));
         if ($error === 'not found') return new Response(\App\Lang::t('error.not_found'), 404);

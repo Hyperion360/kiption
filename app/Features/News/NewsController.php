@@ -87,6 +87,7 @@ final class NewsController
         if ($body === '' || strlen($body) > 5000) {
             return new Response(\App\Lang::t('news.err_comment_text'), 422);
         }
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $body)) !== null) return new Response($blocked, 422);
         if (!$repo->addComment((int) $id, (int) ($this->session->get('user_id') ?? 0), $body)) {
             return new Response(\App\Lang::t('news.err_comment_rate'), 429);
         }
