@@ -775,6 +775,8 @@ return [
     // The operator settings board (/settings): values stored in the database,
     // resolved in the same boot statement as the feature flags.
     'settings.heading' => 'Site settings',
+    'settings.ui_lang' => 'Default language',
+    'settings.ui_lang_note' => 'The language visitors see first. Members can still pick their own. Add languages under Site text.',
     'settings.note' => 'These values live in the database and override config.php on every page. Saving clears the page caches, so a renamed site takes effect immediately.',
     'settings.site_name' => 'Site name',
     'settings.registration_mode' => 'Registration mode',

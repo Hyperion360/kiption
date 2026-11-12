@@ -28,6 +28,14 @@
     </select>
   </label>
   <p class="chapter-meta"><?= \App\Lang::t('settings.skin_note') ?></p>
+  <label><?= \App\Lang::t('settings.ui_lang') ?>
+    <select name="ui_lang">
+      <?php foreach (($languages ?? []) as $l): ?>
+      <option value="<?= $this->e($l['code']) ?>"<?= $current['ui_lang'] === $l['code'] ? ' selected' : '' ?>><?= $this->e($l['name']) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </label>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.ui_lang_note') ?></p>
   <label><?= \App\Lang::t('settings.adult_rta') ?>
     <input name="adult_rta" maxlength="60" value="<?= $this->e($current['adult_rta']) ?>" placeholder="RTA-5042-1996-1400-1577-RTA">
   </label>

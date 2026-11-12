@@ -36,6 +36,7 @@ final class SettingsTest extends TestCase
     {
         \App\Features::reset();
         \App\CachePurge::$cdnTransport = null;
+        \App\Lang::reset(); // the language tests add owner languages
         \App\Attribution::reset(); // the footer-seam test must not leak into later suites
         unset($this->db);
         exec('rm -rf ' . escapeshellarg($this->root));
@@ -104,6 +105,35 @@ final class SettingsTest extends TestCase
         $admin->postWithToken('/settings/save', ['site_name' => 'Quiet', 'registration_mode' => 'open', 'items_per_page' => '20']);
         $this->lastApp->runDeferred();
         $this->assertSame([], $calls);
+    }
+
+    public function test_the_board_lists_installed_languages_and_saves_the_default(): void
+    {
+        $this->seed();
+        $this->db()->query("INSERT INTO site_languages (code, name, dir) VALUES ('fr', 'Francais', 'ltr')");
+        \App\SiteText\Compiler::compile($this->db(), $this->root . '/site-text'); // also points Lang at the folder
+        $admin = $this->client($this->adminUserId, ['site_text_dir' => $this->root . '/site-text']);
+        $board = $admin->get('/settings');
+        $this->assertStringContainsString('<option value="en" selected>English</option>', $board->body);
+        $this->assertStringContainsString('<option value="fr">Francais</option>', $board->body);
+        $base = ['site_name' => 'Kiption', 'registration_mode' => 'open', 'items_per_page' => '20'];
+        $this->assertSame(302, $admin->postWithToken('/settings/save', $base + ['ui_lang' => 'fr'])->status);
+        $this->assertSame('fr', $this->db()->one("SELECT value FROM settings WHERE key = 'ui_lang'")['value']);
+        $this->assertStringContainsString('<option value="fr" selected>Francais</option>',
+            $this->client($this->adminUserId, ['site_text_dir' => $this->root . '/site-text'])->get('/settings')->body);
+        // A form that leaves the field out keeps the saved choice.
+        $this->assertSame(302, $admin->postWithToken('/settings/save', $base)->status);
+        $this->assertSame('fr', $this->db()->one("SELECT value FROM settings WHERE key = 'ui_lang'")['value']);
+    }
+
+    public function test_an_unknown_default_language_is_refused(): void
+    {
+        $this->seed();
+        $admin = $this->client($this->adminUserId);
+        $res = $admin->postWithToken('/settings/save', ['site_name' => 'Kiption', 'registration_mode' => 'open', 'items_per_page' => '20', 'ui_lang' => 'zz']);
+        $this->assertSame(422, $res->status);
+        $this->assertNull($this->db()->one("SELECT value FROM settings WHERE key = 'ui_lang'"));
+        $this->assertSame(422, $admin->postWithToken('/settings/save', ['site_name' => 'Kiption', 'registration_mode' => 'open', 'items_per_page' => '20', 'ui_lang' => '<b>'])->status);
     }
 
     public function test_non_admin_member_moderator_and_guest_are_barred(): void
@@ -389,6 +419,7 @@ final class SettingsTest extends TestCase
             // config.php does: overrides only overlay keys the config HAS.
             'registration_mode' => 'verify', 'validation_required' => true, 'items_per_page' => 20,
             'nav_file' => $this->root . '/nav.json',
+            'ui_lang' => 'en',
             'app_dir' => $this->root . '/app',
             'features_dir' => dirname(__DIR__, 4) . '/app/Features',
             'static_cache' => ['dir' => $this->root . '/static'],

@@ -37,6 +37,7 @@ final class SettingsController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'current' => $this->current(),
+            'languages' => array_map(static fn (string $c): array => ['code' => $c, 'name' => \App\Lang::name($c)], \App\Lang::installed()),
             'skins' => \App\Skins::installed(['app_dir' => (string) $this->app->config('app_dir', dirname(__DIR__, 2))]),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
@@ -60,6 +61,11 @@ final class SettingsController
             'skin' => (string) ($this->request->post['skin'] ?? \App\Skins::DEFAULT),
             'adult_rta' => (string) ($this->request->post['adult_rta'] ?? ''),
         ];
+        // The default language is only written when the form sent it, so an
+        // older form or a script that omits it leaves the saved choice alone.
+        if (array_key_exists('ui_lang', $this->request->post)) {
+            $submitted['ui_lang'] = (string) $this->request->post['ui_lang'];
+        }
         $invalid = [];
         foreach ($submitted as $k => $v) {
             try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = $k; }
@@ -84,6 +90,7 @@ final class SettingsController
             'powered_by' => (string) ($all['powered_by'] ?? $bool($this->app->config('powered_by'))),
             'skin' => (string) ($all['skin'] ?? $this->app->config('skin', \App\Skins::DEFAULT)),
             'adult_rta' => (string) ($all['adult_rta'] ?? $this->app->config('adult_rta', '')),
+            'ui_lang' => (string) ($all['ui_lang'] ?? $this->app->config('ui_lang', 'en')),
         ];
     }
 }
