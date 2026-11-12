@@ -65,7 +65,7 @@
         <?php else: ?>
           <span><?= $this->e($n['kind']) ?></span>
         <?php endif; ?>
-        <time class="notif-time" datetime="<?= $this->e($n['created_at']) ?>"><?= $this->e(date('M j', strtotime((string) $n['created_at']))) ?></time>
+        <time class="notif-time" datetime="<?= $this->e($n['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $n['created_at'], false)) ?></time>
       </li>
     <?php endforeach; ?>
   </ul>

@@ -132,7 +132,7 @@ final class FeaturesTest extends TestCase
         $r = \App\Features::guard('news');
         $this->assertInstanceOf(Response::class, $r);
         // Finding 10: byte-identical to the router's own 404, no gratuitous oracle
-        $canonical = new Response('Page not found', 404);
+        $canonical = new Response(\App\Lang::t('error.not_found'), 404);
         $this->assertSame($canonical->body, $r->body);
         $this->assertSame($canonical->status, $r->status);
         $this->assertSame($canonical->headers, $r->headers);

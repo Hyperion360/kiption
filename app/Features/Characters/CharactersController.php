@@ -23,7 +23,7 @@ final class CharactersController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        return $row === null ? new Response('Page not found', 404) : $this->editForm($row, null);
+        return $row === null ? new Response(\App\Lang::t('error.not_found'), 404) : $this->editForm($row, null);
     }
 
     #[Auth] #[Post]
@@ -46,7 +46,7 @@ final class CharactersController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $name = $this->name();
         $category = $this->categoryId();
         $error = $name === '' ? Lang::t('characters.err_name') : ($category === false ? Lang::t('characters.err_category') : null);
@@ -62,7 +62,7 @@ final class CharactersController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $stories = (int) $this->db->one('SELECT COUNT(*) AS c FROM story_characters WHERE character_id = ?', [(int) $row['id']])['c'];
         if ($this->request->method !== 'POST') return $this->confirm($row, $stories, null);
         if ($stories > 0 && ($this->request->post['remove'] ?? '') !== '1') {

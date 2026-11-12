@@ -8,7 +8,7 @@
     <?php foreach ($rows as $m): ?>
       <?php if ($m['mid'] === null) continue; // the anchor row of an empty thread ?>
       <li class="<?= (int) $m['sender_id'] === $me ? 'mine' : 'theirs' ?>">
-        <span class="chapter-meta"><?= $this->e($m['sender_name']) ?>, <?= $this->e(substr((string) $m['created_at'], 0, 10)) ?></span>
+        <span class="chapter-meta"><?= $this->e($m['sender_name']) ?>, <?= $this->e(\App\Dates::format((string) $m['created_at'])) ?></span>
         <div class="prose"><?= \App\Markdown::render((string) $m['body']) /* markdown at rest; raw HTML cannot be stored */ ?></div>
       </li>
     <?php endforeach; ?>

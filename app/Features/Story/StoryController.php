@@ -584,14 +584,16 @@ final class StoryController
     }
 
     #[AuthAttr]
-    public function new(): string
+    public function new(): Response|string
     {
+        if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         return $this->renderForm($this->authoring()->formData(null, $this->uid()), null, null, null);
     }
 
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
+        if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_title'), null), 422);

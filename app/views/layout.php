@@ -52,13 +52,14 @@
 <body<?= ($focus ?? false) ? ' class="focus"' : '' ?>>
   <header class="site-head">
     <a class="brand" href="/"><?= $this->e(\App\SiteName::get()) ?></a>
+    <?php if (($tagline = \App\Settings::get('slogan')) !== ''): ?><span class="tagline"><?= $this->e($tagline) ?></span><?php endif; ?>
     <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
       <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
       <?php /* D3 only: Authors and Series join the row from 1024px; T2 shows
          Search inline instead (the form replaces it on desktop). */ ?>
       <a class="nav-wide" href="/browse/authors"><?= \App\Lang::t('nav.authors') ?></a>
-      <a class="nav-wide" href="/series"><?= \App\Lang::t('nav.series') ?></a>
+      <?php if (\App\Settings::on('series_on')): ?><a class="nav-wide" href="/series"><?= \App\Lang::t('nav.series') ?></a><?php endif; ?>
       <a class="nav-inline-search" href="/search"><?= \App\Lang::t('nav.search') ?></a>
     </nav>
     <form class="nav-search" role="search" action="/search" method="get">

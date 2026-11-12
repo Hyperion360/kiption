@@ -15,11 +15,13 @@
   <?php if (!empty($me['d'])): ?>
     <img class="avatar" src="<?= $this->e($me['d']) ?>" alt="<?= $this->e(\App\Lang::t('account.avatar_alt')) ?>" width="80" height="80">
   <?php endif; ?>
+  <?php if (\App\Settings::on('uploads_on')): ?>
   <form method="post" action="/account/avatar" enctype="multipart/form-data">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('account.avatar_label') ?> <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif"></label>
     <button type="submit" class="btn-secondary"><?= \App\Lang::t('account.upload') ?></button>
   </form>
+  <?php endif; ?>
   <form method="post" action="/account/support">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('account.support_label') ?> <input name="support_url" maxlength="200" value="<?= $this->e($me['e'] ?? '') ?>"></label>

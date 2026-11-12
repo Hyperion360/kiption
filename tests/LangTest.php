@@ -130,7 +130,7 @@ final class LangTest extends TestCase
         // plus the code fragments the regex catches once attribute values move
         // into t() calls (" content=", '" href="', '" alt="', '?page='), and
         // the rating pips' looped id/for wiring.
-        $allowlist = ['Kiption', 'PHP', 'UTF-8', 'aria-', 'data-', 'http', 'page=', 'content=', 'href=', 'alt=', 'placeholder=', 'id="rating-', 'for="rating-'];
+        $allowlist = ['Kiption', 'PHP', 'UTF-8', 'aria-', 'data-', 'http', 'page=', 'content=', 'href=', 'alt=', 'placeholder=', 'title=', 'id="rating-', 'for="rating-'];
         $files = array_merge(
             glob(dirname(__DIR__) . '/app/views/*.php'),
             glob(dirname(__DIR__) . '/app/views/*/*.php'),

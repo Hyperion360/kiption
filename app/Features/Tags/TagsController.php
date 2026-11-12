@@ -25,7 +25,7 @@ final class TagsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $type = $this->findType($id);
-        return $type === null ? new Response('Page not found', 404) : $this->typeForm($type, null);
+        return $type === null ? new Response(\App\Lang::t('error.not_found'), 404) : $this->typeForm($type, null);
     }
 
     #[Auth]
@@ -33,7 +33,7 @@ final class TagsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $tag = $this->findTag($id);
-        return $tag === null ? new Response('Page not found', 404) : $this->tagForm($tag, null);
+        return $tag === null ? new Response(\App\Lang::t('error.not_found'), 404) : $this->tagForm($tag, null);
     }
 
     #[Auth] #[Post]
@@ -54,7 +54,7 @@ final class TagsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $type = $this->findType($id);
-        if ($type === null) return new Response('Page not found', 404);
+        if ($type === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $name = $this->name();
         $error = $this->typeNameError($name, (int) $type['id']);
         if ($error !== null) return new Response($this->typeForm($type, $error), 422);
@@ -69,7 +69,7 @@ final class TagsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $type = $this->findType($id);
-        if ($type === null || !in_array($dir, ['up', 'down'], true)) return new Response('Page not found', 404);
+        if ($type === null || !in_array($dir, ['up', 'down'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $ids = array_map('intval', array_column($this->db->all('SELECT id FROM tag_types ORDER BY position, id'), 'id'));
         $at = array_search((int) $type['id'], $ids, true);
         $to = $dir === 'up' ? $at - 1 : $at + 1;
@@ -91,7 +91,7 @@ final class TagsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $type = $this->findType($id);
-        if ($type === null) return new Response('Page not found', 404);
+        if ($type === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $tags = (int) $this->db->one('SELECT COUNT(*) AS c FROM tags WHERE tag_type_id = ?', [(int) $type['id']])['c'];
         if ($this->request->method !== 'POST') return $this->confirmType($type, $tags, null);
         if ($tags > 0) return new Response($this->confirmType($type, $tags, Lang::t('tagsadmin.err_type_in_use', ['n' => $tags])), 422);
@@ -119,7 +119,7 @@ final class TagsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $tag = $this->findTag($id);
-        if ($tag === null) return new Response('Page not found', 404);
+        if ($tag === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $name = $this->name();
         $error = $this->tagNameError($name, (int) $tag['tag_type_id'], (int) $tag['id']);
         if ($error !== null) return new Response($this->tagForm($tag, $error), 422);
@@ -135,7 +135,7 @@ final class TagsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $tag = $this->findTag($id);
-        if ($tag === null) return new Response('Page not found', 404);
+        if ($tag === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $stories = (int) $this->db->one('SELECT COUNT(*) AS c FROM story_tags WHERE tag_id = ?', [(int) $tag['id']])['c'];
         if ($this->request->method !== 'POST') return $this->confirmTag($tag, $stories, null);
         if ($stories > 0 && ($this->request->post['remove'] ?? '') !== '1') {

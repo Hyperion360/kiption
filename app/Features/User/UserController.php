@@ -18,6 +18,7 @@ final class UserController
 
     public function view(string $slug): Response|string
     {
+        if ($this->profilesHidden()) return Response::redirect('/auth/login');
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $profile = $this->users->findByProfileSlug($slug);
         if ($profile === null) return new Response(\App\Lang::t('error.not_found'), 404);
@@ -63,10 +64,12 @@ final class UserController
 
     public function stories(string $slug): Response|string
     {
+        if ($this->profilesHidden()) return Response::redirect('/auth/login');
         [$perPage, $offset] = $this->paginate();
         // ?sort= is whitelisted in PHP before the repository interpolates it;
         // junk coerces to 'recent' (the BrowseController page-param philosophy)
-        $sort = ($this->request->get['sort'] ?? '') === 'alpha' ? 'alpha' : 'recent';
+        $asked = (string) ($this->request->get['sort'] ?? '');
+        $sort = ($asked === '' ? \App\Settings::get('default_sort') : $asked) === 'alpha' ? 'alpha' : 'recent';
         $tab = $this->users->storiesTab($slug, $sort, $perPage, $offset);
         if ($tab === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->renderTab($slug, $tab, \App\Lang::t('user.stories_by'), '/user/stories/' . $slug);
@@ -74,6 +77,7 @@ final class UserController
 
     public function favorites(string $slug): Response|string
     {
+        if ($this->profilesHidden()) return Response::redirect('/auth/login');
         [$perPage, $offset] = $this->paginate();
         $tab = $this->users->favoritesTab($slug, $perPage, $offset);
         if ($tab === null) return new Response(\App\Lang::t('error.not_found'), 404);
@@ -188,6 +192,13 @@ final class UserController
         return $tab['stories'] === []
             ? (new Response($this->view->render('browse/recent', $data), 200))->withHeader('X-Robots-Tag', 'noindex')
             : $this->view->render('browse/recent', $data);
+    }
+
+    /** The owner switched public profiles off: visitors are sent to sign in. Members see profiles as usual. */
+    private function profilesHidden(): bool
+    {
+        return !\App\Settings::on('profiles_public')
+            && \App\Viewer::id($this->request, $this->session, $this->db) === 0;
     }
 
     private function head(): \App\Seo\Head

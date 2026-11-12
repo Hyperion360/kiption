@@ -4,7 +4,7 @@
   <h1><?= $this->e($news['title']) ?></h1>
   <p class="chapter-meta">
     <?= \App\Lang::t('story.by') ?> <?= $this->e($news['penname'] ?? \App\Lang::t('common.anonymous')) ?>
-    | <?= $this->e(substr($news['published_at'], 0, 10)) ?>
+    | <?= $this->e(\App\Dates::format($news['published_at'])) ?>
   </p>
   <div class="prose"><?= \App\Markdown::render($news['body']) /* markdown at rest; raw HTML cannot be stored */ ?></div>
   <h2 id="comments"><?= \App\Lang::t('news.comments_heading') . ' (' . number_format((int) $comment_count) . ')' ?></h2>
@@ -12,7 +12,7 @@
   <?php else: ?>
     <?php foreach ($comments as $c): ?>
       <article class="review">
-        <p class="chapter-meta"><?= $this->e($c['penname'] ?? \App\Lang::t('common.anonymous')) ?> · <time datetime="<?= $this->e($c['created_at']) ?>"><?= $this->e(date('M j, Y', strtotime((string) $c['created_at']))) ?></time></p>
+        <p class="chapter-meta"><?= $this->e($c['penname'] ?? \App\Lang::t('common.anonymous')) ?> · <time datetime="<?= $this->e($c['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $c['created_at'])) ?></time></p>
         <div class="prose"><?= \App\Markdown::render($c['body']) ?></div>
       </article>
     <?php endforeach; ?>

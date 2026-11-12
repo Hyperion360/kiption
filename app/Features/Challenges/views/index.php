@@ -13,7 +13,7 @@
         <span class="chapter-meta">
           | <?= \App\Lang::t('common.works_count', ['n' => number_format((int) $r['item_count'])]) ?>
           | <?= \App\Lang::t('challenges.m_' . $r['membership']) ?>
-          | <?= $this->e(substr((string) $r['created_at'], 0, 10)) ?>
+          | <?= $this->e(\App\Dates::format((string) $r['created_at'])) ?>
         </span>
       </li>
     <?php endforeach; ?>

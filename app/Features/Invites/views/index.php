@@ -22,9 +22,9 @@
     <tr>
       <td><code><?= $this->e($row['code']) ?></code><?php if ($row['used_by'] !== null): ?> <span class="chapter-meta">(<?= \App\Lang::t('invites.used') ?>)</span><?php endif; ?></td>
       <td><?= $this->e($row['created_by_name']) ?></td>
-      <td><time datetime="<?= $this->e($row['created_at']) ?>"><?= $this->e(date('M j', strtotime((string) $row['created_at']))) ?></time></td>
+      <td><time datetime="<?= $this->e($row['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $row['created_at'], false)) ?></time></td>
       <td><?= $row['used_by_name'] !== null ? $this->e($row['used_by_name']) : '' ?></td>
-      <td><?php if ($row['used_at'] !== null): ?><time datetime="<?= $this->e($row['used_at']) ?>"><?= $this->e(date('M j', strtotime((string) $row['used_at']))) ?></time><?php endif; ?></td>
+      <td><?php if ($row['used_at'] !== null): ?><time datetime="<?= $this->e($row['used_at']) ?>"><?= $this->e(\App\Dates::format((string) $row['used_at'], false)) ?></time><?php endif; ?></td>
       <td>
         <?php if ($row['used_by'] === null): ?>
         <form method="post" action="/invites/revoke/<?= (int) $row['id'] ?>" class="inline">

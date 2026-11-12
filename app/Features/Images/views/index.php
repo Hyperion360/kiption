@@ -2,11 +2,13 @@
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('images.heading') ?></h1>
 <p class="meta"><?= $count === 1 ? \App\Lang::t('images.one_file') : \App\Lang::t('images.files', ['n' => $count]) ?>, <?= $this->e($totalHuman) ?> <?= \App\Lang::t('images.total') ?>.</p>
+<?php if (!\App\Settings::on('uploads_on')): ?><p class="meta"><?= \App\Lang::t('uploads.off') ?></p><?php else: ?>
 <form method="post" action="/images/upload" enctype="multipart/form-data" class="inline">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
   <input type="file" name="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="<?= $this->e(\App\Lang::t('images.upload_aria')) ?>">
   <button type="submit"><?= \App\Lang::t('images.upload') ?></button>
 </form>
+<?php endif; ?>
 <p class="meta"><?= \App\Lang::t('images.help') ?></p>
 <table>
   <thead><tr><th scope="col"><?= \App\Lang::t('images.column_file') ?></th><th scope="col"><?= \App\Lang::t('images.column_size') ?></th><th scope="col"><?= \App\Lang::t('images.column_actions') ?></th></tr></thead>

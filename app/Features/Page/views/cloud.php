@@ -78,7 +78,7 @@ $rest = $break !== false ? substr($body, $break + 2) : $body;
 
   <section class="cloud-body">
     <div class="prose"><?= \App\Markdown::render($rest) /* markdown at rest; raw HTML cannot be stored */ ?></div>
-    <p class="chapter-meta"><?= \App\Lang::t('page.last_updated', ['date' => $this->e(substr($page['updated_at'], 0, 10))]) ?></p>
+    <p class="chapter-meta"><?= \App\Lang::t('page.last_updated', ['date' => $this->e(\App\Dates::format($page['updated_at']))]) ?></p>
   </section>
 
 <?php if ($close !== null && $ctaUrl !== ''): ?>

@@ -20,7 +20,7 @@ $roots = array_values(array_filter($rows, static fn (array $r): bool => $r['pare
       <article class="review">
         <?php /* The site's meta convention: middle dots, a short date (the raw
            ISO stamp stays in the datetime attribute for machines). */ ?>
-        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(date('M j, Y', strtotime((string) $r['created_at']))) ?></time></p>
+        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $r['created_at'])) ?></time></p>
         <div class="prose"><?= \App\Markdown::render($r['body'] ?? '') ?></div>
         <?php foreach ($repliesByRoot[(int) $r['id']] ?? [] as $rep): ?>
             <blockquote class="review-reply">
@@ -65,6 +65,8 @@ $roots = array_values(array_filter($rows, static fn (array $r): bool => $r['pare
       <label><?= \App\Lang::t('review.comment_label') ?> <textarea name="body" rows="4" required maxlength="5000"></textarea></label>
       <button type="submit" class="btn-primary"><?= \App\Lang::t('review.post_comment') ?></button>
     </form>
+  <?php elseif (!\App\Settings::on('guest_reviews')): ?>
+    <p class="chapter-meta"><a href="/auth/login"><?= \App\Lang::t('story.sign_in_to_review') ?></a></p>
   <?php else: ?>
     <form class="form-card review-form" method="post" action="/review/addchapter/<?= $this->e($slug) ?>/<?= (int) $position ?>">
       <p class="form-card-title"><?= \App\Lang::t('review.post_comment') ?></p>

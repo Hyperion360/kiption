@@ -16,14 +16,15 @@ final class SeriesController
         private \Kip\Storage $storage,
     ) {}
 
-    /** The /series index (comp nav surface). ALWAYS-ON by design: series has
-     *  NO feature flag (no 'series' name exists in the flags ledger), so this
-     *  action deliberately carries no Features::guard, and the page renders
-     *  200 for every viewer on every archive. Guest-rendered and paged like
+    /** The /series index (comp nav surface). Series has no feature flag; the
+     *  owner's series_on setting (on by default) is its only switch, and every
+     *  action answers 404 while it is off. Otherwise the page renders
+     *  200 for every viewer. Guest-rendered and paged like
      *  /browse/recent: the ?page param coerces by the max(1,(int)) rule and a
      *  page past the end is an empty list, still 200. */
-    public function index(): string
+    public function index(): Response|string
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         $page = max(1, (int) ($this->request->get['page'] ?? 1)); // the junk page-param coercion
         $perPage = max(1, (int) $this->app->config('items_per_page', 20));
         // Overflow guard: a hostile page=99999999999999999999 must not make
@@ -53,6 +54,7 @@ final class SeriesController
 
     public function view(string $slug): Response|string
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         // viewer resolves the item-visibility gates; a revoked session is a guest
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // The mute gate (finding 9): the item branch filters only while the
@@ -87,14 +89,16 @@ final class SeriesController
     }
 
     #[AuthAttr]
-    public function new(): string
+    public function new(): Response|string
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->form(null);
     }
 
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         [$title, $summary, $membership, $error] = $this->seriesInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $me = (int) $this->session->get('user_id');
@@ -106,6 +110,7 @@ final class SeriesController
     #[AuthAttr]
     public function edit(string $slug): Response|string
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         try { $row = $this->series->forEdit($slug, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         return $this->form($row);
@@ -114,6 +119,7 @@ final class SeriesController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         $me = (int) $this->session->get('user_id');
         [$title, $summary, $membership, $error] = $this->seriesInput();
         if ($error !== null) return new Response($this->form(null, $error), 422);
@@ -132,6 +138,7 @@ final class SeriesController
     #[AuthAttr] #[Post]
     public function cover(string $slug): Response
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         try { $this->series->forEdit($slug, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
         $file = $this->request->file('cover');
@@ -180,6 +187,7 @@ final class SeriesController
     #[AuthAttr] #[Post]
     public function add(string $slug): Response
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         $me = (int) $this->session->get('user_id');
         $storySlug = trim($this->request->postStr('story_slug'));
         try {
@@ -205,6 +213,7 @@ final class SeriesController
     #[AuthAttr] #[Post]
     public function remove(string $slug, string $storySlug): Response
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         $me = (int) $this->session->get('user_id');
         if (!$this->series->removeItem($slug, $storySlug, $me, $this->isAdmin($me))) {
             return new Response(\App\Lang::t('error.not_found'), 404);
@@ -218,6 +227,7 @@ final class SeriesController
     #[AuthAttr] #[Post]
     public function move(string $slug, string $itemId, string $dir): Response
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         $me = (int) $this->session->get('user_id');
         $dir = $dir === 'down' ? 'down' : 'up'; // junk coerces, the browse page-param philosophy
         try {
@@ -232,6 +242,7 @@ final class SeriesController
     #[AuthAttr] #[Post]
     public function confirm(string $slug, string $itemId): Response
     {
+        if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         $me = (int) $this->session->get('user_id');
         try {
             $info = $this->series->confirm($slug, (int) $itemId, $me, $this->isAdmin($me));

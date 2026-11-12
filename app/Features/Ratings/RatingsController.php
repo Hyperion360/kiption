@@ -23,7 +23,7 @@ final class RatingsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        return $row === null ? new Response('Page not found', 404) : $this->editForm($row, null);
+        return $row === null ? new Response(\App\Lang::t('error.not_found'), 404) : $this->editForm($row, null);
     }
 
     #[Auth] #[Post]
@@ -44,7 +44,7 @@ final class RatingsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $label = $this->label();
         if ($label === '') return new Response($this->editForm($row, Lang::t('ratings.err_label')), 422);
         $this->db->query('UPDATE ratings SET label = ?, is_adult = ?, warning_text = ? WHERE id = ?',
@@ -59,7 +59,7 @@ final class RatingsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null || !in_array($dir, ['up', 'down'], true)) return new Response('Page not found', 404);
+        if ($row === null || !in_array($dir, ['up', 'down'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $ids = array_map('intval', array_column($this->db->all('SELECT id FROM ratings ORDER BY position, id'), 'id'));
         $at = array_search((int) $row['id'], $ids, true);
         $to = $dir === 'up' ? $at - 1 : $at + 1;
@@ -82,7 +82,7 @@ final class RatingsController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $stories = $this->storyCount((int) $row['id']);
         if ($this->request->method !== 'POST') return $this->confirm($row, $stories, null);
 

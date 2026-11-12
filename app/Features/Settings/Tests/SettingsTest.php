@@ -56,11 +56,11 @@ final class SettingsTest extends TestCase
         $this->assertSame(302, $admin->postWithToken('/settings/save', [
             'site_name' => 'Renamed Archive', 'registration_mode' => 'invite',
             'validation_required' => '0', 'items_per_page' => '50', 'powered_by' => '0',
-            'adult_rta' => 'RTA-5042-1996-1400-1577-RTA',
+            'adult_rta' => 'RTA-5042-1996-1400-1577-RTA', 'ui_lang' => 'en',
         ])->status);
         // Rows landed for every key the board writes (skin included: an
         // absent field defaults to 'default', never 'leave unchanged').
-        $this->assertSame(7, (int) $this->db()->one('SELECT COUNT(*) c FROM settings')['c']);
+        $this->assertSame(count(\App\Settings::KEYS), (int) $this->db()->one('SELECT COUNT(*) c FROM settings')['c']);
         $this->assertSame('RTA-5042-1996-1400-1577-RTA',
             (string) $this->db()->one('SELECT value FROM settings WHERE key = ?', ['adult_rta'])['value']);
         // A FRESH client (the entrypoint seam: init then apply) sees the new

@@ -23,7 +23,7 @@ final class CategoriesController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        return $row === null ? new Response('Page not found', 404) : $this->editForm($row, null);
+        return $row === null ? new Response(\App\Lang::t('error.not_found'), 404) : $this->editForm($row, null);
     }
 
     #[Auth] #[Post]
@@ -47,7 +47,7 @@ final class CategoriesController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $name = $this->name();
         $parent = $this->parentId();
         $error = null;
@@ -74,7 +74,7 @@ final class CategoriesController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null || !in_array($dir, ['up', 'down'], true)) return new Response('Page not found', 404);
+        if ($row === null || !in_array($dir, ['up', 'down'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $ids = array_map('intval', array_column($this->db->all(
             'SELECT id FROM categories WHERE parent_id IS ? ORDER BY position, id',
             [$row['parent_id'] === null ? null : (int) $row['parent_id']]), 'id'));
@@ -99,7 +99,7 @@ final class CategoriesController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $row = $this->find($id);
-        if ($row === null) return new Response('Page not found', 404);
+        if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $use = $this->usage((int) $row['id']);
         if ($this->request->method !== 'POST') return $this->confirm($row, $use, null);
 
