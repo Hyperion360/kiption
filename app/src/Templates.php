@@ -21,6 +21,7 @@ final class Templates
         'member_verify' => ['{url}' => 'the account verification link'],
         'we_moved' => [],
         'password_reset' => ['{url}' => 'the password reset link'],
+        'signin_link' => ['{url}' => 'the one-time sign-in link'],
         'coauthor_added' => [
             '{title}' => 'the story title',
             '{slug}' => 'the story slug',
@@ -56,6 +57,10 @@ final class Templates
         'password_reset' => ['Reset your password',
             "Someone (hopefully you) asked to reset the password for this address.\n\n"
             . "Reset link (valid 30 minutes):\n{url}\n\nIf this wasn't you, ignore this email."],
+        'signin_link' => ['Your sign-in link',
+            "Here is the sign-in link you asked for:\n\n{url}\n\n"
+            . "It works once, for the next 30 minutes. Open it on the device you want to sign in on.\n\n"
+            . "If you didn't ask for this, you can ignore this email."],
         'coauthor_added' => ['You were added as a coauthor on {title}',
             "You were added as a coauthor on \"{title}\".\n\nView and manage the story:\n{url}"],
         'member_contact' => ['Message from {penname}',
@@ -76,7 +81,7 @@ final class Templates
         return [(string) $row['subject'], (string) $row['body']];
     }
 
-    /** INSERT OR IGNORE the seven known names (name is the PK), so the admin
+    /** INSERT OR IGNORE the eight known names (name is the PK), so the admin
      *  edit surface always has rows to edit; existing overrides survive.
      *  Idempotent by construction. */
     public static function seedDefaults(Database $db): void
