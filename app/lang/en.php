@@ -826,4 +826,15 @@ return [
     'challenges.membership_invalid' => 'Membership must be open, moderated, or closed.',
     'account.lang_invalid' => 'Language must be the archive default or an installed pack.',
     'account.theme_invalid' => 'Theme must be paper, sepia, night or auto.',
+
+    // Site text editor: the reasons a piece of owner text is refused.
+    'text.err_key' => 'That text is not part of this site.',
+    'text.err_utf8' => 'That text is not valid UTF-8.',
+    'text.err_control' => 'That text has a control character in it.',
+    'text.err_length' => 'That text is too long. The limit is {max} characters.',
+    'text.err_angle' => 'The less-than sign is not allowed.',
+    'text.err_char' => 'The character {char} is not allowed in this text.',
+    'text.err_newline' => 'Line breaks are not allowed in this text.',
+    'text.err_placeholder_missing' => 'The text must keep {name} exactly as written.',
+    'text.err_placeholder_extra' => 'This text has no {name} to fill in. Remove it.',
 ];

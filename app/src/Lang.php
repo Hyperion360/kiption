@@ -32,6 +32,9 @@ final class Lang
     /** @var array<string, array<string, string>> lang code => merged [key => text], memoized */
     private static array $cache = [];
 
+    /** @var array<string, string>|null the shipped en.php, memoized */
+    private static ?array $base = null;
+
     /** @var array<int, string>|null the app/lang pack basenames, memoized */
     private static ?array $installed = null;
 
@@ -95,6 +98,13 @@ final class Lang
             $text = strtr($text, $pairs);
         }
         return $text;
+    }
+
+    /** The shipped English pack alone: the built-in inventory and the source of
+     *  truth for which keys exist. Owner text never changes it. */
+    public static function base(): array
+    {
+        return self::$base ??= self::load(self::DIR . '/en.php');
     }
 
     /** The full merged map for a code: the pack's entries over en, memoized per lang. */
