@@ -147,7 +147,7 @@ final class AuthController
             'csrf' => $this->session->csrfToken(),
             'error' => null,
             'mode' => (string) $this->app->config('registration_mode', 'verify'),
-            'terms_url' => (string) $this->app->config('signup_terms_url', ''),
+            'terms_url' => \App\Notices::termsUrl((string) $this->app->config('signup_terms_url', '')),
         ] + $this->checkFields());
     }
 
@@ -180,6 +180,7 @@ final class AuthController
         if ($password !== $this->request->postStr('confirm')) {
             return $this->registerError($mode, \App\Lang::t('auth.err_mismatch'), $penname, $email);
         }
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $penname)) !== null) return $this->registerError($mode, $blocked, $penname, $email);
         [$ok, $error] = $this->users->register($mode, $penname, $email, $password, $this->request->postStr('invite'));
         if (!$ok) {
             return $this->registerError($mode, $error, $penname, $email);
@@ -220,7 +221,7 @@ final class AuthController
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
             'mode' => $mode,
-            'terms_url' => (string) $this->app->config('signup_terms_url', ''),
+            'terms_url' => \App\Notices::termsUrl((string) $this->app->config('signup_terms_url', '')),
             'penname' => $penname, 'email' => $email, 'invite' => $this->request->postStr('invite'),
         ] + $this->checkFields()), 422);
     }

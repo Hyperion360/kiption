@@ -42,6 +42,33 @@ final class FooterLegal
         }
     }
 
+    /** Footer links (a JSON string or a decoded list) as editable "Label | address" lines. */
+    public static function toLines(mixed $links): string
+    {
+        if (is_string($links)) $links = json_decode($links, true);
+        $lines = [];
+        foreach (is_array($links) ? $links : [] as $l) {
+            if (is_array($l) && is_string($l['label'] ?? null) && is_string($l['url'] ?? null)) {
+                $lines[] = $l['label'] . ' | ' . $l['url'];
+            }
+        }
+        return implode("\n", $lines);
+    }
+
+    /** "Label | address" lines as the JSON the settings board stores; null when a line is malformed. */
+    public static function fromLines(string $text): ?string
+    {
+        $out = [];
+        foreach (preg_split('/\R/', trim($text)) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+            $parts = array_map('trim', explode('|', $line, 2));
+            if (count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') return null;
+            $out[] = ['label' => $parts[0], 'url' => $parts[1]];
+        }
+        return $out === [] ? '' : (string) json_encode($out, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     /** Drop captured state back to unconfigured; the tearDown of init-ing
      *  test classes so no later suite inherits a legal line. */
     public static function reset(): void

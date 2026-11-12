@@ -56,7 +56,7 @@ final class SettingsTest extends TestCase
         $this->assertSame(302, $admin->postWithToken('/settings/save', [
             'site_name' => 'Renamed Archive', 'registration_mode' => 'invite',
             'validation_required' => '0', 'items_per_page' => '50', 'powered_by' => '0',
-            'adult_rta' => 'RTA-5042-1996-1400-1577-RTA', 'ui_lang' => 'en',
+            'adult_rta' => 'RTA-5042-1996-1400-1577-RTA', 'ui_lang' => 'en', 'footer_present' => '1',
         ])->status);
         // Rows landed for every key the board writes (skin included: an
         // absent field defaults to 'default', never 'leave unchanged').

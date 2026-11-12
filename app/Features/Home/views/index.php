@@ -8,6 +8,9 @@
   <header class="page-head">
     <h1><?= $this->e(\App\SiteName::get()) ?></h1>
     <p class="lede"><?= \App\Lang::t('home.intro') ?></p>
+<?php if (\App\Notices::has('msg.welcome')): ?>
+    <div class="prose home-welcome"><?= \App\Notices::html('msg.welcome') /* Markdown, every character escaped */ ?></div>
+<?php endif; ?>
   </header>
 <?php if (!empty($continue)): ?>
   <section class="home-section" aria-labelledby="home-continue">

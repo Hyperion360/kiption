@@ -85,6 +85,7 @@ final class MessagesController
         if ($body === '' || mb_strlen($body) > 5000) {
             return new Response($this->renderForm($slug, $partner, \App\Lang::t('messages.body_invalid')), 422);
         }
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $body)) !== null) return new Response($this->renderForm($slug, $partner, $blocked), 422);
         (new MessageRepository($this->db))->send($this->uid(), (int) $partner['id'], $body);
         return Response::redirect('/messages/view/' . $slug);
     }

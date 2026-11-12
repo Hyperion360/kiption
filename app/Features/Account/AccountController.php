@@ -372,6 +372,7 @@ final class AccountController
     {
         $me = (int) $this->session->get('user_id');
         $bio = substr(trim($this->request->postStr('bio')), 0, 2000);
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $bio)) !== null) return new Response($blocked, 422);
         $isBeta = isset($this->request->post['is_beta']) ? 1 : 0;
         $sort = $this->request->postStr('default_sort') === 'alpha' ? 'alpha' : 'recent';
         $toc = isset($this->request->post['toc_first']) ? '1' : '0';

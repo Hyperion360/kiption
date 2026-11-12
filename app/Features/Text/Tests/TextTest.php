@@ -258,7 +258,7 @@ final class TextTest extends TestCase
 
     public function test_the_menu_shows_the_link_to_admins_only(): void
     {
-        $this->assertStringContainsString('href="/text"', $this->client($this->adminId)->get('/')->body);
+        $this->assertStringContainsString('href="/text"', $this->client($this->adminId)->get('/manage')->body);
         $this->assertStringNotContainsString('href="/text"', $this->client($this->memberId)->get('/')->body);
         $this->assertStringNotContainsString('href="/text"', $this->client()->get('/')->body);
     }

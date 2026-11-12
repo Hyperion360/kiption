@@ -2,6 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= $story === null ? \App\Lang::t('story.new_heading') : \App\Lang::t('story.edit_heading') ?></h1>
+  <?php if (($notice ?? '') !== ''): ?><div class="prose notice"><?= $notice /* Markdown, every character escaped */ ?></div><?php endif; ?>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <form method="post" action="<?= $story === null ? '/story/create' : '/story/update/' . $this->e($story['slug']) ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">

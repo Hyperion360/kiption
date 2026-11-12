@@ -231,7 +231,7 @@ final class TextController
                 'value' => $rows[$key] ?? (string) ($builtin[$key] ?? $en),
                 'changed' => isset($rows[$key]),
                 'names' => Rules::placeholders($en),
-                'multiline' => str_contains($en, "\n") || mb_strlen($en) > 80,
+                'multiline' => str_contains($en, "\n") || mb_strlen($en) > 80 || \App\Notices::isMessage((string) $key),
             ];
         }
         return $out;

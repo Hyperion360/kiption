@@ -40,6 +40,7 @@ final class SettingsController
             'languages' => array_map(static fn (string $c): array => ['code' => $c, 'name' => \App\Lang::name($c)], \App\Lang::installed()),
             'dateExamples' => \App\Dates::examples(),
             'timeExamples' => \App\Dates::timeExamples(),
+            'images' => $this->libraryImages(),
             'skins' => \App\Skins::installed(['app_dir' => (string) $this->app->config('app_dir', dirname(__DIR__, 2))]),
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
@@ -74,6 +75,20 @@ final class SettingsController
             $off = \App\Settings::KEYS[$k] === 'bool' ? '0' : $default;
             $submitted[$k] = trim((string) ($this->request->post[$k] ?? $off));
         }
+        // The footer, picture and maintenance block only writes when the form sent it
+        // (the checkbox is absent when off), so older forms and scripts leave them alone.
+        if (array_key_exists('footer_present', $this->request->post)) {
+            $post = $this->request->post;
+            $lines = \App\FooterLegal::fromLines((string) ($post['footer_links'] ?? ''));
+            if ($lines === null) return new Response(\App\Lang::t('settings.err_footer_links'), 422);
+            $submitted += [
+                'footer_copyright' => trim((string) ($post['footer_copyright'] ?? '')),
+                'footer_copyright_url' => trim((string) ($post['footer_copyright_url'] ?? '')),
+                'footer_links' => $lines,
+                'og_image' => trim((string) ($post['og_image'] ?? '')),
+                'maintenance_on' => (string) ($post['maintenance_on'] ?? '0'),
+            ];
+        }
         $invalid = [];
         $min = (int) $submitted['min_words'];
         $max = (int) $submitted['max_words'];
@@ -85,6 +100,18 @@ final class SettingsController
         if ($invalid !== []) return new Response(\App\Lang::t('settings.err_invalid') . ' ' . implode(', ', $invalid), 422);
         \App\CachePurge::run($this->app, $this->db);
         return Response::redirect('/settings');
+    }
+
+    /** Public paths of the pictures in the image library, for the share-picture choice. @return list<string> */
+    private function libraryImages(): array
+    {
+        $dir = (string) ($this->app->config('uploads', [])['dir'] ?? '');
+        $out = [];
+        foreach ($dir === '' ? [] : (glob($dir . '/*') ?: []) as $f) {
+            if (is_file($f) && preg_match('/\.(png|jpe?g|webp|gif)$/i', $f) === 1) $out[] = '/uploads/' . basename($f);
+        }
+        sort($out);
+        return $out;
     }
 
     /** What each field shows: the DB row when one exists (the operator's
@@ -105,6 +132,11 @@ final class SettingsController
             'skin' => (string) ($all['skin'] ?? $this->app->config('skin', \App\Skins::DEFAULT)),
             'adult_rta' => (string) ($all['adult_rta'] ?? $this->app->config('adult_rta', '')),
             'ui_lang' => (string) ($all['ui_lang'] ?? $this->app->config('ui_lang', 'en')),
+            'footer_copyright' => (string) ($all['footer_copyright'] ?? $this->app->config('footer_copyright', '')),
+            'footer_copyright_url' => (string) ($all['footer_copyright_url'] ?? $this->app->config('footer_copyright_url', '')),
+            'footer_links' => \App\FooterLegal::toLines($all['footer_links'] ?? $this->app->config('footer_links', [])),
+            'og_image' => (string) ($all['og_image'] ?? $this->app->config('og_image', '')),
+            'maintenance_on' => (string) ($all['maintenance_on'] ?? '0'),
         ];
     }
 }

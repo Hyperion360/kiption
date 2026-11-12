@@ -25,6 +25,9 @@ final class Rules
             return \App\Lang::t('text.err_key');
         }
         $default = $defaults[$key];
+        if (\App\Notices::isMessage($key)) {
+            return self::checkMessage($value);
+        }
         if (!mb_check_encoding($value, 'UTF-8')) {
             return \App\Lang::t('text.err_utf8');
         }
@@ -60,6 +63,27 @@ final class Rules
             if (!in_array($name, $wanted, true)) {
                 return \App\Lang::t('text.err_placeholder_extra', ['name' => '{' . $name . '}']);
             }
+        }
+        return null;
+    }
+
+    /** Long owner messages (App\Notices::KEYS): Markdown, newlines allowed, never
+     *  raw HTML. The renderer escapes everything, and the angle bracket ban keeps
+     *  stored text safe even if it is ever printed another way. */
+    private static function checkMessage(string $value): ?string
+    {
+        if (!mb_check_encoding($value, 'UTF-8')) {
+            return \App\Lang::t('text.err_utf8');
+        }
+        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value) === 1 || str_contains($value, "\r")
+            || preg_match('/[\x{2028}\x{2029}]/u', $value) === 1) {
+            return \App\Lang::t('text.err_control');
+        }
+        if (mb_strlen($value) > \App\Notices::MAX_LENGTH) {
+            return \App\Lang::t('notice.err_length', ['max' => \App\Notices::MAX_LENGTH]);
+        }
+        if (str_contains($value, '<')) {
+            return \App\Lang::t('notice.err_html');
         }
         return null;
     }

@@ -21,6 +21,9 @@
       · <?= \App\Lang::t('story.updated_label') ?> <time class="dt-updated" datetime="<?= $this->e($story['updated_at']) ?>"><?= $this->e(\App\Dates::format((string) $story['updated_at'])) ?></time></p>
     <span class="print-hint"><?= \App\Lang::t('story.whole_print_hint') ?></span>
   </header>
+<?php if (\App\Notices::has('msg.printer')): ?>
+  <div class="prose printer-notice"><?= \App\Notices::html('msg.printer') /* Markdown, every character escaped */ ?></div>
+<?php endif; ?>
   <nav class="whole-toc" aria-label="<?= $this->e(\App\Lang::t('story.whole_toc_aria')) ?>">
     <h2><?= \App\Lang::t('story.whole_toc') ?></h2>
     <ol class="chapter-list">

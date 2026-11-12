@@ -126,6 +126,7 @@ final class UserController
         if ($body === '' || strlen($body) > 5000) {
             return new Response($this->renderContactForm($slug, $target, \App\Lang::t('contact.err_message'), false), 422);
         }
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $body)) !== null) return new Response($this->renderContactForm($slug, $target, $blocked, false), 422);
         $guard = $this->db->query(
             "INSERT INTO contact_log (sender_id, target_id)
              SELECT ?, ? WHERE (SELECT COUNT(*) FROM contact_log

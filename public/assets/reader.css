@@ -1582,3 +1582,7 @@ body.focus .site-head { display: none; }
    card-updated date remains the dot's accessible label. */
 .fresh-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
 .eyebrow-updated.is-fresh { color: var(--accent); }
+
+/* Shown to admins while the owner's maintenance switch is on. */
+.maintenance-banner { margin: 0; padding: .5rem 1rem; background: #fff3cd; color: #4a3b00; text-align: center; }
+.maintenance-banner a { color: inherit; text-decoration: underline; }

@@ -217,13 +217,13 @@ final class LayoutShellTest extends TestCase
         $this->db->query('INSERT INTO nav_links (label, url, position) VALUES (?,?,?)', ['Rules', '/page/rules', 1]);
         \App\NavLinks::rebuild($this->db, $navFile);
         $body = $this->client($demoId, ['nav_file' => $navFile])->get('/')->body;
-        $this->assertStringContainsString('href="/admin"', $body, 'admin links ride the sheet for admins');
+        $this->assertStringContainsString('href="/manage"', $body, 'the one admin link rides the sheet for admins');
         $this->assertStringContainsString('href="/queue"', $body);
-        $this->assertStringContainsString('href="/news/new"', $body, 'news ships on: the post link rides the sheet');
+        $this->assertStringNotContainsString('href="/news/new"', $body, 'the post link lives on /manage now');
         $this->assertStringContainsString('href="/page/rules"', $body, 'custom NavLinks render in the sheet');
         @unlink($navFile);
         // A plain member gets none of the admin links.
-        $this->assertStringNotContainsString('href="/admin"', $this->client($this->memberId)->get('/')->body);
+        $this->assertStringNotContainsString('href="/manage"', $this->client($this->memberId)->get('/')->body);
     }
 
     public function test_stylesheet_link_is_unchanged(): void

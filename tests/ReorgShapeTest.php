@@ -84,14 +84,14 @@ final class ReorgShapeTest extends TestCase
             'the layered Controllers directory must be gone (one-shot reorg)');
         foreach (scandir($this->root . '/app/views') ?: [] as $f) {
             if ($f[0] === '.') continue;
-            $this->assertContains($f, ['layout.php', 'maintenance.php'],
-                'app/views must hold only the kernel layout and maintenance page, found ' . $f);
+            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php'],
+                'app/views must hold only the kernel layout, maintenance and notice pages, found ' . $f);
         }
         $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');
-        // 54 with Adminstories and Mailusers; 52 with Contact, Signupcheck, Profilefields and Activity; 48 with the Categories, Ratings, Tags and Characters managers; 44 since the site text editor (Text); 43 since the Compare feature left (marketing copy is documentation
+        // 59 with Help, Manage, Rules, Terms and Wordfilter; 54 with Adminstories and Mailusers; 52 with Contact, Signupcheck, Profilefields and Activity; 48 with the Categories, Ratings, Tags and Characters managers; 44 since the site text editor (Text); 43 since the Compare feature left (marketing copy is documentation
         // now; Cloud and Dmca remain from the marketing top paths batch;
         // 41 since the invite-code surface, 40 since recommendations).
-        $this->assertCount(54, $features, 'exactly 54 feature folders expected');
+        $this->assertCount(59, $features, 'exactly 59 feature folders expected');
     }
 
     public function test_no_test_files_outside_the_tests_directory(): void
