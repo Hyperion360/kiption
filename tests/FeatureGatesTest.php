@@ -133,6 +133,8 @@ final class FeatureGatesTest extends TestCase
         $this->assertSame(404, $this->client($this->memberUserId)->postWithToken('/news/comment/1', ['body' => 'hi'])->status);
         $home = $this->client($this->adminUserId)->get('/');
         $this->assertSame(200, $home->status);
+        // The Manage page Post-news link vanishes while news is off.
+        $this->assertStringNotContainsString('href="/news/new"', $this->client($this->adminUserId)->get('/manage')->body);
         // Back on: the surfaces and the operator link return.
         $this->flagOn('news');
         $this->assertSame(200, $this->client()->get('/news')->status);
