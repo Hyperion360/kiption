@@ -801,6 +801,7 @@ return [
     'story.tags' => 'Tags',
     'story.characters' => 'Characters',
     'story.characters_help' => 'Pick the characters in this story. Characters tied to a category only count if you also pick that category.',
+    'story.err_locked_category' => 'One of the categories you picked is reserved for the site owner. Choose a different category.',
     'story.characters_label' => 'Characters:',
     'story.tags_label' => 'Tags:',
 

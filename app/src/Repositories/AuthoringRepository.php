@@ -29,7 +29,8 @@ final class AuthoringRepository
      *  Compound SELECTs may only ORDER BY output columns. */
     public function formData(?string $slug, int $userId): array
     {
-        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
+        $taxonomy = "SELECT 'cat' AS k, c.id AS a, c.name AS b, c.slug AS c, c.position AS d, c.locked AS e,
+                            (SELECT COUNT(*) FROM users cadm WHERE cadm.id = ? AND cadm.role = 'admin') AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
                      FROM categories c
                      UNION ALL
                      SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
@@ -53,7 +54,7 @@ final class AuthoringRepository
                      FROM characters ch LEFT JOIN categories cc ON cc.id = ch.category_id";
         if ($slug === null) {
             // The NULL slug binds make the selected concats yield NULL.
-            return $this->db->all($taxonomy . $tags . $characters . ' ORDER BY k, d', [null, null]);
+            return $this->db->all($taxonomy . $tags . $characters . ' ORDER BY k, d', [$userId, null, null]);
         }
         return $this->db->all(
             "SELECT 's' AS k, s.id AS a, s.title AS b, s.summary AS c, s.notes AS d,
@@ -80,10 +81,37 @@ final class AuthoringRepository
              ORDER BY k, d",
             // SEVEN binds in text order: the 's' branch's SELECT-list admin scalar
             // first (SELECT-list binds precede WHERE binds), then the 's' WHERE
-            // (slug + three gate binds), then the 'co' branch's slug, then the
+            // (slug + three gate binds), then the 'cat' branch's admin scalar, then the 'co' branch's slug, then the
             // 'tag' branch's slug, then the 'ch' branch's slug (appended LAST).
             // Count the ?s before touching this array.
-            [$userId, $slug, $userId, $userId, $userId, $slug, $slug, $slug]);
+            [$userId, $slug, $userId, $userId, $userId, $userId, $slug, $slug, $slug]);
+    }
+
+    /** The story form's category choices: a locked category (eFiction: admins
+     *  file there only) is hidden from non-admins unless the story already sits
+     *  in it. The 'cat' rows carry locked in e and the viewer-admin scalar in f. */
+    public static function visibleCategories(array $rows, array $selected): array
+    {
+        $selected = array_map('strval', $selected);
+        $out = [];
+        foreach ($rows as $r) {
+            if ($r['k'] !== 'cat') continue;
+            if ((int) $r['e'] === 1 && (int) $r['f'] !== 1 && !in_array((string) $r['a'], $selected, true)) continue;
+            $out[] = $r;
+        }
+        return $out;
+    }
+
+    /** True when a non-admin names a locked category the story is not already in. */
+    public function lockedViolation(int $userId, array $categoryIds, ?string $slug): bool
+    {
+        $ids = array_values(array_filter(array_map('intval', $categoryIds), static fn (int $i): bool => $i > 0));
+        if ($ids === []) return false;
+        if (($this->db->one('SELECT role FROM users WHERE id = ?', [$userId])['role'] ?? '') === 'admin') return false;
+        return $this->db->one(
+            'SELECT 1 AS x FROM categories c WHERE c.locked = 1 AND c.id IN (' . implode(',', $ids) . ')
+             AND c.id NOT IN (SELECT sc.category_id FROM story_categories sc JOIN stories s ON s.id = sc.story_id WHERE s.slug = ?)',
+            [$slug ?? '']) !== null;
     }
 
     public function slugTaken(string $slug): bool

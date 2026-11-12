@@ -599,6 +599,9 @@ final class StoryController
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, 'Choose a rating.', null), 422);
         }
+        if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, null)) {
+            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_locked_category'), null), 422);
+        }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds,
             $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds);
@@ -626,6 +629,9 @@ final class StoryController
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, 'Choose a rating.', null), 422);
+        }
+        if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, $slug)) {
+            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, \App\Lang::t('story.err_locked_category'), null), 422);
         }
         if ($syndicationError !== null) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, $syndicationError, null), 422);
@@ -722,10 +728,11 @@ final class StoryController
         $ratings = [];
         $coauthors = [];
         foreach ($rows as $r) {
-            if ($r['k'] === 'cat') $categories[] = $r;
             if ($r['k'] === 'r') $ratings[] = $r;
             if ($r['k'] === 'co') $coauthors[] = ['id' => (int) $r['a'], 'penname' => (string) $r['b']];
         }
+        $selectedCats = $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen');
+        $categories = \App\Repositories\AuthoringRepository::visibleCategories($rows, $selectedCats);
         [$tagGroups, $selectedTags] = \App\Repositories\AuthoringRepository::tagGroups($rows);
         [$characterGroups, $selectedCharacters] = \App\Repositories\AuthoringRepository::characterGroups($rows);
         $chapters = [];
