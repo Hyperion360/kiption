@@ -39,7 +39,7 @@ final class AuthController
         $email = $this->request->postStr('email');
         $password = $this->request->postStr('password');
         if ($this->auth->throttled($email, $this->request->ip)) {
-            \App\ActivityLog::record($this->db, null, 'auth.signin_throttled', 'too many attempts');
+            \App\ActivityLog::recordOnce($this->db, null, 'auth.signin_throttled', 'too many attempts');
             return new Response(
                 $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                     'error' => \App\Lang::t('auth.err_throttle')]),

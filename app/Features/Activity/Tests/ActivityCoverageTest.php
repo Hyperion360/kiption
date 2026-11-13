@@ -349,6 +349,14 @@ final class ActivityCoverageTest extends TestCase
         $this->assertStringNotContainsString('target', json_encode($this->rows()));
     }
 
+    public function test_a_burst_of_throttled_sign_ins_leaves_one_line(): void
+    {
+        $c = $this->client();
+        for ($i = 0; $i < 15; $i++) $c->postWithToken('/auth/attempt', ['email' => 'target@e.test', 'password' => 'wrong']);
+        $rows = array_filter($this->rows(), fn ($r) => $r['action'] === 'auth.signin_throttled');
+        $this->assertCount(1, $rows, 'a bot hammering the form must not flood the log');
+    }
+
     // ---- the viewer ----
 
     public function test_every_logged_action_has_a_readable_label_and_the_page_pages(): void

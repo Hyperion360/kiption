@@ -21,6 +21,21 @@ final class ActivityLog
         }
     }
 
+    /** Like record(), but at most one line per action every $minutes, for
+     *  events an attacker can repeat at will (a bot hitting a locked sign-in).
+     *  Looks only at the newest rows, so the check stays cheap on a big log. */
+    public static function recordOnce(Database $db, ?int $actorId, string $action, string $detail = '', int $minutes = 15): void
+    {
+        try {
+            $seen = $db->one("SELECT 1 AS hit FROM (SELECT action, created_at FROM activity_log ORDER BY id DESC LIMIT 50) WHERE action = ? AND created_at > datetime('now', ?)",
+                [$action, '-' . $minutes . ' minutes']);
+            if ($seen !== null) return;
+        } catch (\Throwable) {
+            // fall through and record
+        }
+        self::record($db, $actorId, $action, $detail);
+    }
+
     /** The common case: the signed-in member in $session did it. */
     public static function by(Database $db, \Kip\Session $session, string $action, string $detail = ''): void
     {
