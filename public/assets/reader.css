@@ -414,6 +414,12 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .settings-jump a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; font: 500 14px var(--sans); color: var(--ink-2); text-decoration: none; }
 .settings-jump a:hover { background: var(--hover); color: var(--ink); }
 .settings-section { scroll-margin-top: 76px; margin-block-end: 24px; }
+/* Saving one section lands the owner back on that section, far below the top
+   of the page. The Saved note follows them there and the section links sit
+   under it, so the answer to the save is always in view. */
+.admin-body:has(.settings-jump) > .saved-note { position: sticky; top: 8px; z-index: 4; box-shadow: 0 0 0 8px var(--bg); }
+.saved-note ~ .site-main .settings-jump { top: 62px; }
+.saved-note ~ .site-main .settings-section { scroll-margin-top: 138px; }
 .settings-section h2 { margin: 0 0 4px; font: 600 20px/1.3 var(--sans); }
 .facts-now { max-width: 640px; margin: 12px 0 16px; padding: 10px 12px; border-inline-start: 3px solid var(--accent); background: var(--pill-bg); font: 14px/1.5 var(--sans); color: var(--ink-2); }
 .facts-now p { margin: 0; }
