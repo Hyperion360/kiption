@@ -75,7 +75,7 @@
         <?php foreach ($types as $type): ?><option value="<?= (int) $type['id'] ?>"<?= (int) $type['id'] === $focusType ? ' selected' : '' ?>><?= $this->e($type['name']) ?></option><?php endforeach; ?>
       </select>
     </label>
-    <label><?= \App\Lang::t('taxonomy.name') ?> <input name="name" required maxlength="60"<?= $focusType > 0 ? ' autofocus' : '' ?><?= $isRelationships ? ' placeholder="' . $this->e(\App\Lang::t('tagsadmin.relationships_placeholder')) . '"' : '' ?>></label>
+    <label><?= \App\Lang::t('taxonomy.name') ?> <input name="name" required maxlength="60"<?= $focusType > 0 ? ' autofocus' : '' ?><?php if ($isRelationships): ?> placeholder="<?= $this->e(\App\Lang::t('tagsadmin.relationships_placeholder')) ?>"<?php endif; ?>></label>
     <?php if ($isRelationships): ?><p class="chapter-meta"><?= \App\Lang::t('tagsadmin.relationships_help') ?></p><?php endif; ?>
     <button type="submit"><?= \App\Lang::t('common.create') ?></button>
   </form>
