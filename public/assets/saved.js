@@ -8,7 +8,7 @@
   Kip.init(function () {
     if (!document.querySelector('.saved-note') || !window.history || !window.history.replaceState) { return; }
     var url = new URL(window.location.href);
-    url.searchParams.delete('saved');
+    ['saved', 'undo', 'undo_key'].forEach(function (k) { url.searchParams.delete(k); });
     window.history.replaceState(null, '', url.pathname + url.search + url.hash);
   });
 })(window.Kip);

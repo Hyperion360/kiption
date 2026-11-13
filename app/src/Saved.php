@@ -15,12 +15,43 @@ final class Saved
         '1' => 'admin.saved_saved', 'added' => 'admin.saved_added', 'removed' => 'admin.saved_removed',
         'sent' => 'admin.saved_sent', 'approved' => 'admin.saved_approved', 'rejected' => 'admin.saved_rejected', 'moved' => 'admin.saved_moved',
         'turned_on' => 'admin.saved_turned_on', 'turned_off' => 'admin.saved_turned_off',
+        'locked' => 'admin.saved_locked', 'unlocked' => 'admin.saved_unlocked',
     ];
+
+    /** The only actions the line may offer to take back: each is its own
+     *  opposite (lock and unlock, a feature switch pressed again). */
+    private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/toggle/[a-z0-9_]+)$#';
 
     /** Redirect to $url with the code attached (before any #fragment). */
     public static function to(string $url, string $code = '1'): Response
     {
         return Response::redirect(self::url($url, $code));
+    }
+
+    /** Like to(), and the line also offers an Undo button that posts to
+     *  $undo. The address is signed with the owner's own form token, so a
+     *  link made by someone else can never put that button on the page. */
+    public static function withUndo(string $url, string $code, string $undo, string $token): Response
+    {
+        $to = self::url($url, $code);
+        if (preg_match(self::UNDOABLE, $undo) !== 1) return Response::redirect($to);
+        [$base, $fragment] = array_pad(explode('#', $to, 2), 2, null);
+        return Response::redirect($base . '&undo=' . rawurlencode($undo) . '&undo_key=' . self::sign($undo, $token)
+            . ($fragment === null ? '' : '#' . $fragment));
+    }
+
+    /** The address the Undo button posts to on this request, or null. */
+    public static function undo(?Request $request, string $token): ?string
+    {
+        $undo = $request?->get['undo'] ?? null;
+        $key = $request?->get['undo_key'] ?? null;
+        if (!is_string($undo) || !is_string($key) || $token === '' || preg_match(self::UNDOABLE, $undo) !== 1) return null;
+        return hash_equals(self::sign($undo, $token), $key) ? $undo : null;
+    }
+
+    private static function sign(string $undo, string $token): string
+    {
+        return substr(hash_hmac('sha256', $undo, $token), 0, 32);
     }
 
     public static function url(string $url, string $code = '1'): string

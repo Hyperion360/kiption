@@ -118,4 +118,38 @@ final class SavedMessageTest extends TestCase
         }
         $this->assertSame([], $silent);
     }
+
+    public function test_locking_a_member_can_be_taken_back_from_the_line_that_reports_it(): void
+    {
+        $c = $this->client($this->adminId);
+        $to = $c->postWithToken('/adminmembers/lock/' . $this->memberId, [])->headers['Location'] ?? '';
+        $this->assertStringStartsWith('/adminmembers?saved=locked&undo=', $to);
+        parse_str((string) parse_url($to, PHP_URL_QUERY), $query);
+        $body = $c->get('/adminmembers', $query)->body;
+        $this->assertStringContainsString(Lang::t('admin.saved_locked'), $body);
+        $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->memberId . '" class="inline"', $body);
+        $this->assertStringContainsString('class="saved-undo">' . Lang::t('admin.undo') . '</button>', $body);
+        $c->postWithToken('/adminmembers/unlock/' . $this->memberId, []);
+        $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->memberId])['is_locked']);
+    }
+
+    public function test_a_feature_switch_offers_undo_too(): void
+    {
+        $c = $this->client($this->adminId);
+        $to = $c->postWithToken('/features/toggle/news', [])->headers['Location'] ?? '';
+        parse_str((string) parse_url($to, PHP_URL_QUERY), $query);
+        $this->assertSame('turned_off', $query['saved'] ?? '');
+        $this->assertStringContainsString('action="/features/toggle/news" class="inline"', $c->get('/features', $query)->body);
+    }
+
+    public function test_an_undo_button_never_comes_from_a_link_someone_else_made(): void
+    {
+        $c = $this->client($this->adminId);
+        $forged = ['saved' => 'unlocked', 'undo' => '/adminmembers/lock/' . $this->memberId, 'undo_key' => str_repeat('a', 32)];
+        $body = $c->get('/adminmembers', $forged)->body;
+        $this->assertStringContainsString(Lang::t('admin.saved_unlocked'), $body);
+        $this->assertStringNotContainsString('saved-undo', $body, 'a wrong signature shows the line and no button');
+        $signed = \App\Saved::withUndo('/adminmembers', 'removed', '/adminmembers/delete/' . $this->memberId, $c->csrfToken())->headers['Location'] ?? '';
+        $this->assertSame('/adminmembers?saved=removed', $signed, 'only lock, unlock and feature switches can be offered');
+    }
 }

@@ -102,7 +102,18 @@
   <?php /* The answer to a save: the redirect carried a short code and this is its line. Staff screens only. */
      $savedKey = ($admin !== null || ($staff ?? false)) ? \App\Saved::message($request ?? null) : null;
      if ($savedKey !== null): ?>
+  <?php $undo = \App\Saved::undo($request ?? null, (string) ($csrf ?? '')); ?>
+  <?php if ($undo === null): ?>
   <p class="notice saved-note" role="status" data-js-module="saved"><?= \App\Lang::t($savedKey) ?></p>
+  <?php else: ?>
+  <div class="notice saved-note saved-note-undo" role="status" data-js-module="saved">
+    <span><?= \App\Lang::t($savedKey) ?></span>
+    <form method="post" action="<?= $this->e($undo) ?>" class="inline">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <button type="submit" class="saved-undo"><?= \App\Lang::t('admin.undo') ?></button>
+    </form>
+  </div>
+  <?php endif; ?>
   <?php endif; ?>
   <main class="site-main"><?= $content ?></main>
   <?php if ($admin !== null): ?>

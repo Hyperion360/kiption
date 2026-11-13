@@ -105,7 +105,7 @@ final class AdminmembersController
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         $this->purgeMember($target);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.lock', 'member ' . (int) $target['id']);
-        return \App\Saved::to('/adminmembers');
+        return \App\Saved::withUndo('/adminmembers', 'locked', '/adminmembers/unlock/' . (int) $target['id'], $this->session->csrfToken());
     }
 
     #[AuthAttr] #[Post]
@@ -119,7 +119,7 @@ final class AdminmembersController
         $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [(int) $target['id']]);
         $this->purgeMember($target);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.unlock', 'member ' . (int) $target['id']);
-        return \App\Saved::to('/adminmembers');
+        return \App\Saved::withUndo('/adminmembers', 'unlocked', '/adminmembers/lock/' . (int) $target['id'], $this->session->csrfToken());
     }
 
     /** The confirm step before a delete: asks what happens to their stories. */
