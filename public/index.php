@@ -238,9 +238,7 @@ if ($static !== null) {
 // already carries Cache-Control (the reader fragment's private, no-store, the
 // beacon's) is overwritten with the value its eligibility demands, which is
 // always at least as strict.
-$response = $response->withHeader('Cache-Control', $static?->cacheControlFor($request, $response)
-    ?? \App\StaticCache\Cache::feedControl($request, $response)
-    ?? 'private, no-store');
+$response = \App\StaticCache\Cache::stamp($static, $request, $response);
 // Multi-cookie Set-Cookie needs no wire translation since the Kip 0.5 sync:
 // Response carries list-valued headers and send() emits each leaf with append
 // semantics, so the session cookie survives beside them natively.

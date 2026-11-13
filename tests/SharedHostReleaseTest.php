@@ -398,7 +398,7 @@ final class SharedHostReleaseTest extends TestCase
             // home render is storable, the syndication XML rides its own
             // public lifetime even with zero stories, and the personalized
             // subscribe page stays private.
-            $this->assertSame('public, s-maxage=14400', $this->httpHeader($port, '/', 'Cache-Control'), 'the home page carries the page cache bound');
+            $this->assertSame('public, no-cache', $this->httpHeader($port, '/', 'Cache-Control'), 'the home page carries the page cache bound');
             $this->assertSame('public, max-age=300, s-maxage=3600', $this->httpHeader($port, '/feed', 'Cache-Control'), 'the syndication XML carries its public lifetime');
             $this->assertSame('private, no-store', $this->httpHeader($port, '/feed/subscribe', 'Cache-Control'), 'the subscribe page stays private');
             // Wire-level revalidation: the 304 that reaches the reader carries
@@ -414,7 +414,7 @@ final class SharedHostReleaseTest extends TestCase
             [, , $hh] = $this->httpFetch($port, '/');
             [$hStatus, , $hh2] = $this->httpFetch($port, '/', ['If-None-Match' => $hh['etag'] ?? '']);
             $this->assertContains($hStatus, [200, 304], 'a HIT answers 200, a revalidation 304');
-            $this->assertSame('public, s-maxage=14400', $hh2['cache-control'] ?? '', 'either way the home response keeps the page policy');
+            $this->assertSame('public, no-cache', $hh2['cache-control'] ?? '', 'either way the home response keeps the page policy');
             // The host-matrix negatives, approximated over the dev server:
             // private names are not present, so they route to 404s.
             foreach (['/config.php', '/vendor/autoload.php', '/.git/config', '/app/data.sqlite'] as $private) {

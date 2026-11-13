@@ -92,7 +92,7 @@ final class StaticCacheTest extends TestCase
         $this->assertSame('HIT', $hit->headers['X-Static-Cache']);
         // A HIT is a stored-eligible page leaving the origin: the shared-cache
         // header rides it, so the edge may hold what the file layer already holds.
-        $this->assertSame('public, s-maxage=14400', $hit->headers['Cache-Control']);
+        $this->assertSame('public, no-cache', $hit->headers['Cache-Control']);
     }
 
     public function test_serve_miss_is_null(): void
@@ -122,7 +122,7 @@ final class StaticCacheTest extends TestCase
     public function test_cache_control_matrix_matches_store_eligibility(): void
     {
         $eligible = new Request('GET', '/story/view/x', [], [], []);
-        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor($eligible, new Response('x', 200)));
+        $this->assertSame('public, no-cache', $this->cache->cacheControlFor($eligible, new Response('x', 200)));
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
             new Request('GET', '/story/view/x', ['page' => '2'], [], []), new Response('x', 200)), 'query-bearing never');
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
@@ -136,7 +136,7 @@ final class StaticCacheTest extends TestCase
         // A page-shape 304 repeats the stored 200's policy (RFC 9111 4.3.4:
         // caches update the stored entry's headers from the 304's), with the
         // same guards: whitelisted cookieless GET only, clean headers only.
-        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+        $this->assertSame('public, no-cache', $this->cache->cacheControlFor(
             $eligible, new Response('', 304, ['ETag' => '"sha256"'])), 'a page 304 repeats the page policy');
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
             new Request('GET', '/auth/login', [], [], []), new Response('', 304)), 'a 304 outside the whitelist stays private');
@@ -145,12 +145,12 @@ final class StaticCacheTest extends TestCase
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
             $eligible, new Response('', 304, ['X-Robots-Tag' => 'noindex'])), 'a noindexed 304 stays private');
         // A HEAD poll revalidates like a GET: the entry survives.
-        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+        $this->assertSame('public, no-cache', $this->cache->cacheControlFor(
             new Request('HEAD', '/story/view/x', [], [], []), new Response('', 304, ['ETag' => '"x"'])), 'a HEAD 304 repeats the page policy');
         // Only the indexing directives withhold (the framework's stance, plus
         // 'none', their exact synonym); other robots directives do not
         // personalize a response.
-        $this->assertSame('public, s-maxage=14400', $this->cache->cacheControlFor(
+        $this->assertSame('public, no-cache', $this->cache->cacheControlFor(
             $eligible, new Response('x', 200, ['X-Robots-Tag' => 'max-image-preview:large'])), 'a non-indexing robots directive still caches');
         $this->assertSame('private, no-store', $this->cache->cacheControlFor(
             $eligible, new Response('x', 200, ['X-Robots-Tag' => 'none'])), 'none is noindex\'s synonym and withholds too');

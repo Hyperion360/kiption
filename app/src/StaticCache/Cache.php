@@ -5,7 +5,13 @@ use Kip\Http\{Request, Response};
 final class Cache
 {
     private const MARKER = '.maintenance-purged';
-    private const PUBLIC_CC = 'public, s-maxage=14400';
+    /** What browsers see on a cacheable page: keep it, but ask first. The ETag
+     *  makes the asking a cheap 304, and an owner's edit shows on the next load. */
+    public const PUBLIC_CC = 'public, no-cache';
+    /** The edge's own lifetime. Cloudflare reads Cloudflare-CDN-Cache-Control
+     *  first and strips it; other CDNs read CDN-Cache-Control. Browsers never
+     *  see it, so the edge keeps its copy until a purge while browsers revalidate. */
+    private const EDGE_CC = 'public, max-age=14400';
     private const FEED_CC = 'public, max-age=300, s-maxage=3600';
 
     public function __construct(private string $dir) {}
@@ -60,7 +66,43 @@ final class Cache
         if ($file === null) return null;
         $body = @file_get_contents($file); // the read is the check: a purge between
         if ($body === false) return null;  // is_file and read yields a miss, not an empty HIT
-        return new Response($body, 200, ['X-Static-Cache' => 'HIT', 'Cache-Control' => self::PUBLIC_CC]);
+        // The front controller sends a HIT without booting App, so the ETag and
+        // the 304 for a revalidating browser are answered here.
+        $etag = '"' . hash('sha256', $body) . '"';
+        $headers = ['Cache-Control' => self::PUBLIC_CC, 'ETag' => $etag] + self::edgeHeaders();
+        if (self::etagMatches($request->header('if-none-match'), $etag)) return new Response('', 304, $headers);
+        return new Response($body, 200, ['X-Static-Cache' => 'HIT'] + $headers);
+    }
+
+    /** @return array<string, string> */
+    public static function edgeHeaders(): array
+    {
+        return ['Cloudflare-CDN-Cache-Control' => self::EDGE_CC, 'CDN-Cache-Control' => self::EDGE_CC];
+    }
+
+    /** If-None-Match is a comma-separated list; weak and strong tags compare equal here. */
+    private static function etagMatches(?string $sent, string $etag): bool
+    {
+        if ($sent === null || $sent === '') return false;
+        foreach (explode(',', $sent) as $member) {
+            $member = trim($member);
+            if ($member === '*' || (str_starts_with($member, 'W/') ? substr($member, 2) : $member) === $etag) return true;
+        }
+        return false;
+    }
+
+    /** The one place a response gets its Cache-Control: the policy
+     *  cacheControlFor() decides (or the feed's, or private), and the CDN lifetime
+     *  headers only beside the public page policy. $static is null when the page
+     *  cache is off. The front controller stamps every sent response with this. */
+    public static function stamp(?self $static, Request $request, Response $response): Response
+    {
+        $cc = $static?->cacheControlFor($request, $response) ?? self::feedControl($request, $response) ?? 'private, no-store';
+        $response = $response->withHeader('Cache-Control', $cc);
+        if ($cc === self::PUBLIC_CC) {
+            foreach (self::edgeHeaders() as $name => $value) $response = $response->withHeader($name, $value);
+        }
+        return $response;
     }
 
     /** The Cache-Control a response deserves, decided at the one seam that
