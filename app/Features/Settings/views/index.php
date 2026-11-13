@@ -9,10 +9,19 @@ $check = function (string $key, string $label, string $note = '') use ($current)
 ?>
 <h1><?= \App\Lang::t('settings.heading') ?></h1>
 <p class="lede"><?= \App\Lang::t('settings.note') ?></p>
-<form method="post" action="/settings/save" class="form-card">
-  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+<nav class="settings-jump" aria-label="<?= $this->e(\App\Lang::t('settings.jump_label')) ?>">
+  <?php foreach (array_keys(\App\Features\Settings\SettingsController::SECTIONS) as $name): ?>
+  <a href="#s-<?= $name ?>"><?= \App\Lang::t('settings.group_' . $name) ?></a>
+  <?php endforeach; ?>
+</nav>
 
-  <h2 class="section-label"><?= \App\Lang::t('settings.group_basics') ?></h2>
+<section class="settings-section" id="s-basics">
+<form method="post" action="/settings/save#s-basics" class="form-card">
+  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <input type="hidden" name="section" value="basics">
+  <h2><?= \App\Lang::t('settings.group_basics') ?></h2>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.about_basics') ?></p>
+  <?php if (($errorSection ?? '') === 'basics'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <label><?= \App\Lang::t('settings.site_name') ?>
     <input name="site_name" required maxlength="60" value="<?= $this->e($current['site_name']) ?>">
   </label>
@@ -23,8 +32,17 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <label><?= \App\Lang::t('settings.items_per_page') ?>
     <input name="items_per_page" type="number" min="1" max="100" required value="<?= $this->e($current['items_per_page']) ?>">
   </label>
+  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_basics')]) ?></button>
+</form>
+</section>
 
-  <h2 class="section-label"><?= \App\Lang::t('settings.group_stories') ?></h2>
+<section class="settings-section" id="s-stories">
+<form method="post" action="/settings/save#s-stories" class="form-card">
+  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <input type="hidden" name="section" value="stories">
+  <h2><?= \App\Lang::t('settings.group_stories') ?></h2>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.about_stories') ?></p>
+  <?php if (($errorSection ?? '') === 'stories'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <?= $check('submissions_open', \App\Lang::t('settings.submissions_open'), \App\Lang::t('settings.submissions_open_note')) ?>
   <?= $check('validation_required', \App\Lang::t('settings.validation_required')) ?>
   <label><?= \App\Lang::t('settings.min_words') ?>
@@ -49,13 +67,31 @@ $check = function (string $key, string $label, string $note = '') use ($current)
     <input name="adult_rta" maxlength="60" value="<?= $this->e($current['adult_rta']) ?>" placeholder="RTA-5042-1996-1400-1577-RTA">
   </label>
   <p class="chapter-meta"><?= \App\Lang::t('settings.adult_rta_note') ?></p>
+  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_stories')]) ?></button>
+</form>
+</section>
 
-  <h2 class="section-label"><?= \App\Lang::t('settings.group_reviews') ?></h2>
+<section class="settings-section" id="s-reviews">
+<form method="post" action="/settings/save#s-reviews" class="form-card">
+  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <input type="hidden" name="section" value="reviews">
+  <h2><?= \App\Lang::t('settings.group_reviews') ?></h2>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.about_reviews') ?></p>
+  <?php if (($errorSection ?? '') === 'reviews'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <?= $check('reviews_on', \App\Lang::t('settings.reviews_on'), \App\Lang::t('settings.reviews_on_note')) ?>
   <?= $check('guest_reviews', \App\Lang::t('settings.guest_reviews'), \App\Lang::t('settings.guest_reviews_note')) ?>
   <?= $check('rating_only', \App\Lang::t('settings.rating_only'), \App\Lang::t('settings.rating_only_note')) ?>
+  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_reviews')]) ?></button>
+</form>
+</section>
 
-  <h2 class="section-label"><?= \App\Lang::t('settings.group_members') ?></h2>
+<section class="settings-section" id="s-members">
+<form method="post" action="/settings/save#s-members" class="form-card">
+  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <input type="hidden" name="section" value="members">
+  <h2><?= \App\Lang::t('settings.group_members') ?></h2>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.about_members') ?></p>
+  <?php if (($errorSection ?? '') === 'members'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <label><?= \App\Lang::t('settings.registration_mode') ?>
     <select name="registration_mode">
       <?php foreach (['open', 'verify', 'approval', 'invite'] as $mode): ?>
@@ -64,8 +100,17 @@ $check = function (string $key, string $label, string $note = '') use ($current)
     </select>
   </label>
   <?= $check('profiles_public', \App\Lang::t('settings.profiles_public'), \App\Lang::t('settings.profiles_public_note')) ?>
+  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_members')]) ?></button>
+</form>
+</section>
 
-  <h2 class="section-label"><?= \App\Lang::t('settings.group_look') ?></h2>
+<section class="settings-section" id="s-look">
+<form method="post" action="/settings/save#s-look" class="form-card">
+  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <input type="hidden" name="section" value="look">
+  <h2><?= \App\Lang::t('settings.group_look') ?></h2>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.about_look') ?></p>
+  <?php if (($errorSection ?? '') === 'look'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <label><?= \App\Lang::t('settings.skin') ?>
     <select name="skin">
       <?php foreach (($skins ?? [\App\Skins::DEFAULT]) as $skinName): ?>
@@ -97,7 +142,17 @@ $check = function (string $key, string $label, string $note = '') use ($current)
     </select>
   </label>
   <?= $check('powered_by', \App\Lang::t('settings.powered_by'), \App\Lang::t('settings.powered_by_note')) ?>
-  <input type="hidden" name="footer_present" value="1">
+  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_look')]) ?></button>
+</form>
+</section>
+
+<section class="settings-section" id="s-footer">
+<form method="post" action="/settings/save#s-footer" class="form-card">
+  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <input type="hidden" name="section" value="footer">
+  <h2><?= \App\Lang::t('settings.group_footer') ?></h2>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.about_footer') ?></p>
+  <?php if (($errorSection ?? '') === 'footer'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <label><?= \App\Lang::t('settings.footer_copyright') ?>
     <input name="footer_copyright" maxlength="60" value="<?= $this->e($current['footer_copyright']) ?>">
   </label>
@@ -119,7 +174,19 @@ $check = function (string $key, string $label, string $note = '') use ($current)
       <?php endif; ?>
     </select>
   </label>
+  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_footer')]) ?></button>
+</form>
+</section>
+
+<section class="settings-section" id="s-maintenance">
+<form method="post" action="/settings/save#s-maintenance" class="form-card">
+  <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <input type="hidden" name="section" value="maintenance">
+  <h2><?= \App\Lang::t('settings.group_maintenance') ?></h2>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.about_maintenance') ?></p>
+  <?php if (($errorSection ?? '') === 'maintenance'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <label><input type="checkbox" name="maintenance_on" value="1"<?= $current['maintenance_on'] === '1' ? ' checked' : '' ?>> <?= \App\Lang::t('settings.maintenance_on') ?></label>
   <p class="chapter-meta"><?= \App\Lang::t('settings.maintenance_note') ?></p>
-  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save') ?></button>
+  <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_maintenance')]) ?></button>
 </form>
+</section>

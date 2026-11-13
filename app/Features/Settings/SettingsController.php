@@ -19,11 +19,33 @@ final class SettingsController
         private Session $session, private App $app,
     ) {}
 
+    /** The board's sections, each its own form with its own save button, and
+     *  the settings each one owns. Every key in Settings::KEYS sits in exactly
+     *  one section (the tests hold that), so saving one section can never
+     *  touch another section's switches. */
+    public const SECTIONS = [
+        'basics' => ['site_name', 'slogan', 'items_per_page'],
+        'stories' => ['submissions_open', 'validation_required', 'min_words', 'max_words', 'coauthors_on', 'series_on', 'uploads_on', 'default_sort', 'adult_rta'],
+        'reviews' => ['reviews_on', 'guest_reviews', 'rating_only'],
+        'members' => ['registration_mode', 'profiles_public'],
+        'look' => ['skin', 'ui_lang', 'date_format', 'time_format', 'powered_by'],
+        'footer' => ['footer_copyright', 'footer_copyright_url', 'footer_links', 'og_image'],
+        'maintenance' => ['maintenance_on'],
+    ];
+
     #[AuthAttr]
     public function index(): Response|string
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
+        return $this->board();
+    }
+
+    /** The settings page. After a refused save, $typed holds what the owner
+     *  typed in $section, so nothing has to be typed again.
+     *  @param array<string,string> $typed */
+    private function board(array $typed = [], ?string $error = null, string $section = ''): string
+    {
         $title = \App\Lang::t('settings.heading');
         return $this->view->render('settings/index', [
             'title' => $title,
@@ -36,7 +58,8 @@ final class SettingsController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
-            'current' => $this->current(),
+            'current' => $typed + $this->current(),
+            'error' => $error, 'errorSection' => $section,
             'languages' => array_map(static fn (string $c): array => ['code' => $c, 'name' => \App\Lang::name($c)], \App\Lang::installed()),
             'dateExamples' => \App\Dates::examples(),
             'timeExamples' => \App\Dates::timeExamples(),
@@ -55,6 +78,8 @@ final class SettingsController
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
+        $section = (string) ($this->request->post['section'] ?? '');
+        if (isset(self::SECTIONS[$section])) return $this->saveSection($section, (int) $gate['id']);
         $submitted = [
             'site_name' => (string) ($this->request->post['site_name'] ?? ''),
             'registration_mode' => (string) ($this->request->post['registration_mode'] ?? ''),
@@ -104,6 +129,44 @@ final class SettingsController
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'settings.save', implode(', ', $changed));
         \App\CachePurge::run($this->app, $this->db);
         return \App\Saved::to('/settings');
+    }
+
+    /** Save one section of the board. Only that section's settings are read
+     *  and written: an unticked box in it is off, and everything outside it
+     *  stays as it was. A refused save comes back with what was typed. */
+    private function saveSection(string $section, int $adminId): Response
+    {
+        $post = $this->request->post;
+        $current = $this->current();
+        $typed = [];
+        foreach (self::SECTIONS[$section] as $k) {
+            $typed[$k] = \App\Settings::KEYS[$k] === 'bool'
+                ? ((string) ($post[$k] ?? '0') === '1' ? '1' : '0')
+                : trim((string) ($post[$k] ?? $current[$k]));
+        }
+        $refuse = fn (string $message): Response => new Response($this->board($typed, $message, $section), 422);
+        $submitted = $typed;
+        if (isset($typed['footer_links'])) {
+            $lines = \App\FooterLegal::fromLines($typed['footer_links']);
+            if ($lines === null) return $refuse(\App\Lang::t('settings.err_footer_links'));
+            $submitted['footer_links'] = $lines;
+        }
+        if (isset($typed['min_words']) && (int) $typed['min_words'] > 0 && (int) $typed['max_words'] > 0 && (int) $typed['min_words'] > (int) $typed['max_words']) {
+            return $refuse(\App\Lang::t('settings.err_words'));
+        }
+        $changed = [];
+        $invalid = [];
+        foreach ($submitted as $k => $v) {
+            $was = \App\Settings::get($k);
+            try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = \App\Lang::t('settings.' . $k); continue; }
+            if ($was !== \App\Settings::get($k)) $changed[] = $k; // names only, never values
+        }
+        if ($changed !== []) {
+            \App\ActivityLog::record($this->db, $adminId, 'settings.save', implode(', ', $changed));
+            \App\CachePurge::run($this->app, $this->db);
+        }
+        if ($invalid !== []) return $refuse(\App\Lang::t('settings.err_fix') . ' ' . implode(', ', $invalid));
+        return \App\Saved::to('/settings#s-' . $section);
     }
 
     /** Public paths of the pictures in the image library, for the share-picture choice. @return list<string> */
