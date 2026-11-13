@@ -61,6 +61,7 @@ final class ActivityCoverageTest extends TestCase
             'uploads' => ['dir' => $this->root . '/upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'nav_file' => $this->root . '/nav.json',
+            'site_text_dir' => $this->root . '/site-text',
             'registration_mode' => 'open', 'signup_min_seconds' => 0,
         ])));
         return $as === null ? $c : $c->actingAs($as);
