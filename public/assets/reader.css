@@ -1630,6 +1630,8 @@ body.focus .site-head { display: none; }
 .admin-tabs a[aria-current="page"] { color: var(--accent); font-weight: 600; box-shadow: inset 0 2px 0 var(--accent); }
 /* The page ends above the bar, never under it. */
 .admin-tabs ~ .site-foot { margin-block-end: calc(57px + env(safe-area-inset-bottom, 0px)); }
+/* A field reached with Tab scrolls clear of the bar, never under it. */
+html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width:1023px) {
   body:has(.admin-nav:target) .scrim { display: block; position: fixed; inset: 0; z-index: 30; background: var(--scrim); }
 }
@@ -1647,6 +1649,7 @@ body.focus .site-head { display: none; }
   .admin-nav-group { margin-block-start: 16px; }
   .admin-tabs { display: none; }
   .admin-tabs ~ .site-foot { margin-block-end: 0; }
+  html:has(.admin-tabs) { scroll-padding-block-end: 0; }
   /* The page keeps its own column, set against the sidebar instead of centred. */
   .admin-body .site-main, .admin-body .admin-trail { margin-inline: 0; }
 }
