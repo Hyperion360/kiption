@@ -33,7 +33,7 @@ final class TemplatesController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'rows' => $this->db->all('SELECT name, subject FROM mail_templates ORDER BY name'),
             'csrf' => $this->session->csrfToken(),
-            'loggedIn' => true,
+            'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 
@@ -85,7 +85,7 @@ final class TemplatesController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'name' => $name, 'subject' => $subject, 'body' => $body, 'error' => $error,
             'vocabulary' => Templates::VOCABULARY[$name] ?? [],
-            'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+            'csrf' => $this->session->csrfToken(), 'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 

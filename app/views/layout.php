@@ -85,6 +85,14 @@
        panel on desktop. Guests see every destination in the desktop row. */ ?>
     <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
+  <?php /* Owner screens only: the way back to the admin menu, and to the
+     list a sub-screen belongs to. Members and guests never get these bytes. */
+     $trail = ($isAdmin ?? false) ? \App\Features\Manage\ManageController::trail((string) (($request ?? null)?->path ?? '')) : [];
+     if ($trail !== []): ?>
+  <nav class="admin-trail" aria-label="<?= $this->e(\App\Lang::t('manage.trail_label')) ?>">
+    <?php foreach ($trail as $step): ?><a href="<?= $this->e($step['url']) ?>"><?= \App\Lang::t($step['label']) ?></a><?php endforeach; ?>
+  </nav>
+  <?php endif; ?>
   <main class="site-main"><?= $content ?></main>
   <?php /* The site footer (owner decision, 2026-10-02): the conventional
      home for secondary destinations the header has no room for (news, top

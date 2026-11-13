@@ -222,4 +222,20 @@ final class MessagesMenuTest extends TestCase
         $this->assertStringNotContainsString('href="/admin"', $body);
         $this->assertStringNotContainsString('href="/news/new"', $body);
     }
+
+    public function test_owner_screens_carry_a_way_back_to_the_menu(): void
+    {
+        $trail = \App\Features\Manage\ManageController::trail(...);
+        $urls = static fn (string $path): array => array_column($trail($path), 'url');
+        $this->assertSame([], $urls('/manage'), 'the menu itself needs no way back');
+        $this->assertSame(['/manage'], $urls('/tags'));
+        $this->assertSame(['/manage', '/tags'], $urls('/tags/edit/3'));
+        $this->assertSame(['/manage', '/text'], $urls('/text/group/home'));
+        $this->assertSame(['/manage'], $urls('/text/group/msg'));
+        $this->assertSame(['/manage', '/pages/manage'], $urls('/page/edit/about'));
+        $this->assertSame(['/manage', '/news'], $urls('/news/edit/1'));
+        foreach (['/', '/news', '/news/view/1', '/page/view/about', '/account', '/browse'] as $public) {
+            $this->assertSame([], $urls($public), $public . ' is not an owner screen');
+        }
+    }
 }

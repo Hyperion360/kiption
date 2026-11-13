@@ -172,7 +172,7 @@ final class NewsController
             'theme' => \App\Theme::current($this->request),
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
-            'row' => $row, 'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+            'row' => $row, 'csrf' => $this->session->csrfToken(), 'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 
@@ -222,7 +222,7 @@ final class NewsController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'row' => $row, 'error' => $error,
-            'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+            'csrf' => $this->session->csrfToken(), 'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 

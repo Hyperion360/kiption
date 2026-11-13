@@ -1481,6 +1481,21 @@ body.focus .site-head { display: none; }
   .chip { min-height: 44px; }
 }
 
+/* Owner screens: the way back to the admin menu sits above the page, on the
+   same left edge as the page's own column. */
+.admin-trail { display: flex; flex-wrap: wrap; align-items: center; width: 100%; padding: 8px 20px 0; font: 14px/1.4 var(--sans); }
+@media (min-width:768px) { .admin-trail { padding: 16px 64px 0; } }
+.admin-trail a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink-2); text-decoration: none; }
+.admin-trail a:hover { color: var(--accent); text-decoration: underline; }
+.admin-trail a:first-child::before { content: "\2190"; display: inline-block; margin-inline-end: 8px; }
+.admin-trail a + a::before { content: "/"; display: inline-block; margin-inline: 10px; color: var(--muted); }
+.admin-trail + .site-main { padding-block-start: 12px; }
+@media (min-width:1024px) {
+  .admin-trail { max-width: 920px; margin-inline: auto; padding: 24px 40px 0; }
+  body:has(.site-main table) .admin-trail { max-width: 1200px; }
+  .admin-trail + .site-main { padding-block-start: 16px; }
+}
+
 /* Members admin: a table on wide screens, one card per member below 1024px.
    The markup is the same both ways. The role and status cells carry their
    column name in data-label, shown only once the header row is hidden. */

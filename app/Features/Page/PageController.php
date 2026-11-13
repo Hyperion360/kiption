@@ -118,7 +118,7 @@ final class PageController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'row' => $row, 'protected' => in_array($slug, self::PROTECTED, true),
-            'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+            'csrf' => $this->session->csrfToken(), 'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 
@@ -202,7 +202,7 @@ final class PageController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'row' => $row, 'error' => $error,
-            'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+            'csrf' => $this->session->csrfToken(), 'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 

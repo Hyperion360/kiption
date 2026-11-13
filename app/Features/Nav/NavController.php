@@ -152,7 +152,7 @@ final class NavController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'rows' => $this->db->all('SELECT id, label, url, position, is_hidden FROM nav_links ORDER BY position, id'),
             'row' => $row, 'error' => $error,
-            'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
+            'csrf' => $this->session->csrfToken(), 'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 

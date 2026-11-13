@@ -45,6 +45,32 @@ final class ManageController extends AdminScreen
         ['settings', '/activity', 'manage.activity'],
     ];
 
+    /** The way back shown above every owner screen: the admin menu, then the
+     *  list a sub-screen belongs to (an edit or delete page under Tags, say).
+     *  Empty for the menu itself and for pages that are not owner screens.
+     *  @return list<array{url:string,label:string}> */
+    public static function trail(string $path): array
+    {
+        $path = '/' . trim($path, '/');
+        $seg = explode('/', ltrim($path, '/'));
+        // News and pages share their first segment with public reading pages.
+        if (in_array($seg[0], ['news', 'page'], true) && !in_array($seg[1] ?? '', ['new', 'edit', 'remove'], true)) return [];
+        $parent = null;
+        foreach (self::LINKS as $link) {
+            if ($link[1] === $path) { $parent = null; break; }
+            $first = explode('/', ltrim($link[1], '/'))[0];
+            if ($first === ($seg[0] === 'page' ? 'pages' : $seg[0])) {
+                // the list screen is the shortest address in its family (/text over /text/group/msg)
+                if ($parent === null || strlen($link[1]) < strlen($parent[1])) $parent = $link;
+            }
+        }
+        $known = $parent !== null || in_array($path, array_column(self::LINKS, 1), true);
+        if (!$known) return [];
+        $trail = [['url' => '/manage', 'label' => 'manage.heading']];
+        if ($parent !== null) $trail[] = ['url' => $parent[1], 'label' => $parent[2]];
+        return $trail;
+    }
+
     #[AuthAttr]
     public function index(): Response|string
     {

@@ -1275,6 +1275,7 @@ return [
     'wordfilter.err_utf8' => 'The list contains characters that cannot be saved.',
     'wordfilter.blocked' => 'Your text includes a word this archive does not allow ("{word}"). Please change it and try again.',
     'manage.heading' => 'Archive admin',
+    'manage.trail_label' => 'Admin sections',
     'manage.intro' => 'Everything you can change in your archive, in one place.',
     'manage.group_content' => 'Content',
     'manage.group_members' => 'Members',

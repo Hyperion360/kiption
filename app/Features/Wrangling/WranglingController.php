@@ -43,7 +43,7 @@ final class WranglingController
             'path' => $this->request->path,
             'groups' => $groups,
             'csrf' => $this->session->csrfToken(),
-            'loggedIn' => true,
+            'loggedIn' => true, 'isAdmin' => true,
         ]);
     }
 
@@ -165,7 +165,7 @@ final class WranglingController
             'candidates' => [],
             'error' => $error,
             'csrf' => $this->session->csrfToken(),
-            'loggedIn' => true,
+            'loggedIn' => true, 'isAdmin' => true,
         ];
         foreach ($rows as $row) {
             $data['allGroups'][$row['type_name']][] = $row;
