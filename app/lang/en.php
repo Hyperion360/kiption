@@ -1273,6 +1273,7 @@ return [
     'text.import' => 'Import',
     'text.import_note' => 'Upload a JSON file shaped like the export. Nothing is saved unless every entry is allowed.',
     'text.import_button' => 'Import file',
+    'text.import_file_label' => 'Translation file (.json)',
     'error.not_found' => 'Page not found',
     'error.forbidden' => 'Forbidden',
     'form.err_title_120' => 'Title must be 1 to 120 characters.',

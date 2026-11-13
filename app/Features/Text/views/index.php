@@ -26,6 +26,6 @@
 <form method="post" action="/text/import" enctype="multipart/form-data" class="form-card">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
   <input type="hidden" name="lang" value="<?= $this->e($lang) ?>">
-  <input type="file" name="file" accept="application/json,.json" required>
+  <label><?= \App\Lang::t('text.import_file_label') ?> <input type="file" name="file" accept="application/json,.json" required></label>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('text.import_button') ?></button>
 </form>
