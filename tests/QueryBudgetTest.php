@@ -37,6 +37,25 @@ final class QueryBudgetTest extends TestCase
         ];
     }
 
+    /** Guards the counter itself. With a page cache configured (the
+     *  production shape) App::handle() replaces the Database's onQuery
+     *  listener, so a tap set the old way reads 0 for every page and every
+     *  budget assertion would pass vacuously. The PDO-level tap must still
+     *  see the page's query. */
+    public function test_the_counter_sees_queries_even_when_the_app_owns_the_onquery_tap(): void
+    {
+        $app = new App($this->config() + ['cache_db' => ['dsn' => 'sqlite::memory:', 'ttl_seconds' => 60]]);
+        $db = $app->container->make(Database::class);
+        $old = 0; $real = 0;
+        $db->onQuery(function () use (&$old): void { $old++; });
+        \App\Tests\Support\QueryTap::on($db, function () use (&$real): void { $real++; });
+        $res = $app->handle(new Request('GET', '/browse', [], [], []));
+        \App\Tests\Support\QueryTap::off($db);
+        $this->assertSame(200, $res->status);
+        $this->assertSame(0, $old, 'precondition: the app replaced the onQuery listener, which is why the PDO tap exists');
+        $this->assertGreaterThan(0, $real, 'the tap saw no query on /browse: the budget assertions would pass vacuously');
+    }
+
     #[DataProvider('pages')]
     public function test_every_page_stays_inside_the_one_query_budget(string $page): void
     {
@@ -46,9 +65,9 @@ final class QueryBudgetTest extends TestCase
         $app = new App($this->config());
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function () use (&$queries): void { $queries++; });
+        \App\Tests\Support\QueryTap::on($db, function () use (&$queries): void { $queries++; });
         $res = $app->handle(new Request('GET', $path, $get, [], []));
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status, $page);
         $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
     }
@@ -64,12 +83,12 @@ final class QueryBudgetTest extends TestCase
         $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/');
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('id="home-latest"', $res->body, 'the member render really ran the home controller');
         $this->assertLessThanOrEqual(1, $queries, "member / ran {$queries} content queries, budget is 1");
@@ -182,7 +201,7 @@ final class QueryBudgetTest extends TestCase
             \App\Adminness::setRole($db, $demoId, 'admin');
         }
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
              ON CONFLICT (user_id, story_id) DO UPDATE SET
@@ -193,7 +212,7 @@ final class QueryBudgetTest extends TestCase
             $queries++;
         });
         $res = $client->get($page);
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status, $page);
         $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
     }
@@ -211,7 +230,7 @@ final class QueryBudgetTest extends TestCase
         $client->post('/auth/attempt', ['email' => 'demo@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             if ($sql === 'INSERT INTO reading_history (user_id, story_id, last_position) VALUES (?, ?, ?)
              ON CONFLICT (user_id, story_id) DO UPDATE SET
@@ -221,7 +240,7 @@ final class QueryBudgetTest extends TestCase
             $queries++;
         });
         $res = $client->get('/browse', ['language' => 'en']);
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('Stories in en', $res->body); // the filter really engaged the listing
         $this->assertLessThanOrEqual(2, $queries, "/browse?language=en ran {$queries} content queries, budget is 2");
@@ -251,12 +270,12 @@ final class QueryBudgetTest extends TestCase
         $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent');
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status);
         $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $res->body, 'the muter really lost the listing rows');
         $this->assertLessThanOrEqual(1, $queries, "member /browse/recent ran {$queries} content queries, budget is 1");
@@ -279,12 +298,12 @@ final class QueryBudgetTest extends TestCase
         $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent', ['filter' => 'under10k']);
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('continue-pill', $res->body, 'the progress fold really engaged');
         $this->assertLessThanOrEqual(1, $queries, "member filtered /browse/recent ran {$queries} content queries, budget is 1");
@@ -307,12 +326,12 @@ final class QueryBudgetTest extends TestCase
         $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent', ['cat' => 'general']);
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('continue-pill', $res->body, 'the progress fold really engaged');
         $this->assertStringContainsString('<a class="chip is-active" href="/browse/recent?cat=general" aria-current="true">General</a>', $res->body, 'the category chip really rendered from the fold');
@@ -335,12 +354,12 @@ final class QueryBudgetTest extends TestCase
         $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/browse/recent', ['page' => '1', 'fragment' => '1']);
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status);
         $this->assertStringNotContainsString('<html', $res->body, 'the fragment really is the card partial');
         $this->assertStringContainsString('continue-pill', $res->body, 'the progress fold really engaged');
@@ -361,12 +380,12 @@ final class QueryBudgetTest extends TestCase
         $client->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
         $db = $app->container->make(Database::class);
         $queries = 0;
-        $db->onQuery(function (string $sql) use (&$queries): void {
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // auth-session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/story/fragment/the-rabbit-hole/2');
-        $db->onQuery(fn () => null);
+        \App\Tests\Support\QueryTap::off($db);
         $this->assertSame(200, $res->status);
         $this->assertStringNotContainsString('<html', $res->body, 'the fragment really is the unit partial');
         $this->assertStringContainsString('name="_token"', $res->body, 'the member kudos form proves the member path engaged');
