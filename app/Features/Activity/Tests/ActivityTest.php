@@ -122,6 +122,14 @@ final class ActivityTest extends TestCase
         $this->assertStringContainsString('by the console', $this->client($this->adminId)->get('/activity')->body);
     }
 
+    public function test_an_account_with_no_penname_is_not_shown_as_signed_out(): void
+    {
+        $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail) VALUES (?, '', 'auth.signin', '')", [$this->adminId]);
+        $body = $this->client($this->adminId)->get('/activity')->body;
+        $this->assertStringContainsString(\App\Lang::t('adminmembers.no_penname'), $body);
+        $this->assertStringNotContainsString(\App\Lang::t('activity.unknown'), $body);
+    }
+
     public function test_odd_page_numbers_fall_back_to_a_real_page(): void
     {
         for ($i = 0; $i < 3; $i++) \App\ActivityLog::record($this->db, $this->adminId, 'invites.create', 'line ' . $i);

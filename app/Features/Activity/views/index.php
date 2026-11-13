@@ -22,7 +22,8 @@
   <?php
   $today = date('Y-m-d');
   $yesterday = date('Y-m-d', time() - 86400);
-  $name = fn (array $r): string => $this->e((string) $r['actor_name'] !== '' ? $r['actor_name'] : \App\Lang::t('activity.unknown'));
+  // A known account with no penname yet is still that account, not a signed-out visitor.
+  $name = fn (array $r): string => $this->e((string) $r['actor_name'] !== '' ? $r['actor_name'] : \App\Lang::t($r['actor_id'] !== null ? 'adminmembers.no_penname' : 'activity.unknown'));
   $clock = fn (array $r): string => $this->e(\App\Dates::time((string) $r['created_at']));
   ?>
   <?php foreach ($days as $day => $entries): ?>
