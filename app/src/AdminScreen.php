@@ -45,6 +45,34 @@ abstract class AdminScreen
         StaticCache\Cache::configured($this->app)->purgeAll();
     }
 
+    /** Run $work in one transaction: commit when it returns, roll back and
+     *  rethrow when it throws. */
+    protected function atomically(callable $work): void
+    {
+        $this->db->begin();
+        try {
+            $work();
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /** Swap row $id with its neighbour in $ids (display order) toward $dir
+     *  ('up' or 'down'), then renumber the whole list 1..n, because freshly
+     *  seeded rows can all share one position. $table is a literal from the
+     *  caller, never input. */
+    protected function swapPosition(string $table, array $ids, int $id, string $dir): void
+    {
+        $at = array_search($id, $ids, true);
+        $to = $dir === 'up' ? $at - 1 : $at + 1;
+        if (isset($ids[$to])) [$ids[$at], $ids[$to]] = [$ids[$to], $ids[$at]];
+        $this->atomically(function () use ($table, $ids): void {
+            foreach ($ids as $i => $rowId) $this->db->query("UPDATE {$table} SET position = ? WHERE id = ?", [$i + 1, $rowId]);
+        });
+    }
+
     protected function post(string $key): string
     {
         return trim((string) ($this->request->post[$key] ?? ''));

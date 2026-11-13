@@ -68,15 +68,10 @@ final class CharactersController extends AdminScreen
         if ($stories > 0 && ($this->request->post['remove'] ?? '') !== '1') {
             return new Response($this->confirm($row, $stories, Lang::t('characters.err_in_use', ['n' => $stories])), 422);
         }
-        $this->db->begin();
-        try {
+        $this->atomically(function () use ($row): void {
             $this->db->query('DELETE FROM story_characters WHERE character_id = ?', [(int) $row['id']]);
             $this->db->query('DELETE FROM characters WHERE id = ?', [(int) $row['id']]);
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
-        }
+        });
         $this->purge();
         return Response::redirect('/characters');
     }

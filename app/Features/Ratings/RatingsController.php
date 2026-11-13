@@ -61,17 +61,7 @@ final class RatingsController extends AdminScreen
         $row = $this->find($id);
         if ($row === null || !in_array($dir, ['up', 'down'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $ids = array_map('intval', array_column($this->db->all('SELECT id FROM ratings ORDER BY position, id'), 'id'));
-        $at = array_search((int) $row['id'], $ids, true);
-        $to = $dir === 'up' ? $at - 1 : $at + 1;
-        if (isset($ids[$to])) [$ids[$at], $ids[$to]] = [$ids[$to], $ids[$at]];
-        $this->db->begin();
-        try {
-            foreach ($ids as $i => $rid) $this->db->query('UPDATE ratings SET position = ? WHERE id = ?', [$i + 1, $rid]);
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
-        }
+        $this->swapPosition('ratings', $ids, (int) $row['id'], $dir);
         $this->purge();
         return Response::redirect('/ratings');
     }
@@ -97,15 +87,10 @@ final class RatingsController extends AdminScreen
         if ($target === null && $stories > 0) {
             return new Response($this->confirm($row, $stories, Lang::t('ratings.err_in_use', ['n' => $stories])), 422);
         }
-        $this->db->begin();
-        try {
+        $this->atomically(function () use ($row, $target): void {
             if ($target !== null) $this->db->query('UPDATE stories SET rating_id = ? WHERE rating_id = ?', [(int) $target['id'], (int) $row['id']]);
             $this->db->query('DELETE FROM ratings WHERE id = ?', [(int) $row['id']]);
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
-        }
+        });
         $this->purge();
         return Response::redirect('/ratings');
     }

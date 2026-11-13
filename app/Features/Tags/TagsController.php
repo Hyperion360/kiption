@@ -71,17 +71,7 @@ final class TagsController extends AdminScreen
         $type = $this->findType($id);
         if ($type === null || !in_array($dir, ['up', 'down'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $ids = array_map('intval', array_column($this->db->all('SELECT id FROM tag_types ORDER BY position, id'), 'id'));
-        $at = array_search((int) $type['id'], $ids, true);
-        $to = $dir === 'up' ? $at - 1 : $at + 1;
-        if (isset($ids[$to])) [$ids[$at], $ids[$to]] = [$ids[$to], $ids[$at]];
-        $this->db->begin();
-        try {
-            foreach ($ids as $i => $tid) $this->db->query('UPDATE tag_types SET position = ? WHERE id = ?', [$i + 1, $tid]);
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
-        }
+        $this->swapPosition('tag_types', $ids, (int) $type['id'], $dir);
         $this->purge();
         return Response::redirect('/tags');
     }
@@ -141,16 +131,11 @@ final class TagsController extends AdminScreen
         if ($stories > 0 && ($this->request->post['remove'] ?? '') !== '1') {
             return new Response($this->confirmTag($tag, $stories, Lang::t('tagsadmin.err_in_use', ['n' => $stories])), 422);
         }
-        $this->db->begin();
-        try {
+        $this->atomically(function () use ($tag): void {
             $this->db->query('DELETE FROM story_tags WHERE tag_id = ?', [(int) $tag['id']]);
             $this->db->query('UPDATE tags SET canonical_id = NULL WHERE canonical_id = ?', [(int) $tag['id']]);
             $this->db->query('DELETE FROM tags WHERE id = ?', [(int) $tag['id']]);
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
-        }
+        });
         $this->purge();
         return Response::redirect('/tags');
     }

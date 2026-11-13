@@ -78,17 +78,7 @@ final class CategoriesController extends AdminScreen
         $ids = array_map('intval', array_column($this->db->all(
             'SELECT id FROM categories WHERE parent_id IS ? ORDER BY position, id',
             [$row['parent_id'] === null ? null : (int) $row['parent_id']]), 'id'));
-        $at = array_search((int) $row['id'], $ids, true);
-        $to = $dir === 'up' ? $at - 1 : $at + 1;
-        if (isset($ids[$to])) [$ids[$at], $ids[$to]] = [$ids[$to], $ids[$at]];
-        $this->db->begin();
-        try {
-            foreach ($ids as $i => $cid) $this->db->query('UPDATE categories SET position = ? WHERE id = ?', [$i + 1, $cid]);
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
-        }
+        $this->swapPosition('categories', $ids, (int) $row['id'], $dir);
         $this->purge();
         return Response::redirect('/categories');
     }
@@ -115,19 +105,14 @@ final class CategoriesController extends AdminScreen
         if ($target === null && ($use['stories'] > 0 || $use['characters'] > 0)) {
             return new Response($this->confirm($row, $use, Lang::t('categories.err_in_use', ['n' => $use['stories'], 'c' => $use['characters']])), 422);
         }
-        $this->db->begin();
-        try {
+        $this->atomically(function () use ($row, $target): void {
             if ($target !== null) {
                 // OR IGNORE: a story already in the target keeps one row, not two.
                 $this->db->query('UPDATE OR IGNORE story_categories SET category_id = ? WHERE category_id = ?', [(int) $target['id'], (int) $row['id']]);
                 $this->db->query('UPDATE characters SET category_id = ? WHERE category_id = ?', [(int) $target['id'], (int) $row['id']]);
             }
             $this->db->query('DELETE FROM categories WHERE id = ?', [(int) $row['id']]);
-            $this->db->commit();
-        } catch (\Throwable $e) {
-            $this->db->rollBack();
-            throw $e;
-        }
+        });
         $this->purge();
         return Response::redirect('/categories');
     }
