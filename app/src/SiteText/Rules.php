@@ -15,6 +15,9 @@ namespace App\SiteText;
  */
 final class Rules
 {
+    /** C0 control characters other than tab and LF/CR, plus DEL. */
+    private const CONTROL = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/';
+
     private const MIN_CAP = 500;
 
     /** @param ?array<string, string> $defaults test seam; the shipped English pack by default */
@@ -31,7 +34,7 @@ final class Rules
         if (!mb_check_encoding($value, 'UTF-8')) {
             return \App\Lang::t('text.err_utf8');
         }
-        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value) === 1) {
+        if (preg_match(self::CONTROL, $value) === 1) {
             return \App\Lang::t('text.err_control');
         }
         $max = max(self::MIN_CAP, 2 * mb_strlen($default));
@@ -75,7 +78,7 @@ final class Rules
         if (!mb_check_encoding($value, 'UTF-8')) {
             return \App\Lang::t('text.err_utf8');
         }
-        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value) === 1 || str_contains($value, "\r")
+        if (preg_match(self::CONTROL, $value) === 1 || str_contains($value, "\r")
             || preg_match('/[\x{2028}\x{2029}]/u', $value) === 1) {
             return \App\Lang::t('text.err_control');
         }
