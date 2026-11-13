@@ -170,6 +170,38 @@ final class ConfirmStepTest extends TestCase
         $this->assertStringContainsString('name="confirmed" value="1"', $r->body);
     }
 
+    #[\PHPUnit\Framework\Attributes\DataProvider('notAYes')]
+    public function test_only_an_exact_one_counts_as_confirming(mixed $value): void
+    {
+        $id = $this->navLink();
+        $res = $this->client($this->adminId)->postWithToken('/nav/delete/' . $id, ['confirmed' => $value]);
+        $this->assertSame(200, $res->status, 'still asks');
+        $this->assertNotNull($this->db->one('SELECT id FROM nav_links WHERE id = ?', [$id]), 'and nothing is removed');
+    }
+
+    public static function notAYes(): array
+    {
+        return ['zero' => ['0'], 'true' => ['true'], 'yes' => ['yes'], 'two' => ['2'], 'padded' => [' 1'], 'empty' => [''], 'a list' => [['1']]];
+    }
+
+    public function test_a_moderator_is_asked_before_removing_from_the_queue_but_is_barred_from_owner_only_deletes(): void
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('mod@e.test', 'x', 'mmmod', 'moderator', 0, ?, ?, 'mmmod')", [date('c'), date('c')]);
+        $mod = $this->client((int) $this->db->lastInsertId());
+        $id = $this->applicant();
+        $this->assertAsks($mod->postWithToken('/queue/member/' . $id . '/reject'), 'queue.confirm_reject');
+        $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$id])['is_locked']);
+
+        // Owner-only: a moderator gets a refusal, not the question, and confirming changes nothing.
+        $link = $this->navLink();
+        foreach ([[], ['confirmed' => '1']] as $post) {
+            $res = $mod->postWithToken('/nav/delete/' . $link, $post);
+            $this->assertSame(403, $res->status);
+            $this->assertStringNotContainsString(Lang::t('navlinks.confirm_delete'), $res->body);
+        }
+        $this->assertNotNull($this->db->one('SELECT id FROM nav_links WHERE id = ?', [$link]));
+    }
+
     public function test_approving_never_asks(): void
     {
         $id = $this->applicant();

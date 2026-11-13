@@ -70,7 +70,7 @@ final class SavedUndoTest extends TestCase
         $this->assertNull(Saved::undo($this->request(['undo' => '/adminmembers/unlock/7']), self::TOKEN));
     }
 
-    /** @dataProvider unsafeTargets */
+    #[\PHPUnit\Framework\Attributes\DataProvider('unsafeTargets')]
     public function test_only_lock_unlock_and_feature_switches_are_ever_offered(string $undo): void
     {
         $to = Saved::withUndo('/adminmembers', 'locked', $undo, self::TOKEN)->headers['Location'];
