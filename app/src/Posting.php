@@ -26,11 +26,6 @@ final class Posting
         self::$mode = is_string($mode) && $mode !== '' ? $mode : 'verify';
     }
 
-    public static function registrationMode(): string
-    {
-        return self::$mode;
-    }
-
     /** Whether a guest is offered "Post a story": posting is open and an
      *  account can still be created. Every guest gets the same answer, built
      *  only from cached settings, so the anonymous page cache stays safe. */
