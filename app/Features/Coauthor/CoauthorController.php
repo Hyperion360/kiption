@@ -37,6 +37,7 @@ final class CoauthorController
             // the add already happened: mail is best-effort, never blocks the redirect
             error_log("Coauthor mail failed: {$e->getMessage()}");
         }
+        \App\ActivityLog::by($this->db, $this->session, 'coauthors.add', $slug . ', member ' . $newUserId);
         $this->purges($slug, (int) $story['id'], (int) $story['author_id'], (string) $coauthor['profile_slug']);
         return Response::redirect('/story/edit/' . $slug);
     }
@@ -49,6 +50,7 @@ final class CoauthorController
         if (!$this->authoring()->removeCoauthor($slug, $id, $me)) return new Response(\App\Lang::t('error.not_found'), 404);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ?', [$slug]);
         $affected = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$id]);
+        \App\ActivityLog::by($this->db, $this->session, 'coauthors.remove', $slug . ', member ' . $id);
         $this->purges($slug, (int) $story['id'], (int) $story['author_id'], (string) ($affected['profile_slug'] ?? ''));
         return Response::redirect('/story/view/' . $slug);
     }
@@ -61,6 +63,7 @@ final class CoauthorController
         if (!$this->authoring()->removeCoauthor($slug, $me, $me)) return new Response(\App\Lang::t('error.not_found'), 404);
         $story = $this->db->one('SELECT id, author_id FROM stories WHERE slug = ?', [$slug]);
         $leaver = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$me]);
+        \App\ActivityLog::by($this->db, $this->session, 'coauthors.leave', $slug);
         $this->purges($slug, (int) $story['id'], (int) $story['author_id'], (string) ($leaver['profile_slug'] ?? ''));
         return Response::redirect('/story/view/' . $slug);
     }

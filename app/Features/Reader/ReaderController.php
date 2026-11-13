@@ -46,6 +46,7 @@ final class ReaderController
         // Cookie::pref (no HttpOnly): the enhancement layer rewrites both on
         // every control move, and browsers refuse to overwrite an HttpOnly
         // cookie from document.cookie.
+        if ($me !== 0) \App\ActivityLog::record($this->db, $me, 'reader.settings', $reset ? 'reset' : '');
         $r = Response::redirect($to);
         $r = $r->withAddedHeader('Set-Cookie', \App\Cookie::pref(\App\Theme::COOKIE, $theme === 'auto' ? '' : $theme));
         $isDefault = $prefs->cookieValue() === (new Prefs())->cookieValue();
@@ -71,6 +72,7 @@ final class ReaderController
             : $this->db->one('SELECT access_hash FROM chapters WHERE id = ?', [$id])['access_hash'] ?? null);
         if (is_string($hash) && $hash !== '' && password_verify($password, $hash)) {
             \App\Access::unlock($this->session, $table, $id, $hash);
+            \App\ActivityLog::by($this->db, $this->session, 'reader.unlock', $table . ' ' . $id);
             return Response::redirect($to);
         }
         return Response::redirect($to . (str_contains($to, '?') ? '&' : '?') . 'gate=wrong');
@@ -129,6 +131,7 @@ final class ReaderController
              ON CONFLICT(user_id, story_id, chapter_id) DO UPDATE SET note = '
              . ($hasNote ? 'excluded.note' : 'bookmarks.note'),
             [$row['me'], $row['sid'], $row['cid'], $note, $row['cid']]));
+        \App\ActivityLog::record($this->db, $row['me'], 'bookmarks.add', $slug . ' ch ' . (int) $position);
         return self::backToChapter($slug, $position);
     }
 
@@ -153,6 +156,7 @@ final class ReaderController
         $this->write(fn () => $this->db->query(
             'DELETE FROM bookmarks WHERE user_id = ? AND story_id = ? AND chapter_id = ?',
             [$row['me'], $row['sid'], $row['cid']]));
+        \App\ActivityLog::record($this->db, $row['me'], 'bookmarks.remove', $slug . ' ch ' . (int) $position);
         return self::backToChapter($slug, $position);
     }
 

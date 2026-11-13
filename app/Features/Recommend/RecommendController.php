@@ -43,6 +43,7 @@ final class RecommendController
             $this->db->rollBack();
             throw $e;
         }
+        if ($inserted) \App\ActivityLog::by($this->db, $this->session, 'recommendations.add', $slug);
         if ($inserted) $this->purge($slug, $me);
         return Response::redirect('/story/view/' . $slug);
     }
@@ -54,6 +55,7 @@ final class RecommendController
         $story = $this->db->one('SELECT id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
         if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $stmt = $this->db->query('DELETE FROM recommendations WHERE user_id = ? AND story_id = ?', [$me, (int) $story['id']]);
+        if ($stmt->rowCount() === 1) \App\ActivityLog::by($this->db, $this->session, 'recommendations.remove', $slug);
         if ($stmt->rowCount() === 1) $this->purge($slug, $me);
         return Response::redirect('/story/view/' . $slug);
     }
