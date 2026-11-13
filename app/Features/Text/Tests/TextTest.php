@@ -120,6 +120,32 @@ final class TextTest extends TestCase
         $this->assertSame(404, $c->get('/text', ['lang' => 'zz'])->status);
     }
 
+    public function test_groups_show_a_readable_name_and_keep_their_code_in_the_address(): void
+    {
+        $c = $this->client($this->adminId);
+        $home = $c->get('/text')->body;
+        $this->assertStringContainsString('<a href="/text/group/adminmembers?lang=en">Members admin</a>', $home);
+        $this->assertStringContainsString('<a href="/text/group/foot?lang=en">Footer</a>', $home);
+        $this->assertStringNotContainsString('>adminmembers</a>', $home, 'codes never stand in for a name');
+        $this->assertStringContainsString('<h3>What visitors and readers see</h3>', $home);
+        $this->assertStringContainsString('<h3>What admins and moderators see</h3>', $home);
+        $this->assertStringContainsString('<h1>Members admin</h1>', $c->get('/text/group/adminmembers')->body);
+    }
+
+    public function test_every_group_has_a_name_and_a_section(): void
+    {
+        // A new feature brings a new group of strings. This fails until that
+        // group gets a text.group.<code> name and a place in a section.
+        $base = \App\Lang::base();
+        foreach ($base as $key => $text) {
+            if (!is_string($text) || $key[0] === '_') continue;
+            $code = \App\Features\Text\TextController::groupOfKey($key);
+            $this->assertArrayHasKey('text.group.' . $code, $base, "the group $code has no name");
+        }
+        $home = $this->client($this->adminId)->get('/text')->body;
+        $this->assertStringNotContainsString('<h3>Other</h3>', $home, 'a group is missing from the sections');
+    }
+
     public function test_a_save_that_cannot_reach_the_live_site_is_not_a_success(): void
     {
         file_put_contents($this->root . "/blocker", "x"); // a file where the folder should go

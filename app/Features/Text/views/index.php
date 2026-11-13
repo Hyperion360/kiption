@@ -11,12 +11,15 @@
   <button type="submit" class="btn-primary"><?= \App\Lang::t('text.search_button') ?></button>
 </form>
 <h2><?= \App\Lang::t('text.groups') ?></h2>
+<?php foreach ($sections as $section => $groups): ?>
+<h3><?= \App\Lang::t('text.section.' . $section) ?></h3>
 <ul>
-  <?php foreach ($groups as $name => $g): ?>
-  <li><a href="<?= $this->e('/text/group/' . $name . '?lang=' . $lang) ?>"><?= $this->e($name) ?></a>
+  <?php foreach ($groups as $code => $g): ?>
+  <li><a href="<?= $this->e('/text/group/' . $code . '?lang=' . $lang) ?>"><?= $this->e($g['label']) ?></a>
     <span class="chapter-meta"><?= $this->e(\App\Lang::t('text.group_count', ['changed' => $g['changed'], 'total' => $g['total']])) ?></span></li>
   <?php endforeach; ?>
 </ul>
+<?php endforeach; ?>
 <p><a href="/text/languages"><?= \App\Lang::t('text.manage_languages') ?></a></p>
 <h2><?= \App\Lang::t('text.export') ?></h2>
 <p class="chapter-meta"><?= \App\Lang::t('text.export_note') ?></p>

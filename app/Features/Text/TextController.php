@@ -14,6 +14,15 @@ final class TextController
     private const IMPORT_MAX_BYTES = 1048576;
     private const IMPORT_MAX_ENTRIES = 5000;
     private const SEARCH_LIMIT = 100;
+    /** Where each group sits on the index, by who meets its words. The label
+     *  an owner reads is the lang key text.group.<code>; the code stays in the
+     *  URL. A group missing here lands under "Other" and shows its code. */
+    private const SECTIONS = [
+        'visitors' => ['home', 'browse', 'search', 'story', 'reader', 'series', 'top', 'feed', 'news', 'challenges', 'lists', 'user', 'review', 'report', 'contact', 'auth', 'nav', 'foot', 'theme', 'msg', 'maintenance', 'error', 'site'],
+        'members' => ['account', 'chapter', 'posting', 'messages', 'notifications', 'favorites', 'stats', 'mute', 'uploads'],
+        'admins' => ['manage', 'adminmembers', 'queue', 'activity', 'analytics', 'settings', 'features', 'text', 'categories', 'ratings', 'characters', 'tagsadmin', 'wrangling', 'taxonomy', 'pages', 'page', 'navlinks', 'images', 'invites', 'signupcheck', 'profilefields', 'templates', 'mailusers', 'wordfilter', 'notice', 'admin'],
+        'shared' => ['common', 'form'],
+    ];
 
     public function __construct(
         private View $view, private Request $request, private Database $db,
@@ -35,9 +44,20 @@ final class TextController
             $groups[$g]['total'] = ($groups[$g]['total'] ?? 0) + 1;
             $groups[$g]['changed'] = ($groups[$g]['changed'] ?? 0) + (isset($rows[$key]) ? 1 : 0);
         }
+        $sections = [];
+        foreach (self::SECTIONS as $section => $codes) {
+            foreach ($codes as $code) {
+                if (!isset($groups[$code])) continue;
+                $sections[$section][$code] = $groups[$code] + ['label' => self::groupLabel($code)];
+                unset($groups[$code]);
+            }
+        }
         ksort($groups);
+        foreach ($groups as $code => $g) {
+            $sections['other'][$code] = $g + ['label' => self::groupLabel($code)];
+        }
         return $this->page('text/index', Lang::t('text.heading'), '/text', [
-            'groups' => $groups, 'lang' => $lang, 'languages' => $store->languages(),
+            'sections' => $sections, 'lang' => $lang, 'languages' => $store->languages(),
         ]);
     }
 
@@ -49,8 +69,9 @@ final class TextController
         [$store, $lang] = $ctx;
         $entries = $this->entries($lang, static fn (string $key): bool => $key !== '' && self::groupOfKey($key) === $prefix);
         if ($entries === []) return new Response(Lang::t('error.not_found'), 404);
-        return $this->page('text/group', Lang::t('text.heading') . ': ' . $prefix, '/text/group/' . $prefix, [
-            'entries' => $entries, 'lang' => $lang, 'languages' => $store->languages(), 'prefix' => $prefix, 'q' => '',
+        $label = self::groupLabel($prefix);
+        return $this->page('text/group', Lang::t('text.heading') . ': ' . $label, '/text/group/' . $prefix, [
+            'entries' => $entries, 'lang' => $lang, 'languages' => $store->languages(), 'prefix' => $prefix, 'label' => $label, 'q' => '',
             'saved' => !empty($this->request->get['saved']),
         ]);
     }
@@ -234,6 +255,14 @@ final class TextController
             ];
         }
         return $out;
+    }
+
+    /** The name an owner reads for a group; its code when no name is set. */
+    public static function groupLabel(string $code): string
+    {
+        $key = 'text.group.' . $code;
+        $label = Lang::t($key);
+        return $label === $key || $label === '' ? $code : $label;
     }
 
     public static function groupOfKey(string $key): string
