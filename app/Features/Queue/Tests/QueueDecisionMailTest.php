@@ -101,6 +101,19 @@ final class QueueDecisionMailTest extends TestCase
         $this->assertStringContainsString('content policy', $this->mail());
     }
 
+    public function test_removing_a_story_twice_mails_once(): void
+    {
+        $sid = $this->pendingStory();
+        $repo = new \App\Repositories\AuthoringRepository($this->db);
+        $this->assertNotNull($repo->removeStory($sid));
+        $this->assertNull($repo->removeStory($sid), 'the second removal changes nothing');
+        $this->db->query('UPDATE stories SET deleted_at = NULL WHERE id = ?', [$sid]);
+        $c = $this->client($this->moderatorId);
+        $c->postWithToken('/queue/story/' . $sid . '/remove', ['confirmed' => '1', 'reason' => '']);
+        $c->postWithToken('/queue/story/' . $sid . '/remove', ['confirmed' => '1', 'reason' => '']);
+        $this->assertSame(1, substr_count($this->mail(), 'was not approved'));
+    }
+
     public function test_rejecting_a_member_locks_them_and_mails_the_reason(): void
     {
         $id = $this->applicant();

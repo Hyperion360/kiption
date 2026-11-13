@@ -642,7 +642,9 @@ final class AuthoringRepository
         $story = $this->db->one('SELECT id, slug, author_id FROM stories WHERE id = ? AND deleted_at IS NULL AND validated = 0', [$storyId]);
         if ($story === null) return null;
         $cats = $this->categorySlugs((int) $story['id']);
-        $this->db->query('UPDATE stories SET deleted_at = ? WHERE id = ?', [date('c'), $story['id']]);
+        // The conditions ride the write too: a second moderator removing the same story at the same moment changes no row, so only one caller mails the author.
+        $changed = $this->db->query('UPDATE stories SET deleted_at = ? WHERE id = ? AND validated = 0 AND deleted_at IS NULL', [date('c'), $story['id']])->rowCount();
+        if ($changed !== 1) return null;
         [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
         return [(string) $story['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
     }
