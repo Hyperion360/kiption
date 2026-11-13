@@ -159,6 +159,39 @@ final class FeaturesTest extends TestCase
         $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) c FROM feature_flags')['c'], 'no row from a barred POST');
     }
 
+    public function test_the_undo_route_is_for_admins_only_and_changes_nothing_for_anyone_else(): void
+    {
+        $this->seed();
+        \App\Features::init($this->db(), []);
+        $this->assertSame(403, $this->client($this->memberUserId)->postWithToken('/features/set/news/off')->status);
+        $this->assertSame(403, $this->client($this->moderatorUserId)->postWithToken('/features/set/news/off')->status);
+        $this->assertContains($this->client()->postWithToken('/features/set/news/off')->status, [302, 401, 403], 'a guest is turned away');
+        $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) c FROM feature_flags')['c'], 'no row from a barred POST');
+        $this->assertSame(0, (int) $this->db()->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'features.toggle'")['c'], 'a refusal leaves no log line');
+    }
+
+    public function test_the_undo_route_needs_a_form_token_and_a_post(): void
+    {
+        $this->seed();
+        \App\Features::init($this->db(), []);
+        $admin = $this->client($this->adminUserId);
+        $this->assertNotSame(302, $admin->post('/features/set/news/off', [])->status, 'no token, no change');
+        $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) c FROM feature_flags')['c']);
+        $this->assertSame(405, $admin->get('/features/set/news/off')->status, 'a plain link never flips a switch');
+        $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) c FROM feature_flags')['c']);
+    }
+
+    public function test_the_undo_route_with_a_bad_state_or_unknown_key_writes_nothing_and_logs_nothing(): void
+    {
+        $this->seed();
+        \App\Features::init($this->db(), []);
+        $admin = $this->client($this->adminUserId);
+        $this->assertSame(404, $admin->postWithToken('/features/set/news/ON')->status, 'the state is lower case exactly');
+        $this->assertSame(422, $admin->postWithToken('/features/set/zzz/off')->status);
+        $this->assertSame(0, (int) $this->db()->one('SELECT COUNT(*) c FROM feature_flags')['c']);
+        $this->assertSame(0, (int) $this->db()->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'features.toggle'")['c']);
+    }
+
     public function test_toggle_rejects_unknown_keys_with_422(): void
     {
         $this->seed();
