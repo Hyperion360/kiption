@@ -76,7 +76,22 @@ final class ManageController extends AdminScreen
     #[AuthAttr]
     public function index(): Response|string
     {
-        if ($r = $this->deny()) return $r;
+        // The gate and everything the page shows come back in one statement
+        // (the queue's own shape): no gate row means not an admin. The live
+        // session check is the same one deny() makes.
+        $uid = $this->session->get('user_id');
+        if (!is_int($uid) || !\App\SessionGuard::valid($this->db, $this->session)) {
+            return $this->deny() ?? new Response(\App\Lang::t('error.forbidden'), 403);
+        }
+        $waiting = ['stories' => 0, 'chapters' => 0, 'members' => 0, 'reports' => 0, 'new' => 0];
+        $recent = [];
+        $admin = false;
+        foreach ($this->homeRows($uid) as $row) {
+            if ($row['k'] === '0gate') $admin = true;
+            elseif ($row['k'] === '2log') $recent[] = $row;
+            else $waiting[substr($row['k'], 1)] = (int) $row['n'];
+        }
+        if (!$admin) return new Response(\App\Lang::t('error.forbidden'), 403);
         $groups = [];
         foreach (self::LINKS as $link) {
             if (isset($link[3]) && !\App\Features::on($link[3])) continue;
@@ -85,10 +100,36 @@ final class ManageController extends AdminScreen
         // The raw table editor: hidden when the archive turns it off (config admin.enabled).
         $database = (bool) (((array) $this->app->config('admin', []))['enabled'] ?? true);
         return $this->page('manage/index', 'manage.heading', '/manage', [
+            'waiting' => $waiting,
+            'recent' => $recent,
             'groups' => $groups,
             'groupNames' => self::GROUPS,
             'database' => $database,
             'adminDatabase' => $database, // the sidebar offers the editor on the same terms
         ]);
+    }
+
+    /** One statement for the whole home screen: the admin gate row, the
+     *  counts of what is waiting (the same conditions the review queue lists
+     *  by), new members in the last seven days, and the newest log lines.
+     *  @return list<array<string,mixed>> */
+    private function homeRows(int $userId): array
+    {
+        return $this->db->all(
+            "SELECT '0gate' AS k, u.id AS n, '' AS a, '' AS b, '' AS c, '' AS d FROM users u WHERE u.id = ? AND u.role = 'admin'
+             UNION ALL
+             SELECT '1stories', COUNT(*), '', '', '', '' FROM stories WHERE validated = 0 AND deleted_at IS NULL
+             UNION ALL
+             SELECT '1chapters', COUNT(*), '', '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
+             WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1
+             UNION ALL
+             SELECT '1members', COUNT(*), '', '', '', '' FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL
+             UNION ALL
+             SELECT '1reports', COUNT(*), '', '', '', '' FROM reports WHERE resolved_at IS NULL
+             UNION ALL
+             SELECT '1new', COUNT(*), '', '', '', '' FROM users WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 days')
+             UNION ALL
+             SELECT * FROM (SELECT '2log', id, actor_name, action, detail, created_at FROM activity_log ORDER BY id DESC LIMIT 6)",
+            [$userId]);
     }
 }

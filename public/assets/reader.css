@@ -374,6 +374,21 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   color: var(--danger); font: 500 14px/1.5 var(--sans);
 }
 .notice { display: block; margin: 0 0 18px; padding: 12px 14px; background: var(--pill-bg); color: var(--accent); font: 500 14px/1.5 var(--sans); }
+/* Admin home: what is waiting, then what happened, then every screen. */
+.site-main .home-cards { list-style: none; margin: 12px 0 28px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 900px) { .site-main .home-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.home-cards a { display: flex; flex-direction: column; gap: 4px; min-height: 104px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); text-decoration: none; }
+.home-cards a:visited { color: var(--ink); }
+.home-cards a:hover { border-color: var(--line-strong); background: var(--hover); }
+.home-cards a.is-urgent { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.home-n { font: 600 34px/1 var(--sans); font-variant-numeric: tabular-nums; }
+.home-cards a.is-urgent .home-n { color: var(--accent); }
+.home-label { font: 14px/1.4 var(--sans); color: var(--ink-2); }
+.home-status { margin: 4px 0 0; font: 15px/1.5 var(--sans); color: var(--ink-2); }
+.site-main .home-log { list-style: none; margin: 8px 0 12px; padding: 0; border-block-start: 1px solid var(--line); }
+.home-log li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; padding: 10px 0; border-block-end: 1px solid var(--line); font: 15px/1.45 var(--sans); }
+.home-log-meta { color: var(--muted); font-size: 14px; }
+.home-all { margin-block-start: 36px; }
 /* Settings: short forms, one per section, with the section names as jump
    links that stay in reach while the page scrolls. */
 .settings-jump { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; padding: 10px 0; background: var(--bg); border-block-end: 1px solid var(--line); }

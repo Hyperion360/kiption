@@ -125,4 +125,26 @@ final class AdminShellTest extends TestCase
         \App\Features::toggle('wrangling', false);
         $this->assertStringNotContainsString('<li><a href="/wrangling"', $c->get('/categories')->body);
     }
+
+    public function test_the_home_screen_says_what_is_waiting_and_what_happened(): void
+    {
+        $clear = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringContainsString(Lang::t('manage.now_clear'), $clear);
+        $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            ['wait@e.test', 'x', 'waiting', 'member', 0, date('c'), 'waiting']);
+        \App\ActivityLog::record($this->db, $this->adminId, 'settings.save', 'site_name');
+        $body = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringContainsString(Lang::t('manage.now_waiting'), $body);
+        $this->assertStringContainsString('<a href="/queue" class="is-urgent"><span class="home-n">1</span> <span class="home-label">' . Lang::t('manage.wait_member') . '</span>', $body);
+        $this->assertStringContainsString(Lang::t('activity.a.settings.save') . ': site_name', $body);
+        $this->assertStringContainsString('<a href="/activity">', $body);
+    }
+
+    public function test_the_home_screen_is_for_admins_only(): void
+    {
+        $this->assertSame(403, $this->client($this->memberId)->get('/manage')->status);
+        \App\Adminness::setRole($this->db, $this->memberId, 'moderator');
+        $this->assertSame(403, $this->client($this->memberId)->get('/manage')->status);
+        $this->assertNotSame(200, $this->client()->get('/manage')->status);
+    }
 }

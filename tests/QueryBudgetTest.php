@@ -138,7 +138,7 @@ final class QueryBudgetTest extends TestCase
 
     public static function authPages(): array
     {
-        return [['/story/new'], ['/story/edit/the-rabbit-hole'],
+        return [['/manage'], ['/story/new'], ['/story/edit/the-rabbit-hole'],
                 ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2'],
                 // C4: the member story view runs the progress-folded statement
                 // (reading_history LEFT JOIN + the pct/minutes columns); the
@@ -176,6 +176,10 @@ final class QueryBudgetTest extends TestCase
         if ($page === '/queue') {
             $demoId = (int) $db->one('SELECT id FROM users WHERE email = ?', ['demo@example.test'])['id'];
             \App\Adminness::setRole($db, $demoId, 'moderator');
+        }
+        if ($page === '/manage') { // the admin home: gate, counts and recent activity in one statement
+            $demoId = (int) $db->one('SELECT id FROM users WHERE email = ?', ['demo@example.test'])['id'];
+            \App\Adminness::setRole($db, $demoId, 'admin');
         }
         $queries = 0;
         $db->onQuery(function (string $sql) use (&$queries): void {
