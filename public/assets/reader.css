@@ -421,6 +421,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .saved-note ~ .site-main .settings-jump { top: 62px; }
 .saved-note ~ .site-main .settings-section { scroll-margin-top: 138px; }
 .settings-section h2 { margin: 0 0 4px; font: 600 20px/1.3 var(--sans); }
+.settings-section h2 + .chapter-meta { margin-block-end: 16px; }
 .facts-now { max-width: 640px; margin: 12px 0 16px; padding: 10px 12px; border-inline-start: 3px solid var(--accent); background: var(--pill-bg); font: 14px/1.5 var(--sans); color: var(--ink-2); }
 .facts-now p { margin: 0; }
 .facts-now blockquote { margin: 6px 0 0; padding-inline-start: 12px; border-inline-start: 2px solid var(--line-strong); color: var(--ink); }
