@@ -1,7 +1,7 @@
 <?php // app/Features/Text/views/languages.php ?>
 <?php $this->layout('layout'); ?>
-<p><a href="<?= $this->e('/text?lang=' . $lang) ?>"><?= \App\Lang::t('text.back') ?></a></p>
 <h1><?= \App\Lang::t('text.manage_languages') ?></h1>
+<p><a href="<?= $this->e('/text?lang=' . $lang) ?>"><?= \App\Lang::t('text.back') ?></a></p>
 <ul>
   <?php foreach ($languages as $l): ?>
   <li><?= $this->e($l['name']) ?> <span class="chapter-meta">(<?= $this->e($l['code']) ?>, <?= \App\Lang::t($l['dir'] === 'rtl' ? 'text.rtl' : 'text.ltr') ?><?= $l['owned'] ? '' : ', ' . \App\Lang::t('text.builtin') ?><?= $l['code'] === $default ? ', ' . \App\Lang::t('text.default_mark') : '' ?>)</span>
