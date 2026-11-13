@@ -62,7 +62,26 @@
     <button type="button" class="theme-toggle" data-js-module="toggle" aria-label="<?= $this->e(\App\Lang::t('nav.theme_toggle')) ?>" data-label-dark="<?= $this->e(\App\Lang::t('nav.theme_to_dark')) ?>" data-label-light="<?= $this->e(\App\Lang::t('nav.theme_to_light')) ?>"></button>
     <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
+  <?php /* Owner screens only: the list of every admin screen (a sidebar on
+     wide screens, a tab bar and sheet on phones) and the way back to the
+     list a sub-screen belongs to. Members and guests never get these bytes. */
+     $admin = ($isAdmin ?? false) ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? ''), $adminDatabase ?? null) : null;
+     if ($admin !== null): ?>
+  <div class="admin-shell">
+  <?= $this->render('admin_nav', ['admin' => $admin]) ?>
+  <div class="admin-body">
+  <?php if (count($admin['trail']) > 1): // a sub-screen: the list it belongs to. The sidebar and tab bar already lead home. ?>
+  <nav class="admin-trail" aria-label="<?= $this->e(\App\Lang::t('manage.trail_label')) ?>">
+    <?php foreach ($admin['trail'] as $step): ?><a href="<?= $this->e($step['url']) ?>"><?= \App\Lang::t($step['label']) ?></a><?php endforeach; ?>
+  </nav>
+  <?php endif; ?>
+  <?php endif; ?>
   <main class="site-main"><?= $content ?></main>
+  <?php if ($admin !== null): ?>
+  </div>
+  </div>
+  <?= $this->render('admin_tabs', ['admin' => $admin]) ?>
+  <?php endif; ?>
   <?php $footSeen = ['/' => 1, '/browse' => 1, '/browse/recent' => 1, '/browse/authors' => 1, '/series' => 1, '/search' => 1,
                      '/account' => 1, '/auth/login' => 1, '/news' => 1, '/top' => 1, '/lists' => 1, '/challenges' => 1, '/feed' => 1]; ?>
   <footer class="site-foot">

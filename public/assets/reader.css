@@ -1497,6 +1497,70 @@ body.focus .site-head { display: none; }
   .admin-trail + .site-main { padding-block-start: 16px; }
 }
 
+/* The admin shell: every owner screen carries the full list of screens.
+   From 1024px it is a sidebar that stays in view while the page scrolls.
+   Below that the list is a sheet (the :target idiom, no scripting) opened
+   by the Menu tab of a bar fixed to the bottom edge, where thumbs reach. */
+.admin-nav { display: none; }
+.admin-nav:target {
+  display: flex; flex-direction: column;
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 40;
+  max-height: 85vh; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); border-block-start: 1px solid var(--line-strong);
+  padding: 8px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -12px 40px -12px var(--scrim);
+}
+.admin-nav [hidden] { display: none; }
+.admin-nav-home { display: flex; align-items: center; min-height: 44px; padding-inline: 12px; margin-inline: -12px; font: 600 16px/1.3 var(--sans); color: var(--ink); text-decoration: none; }
+.admin-nav-filter {
+  width: 100%; min-height: 44px; margin-block: 8px 0; padding: 0 12px;
+  border: 1px solid var(--line-strong); border-radius: 0; background: var(--bg); color: var(--ink); font: 15px var(--sans);
+}
+.admin-nav-group, .admin-nav-none { margin: 20px 0 4px; font: 600 12px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.admin-nav-none { letter-spacing: 0; text-transform: none; font-weight: 400; font-size: 14px; }
+.admin-nav ul { list-style: none; margin: 0; padding: 0; }
+.admin-nav li a {
+  display: flex; align-items: center; min-height: 44px; padding: 6px 12px 6px 9px; margin-inline: -12px;
+  border-inline-start: 3px solid transparent; color: var(--ink); text-decoration: none; font: 15px/1.3 var(--sans);
+}
+.admin-nav a:not(.sheet-handle):not(.sheet-done):hover { background: var(--hover); }
+.admin-nav a[aria-current="page"] { background: var(--pill-bg); color: var(--accent); font-weight: 600; }
+.admin-nav li a[aria-current="page"] { border-inline-start-color: var(--accent); }
+.admin-tabs {
+  position: fixed; inset-inline: 0; bottom: 0; z-index: 20;
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  background: var(--surface); border-block-start: 1px solid var(--line-strong);
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+}
+.admin-tabs a {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 56px; color: var(--ink-2); text-decoration: none; font: 500 11px/1.2 var(--sans);
+}
+.admin-tabs svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.admin-tabs a[aria-current="page"] { color: var(--accent); font-weight: 600; box-shadow: inset 0 2px 0 var(--accent); }
+/* The page ends above the bar, never under it. */
+.admin-tabs ~ .site-foot { margin-block-end: calc(57px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width:1023px) {
+  body:has(.admin-nav:target) .scrim { display: block; position: fixed; inset: 0; z-index: 30; background: var(--scrim); }
+}
+@media (min-width:1024px) {
+  .admin-shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); align-items: start; }
+  .admin-nav, .admin-nav:target {
+    display: block; position: sticky; inset: 0 auto auto; z-index: auto;
+    height: 100vh; max-height: none; overflow-y: auto;
+    padding: 20px 20px 40px 24px; background: none; box-shadow: none;
+    border-block-start: 0; border-inline-end: 1px solid var(--line);
+  }
+  .admin-nav .sheet-handle, .admin-nav .sheet-done { display: none; }
+  .admin-nav-filter { min-height: 36px; font-size: 14px; }
+  .admin-nav li a { min-height: 32px; padding-block: 4px; font-size: 14px; }
+  .admin-nav-group { margin-block-start: 16px; }
+  .admin-tabs { display: none; }
+  .admin-tabs ~ .site-foot { margin-block-end: 0; }
+  /* The page keeps its own column, set against the sidebar instead of centred. */
+  .admin-body .site-main, .admin-body .admin-trail { margin-inline: 0; }
+}
+
 /* The admin menu: each screen is one row with its name and a line saying
    what it is for; two columns from tablet width up. */
 .site-main .manage-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: 1fr; border-block-start: 1px solid var(--line); }

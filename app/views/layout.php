@@ -85,15 +85,26 @@
        panel on desktop. Guests see every destination in the desktop row. */ ?>
     <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
-  <?php /* Owner screens only: the way back to the admin menu, and to the
+  <?php /* Owner screens only: the list of every admin screen (a sidebar on
+     wide screens, a tab bar and sheet on phones) and the way back to the
      list a sub-screen belongs to. Members and guests never get these bytes. */
-     $trail = ($isAdmin ?? false) ? \App\Features\Manage\ManageController::trail((string) (($request ?? null)?->path ?? '')) : [];
-     if ($trail !== []): ?>
+     $admin = ($isAdmin ?? false) ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? ''), $adminDatabase ?? null) : null;
+     if ($admin !== null): ?>
+  <div class="admin-shell">
+  <?= $this->render('admin_nav', ['admin' => $admin]) ?>
+  <div class="admin-body">
+  <?php if (count($admin['trail']) > 1): // a sub-screen: the list it belongs to. The sidebar and tab bar already lead home. ?>
   <nav class="admin-trail" aria-label="<?= $this->e(\App\Lang::t('manage.trail_label')) ?>">
-    <?php foreach ($trail as $step): ?><a href="<?= $this->e($step['url']) ?>"><?= \App\Lang::t($step['label']) ?></a><?php endforeach; ?>
+    <?php foreach ($admin['trail'] as $step): ?><a href="<?= $this->e($step['url']) ?>"><?= \App\Lang::t($step['label']) ?></a><?php endforeach; ?>
   </nav>
   <?php endif; ?>
+  <?php endif; ?>
   <main class="site-main"><?= $content ?></main>
+  <?php if ($admin !== null): ?>
+  </div>
+  </div>
+  <?= $this->render('admin_tabs', ['admin' => $admin]) ?>
+  <?php endif; ?>
   <?php /* The site footer (owner decision, 2026-10-02): the conventional
      home for secondary destinations the header has no room for (news, top
      lists, reading lists, challenges, the feed, operator pages), and the

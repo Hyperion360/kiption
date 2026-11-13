@@ -195,6 +195,7 @@ $config = \App\Settings::apply($config);
 \App\Attribution::init($config);
 \App\SiteName::init($config); // the archive name for header, footer and home heading, same merged-config order
 \App\FooterLegal::init($config); // the legal-line seam, same merged-config order
+\App\AdminNav::init($config); // whether the admin list offers the raw database editor (admin.enabled)
 // The skins seam (views_override): the operator's chosen skin directory wins
 // over the app defaults template-by-template, '' for the default skin. It sits
 // AFTER the static-cache HIT and the maintenance 503 above by construction:

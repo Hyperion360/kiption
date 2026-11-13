@@ -82,11 +82,13 @@ final class ManageController extends AdminScreen
             if (isset($link[3]) && !\App\Features::on($link[3])) continue;
             $groups[$link[0]][] = ['url' => $link[1], 'label' => $link[2]];
         }
+        // The raw table editor: hidden when the archive turns it off (config admin.enabled).
+        $database = (bool) (((array) $this->app->config('admin', []))['enabled'] ?? true);
         return $this->page('manage/index', 'manage.heading', '/manage', [
             'groups' => $groups,
             'groupNames' => self::GROUPS,
-            // The raw table editor: hidden when the archive turns it off (config admin.enabled).
-            'database' => (bool) (((array) $this->app->config('admin', []))['enabled'] ?? true),
+            'database' => $database,
+            'adminDatabase' => $database, // the sidebar offers the editor on the same terms
         ]);
     }
 }

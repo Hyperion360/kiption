@@ -75,7 +75,7 @@
       }
     });
   });
-  ['prefs', 'position', 'keys', 'infinite', 'toggle', 'chips', 'confirm'].forEach(function (m) {
+  ['prefs', 'position', 'keys', 'infinite', 'toggle', 'chips', 'confirm', 'adminnav'].forEach(function (m) {
     if (document.querySelector('[data-js-module="' + m + '"]')) {
       var s = document.createElement('script');
       s.src = '/assets/' + m + '.js';
