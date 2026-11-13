@@ -127,7 +127,7 @@ return [
     'auth.password' => 'Password',
     'auth.register.title' => 'Register',
     'auth.register.heading' => 'Create an account',
-    'auth.register.penname' => 'Penname',
+    'auth.register.penname' => 'Pen name',
     'auth.register.penname_hint' => '2 to 40 characters: letters (accents are fine), digits, spaces, and . \' - _',
     'auth.err_penname_format' => 'A pen name is 2 to 40 characters: letters (accents are fine), digits, spaces, and . \' - _. No double or leading spaces.',
     'account.penname_label' => 'Pen name',
