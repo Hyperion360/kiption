@@ -2,7 +2,8 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('characters.heading') ?></h1>
-  <p class="lede"><?= \App\Lang::t('characters.help') ?></p>
+  <p class="admin-help"><?= $helpHtml ?></p>
+  <?php if ($categories === []): ?><p class="admin-help"><?= $this->e(\App\Lang::t('characters.need_category')) ?> <a href="/categories"><?= \App\Lang::t('categories.heading') ?></a></p><?php endif; ?>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <?php if ($characters === []): ?><p class="chapter-meta"><?= \App\Lang::t('characters.none') ?></p><?php else: ?>
   <ul>

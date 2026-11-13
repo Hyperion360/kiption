@@ -45,9 +45,10 @@ final class TagsController extends AdminScreen
         if ($error !== null) return new Response($this->list($error), 422);
         $position = (int) $this->db->one('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM tag_types')['p'];
         $this->db->query('INSERT INTO tag_types (name, position) VALUES (?, ?)', [$name, $position]);
+        $id = (int) $this->db->lastInsertId();
         \App\ActivityLog::by($this->db, $this->session, 'tags.addtype', $name);
         $this->purge();
-        return \App\Saved::to('/tags', 'added');
+        return \App\Saved::to('/tags?type=' . $id, 'added'); // land on the new type, ready to add its first tag
     }
 
     #[Auth] #[Post]
@@ -156,7 +157,7 @@ final class TagsController extends AdminScreen
     {
         if ($name === '') return Lang::t('tagsadmin.err_name');
         $dupe = $this->db->one('SELECT 1 AS x FROM tag_types WHERE name = ? COLLATE NOCASE AND id != ?', [$name, $selfId]);
-        return $dupe === null ? null : Lang::t('tagsadmin.err_type_dupe');
+        return $dupe === null ? null : Lang::t('tagsadmin.type_exists', ['name' => $name]);
     }
 
     private function tagNameError(string $name, int $typeId, int $selfId): ?string
@@ -187,7 +188,24 @@ final class TagsController extends AdminScreen
              FROM tags t ORDER BY t.name COLLATE NOCASE, t.id');
         $byType = [];
         foreach ($tags as $t) $byType[(int) $t['tag_type_id']][] = $t;
-        return $this->page('tags/index', 'tagsadmin.heading', '/tags', ['types' => $types, 'byType' => $byType, 'error' => $error]);
+        // Common types not yet there. Compared against the current label and the
+        // English default, so renaming the label never re-offers an existing type.
+        $defaults = ['relationships' => 'Relationships', 'warnings' => 'Warnings', 'genres' => 'Genres'];
+        $have = array_map(static fn (array $t): string => mb_strtolower((string) $t['name']), $types);
+        $missingTypes = array_values(array_filter(array_keys($defaults),
+            static fn (string $k): bool => !in_array(mb_strtolower(Lang::t('tagsadmin.suggest_' . $k)), $have, true)
+                && !in_array(mb_strtolower($defaults[$k]), $have, true)));
+        // ?type=N: the type the owner just added, so its add-tag field takes focus.
+        $focus = 0;
+        $asked = (string) ($this->request->get['type'] ?? '');
+        foreach ($types as $t) if ($asked !== '' && (string) $t['id'] === $asked) $focus = (int) $t['id'];
+        $focusName = '';
+        foreach ($types as $t) if ((int) $t['id'] === $focus) $focusName = mb_strtolower((string) $t['name']);
+        $isRelationships = $focus > 0 && in_array($focusName, [mb_strtolower(Lang::t('tagsadmin.suggest_relationships')), 'relationships'], true);
+        return $this->page('tags/index', 'tagsadmin.heading', '/tags', [
+            'types' => $types, 'byType' => $byType, 'error' => $error, 'missingTypes' => $missingTypes,
+            'focusType' => $focus, 'isRelationships' => $isRelationships,
+        ]);
     }
 
     private function typeForm(array $type, ?string $error): string

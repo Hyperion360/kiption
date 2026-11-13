@@ -115,8 +115,11 @@ final class CharactersController extends AdminScreen
                     (SELECT COUNT(*) FROM story_characters sc WHERE sc.character_id = ch.id) AS story_count
              FROM characters ch LEFT JOIN categories c ON c.id = ch.category_id
              ORDER BY ch.name COLLATE NOCASE, ch.id');
+        // The help names the Tags screen; make that phrase a real link (text escaped first).
+        $word = htmlspecialchars(Lang::t('characters.tags_screen'), ENT_QUOTES);
+        $helpHtml = str_replace($word, '<a href="/tags">' . $word . '</a>', htmlspecialchars(Lang::t('characters.help'), ENT_QUOTES));
         return $this->page('characters/index', 'characters.heading', '/characters',
-            ['characters' => $rows, 'categories' => $this->categories(), 'error' => $error]);
+            ['characters' => $rows, 'categories' => $this->categories(), 'error' => $error, 'helpHtml' => $helpHtml]);
     }
 
     private function editForm(array $row, ?string $error): string

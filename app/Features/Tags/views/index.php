@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('tagsadmin.heading') ?></h1>
-  <p class="lede"><?= \App\Lang::t('tagsadmin.help') ?></p>
+  <p class="admin-help"><?= \App\Lang::t('tagsadmin.help') ?></p>
   <p><a class="btn" href="/wrangling"><?= \App\Lang::t('tagsadmin.wrangling_link') ?></a></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <?php
@@ -53,15 +53,28 @@
   </ul>
   <?php endif; ?>
   <?php endforeach; ?>
+  <?php if ($missingTypes !== []): ?>
+  <section class="admin-suggest" aria-labelledby="suggest-h">
+    <h2 id="suggest-h" class="section-label"><?= \App\Lang::t('tagsadmin.suggest_heading') ?></h2>
+    <?php foreach ($missingTypes as $key): ?>
+    <form method="post" action="/tags/addtype" class="inline">
+      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+      <input type="hidden" name="name" value="<?= $this->e(\App\Lang::t('tagsadmin.suggest_' . $key)) ?>">
+      <button type="submit" class="<?= $types === [] ? 'btn' : 'btn-quiet' ?>"><?= \App\Lang::t('tagsadmin.suggest_add', ['type' => \App\Lang::t('tagsadmin.suggest_' . $key)]) ?></button>
+    </form>
+    <?php endforeach; ?>
+  </section>
+  <?php endif; ?>
   <h2><?= \App\Lang::t('tagsadmin.add_tag_heading') ?></h2>
   <form method="post" class="form-card" action="/tags/addtag">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('tagsadmin.type') ?>
       <select name="tag_type_id" required>
-        <?php foreach ($types as $type): ?><option value="<?= (int) $type['id'] ?>"><?= $this->e($type['name']) ?></option><?php endforeach; ?>
+        <?php foreach ($types as $type): ?><option value="<?= (int) $type['id'] ?>"<?= (int) $type['id'] === $focusType ? ' selected' : '' ?>><?= $this->e($type['name']) ?></option><?php endforeach; ?>
       </select>
     </label>
-    <label><?= \App\Lang::t('taxonomy.name') ?> <input name="name" required maxlength="60"></label>
+    <label><?= \App\Lang::t('taxonomy.name') ?> <input name="name" required maxlength="60"<?= $focusType > 0 ? ' autofocus' : '' ?><?= $isRelationships ? ' placeholder="' . $this->e(\App\Lang::t('tagsadmin.relationships_placeholder')) . '"' : '' ?>></label>
+    <?php if ($isRelationships): ?><p class="chapter-meta"><?= \App\Lang::t('tagsadmin.relationships_help') ?></p><?php endif; ?>
     <button type="submit"><?= \App\Lang::t('common.create') ?></button>
   </form>
   <h2><?= \App\Lang::t('tagsadmin.add_type_heading') ?></h2>
