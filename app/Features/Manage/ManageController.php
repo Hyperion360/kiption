@@ -131,7 +131,7 @@ final class ManageController extends AdminScreen
              UNION ALL
              SELECT '1new', COUNT(*), '', '', '', '' FROM users WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 days')
              UNION ALL
-             SELECT * FROM (SELECT '2log', id, actor_name, action, detail, created_at FROM activity_log ORDER BY id DESC LIMIT 6)",
+             SELECT * FROM (SELECT '2log', actor_id, actor_name, action, detail, created_at FROM activity_log ORDER BY id DESC LIMIT 6)",
             [$userId]);
     }
 }

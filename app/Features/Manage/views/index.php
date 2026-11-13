@@ -29,7 +29,7 @@ $todo = $queue + $waiting['members'] + $waiting['reports'];
   <ul class="home-log">
     <?php foreach ($recent as $r): ?>
     <li><span class="home-log-what"><?= $this->e(\App\Lang::t('activity.a.' . $r['b'])) ?><?= (string) $r['c'] !== '' ? ': ' . $this->e($r['c']) : '' ?></span>
-      <span class="home-log-meta"><?= $this->e((string) $r['a'] !== '' ? $r['a'] : \App\Lang::t('activity.unknown')) ?>, <time datetime="<?= $this->e($r['d']) ?>"><?= $this->e(\App\Dates::format((string) $r['d'], false, true)) ?></time></span></li>
+      <span class="home-log-meta"><?= $this->e((string) $r['a'] !== '' ? $r['a'] : \App\Lang::t($r['n'] !== null ? 'adminmembers.no_penname' : 'activity.unknown')) ?>, <time datetime="<?= $this->e($r['d']) ?>"><?= $this->e(\App\Dates::format((string) $r['d'], false, true)) ?></time></span></li>
     <?php endforeach; ?>
   </ul>
   <p><a href="/activity"><?= \App\Lang::t('manage.recent_all') ?></a></p>

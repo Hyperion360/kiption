@@ -128,6 +128,9 @@ final class ActivityTest extends TestCase
         $body = $this->client($this->adminId)->get('/activity')->body;
         $this->assertStringContainsString(\App\Lang::t('adminmembers.no_penname'), $body);
         $this->assertStringNotContainsString(\App\Lang::t('activity.unknown'), $body);
+        $home = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringContainsString(\App\Lang::t('adminmembers.no_penname'), $home, 'the admin home names the same row the same way');
+        $this->assertStringNotContainsString(\App\Lang::t('activity.unknown'), $home);
     }
 
     public function test_odd_page_numbers_fall_back_to_a_real_page(): void
