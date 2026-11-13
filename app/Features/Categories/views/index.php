@@ -4,6 +4,15 @@
   <h1><?= \App\Lang::t('categories.heading') ?></h1>
   <p class="lede"><?= \App\Lang::t('categories.help') ?></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
+  <?php $alike = \App\LookAlikes::groups(array_map(static fn (array $c): string => (string) $c['name'], $tree)); ?>
+  <?php if ($alike !== []): ?>
+  <div class="facts-now">
+    <p><?= \App\Lang::t('categories.alike_intro') ?></p>
+    <ul>
+      <?php foreach ($alike as $group): ?><li><?= $this->e(implode(', ', $group)) ?></li><?php endforeach; ?>
+    </ul>
+  </div>
+  <?php endif; ?>
   <ul class="admin-rows">
     <?php foreach ($tree as $c): ?>
     <li style="margin-left: <?= (int) $c['depth'] * 1.5 ?>rem">

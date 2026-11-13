@@ -5,6 +5,21 @@
   <p class="lede"><?= \App\Lang::t('tagsadmin.help') ?></p>
   <p><a class="btn" href="/wrangling"><?= \App\Lang::t('tagsadmin.wrangling_link') ?></a></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
+  <?php
+  // Tags not yet merged whose names differ only by case, spacing or punctuation.
+  $loose = [];
+  foreach ($byType as $list) foreach ($list as $t) if ($t['canonical_name'] === null) $loose[] = (string) $t['name'];
+  $alike = \App\LookAlikes::groups($loose);
+  ?>
+  <?php if ($alike !== []): ?>
+  <div class="facts-now">
+    <p><?= \App\Lang::t('tagsadmin.alike_intro') ?></p>
+    <ul>
+      <?php foreach ($alike as $group): ?><li><?= $this->e(implode(', ', $group)) ?></li><?php endforeach; ?>
+    </ul>
+    <p><a href="/wrangling"><?= \App\Lang::t('tagsadmin.alike_link') ?></a></p>
+  </div>
+  <?php endif; ?>
   <?php foreach ($types as $type): ?>
   <h2><?= $this->e($type['name']) ?></h2>
   <div class="queue-actions">
