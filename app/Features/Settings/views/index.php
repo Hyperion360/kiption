@@ -97,8 +97,6 @@ $check = function (string $key, string $label, string $note = '') use ($current)
     </select>
   </label>
   <?= $check('powered_by', \App\Lang::t('settings.powered_by'), \App\Lang::t('settings.powered_by_note')) ?>
-
-  <p class="chapter-meta"><?= \App\Lang::t('settings.adult_rta_note') ?></p>
   <input type="hidden" name="footer_present" value="1">
   <label><?= \App\Lang::t('settings.footer_copyright') ?>
     <input name="footer_copyright" maxlength="60" value="<?= $this->e($current['footer_copyright']) ?>">
