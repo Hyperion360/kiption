@@ -55,6 +55,7 @@ final class ChapterController
             return new Response(\App\Lang::t('error.not_found'), 404); // non-owned or unknown story, same contract as story writes
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
+        \App\ActivityLog::record($this->db, $this->uid(), 'chapter.create', $slug . ': ' . $title);
         // Finding 5: a scheduled create never fans out. storyForNotify only
         // checks live_chapters >= 1, so scheduling onto a live story would
         // notify followers about a chapter they cannot read yet.
@@ -102,6 +103,7 @@ final class ChapterController
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
+        \App\ActivityLog::record($this->db, $this->uid(), 'chapter.update', $slug . ' #' . $position);
         if ($locking && $wasOpen) {
             // The delete pattern's deferred rider: a guest render in flight
             // during the synchronous purge can re-store pre-lock prose after
@@ -126,6 +128,7 @@ final class ChapterController
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
+        \App\ActivityLog::record($this->db, $this->uid(), 'chapter.delete', $slug . ' #' . $position);
         return Response::redirect('/story/edit/' . $slug);
     }
 

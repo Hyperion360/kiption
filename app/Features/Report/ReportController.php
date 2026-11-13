@@ -18,6 +18,7 @@ final class ReportController
         $userId = $this->session->get('user_id');
         [$result] = (new ReportRepository($this->db))->reportStory(
             $slug, is_int($userId) ? $userId : null, $this->request->postStr('reason'), $this->request->ip);
+        if ($result === true) \App\ActivityLog::by($this->db, $this->session, 'reports.file_story', $slug);
         return $this->outcome($result, $slug);
     }
 
@@ -28,6 +29,7 @@ final class ReportController
         [$result] = (new ReportRepository($this->db))->reportReview(
             (int) $id, is_int($userId) ? $userId : null, $this->request->postStr('reason'));
         if ($result !== true) return $this->outcome($result, '');
+        \App\ActivityLog::by($this->db, $this->session, 'reports.file_review', 'review ' . (int) $id);
         $slug = (string) ($this->db->one(
             'SELECT s.slug FROM reviews r JOIN stories s ON s.id = r.story_id WHERE r.id = ?', [(int) $id])['slug'] ?? '');
         return $this->outcome($result, $slug);
@@ -41,6 +43,7 @@ final class ReportController
         }
         if ($op === 'dismiss') {
             (new ReportRepository($this->db))->resolve((int) $id);
+            \App\ActivityLog::by($this->db, $this->session, 'reports.dismiss', 'report ' . (int) $id);
         }
         return Response::redirect('/queue');
     }
@@ -93,6 +96,7 @@ final class ReportController
             $this->db->query('DELETE FROM reviews WHERE id = ?', [(int) $target['review_id']]);
             $cache->purgeStory((string) $target['slug'], []);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'reports.takedown', $target['kind'] . ' "' . $target['title'] . '" (report ' . (int) $id . ')');
         if ($target['author_email'] !== null && !\App\AccountSecurity::isReservedEmail((string) $target['author_email'])) {
             [$subject, $body] = \App\Templates::get($this->db, 'content_removed', ...\App\Templates::pair('content_removed'));
             $reason = trim($this->request->postStr('reason'));

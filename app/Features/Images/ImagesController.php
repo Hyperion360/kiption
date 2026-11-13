@@ -67,6 +67,7 @@ final class ImagesController
         } catch (UploadException) {
             return new Response(\App\Lang::t('images.err_upload'), 422);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'images.upload', (string) ($file['name'] ?? ''));
         return Response::redirect('/images');
     }
 
@@ -87,6 +88,7 @@ final class ImagesController
         }
         $target = $this->uploadsDir() . '/' . $name;
         if (!is_file($target) || !@unlink($target)) return new Response(\App\Lang::t('error.not_found'), 404);
+        \App\ActivityLog::by($this->db, $this->session, 'images.delete', $name);
         return Response::redirect('/images');
     }
 

@@ -117,6 +117,7 @@ final class TextController
         $result = $store->import($lang, array_map('strval', $values));
         if ($result['error'] !== null) return new Response($this->esc($result['error']), 422);
         $this->publish($store);
+        \App\ActivityLog::by($this->db, $this->session, 'text.save', $lang . ': ' . count($values) . ' strings');
         $first = (string) array_key_first($values);
         $to = '/text/group/' . ($first === '' ? '' : self::groupOfKey($first)) . '?lang=' . $lang . '&saved=1';
         return Response::redirect($first === '' ? '/text?lang=' . $lang : $to);
@@ -146,6 +147,7 @@ final class TextController
         );
         if ($err !== null) return new Response($this->esc($err), 422);
         $this->publish($store);
+        \App\ActivityLog::by($this->db, $this->session, 'text.addlanguage', (string) ($this->request->post['code'] ?? ''));
         return Response::redirect('/text/languages');
     }
 
@@ -160,6 +162,7 @@ final class TextController
         $err = $store->removeLanguage($code);
         if ($err !== null) return new Response($this->esc($err), 422);
         $this->publish($store);
+        \App\ActivityLog::by($this->db, $this->session, 'text.removelanguage', $code);
         return Response::redirect('/text/languages');
     }
 
@@ -209,6 +212,7 @@ final class TextController
         $result = $store->import($lang, $data);
         if ($result['error'] !== null) return new Response($this->esc($result['error']), 422);
         $this->publish($store);
+        \App\ActivityLog::by($this->db, $this->session, 'text.import', $lang . ': ' . count($data) . ' strings');
         return Response::redirect('/text?lang=' . $lang);
     }
 

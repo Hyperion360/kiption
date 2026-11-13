@@ -111,6 +111,7 @@ final class WranglingController
             // A merged tag can sit on any story page: the purge is coarse
             // (purgeAll), and lazy re-caching absorbs the cost. Merges are
             // rare admin actions.
+            \App\ActivityLog::by($this->db, $this->session, 'wrangling.merge', 'tag ' . $synonymId . ' into ' . $canonicalId);
             $this->staticCache()->purgeAll();
             return Response::redirect('/wrangling');
         }
@@ -127,6 +128,7 @@ final class WranglingController
         $tag = $this->db->one('SELECT id, canonical_id FROM tags WHERE id = ?', [(int) $id]);
         if ($tag === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $this->db->query('UPDATE tags SET canonical_id = NULL WHERE id = ?', [(int) $id]);
+        \App\ActivityLog::by($this->db, $this->session, 'wrangling.unmerge', 'tag ' . (int) $id);
         $this->staticCache()->purgeAll(); // the tag's label just changed on every page it sits on
         return Response::redirect('/wrangling');
     }

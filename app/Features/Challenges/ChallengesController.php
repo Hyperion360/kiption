@@ -93,6 +93,7 @@ final class ChallengesController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $me = (int) $this->session->get('user_id');
         $slug = $this->challenges->create($me, $title, $summary, $membership);
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.create', $slug);
         $this->staticCache()->purgeChallenge($slug); // the index gains a row (the write contract)
         return Response::redirect('/challenges/view/' . $slug); // the Series idiom
     }
@@ -115,6 +116,7 @@ final class ChallengesController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         try { $this->challenges->update($slug, $title, $summary, $membership, $me); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.update', $slug);
         $this->staticCache()->purgeChallenge($slug);
         return Response::redirect('/challenges/view/' . $slug);
     }
@@ -125,6 +127,7 @@ final class ChallengesController
         if (($r = \App\Features::guard('challenges')) !== null) return $r;
         try { $this->challenges->delete($slug, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.delete', $slug);
         $this->staticCache()->purgeChallenge($slug);
         return Response::redirect('/challenges'); // the module index (the Lists delete idiom)
     }
@@ -142,6 +145,7 @@ final class ChallengesController
         $text = substr(trim($this->request->postStr('prompt_text')), 0, 500);
         if ($text === '') return new Response($this->form($row, \App\Lang::t('challenges.prompt_required')), 422);
         $this->challenges->addPrompt($slug, $text, $me);
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.prompt_add', $slug);
         $this->staticCache()->purgeChallenge($slug); // prompts change the public blob
         return Response::redirect('/challenges/edit/' . $slug);
     }
@@ -153,6 +157,7 @@ final class ChallengesController
         if (!$this->challenges->removePrompt($slug, (int) $promptId, (int) $this->session->get('user_id'))) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.prompt_remove', $slug);
         $this->staticCache()->purgeChallenge($slug); // prompts change the public blob
         return Response::redirect('/challenges/edit/' . $slug);
     }
@@ -164,6 +169,7 @@ final class ChallengesController
         $dir = $dir === 'down' ? 'down' : 'up'; // junk coerces, the browse page-param philosophy
         try { $this->challenges->reorderPrompts($slug, (int) $promptId, $dir, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.prompt_move', $slug);
         $this->staticCache()->purgeChallenge($slug); // the blob's order changed
         return Response::redirect('/challenges/edit/' . $slug);
     }
@@ -185,6 +191,7 @@ final class ChallengesController
         } catch (\RuntimeException $e) {
             return new Response($e->getMessage() === 'not found' ? 'Page not found' : $e->getMessage(), $e->getMessage() === 'not found' ? 404 : 422);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.join', $slug . ' + ' . $storySlug);
         if ($result === 'pending') $this->notifyOwner($slug, $me, $storySlug);
         if ($result === 'added' || $result === 'confirmed') $this->notifyAuthor($storySlug, $me);
         $this->staticCache()->purgeChallenge($slug);
@@ -204,6 +211,7 @@ final class ChallengesController
         }
         if ($info !== null) {
             [$authorId, $title, $storySlug] = $info;
+            \App\ActivityLog::by($this->db, $this->session, 'challenges.confirm', $slug . ' + ' . $storySlug);
             if ($authorId !== $me) { // no self-congratulation (the KudosController idiom)
                 (new \App\Notifications($this->db))->create($authorId, 'challenge_confirm', $this->storyId($storySlug), $me, $title);
             }
@@ -220,6 +228,7 @@ final class ChallengesController
         if (!$this->challenges->removeItem($slug, $storySlug, (int) $this->session->get('user_id'), $this->challenges->viewerIsAdmin((int) $this->session->get('user_id')))) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'challenges.remove', $slug . ' - ' . $storySlug);
         $this->staticCache()->purgeChallenge($slug);
         return Response::redirect('/challenges/view/' . $slug);
     }

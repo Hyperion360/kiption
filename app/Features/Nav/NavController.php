@@ -54,6 +54,7 @@ final class NavController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $this->db->query('INSERT INTO nav_links (label, url, position, is_hidden) VALUES (?,?,?,?)',
             [$label, $url, $this->position(), $this->hidden()]);
+        \App\ActivityLog::by($this->db, $this->session, 'nav.create', $label);
         $this->rebuild();
         return Response::redirect('/nav');
     }
@@ -69,6 +70,7 @@ final class NavController
         if ($error !== null) return new Response($this->form($row, $error), 422);
         $this->db->query('UPDATE nav_links SET label = ?, url = ?, position = ?, is_hidden = ? WHERE id = ?',
             [$label, $url, $this->position(), $this->hidden(), (int) $id]);
+        \App\ActivityLog::by($this->db, $this->session, 'nav.update', $label);
         $this->rebuild();
         return Response::redirect('/nav');
     }
@@ -81,6 +83,7 @@ final class NavController
         if ($this->db->query('DELETE FROM nav_links WHERE id = ?', [(int) $id])->rowCount() === 0) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'nav.delete', 'link ' . (int) $id);
         $this->rebuild();
         return Response::redirect('/nav');
     }

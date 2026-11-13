@@ -38,6 +38,7 @@ final class ReviewController
             foreach ((new UserRepository($this->db))->notifyRecipients($storyId, 'notify_review', is_int($userId) ? $userId : 0) as $recipientId) {
                 $notifications->create($recipientId, 'review', $storyId, is_int($userId) ? $userId : null, $title);
             }
+            \App\ActivityLog::record($this->db, is_int($userId) ? $userId : null, 'review.add', $slug);
             (\App\StaticCache\Cache::configured($this->app))->purgeStory($slug, []);
         }
         return Response::redirect('/story/view/' . $slug . '#reviews');
@@ -93,6 +94,7 @@ final class ReviewController
             foreach ((new UserRepository($this->db))->notifyRecipients((int) $row['id'], 'notify_review', $me) as $recipientId) {
                 (new Notifications($this->db))->create($recipientId, 'review', (int) $row['id'], $me !== 0 ? $me : null, (string) $row['title']);
             }
+            \App\ActivityLog::record($this->db, $me !== 0 ? $me : null, 'review.add_chapter', $slug . ' #' . (int) $position);
             (\App\StaticCache\Cache::configured($this->app))->purgeStory($slug, []);
         }
         return Response::redirect('/review/chapter/' . $slug . '/' . (int) $position);
@@ -119,6 +121,7 @@ final class ReviewController
                 (new Notifications($this->db))->create($notifyUserId, 'reply', $storyId, $userId, null);
             }
         }
+        \App\ActivityLog::record($this->db, $userId, 'review.reply', $slug);
         (\App\StaticCache\Cache::configured($this->app))->purgeStory($slug, []);
         return Response::redirect('/story/view/' . $slug . '#reviews');
     }
@@ -146,6 +149,7 @@ final class ReviewController
         $review = $this->deletable($id);
         if ($review instanceof Response) return $review;
         $this->db->query('DELETE FROM reviews WHERE id = ?', [(int) $review['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'review.delete', 'review ' . (int) $review['id'] . ' on ' . $review['slug']);
         (\App\StaticCache\Cache::configured($this->app))->purgeStory((string) $review['slug'], []);
         return Response::redirect('/story/view/' . $review['slug'] . '#reviews');
     }

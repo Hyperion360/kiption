@@ -49,6 +49,7 @@ final class MailusersController extends AdminScreen
         }
         @set_time_limit(0);
         $mailed = MassMail::send($this->mailer, $recipients, $subject, $body);
+        \App\ActivityLog::by($this->db, $this->session, 'mailusers.send', $mailed . ' of ' . count($recipients) . ' sent');
         return $this->page('mailusers/sent', 'mailusers.sent_heading', '', ['mailed' => $mailed, 'total' => count($recipients)]);
     }
 

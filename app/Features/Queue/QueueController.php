@@ -51,6 +51,7 @@ final class QueueController
             $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
             (\App\StaticCache\Cache::configured($this->app))->purgeAuthors(); // story counts changed
             if ($op === 'approve') $this->notifyPublish($coords[0]);
+            \App\ActivityLog::by($this->db, $this->session, 'queue.story_' . $op, (string) ($info['title'] ?? $coords[0]));
             if ($info !== null) {
                 $base = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/');
                 $this->mailApplicant($op === 'approve' ? 'story_accepted' : 'story_rejected', (string) $info['email'], [
@@ -73,6 +74,7 @@ final class QueueController
         if ($coords !== null) {
             $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
             if ($op === 'approve') $this->notifyPublish($coords[0]);
+            \App\ActivityLog::by($this->db, $this->session, 'queue.chapter_' . $op, 'chapter ' . (int) $id . ' of ' . $coords[0]);
         }
         return Response::redirect('/queue');
     }
@@ -82,10 +84,12 @@ final class QueueController
     {
         if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
         if ($op === 'approve') {
-            $this->db->query('UPDATE users SET approved_at = ? WHERE id = ? AND approved_at IS NULL', [date('c'), (int) $id]);
+            $done = $this->db->query('UPDATE users SET approved_at = ? WHERE id = ? AND approved_at IS NULL', [date('c'), (int) $id])->rowCount();
+            if ($done === 1) \App\ActivityLog::by($this->db, $this->session, 'queue.member_approve', 'member ' . (int) $id);
         } elseif ($op === 'reject') {
             $who = $this->db->one('SELECT email, penname FROM users WHERE id = ? AND approved_at IS NULL AND is_locked = 0 AND role = \'member\'', [(int) $id]);
             $locked = $this->db->query("UPDATE users SET is_locked = 1 WHERE id = ? AND approved_at IS NULL AND role = 'member'", [(int) $id])->rowCount();
+            if ($locked === 1) \App\ActivityLog::by($this->db, $this->session, 'queue.member_reject', 'member ' . (int) $id);
             if ($who !== null && $locked === 1) {
                 $this->mailApplicant('member_rejected', (string) $who['email'], [
                     '{penname}' => (string) ($who['penname'] ?? ''),

@@ -103,6 +103,7 @@ final class SeriesController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $me = (int) $this->session->get('user_id');
         $slug = $this->series->create($me, $title, $summary, $membership);
+        \App\ActivityLog::by($this->db, $this->session, 'series.create', $slug);
         $this->staticCache()->purgeSeries($slug); // its row joins the cached index
         return Response::redirect('/series/view/' . $slug);
     }
@@ -125,6 +126,7 @@ final class SeriesController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         try { $this->series->update($slug, $title, $summary, $membership, $me, $this->isAdmin($me)); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        \App\ActivityLog::by($this->db, $this->session, 'series.update', $slug);
         $this->staticCache()->purgeSeries($slug);
         return Response::redirect('/series/view/' . $slug);
     }
@@ -151,6 +153,7 @@ final class SeriesController
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
         $this->db->query('UPDATE series SET cover_path = ? WHERE slug = ?', [$path, $slug]);
+        \App\ActivityLog::by($this->db, $this->session, 'series.cover', $slug);
         $this->staticCache()->purgeSeries($slug);
         return Response::redirect('/series/edit/' . $slug);
     }
@@ -195,6 +198,7 @@ final class SeriesController
         } catch (\RuntimeException $e) {
             return new Response($e->getMessage() === 'not found' ? 'Page not found' : $e->getMessage(), $e->getMessage() === 'not found' ? 404 : 422);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'series.add', $slug . ' + ' . $storySlug);
         if ($result === 'pending') $this->notifyOwner($slug, $me, $storySlug);
         if ($result === 'confirmed') {
             // same series_confirm notification to the story author as the confirm
@@ -218,6 +222,7 @@ final class SeriesController
         if (!$this->series->removeItem($slug, $storySlug, $me, $this->isAdmin($me))) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'series.remove', $slug . ' - ' . $storySlug);
         $cache = $this->staticCache();
         $cache->purgeSeries($slug);
         $cache->purgeStory($storySlug, [], $this->series->seriesSlugsForStory($this->storyId($storySlug)), '');
@@ -235,6 +240,7 @@ final class SeriesController
         } catch (\RuntimeException) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'series.move', $slug);
         $this->staticCache()->purgeSeries($slug); // positions live on the series page only
         return Response::redirect('/series/view/' . $slug);
     }
@@ -251,6 +257,7 @@ final class SeriesController
         }
         if ($info !== null) {
             [$authorId, $title, $storySlug] = $info;
+            \App\ActivityLog::by($this->db, $this->session, 'series.confirm', $slug . ' + ' . $storySlug);
             if ($authorId !== $me) { // no self-congratulation (the KudosController idiom)
                 (new \App\Notifications($this->db))->create($authorId, 'series_confirm', $this->storyId($storySlug), $me, $title);
             }

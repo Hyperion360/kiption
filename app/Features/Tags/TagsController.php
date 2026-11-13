@@ -45,6 +45,7 @@ final class TagsController extends AdminScreen
         if ($error !== null) return new Response($this->list($error), 422);
         $position = (int) $this->db->one('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM tag_types')['p'];
         $this->db->query('INSERT INTO tag_types (name, position) VALUES (?, ?)', [$name, $position]);
+        \App\ActivityLog::by($this->db, $this->session, 'tags.addtype', $name);
         $this->purge();
         return Response::redirect('/tags');
     }
@@ -59,6 +60,7 @@ final class TagsController extends AdminScreen
         $error = $this->typeNameError($name, (int) $type['id']);
         if ($error !== null) return new Response($this->typeForm($type, $error), 422);
         $this->db->query('UPDATE tag_types SET name = ? WHERE id = ?', [$name, (int) $type['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'tags.updatetype', $name);
         $this->purge();
         return Response::redirect('/tags');
     }
@@ -72,6 +74,7 @@ final class TagsController extends AdminScreen
         if ($type === null || !in_array($dir, ['up', 'down'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $ids = array_map('intval', array_column($this->db->all('SELECT id FROM tag_types ORDER BY position, id'), 'id'));
         $this->swapPosition('tag_types', $ids, (int) $type['id'], $dir);
+        \App\ActivityLog::by($this->db, $this->session, 'tags.movetype', 'type ' . (int) $type['id'] . ' ' . $dir);
         $this->purge();
         return Response::redirect('/tags');
     }
@@ -86,6 +89,7 @@ final class TagsController extends AdminScreen
         if ($this->request->method !== 'POST') return $this->confirmType($type, $tags, null);
         if ($tags > 0) return new Response($this->confirmType($type, $tags, Lang::t('tagsadmin.err_type_in_use', ['n' => $tags])), 422);
         $this->db->query('DELETE FROM tag_types WHERE id = ?', [(int) $type['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'tags.deletetype', (string) $type['name']);
         $this->purge();
         return Response::redirect('/tags');
     }
@@ -100,6 +104,7 @@ final class TagsController extends AdminScreen
         $error = $this->tagNameError($name, (int) $type['id'], 0);
         if ($error !== null) return new Response($this->list($error), 422);
         $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [(int) $type['id'], $name]);
+        \App\ActivityLog::by($this->db, $this->session, 'tags.addtag', $name);
         $this->purge();
         return Response::redirect('/tags');
     }
@@ -114,6 +119,7 @@ final class TagsController extends AdminScreen
         $error = $this->tagNameError($name, (int) $tag['tag_type_id'], (int) $tag['id']);
         if ($error !== null) return new Response($this->tagForm($tag, $error), 422);
         $this->db->query('UPDATE tags SET name = ? WHERE id = ?', [$name, (int) $tag['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'tags.update', $name);
         $this->purge();
         return Response::redirect('/tags');
     }
@@ -136,6 +142,7 @@ final class TagsController extends AdminScreen
             $this->db->query('UPDATE tags SET canonical_id = NULL WHERE canonical_id = ?', [(int) $tag['id']]);
             $this->db->query('DELETE FROM tags WHERE id = ?', [(int) $tag['id']]);
         });
+        \App\ActivityLog::by($this->db, $this->session, 'tags.delete', (string) $tag['name']);
         $this->purge();
         return Response::redirect('/tags');
     }

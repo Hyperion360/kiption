@@ -42,6 +42,7 @@ final class MuteController
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
         (new MuteRepository($this->db))->toggle($me, (int) $target['id'], $on);
+        \App\ActivityLog::by($this->db, $this->session, $on ? 'mutes.add' : 'mutes.remove', 'member ' . (int) $target['id']);
         return Response::redirect('/user/view/' . $slug);
     }
 }

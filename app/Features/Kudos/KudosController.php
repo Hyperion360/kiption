@@ -24,6 +24,7 @@ final class KudosController
             ->addKudos($slug, is_int($userId) ? $userId : null, $this->request->ip);
         if ($authorId === 0) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($inserted) {
+            \App\ActivityLog::record($this->db, is_int($userId) ? $userId : null, 'kudos.add', $slug);
             $storyId = (int) $this->db->one('SELECT id FROM stories WHERE slug = ?', [$slug])['id'];
             $notifications = new Notifications($this->db);
             // kudos has no pref column: the gate is null, the actor is still excluded

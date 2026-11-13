@@ -76,6 +76,7 @@ final class ListsController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $me = (int) $this->session->get('user_id');
         $slug = $this->lists->create($me, $title, $summary, $isPublic);
+        \App\ActivityLog::by($this->db, $this->session, 'lists.create', $slug);
         $this->staticCache()->purgeList($slug); // the write contract, even for a never-cached fresh page
         return Response::redirect('/lists/view/' . $slug);
     }
@@ -98,6 +99,7 @@ final class ListsController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         try { $this->lists->update($slug, $title, $summary, $isPublic, $me); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        \App\ActivityLog::by($this->db, $this->session, 'lists.update', $slug);
         $this->staticCache()->purgeList($slug);
         return Response::redirect('/lists/view/' . $slug);
     }
@@ -109,6 +111,7 @@ final class ListsController
         $me = (int) $this->session->get('user_id');
         try { $this->lists->delete($slug, $me); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        \App\ActivityLog::by($this->db, $this->session, 'lists.delete', $slug);
         $this->staticCache()->purgeList($slug);
         return Response::redirect('/lists'); // the member's lists index (Task 2)
     }
@@ -130,6 +133,7 @@ final class ListsController
             catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
             return new Response($this->form($row, $this->itemError($e->getMessage())), 422);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'lists.add', $slug . ' + ' . trim($this->request->postStr('story_slug')));
         $this->staticCache()->purgeList($slug); // every list write path (finding 4)
         return Response::redirect('/lists/edit/' . $slug);
     }
@@ -141,6 +145,7 @@ final class ListsController
         if (!$this->lists->removeItem($slug, $storySlug, (int) $this->session->get('user_id'))) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'lists.remove', $slug . ' - ' . $storySlug);
         $this->staticCache()->purgeList($slug);
         return Response::redirect('/lists/edit/' . $slug);
     }
@@ -152,6 +157,7 @@ final class ListsController
         $dir = $dir === 'down' ? 'down' : 'up'; // junk coerces, the browse page-param philosophy
         try { $this->lists->move($slug, (int) $itemId, $dir, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        \App\ActivityLog::by($this->db, $this->session, 'lists.move', $slug);
         $this->staticCache()->purgeList($slug); // positions live on the list page
         return Response::redirect('/lists/edit/' . $slug);
     }

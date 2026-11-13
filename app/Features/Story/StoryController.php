@@ -581,6 +581,7 @@ final class StoryController
         $story = $this->db->one('SELECT id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
         if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         (new \App\Repositories\EngagementRepository($this->db))->toggleMark($slug, (int) $this->session->get('user_id'));
+        \App\ActivityLog::by($this->db, $this->session, 'story.mark', $slug);
         return Response::redirect('/story/view/' . $slug);
     }
 
@@ -610,6 +611,7 @@ final class StoryController
             $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
+        \App\ActivityLog::record($this->db, $this->uid(), 'story.create', $title);
         $heard = \App\Notices::has('msg.thanks') || \App\Notices::has('msg.held'); // only carry the flag when the owner wrote a message
         return Response::redirect('/story/edit/' . $slug . ($heard ? '?submitted=' . ($this->autoValidates() ? 'live' : 'held') : ''));
     }
@@ -678,6 +680,7 @@ final class StoryController
                 }
             });
         }
+        \App\ActivityLog::record($this->db, $this->uid(), 'story.update', $newSlug);
         return Response::redirect('/story/edit/' . $newSlug);
     }
 
@@ -699,6 +702,7 @@ final class StoryController
         // pages:prune. The re-purge runs after this response is sent, so only
         // renders that outlast this entire request can still slip through.
         $this->app->defer(fn () => $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs));
+        \App\ActivityLog::record($this->db, $this->uid(), 'story.delete', $slug);
         return Response::redirect('/account');
     }
 
@@ -720,6 +724,7 @@ final class StoryController
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
         $this->db->query('UPDATE stories SET cover_path = ? WHERE id = ?', [$path, $story['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'story.cover', $slug);
         [$seriesSlugs, $authorSlug] = $this->authoring()->purgeData((int) $story['id'], (int) $story['author_id']);
         $this->staticCache()->purgeStory($slug, $this->authoring()->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug);
         return Response::redirect('/story/edit/' . $slug);

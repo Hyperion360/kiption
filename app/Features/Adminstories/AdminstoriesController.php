@@ -58,6 +58,7 @@ final class AdminstoriesController
         $cache->purgeStory($slug, $cats, $seriesSlugs, $newSlug, (new \App\Repositories\ListsRepository($this->db))->publicListSlugsForStory($storyId));
         if ($oldSlug !== '') $cache->purgeUser($oldSlug);
         if ($newSlug !== '') $cache->purgeUser($newSlug); // belt-and-braces with purgeStory's pass
+        \App\ActivityLog::by($this->db, $this->session, 'adminstories.reassign', $slug . ' to member ' . $newId);
         $cache->purgeAuthors();
         return Response::redirect('/story/view/' . $slug);
     }
@@ -79,6 +80,7 @@ final class AdminstoriesController
         [$seriesSlugs, $authorSlug] = $repo->purgeData((int) $story['id'], (int) $story['author_id']);
         (\App\StaticCache\Cache::configured($this->app))
             ->purgeStory($slug, [], $seriesSlugs, $authorSlug);
+        \App\ActivityLog::by($this->db, $this->session, 'adminstories.featured', $slug);
         return Response::redirect('/story/view/' . $slug);
     }
 }

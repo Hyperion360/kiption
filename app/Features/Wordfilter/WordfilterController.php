@@ -39,6 +39,7 @@ final class WordfilterController extends AdminScreen
         });
         WordFilter::forget();
         CachePurge::run($this->app, $this->db);
+        \App\ActivityLog::by($this->db, $this->session, 'wordfilter.save', count($words) . ' words');
         return $this->form(null, Lang::t('wordfilter.saved'));
     }
 
