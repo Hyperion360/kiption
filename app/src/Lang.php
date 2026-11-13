@@ -44,10 +44,17 @@ final class Lang
     /** @var array<string, array{name: string, dir: string}>|null owner-added languages, memoized */
     private static ?array $siteIndex = null;
 
-    /** The active UI language. Codes outside [a-z]{2,3} coerce to en (soft, like a missing key). */
+    /** True for a well-formed language code: two or three lowercase letters.
+     *  Codes name files on disk, so nothing else may pass. */
+    public static function validCode(mixed $code): bool
+    {
+        return is_string($code) && preg_match('/^[a-z]{2,3}$/', $code) === 1;
+    }
+
+    /** The active UI language. Codes that fail validCode() coerce to en (soft, like a missing key). */
     public static function setCurrent(string $lang): void
     {
-        self::$current = preg_match('/^[a-z]{2,3}$/', $lang) === 1 ? $lang : 'en';
+        self::$current = self::validCode($lang) ? $lang : 'en';
     }
 
     /** Point the layer at the folder of compiled owner text (null turns it off). Clears the caches. */
@@ -83,7 +90,7 @@ final class Lang
         $index = [];
         if (self::$siteDir !== null) {
             foreach (self::load(self::$siteDir . '/index.php') as $code => $meta) {
-                if (is_string($code) && preg_match('/^[a-z]{2,3}$/', $code) === 1 && is_array($meta)) {
+                if (self::validCode($code) && is_array($meta)) {
                     $index[$code] = [
                         'name' => is_string($meta['name'] ?? null) ? $meta['name'] : $code,
                         'dir' => ($meta['dir'] ?? '') === 'rtl' ? 'rtl' : 'ltr',
@@ -103,12 +110,6 @@ final class Lang
         }
         sort($codes);
         return $codes;
-    }
-
-    /** True for a language the owner added (not a shipped pack). */
-    public static function isOwned(string $code): bool
-    {
-        return isset(self::siteIndex()[$code]) && !in_array($code, self::builtinCodes(), true);
     }
 
     /** The language's display name: owner name, the pack's _name, English, else the code. */
@@ -194,7 +195,7 @@ final class Lang
     {
         if (isset(self::$cache[$lang])) return self::$cache[$lang];
         $map = self::builtin($lang);
-        if (self::$siteDir !== null && preg_match('/^[a-z]{2,3}$/', $lang) === 1) {
+        if (self::$siteDir !== null && self::validCode($lang)) {
             $map = array_replace($map, self::load(self::$siteDir . '/' . $lang . '.php'));
         }
         return self::$cache[$lang] = $map;

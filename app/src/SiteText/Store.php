@@ -76,7 +76,7 @@ final class Store
 
     public function addLanguage(string $code, string $name, string $dir): ?string
     {
-        if (preg_match('/^[a-z]{2,3}$/', $code) !== 1) return Lang::t('text.err_code');
+        if (!Lang::validCode($code)) return Lang::t('text.err_code');
         if (Compiler::nameError($name)) return Lang::t('text.err_name');
         if (!in_array($dir, ['ltr', 'rtl'], true)) return Lang::t('text.err_dir');
         if ($this->has($code)) return Lang::t('text.err_exists');

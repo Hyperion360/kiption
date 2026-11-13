@@ -56,11 +56,14 @@ final class Boot
     /** The saved default if installed, else English; then the member's cookie if installed. */
     private static function choose(mixed $default, mixed $cookie): void
     {
-        $installed = Lang::installed();
-        $lang = is_string($default) && in_array($default, $installed, true) ? $default : 'en';
-        if (is_string($cookie) && preg_match('/^[a-z]{2,3}$/', $cookie) === 1 && in_array($cookie, $installed, true)) {
-            $lang = $cookie;
-        }
-        Lang::setCurrent($lang);
+        $lang = is_string($default) && in_array($default, Lang::installed(), true) ? $default : 'en';
+        Lang::setCurrent(self::usableCookie($cookie) ? $cookie : $lang);
+    }
+
+    /** True when the member's 'lang' cookie names an installed language.
+     *  The early seam in public/index.php and late() share this rule. */
+    public static function usableCookie(mixed $cookie): bool
+    {
+        return Lang::validCode($cookie) && in_array($cookie, Lang::installed(), true);
     }
 }

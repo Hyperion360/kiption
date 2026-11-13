@@ -125,9 +125,7 @@ $request = Kip\Http\Request::fromGlobals(trustedProxy: $config['trusted_proxy'])
 // documented stale-cookie window: logins stop syncing immediately, a browser
 // already carrying the cookie keeps its language until the next logout.
 $cookieLang = $request->cookies['lang'] ?? '';
-if (($config['features']['peruserlang'] ?? true)
-    && is_string($cookieLang) && preg_match('/^[a-z]{2,3}$/', $cookieLang) === 1
-    && in_array($cookieLang, \App\Lang::installed(), true)) {
+if (($config['features']['peruserlang'] ?? true) && \App\SiteText\Boot::usableCookie($cookieLang)) {
     \App\Lang::setCurrent($cookieLang);
 }
 

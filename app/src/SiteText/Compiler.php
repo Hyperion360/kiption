@@ -21,7 +21,7 @@ final class Compiler
             }
             $owned = [];
             foreach ($db->all('SELECT code, name, dir FROM site_languages ORDER BY code') as $l) {
-                if (preg_match('/^[a-z]{2,3}$/', (string) $l['code']) !== 1 || self::nameError((string) $l['name'])) {
+                if (!\App\Lang::validCode($l['code']) || self::nameError((string) $l['name'])) {
                     continue;
                 }
                 $owned[(string) $l['code']] = ['name' => (string) $l['name'], 'dir' => $l['dir'] === 'rtl' ? 'rtl' : 'ltr'];
