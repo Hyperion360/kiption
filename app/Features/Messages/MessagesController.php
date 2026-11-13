@@ -87,6 +87,7 @@ final class MessagesController
         }
         if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $body)) !== null) return new Response($this->renderForm($slug, $partner, $blocked), 422);
         (new MessageRepository($this->db))->send($this->uid(), (int) $partner['id'], $body);
+        \App\ActivityLog::record($this->db, $this->uid(), 'messages.send', 'to member ' . (int) $partner['id']);
         return Response::redirect('/messages/view/' . $slug);
     }
 

@@ -610,6 +610,7 @@ final class StoryController
             $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
+        \App\ActivityLog::record($this->db, $this->uid(), 'story.create', $title);
         $heard = \App\Notices::has('msg.thanks') || \App\Notices::has('msg.held'); // only carry the flag when the owner wrote a message
         return Response::redirect('/story/edit/' . $slug . ($heard ? '?submitted=' . ($this->autoValidates() ? 'live' : 'held') : ''));
     }
@@ -678,6 +679,7 @@ final class StoryController
                 }
             });
         }
+        \App\ActivityLog::record($this->db, $this->uid(), 'story.update', $newSlug);
         return Response::redirect('/story/edit/' . $newSlug);
     }
 
@@ -699,6 +701,7 @@ final class StoryController
         // pages:prune. The re-purge runs after this response is sent, so only
         // renders that outlast this entire request can still slip through.
         $this->app->defer(fn () => $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, $listSlugs, $challengeSlugs));
+        \App\ActivityLog::record($this->db, $this->uid(), 'story.delete', $slug);
         return Response::redirect('/account');
     }
 
