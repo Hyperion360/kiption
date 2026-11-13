@@ -886,6 +886,7 @@ return [
     'contact.sent' => 'Thank you. Your message was sent.',
     'contact.err_fields' => 'Please fill in your name, a valid email address and a message.',
     'contact.err_long' => 'That message is too long. Please keep it under 5000 characters.',
+    'contact.err_blocked' => 'Your message uses a word or phrase this archive does not allow. Please reword it and send it again.',
     'contact.err_throttled' => 'You have sent several messages already. Please try again in about 15 minutes.',
     'contact.err_nobody' => 'The contact form is not set up yet. Please try again later.',
     'contact.err_mail' => 'We could not send your message. Please try again later.',

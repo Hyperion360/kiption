@@ -38,6 +38,7 @@ final class ContactController
             return $this->form('contact.err_fields', 422, $old);
         }
         if (mb_strlen($message) > self::MAX_MESSAGE) return $this->form('contact.err_long', 422, $old);
+        if (\App\Features\Wordfilter\WordFilter::find($this->db, $name, $message) !== null) return $this->form('contact.err_blocked', 422, $old);
         $ip = $this->request->ip;
         if (!(new \App\AttemptLimiter($this->db))->claim('contact', $ip, $ip, self::PER_IP, self::PER_IP)) {
             return $this->form('contact.err_throttled', 429, $old);

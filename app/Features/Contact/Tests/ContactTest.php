@@ -115,6 +115,18 @@ final class ContactTest extends TestCase
         $this->assertSame('', $this->mail());
     }
 
+    public function test_a_blocked_word_is_refused_and_sends_nothing(): void
+    {
+        $this->db->query("INSERT INTO word_filter (word) VALUES ('zorbleflux')");
+        \App\Features\Wordfilter\WordFilter::forget();
+        $c = $this->client();
+        $res = $c->postWithToken('/contact/send', $this->form(['message' => 'Hello, this has Zorbleflux in it.']));
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString('Hello, this has Zorbleflux in it.', $res->body, 'the visitor keeps what they typed');
+        $this->assertSame(422, $c->postWithToken('/contact/send', $this->form(['name' => 'zorbleflux']))->status);
+        $this->assertSame('', $this->mail());
+    }
+
     public function test_line_breaks_in_name_and_email_cannot_forge_headers(): void
     {
         $this->client()->postWithToken('/contact/send', $this->form(['name' => "Pat\r\nBcc: victim@example.test"]));
