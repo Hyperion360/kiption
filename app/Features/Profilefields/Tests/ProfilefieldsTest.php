@@ -192,4 +192,58 @@ final class ProfilefieldsTest extends TestCase
         $this->member()->postWithToken('/account/fields', ['field' => [$t => 'ok', 9999 => 'ghost']]);
         $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) c FROM profile_field_values')['c']);
     }
+
+    public function test_rename_move_and_destroy_refuse_a_cross_site_post_and_change_nothing(): void
+    {
+        $a = $this->addField('A', 'text');
+        $b = $this->addField('B', 'text');
+        $cross = ['sec-fetch-site' => 'cross-site'];
+        $this->assertSame(403, $this->admin()->post('/profilefields/rename/' . $a, ['label' => 'Hacked'], $cross)->status);
+        $this->assertSame(403, $this->admin()->post('/profilefields/move/' . $b, ['dir' => 'up'], $cross)->status);
+        $this->assertSame(403, $this->admin()->post('/profilefields/destroy/' . $a, [], $cross)->status);
+        $this->assertSame(403, $this->admin()->post('/profilefields/destroy/' . $a)->status, 'no token and no fetch headers');
+        $this->assertSame(['A', 'B'], $this->labels());
+    }
+
+    public function test_a_member_cannot_rename_or_move_a_field(): void
+    {
+        $a = $this->addField('A', 'text');
+        $b = $this->addField('B', 'text');
+        $this->assertSame(403, $this->member()->postWithToken('/profilefields/rename/' . $a, ['label' => 'Mine'])->status);
+        $this->assertSame(403, $this->member()->postWithToken('/profilefields/move/' . $b, ['dir' => 'up'])->status);
+        $this->assertSame(403, $this->member()->get('/profilefields/delete/' . $a)->status);
+        $this->assertSame(['A', 'B'], $this->labels());
+    }
+
+    public function test_renaming_or_moving_a_field_that_does_not_exist_is_refused(): void
+    {
+        $this->assertSame(422, $this->admin()->postWithToken('/profilefields/rename/9999', ['label' => 'Ghost'])->status);
+        $this->assertSame(422, $this->admin()->postWithToken('/profilefields/move/9999', ['dir' => 'up'])->status);
+        $this->assertSame(422, $this->admin()->postWithToken('/profilefields/destroy/9999')->status);
+    }
+
+    public function test_renaming_to_a_blank_label_keeps_the_old_one(): void
+    {
+        $id = $this->addField('Pronouns', 'text');
+        $this->assertSame(422, $this->admin()->postWithToken('/profilefields/rename/' . $id, ['label' => " \t "])->status);
+        $this->assertSame(['Pronouns'], $this->labels());
+    }
+
+    public function test_the_twenty_first_field_is_refused(): void
+    {
+        for ($n = 1; $n <= \App\ProfileFields::MAX_FIELDS; $n++) $this->addField('Field ' . $n, 'text');
+        $this->assertSame(422, $this->admin()->postWithToken('/profilefields/add', ['label' => 'One too many', 'type' => 'text'])->status);
+        $this->assertCount(\App\ProfileFields::MAX_FIELDS, $this->labels());
+    }
+
+    public function test_long_labels_and_text_answers_are_cut_to_their_limits(): void
+    {
+        $this->admin()->postWithToken('/profilefields/add', ['label' => str_repeat('L', 100), 'type' => 'text']);
+        $id = (int) $this->db->one('SELECT id FROM profile_fields')['id'];
+        $this->assertSame(\App\ProfileFields::MAX_LABEL, mb_strlen($this->labels()[0]));
+        $res = $this->member()->postWithToken('/account/fields', ['field' => [$id => str_repeat('é', 300)]]);
+        $this->assertSame(302, $res->status, $res->body);
+        $stored = (string) $this->db->one('SELECT value FROM profile_field_values WHERE field_id = ?', [$id])['value'];
+        $this->assertSame(\App\ProfileFields::MAX_TEXT, mb_strlen($stored));
+    }
 }
