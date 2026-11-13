@@ -146,6 +146,9 @@ final class RegisterTest extends TestCase
         $this->assertStringContainsString('lowercase letters', $res->body);
         $res = $client->post('/auth/store', $this->form(['email' => 'demo@example.test']));
         $this->assertStringContainsString('Email is already registered', $res->body);
+        // a case change is the same mailbox: sign-in links match emails case-insensitively
+        $res = $client->post('/auth/store', $this->form(['email' => 'DEMO@Example.test']));
+        $this->assertStringContainsString('Email is already registered', $res->body);
         $res = $client->post('/auth/store', $this->form(['password' => 'short', 'confirm' => 'short']));
         $this->assertStringContainsString('at least 8 characters', $res->body);
         $res = $client->post('/auth/store', $this->form(['confirm' => 'different']));

@@ -9,7 +9,7 @@ final class UserRepository
 
     public function findByEmail(string $email): ?array
     {
-        return $this->db->one('SELECT * FROM users WHERE email = ?', [$email]);
+        return $this->db->one('SELECT * FROM users WHERE lower(email) = lower(?)', [$email]);
     }
 
     public function pennameTaken(string $penname): bool
