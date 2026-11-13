@@ -1216,6 +1216,7 @@ return [
     'activity.a.auth.reset_requested' => 'Asked for a password reset',
     'activity.a.auth.reset_done' => 'Reset a password',
     'activity.a.account.password' => 'Changed their password',
+    'activity.a.account.penname' => 'Changed their pen name',
     'activity.a.account.email_requested' => 'Asked to change their email',
     'activity.a.account.email_changed' => 'Confirmed an email change',
     'activity.a.account.delete' => 'Deleted their account',
