@@ -8,7 +8,9 @@
   <form method="post" action="/report/takedown/<?= (int) $reportId ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('report.reason_label') ?> <textarea name="reason" rows="4" maxlength="1000"></textarea></label>
-    <button type="submit"><?= \App\Lang::t('report.remove_submit') ?></button>
-    <a href="/queue"><?= \App\Lang::t('common.cancel') ?></a>
+    <div class="confirm-actions">
+      <a class="btn" href="/queue"><?= \App\Lang::t('common.cancel') ?></a>
+      <button type="submit" class="btn-danger"><?= \App\Lang::t('report.remove_submit') ?></button>
+    </div>
   </form>
 </section>
