@@ -27,17 +27,15 @@ final class TextController
         if ($ctx instanceof Response) return $ctx;
         [$store, $lang] = $ctx;
         $base = Lang::base();
-        $effective = $this->effective($lang);
         $rows = $store->rows($lang);
         $groups = [];
         foreach ($base as $key => $text) {
             if (!is_string($text) || $key[0] === '_') continue;
-            $g = $this->groupOf($key);
+            $g = self::groupOfKey($key);
             $groups[$g]['total'] = ($groups[$g]['total'] ?? 0) + 1;
             $groups[$g]['changed'] = ($groups[$g]['changed'] ?? 0) + (isset($rows[$key]) ? 1 : 0);
         }
         ksort($groups);
-        unset($effective);
         return $this->page('text/index', Lang::t('text.heading'), '/text', [
             'groups' => $groups, 'lang' => $lang, 'languages' => $store->languages(),
         ]);
@@ -235,11 +233,6 @@ final class TextController
             ];
         }
         return $out;
-    }
-
-    private function groupOf(string $key): string
-    {
-        return self::groupOfKey($key);
     }
 
     public static function groupOfKey(string $key): string
