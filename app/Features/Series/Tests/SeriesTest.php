@@ -420,7 +420,7 @@ final class SeriesTest extends TestCase
         $this->assertSame(409, $admin->postWithToken('/images/delete', ['name' => $name])->status,
             'a series-referenced file refuses deletion');
         $this->db->query("UPDATE series SET cover_path = NULL WHERE slug = 's'");
-        $this->assertSame(302, $admin->postWithToken('/images/delete', ['name' => $name])->status);
+        $this->assertSame(302, $admin->postWithToken('/images/delete', ['name' => $name, 'confirmed' => '1'])->status);
 
         array_map('unlink', glob($dir . '/*') ?: []);
         @rmdir($dir);

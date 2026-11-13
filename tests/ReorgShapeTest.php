@@ -84,8 +84,10 @@ final class ReorgShapeTest extends TestCase
             'the layered Controllers directory must be gone (one-shot reorg)');
         foreach (scandir($this->root . '/app/views') ?: [] as $f) {
             if ($f[0] === '.') continue;
-            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php'],
-                'app/views must hold only the kernel layout, maintenance and notice pages, found ' . $f);
+            // admin_nav, admin_tabs and confirm are shell partials every layout
+            // and skin includes for owner screens, so they sit beside the layout.
+            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php', 'admin_nav.php', 'admin_tabs.php', 'confirm.php'],
+                'app/views must hold only the kernel layout, its shell partials, maintenance and notice pages, found ' . $f);
         }
         $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');
         // 59 with Help, Manage, Rules, Terms and Wordfilter; 54 with Adminstories and Mailusers; 52 with Contact, Signupcheck, Profilefields and Activity; 48 with the Categories, Ratings, Tags and Characters managers; 44 since the site text editor (Text); 43 since the Compare feature left (marketing copy is documentation
