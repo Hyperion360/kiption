@@ -96,6 +96,18 @@ final class AdminToolsTest extends TestCase
         return $as === null ? $client : $client->actingAs($as);
     }
 
+    public function test_the_last_admin_cannot_be_demoted(): void
+    {
+        $admin = $this->client($this->adminId());
+        $db = $this->db();
+        $db->query("UPDATE users SET role = 'member', is_admin = 0 WHERE role = 'admin' AND id != ?", [$this->adminId()]);
+        $this->assertSame(422, $admin->postWithToken('/adminmembers/role/' . $this->adminId() . '/member')->status);
+        $this->assertSame('admin', $db->one('SELECT role FROM users WHERE id = ?', [$this->adminId()])['role']);
+        $this->assertSame(302, $admin->postWithToken('/adminmembers/role/' . $this->memberId() . '/admin')->status);
+        $this->assertSame(302, $admin->postWithToken('/adminmembers/role/' . $this->adminId() . '/member')->status,
+            'with a second admin in place, stepping down is allowed');
+    }
+
     public function test_admin_changes_roles_through_setrole_only(): void
     {
         $admin = $this->client($this->adminId());

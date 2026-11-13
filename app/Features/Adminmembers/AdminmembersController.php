@@ -69,9 +69,12 @@ final class AdminmembersController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         if (!in_array($role, Adminness::ROLES, true)) return new Response(\App\Lang::t('admin.err_role'), 422);
-        if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return new Response(\App\Lang::t('error.not_found'), 404);
-        if ($this->db->one('SELECT id FROM users WHERE id = ?', [(int) $id]) === null) {
-            return new Response(\App\Lang::t('error.not_found'), 404);
+        $target = $this->target($id);
+        if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($this->isDeleted($target)) return new Response(\App\Lang::t('adminmembers.err_deleted'), 422);
+        // Demoting the last admin who can sign in would lock everyone out of the admin pages.
+        if ($role !== 'admin' && $this->isLastAdmin($target)) {
+            return new Response(\App\Lang::t('adminmembers.err_last_admin'), 422);
         }
         Adminness::setRole($this->db, (int) $id, $role); // the iff invariant lives there
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.role', 'member ' . (int) $id . ' is now ' . $role);
