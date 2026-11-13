@@ -113,7 +113,7 @@ final class WranglingController
             // rare admin actions.
             \App\ActivityLog::by($this->db, $this->session, 'wrangling.merge', 'tag ' . $synonymId . ' into ' . $canonicalId);
             \App\CachePurge::run($this->app, $this->db);
-            return \App\Saved::to('/wrangling');
+            return \App\Saved::to('/wrangling', \App\CachePurge::savedCode($this->app));
         }
         if ($synonymId !== 0 && $synonym === null) return new Response(\App\Lang::t('error.not_found'), 404);
         return $this->renderMergeForm($rows, $synonym, null);
@@ -130,7 +130,7 @@ final class WranglingController
         $this->db->query('UPDATE tags SET canonical_id = NULL WHERE id = ?', [(int) $id]);
         \App\ActivityLog::by($this->db, $this->session, 'wrangling.unmerge', 'tag ' . (int) $id);
         \App\CachePurge::run($this->app, $this->db); // the tag's label just changed on every page it sits on
-        return \App\Saved::to('/wrangling', 'removed');
+        return \App\Saved::to('/wrangling', \App\CachePurge::savedCode($this->app, 'removed'));
     }
 
     /** ONE query: every tag with its type, its canonical (retirement state)

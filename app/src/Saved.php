@@ -17,6 +17,7 @@ final class Saved
         'turned_on' => 'admin.saved_turned_on', 'turned_off' => 'admin.saved_turned_off',
         'locked' => 'admin.saved_locked', 'unlocked' => 'admin.saved_unlocked',
         'changed_since' => 'admin.saved_changed_since', 'penname' => 'saved.penname',
+        'live_soon' => 'saved.live_soon',
     ];
 
     /** The only actions the line may offer to take back: a member lock or

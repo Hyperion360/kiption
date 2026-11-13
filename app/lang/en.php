@@ -136,6 +136,8 @@ return [
     'account.penname_not_allowed' => "That name isn't allowed here.",
     'account.too_many_changes' => 'Too many changes in a row. Try again in a few minutes.',
     'saved.penname' => 'Your pen name is now {name}.',
+    'saved.live_soon' => 'Saved. You see it now; visitors may see the old version for up to four hours.',
+    'saved.live_soon_note' => 'You see it now; visitors may see the old version for up to four hours.',
     'settings.penname_pointer' => 'Your own pen name is in',
     'settings.penname_pointer_link' => 'Account settings',
     'auth.err_penname_taken' => 'That pen name is already taken.',

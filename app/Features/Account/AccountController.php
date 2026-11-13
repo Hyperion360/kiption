@@ -330,6 +330,7 @@ final class AccountController
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
             'notice' => $notice,
+            'liveSoon' => \App\CachePurge::liveSoon($this->app),
             'error' => $error,
             'errorParams' => $this->errorParams,
             'pennameError' => $this->pennameError,

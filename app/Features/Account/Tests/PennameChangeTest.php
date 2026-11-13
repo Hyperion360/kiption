@@ -28,9 +28,9 @@ final class PennameChangeTest extends TestCase
         @unlink(substr($this->path, 0, -7));
     }
 
-    private function client(?int $as = null): TestClient
+    private function client(?int $as = null, array $extra = []): TestClient
     {
-        $client = new TestClient(new App([
+        $client = new TestClient(new App($extra + [
             'app_dir' => dirname(__DIR__, 4) . '/app', 'env' => 'prod', 'views' => dirname(__DIR__, 4) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path], 'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => tempnam(sys_get_temp_dir(), 'kiption-pn-mail-') . '.log', 'from' => 'noreply@localhost'],
@@ -203,5 +203,18 @@ final class PennameChangeTest extends TestCase
         $admin = $this->member('Boss', 'admin');
         $html = $this->client($admin)->get('/settings')->body;
         $this->assertStringContainsString('href="/account/settings#penname"', $html);
+    }
+
+    public function test_success_adds_the_live_soon_sentence_only_when_visitors_will_lag(): void
+    {
+        $note = 'You see it now; visitors may see the old version for up to four hours.';
+        $id = $this->member('Clark');
+        $plain = $this->client($id)->get('/account/settings', ['saved' => 'penname'])->body;
+        $this->assertStringNotContainsString($note, $plain);
+        $proxied = $this->client($id, ['trusted_proxy' => true])->get('/account/settings', ['saved' => 'penname'])->body;
+        $this->assertStringContainsString('Your pen name is now Clark. ' . $note, $proxied);
+        $purged = $this->client($id, ['trusted_proxy' => true, 'cdn' => ['enabled' => true, 'zone_id' => 'z', 'api_token' => 't', 'purge_host' => 'a.example']])
+            ->get('/account/settings', ['saved' => 'penname'])->body;
+        $this->assertStringNotContainsString($note, $purged);
     }
 }

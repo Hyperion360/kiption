@@ -37,7 +37,7 @@ final class RatingsController extends AdminScreen
             [$label, $this->adult(), $this->warning(), $position]);
         \App\ActivityLog::by($this->db, $this->session, 'ratings.create', $label);
         $this->purge();
-        return \App\Saved::to('/ratings', 'added');
+        return \App\Saved::to('/ratings', \App\CachePurge::savedCode($this->app, 'added'));
     }
 
     #[Auth] #[Post]
@@ -52,7 +52,7 @@ final class RatingsController extends AdminScreen
             [$label, $this->adult(), $this->warning(), (int) $row['id']]);
         \App\ActivityLog::by($this->db, $this->session, 'ratings.update', $label);
         $this->purge();
-        return \App\Saved::to('/ratings');
+        return \App\Saved::to('/ratings', \App\CachePurge::savedCode($this->app));
     }
 
     /** Swap with the neighbour above or below. Positions are renumbered 1..n first. */
@@ -66,7 +66,7 @@ final class RatingsController extends AdminScreen
         $this->swapPosition('ratings', $ids, (int) $row['id'], $dir);
         \App\ActivityLog::by($this->db, $this->session, 'ratings.move', 'rating ' . (int) $row['id'] . ' ' . $dir);
         $this->purge();
-        return \App\Saved::to('/ratings', 'moved');
+        return \App\Saved::to('/ratings', \App\CachePurge::savedCode($this->app, 'moved'));
     }
 
     /** GET shows the confirm step; POST deletes, or refuses with the reason. */
@@ -96,7 +96,7 @@ final class RatingsController extends AdminScreen
         });
         \App\ActivityLog::by($this->db, $this->session, 'ratings.delete', (string) $row['label']);
         $this->purge();
-        return \App\Saved::to('/ratings', 'removed');
+        return \App\Saved::to('/ratings', \App\CachePurge::savedCode($this->app, 'removed'));
     }
 
     private function label(): string

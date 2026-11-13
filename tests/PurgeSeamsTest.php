@@ -42,15 +42,15 @@ final class PurgeSeamsTest extends TestCase
         @unlink(substr($this->path, 0, -7));
     }
 
-    private function admin(): TestClient
+    private function admin(?array $cdn = null, array $extra = []): TestClient
     {
-        return (new TestClient(new App([
+        return (new TestClient(new App($extra + [
             'app_dir' => $this->root . '/app', 'features_dir' => dirname(__DIR__) . '/app/Features', 'env' => 'prod', 'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path], 'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->root . '/mail.log', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => $this->root . '/upl'], 'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'nav_file' => $this->root . '/nav.json', 'static_cache' => ['dir' => $this->root . '/static'],
-            'cdn' => ['enabled' => true, 'zone_id' => 'z', 'api_token' => 't', 'purge_host' => 'archive.example'],
+            'cdn' => $cdn ?? ['enabled' => true, 'zone_id' => 'z', 'api_token' => 't', 'purge_host' => 'archive.example'],
         ])))->actingAs($this->adminId);
     }
 
@@ -95,5 +95,30 @@ final class PurgeSeamsTest extends TestCase
         $id = (int) $this->db->lastInsertId();
         $admin = $this->admin();
         $this->assertSame(1, $this->purgesFrom(fn () => $admin->postWithToken('/adminmembers/destroy/' . $id, ['stories' => 'remove'])));
+    }
+
+    public function test_saves_say_when_visitors_will_see_the_change(): void
+    {
+        $off = ['enabled' => false];
+        $save = fn (TestClient $c) => $c->postWithToken('/nav/create', ['label' => 'Rules', 'url' => '/rules'])->headers['Location'];
+        CachePurge::reset();
+        $this->assertStringContainsString('saved=added', $save($this->admin($off)), 'no CDN in front: plain line');
+        CachePurge::reset();
+        $this->assertStringContainsString('saved=live_soon', $save($this->admin($off, ['trusted_proxy' => true])), 'a proxy but no purge: say so');
+        CachePurge::reset();
+        $this->assertStringContainsString('saved=added', $save($this->admin(null, ['trusted_proxy' => true])), 'purging is configured: plain line');
+        CachePurge::reset();
+        $tag = $this->admin($off, ['trusted_proxy' => true])->postWithToken('/tags/addtype', ['name' => 'Genres']);
+        $this->assertStringContainsString('saved=live_soon', $tag->headers['Location']);
+        $this->assertStringContainsString('type=', $tag->headers['Location']);
+    }
+
+    public function test_the_live_soon_line_renders_from_its_fixed_code(): void
+    {
+        CachePurge::reset();
+        $admin = $this->admin(['enabled' => false], ['trusted_proxy' => true]);
+        $loc = $admin->postWithToken('/nav/create', ['label' => 'Rules', 'url' => '/rules'])->headers['Location'];
+        $this->assertStringContainsString('Saved. You see it now; visitors may see the old version for up to four hours.', $admin->get('/nav', ['saved' => 'live_soon'])->body);
+        $this->assertStringContainsString('live_soon', $loc);
     }
 }

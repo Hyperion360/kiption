@@ -57,4 +57,19 @@ final class CachePurge
         $app->defer(static fn () => self::reset());
         return self::$result = $queued;
     }
+
+    /** True when a CDN sits in front (trusted_proxy) but edge purging is not on,
+     *  so visitors may keep the old copy for a while after a save. */
+    public static function liveSoon(\Kip\App $app): bool
+    {
+        $cdn = (array) ($app->config('cdn', []) ?? []);
+        return !empty($app->config('trusted_proxy')) && empty($cdn['enabled']);
+    }
+
+    /** The Saved code for a save that changed public pages: "live_soon" when
+     *  visitors will lag, else the code the screen would have used. */
+    public static function savedCode(\Kip\App $app, string $code = '1'): string
+    {
+        return self::liveSoon($app) ? 'live_soon' : $code;
+    }
 }

@@ -9,7 +9,7 @@
     <h1><?= \App\Lang::t('account.settings') ?></h1>
     <p class="lede"><?= $this->e($me['a']) ?> · <?= $this->e($me['b']) ?> · <span class="badge"><?= $this->e($me['c']) ?></span></p>
   </header>
-  <?php if (!empty($notice)): ?><p class="notice" role="status"><?= \App\Lang::t($notice, $notice === 'saved.penname' ? ['name' => $this->e($me['a'])] : []) ?></p><?php endif; ?>
+  <?php if (!empty($notice)): ?><p class="notice" role="status"><?= \App\Lang::t($notice, $notice === 'saved.penname' ? ['name' => $this->e($me['a'])] : []) ?><?= $notice === 'saved.penname' && !empty($liveSoon) ? ' ' . \App\Lang::t('saved.live_soon_note') : '' ?></p><?php endif; ?>
   <?php if (!empty($error)): ?><p class="error" role="alert"><?= \App\Lang::t($error, $errorParams ?? []) ?></p><?php endif; ?>
   <div class="settings-group">
   <h2 class="section-label"><?= \App\Lang::t('account.section_profile') ?></h2>

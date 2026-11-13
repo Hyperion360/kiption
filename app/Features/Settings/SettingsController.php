@@ -129,7 +129,7 @@ final class SettingsController
         if ($invalid !== []) return new Response(\App\Lang::t('settings.err_invalid') . ' ' . implode(', ', $invalid), 422);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'settings.save', implode(', ', $changed));
         \App\CachePurge::run($this->app, $this->db);
-        return \App\Saved::to('/settings');
+        return \App\Saved::to('/settings', \App\CachePurge::savedCode($this->app));
     }
 
     /** Save one section of the board. Only that section's settings are read
@@ -172,7 +172,7 @@ final class SettingsController
             \App\ActivityLog::record($this->db, $adminId, 'settings.save', implode(', ', $changed));
             \App\CachePurge::run($this->app, $this->db);
         }
-        return \App\Saved::to('/settings#s-' . $section);
+        return \App\Saved::to('/settings#s-' . $section, \App\CachePurge::savedCode($this->app));
     }
 
     /** What two of the switches are holding back right now, in one statement,

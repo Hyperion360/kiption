@@ -40,7 +40,7 @@ final class CategoriesController extends AdminScreen
             [$parent, $name, $slug, $this->description(), $position]);
         \App\ActivityLog::by($this->db, $this->session, 'categories.create', $name);
         $this->purge();
-        return \App\Saved::to('/categories', 'added');
+        return \App\Saved::to('/categories', \App\CachePurge::savedCode($this->app, 'added'));
     }
 
     #[Auth] #[Post]
@@ -66,7 +66,7 @@ final class CategoriesController extends AdminScreen
             [$name, $this->description(), $parent, ($this->request->post['locked'] ?? '') === '1' ? 1 : 0, $position, (int) $row['id']]);
         \App\ActivityLog::by($this->db, $this->session, 'categories.update', $name);
         $this->purge();
-        return \App\Saved::to('/categories');
+        return \App\Saved::to('/categories', \App\CachePurge::savedCode($this->app));
     }
 
     /** Swap the category with the sibling above or below it. Siblings are
@@ -83,7 +83,7 @@ final class CategoriesController extends AdminScreen
         $this->swapPosition('categories', $ids, (int) $row['id'], $dir);
         \App\ActivityLog::by($this->db, $this->session, 'categories.move', 'category ' . (int) $row['id'] . ' ' . $dir);
         $this->purge();
-        return \App\Saved::to('/categories', 'moved');
+        return \App\Saved::to('/categories', \App\CachePurge::savedCode($this->app, 'moved'));
     }
 
     /** GET shows the confirm step; POST deletes (or refuses with the reason). */
@@ -118,7 +118,7 @@ final class CategoriesController extends AdminScreen
         });
         \App\ActivityLog::by($this->db, $this->session, 'categories.delete', (string) $row['name']);
         $this->purge();
-        return \App\Saved::to('/categories', 'removed');
+        return \App\Saved::to('/categories', \App\CachePurge::savedCode($this->app, 'removed'));
     }
 
     private function name(): string

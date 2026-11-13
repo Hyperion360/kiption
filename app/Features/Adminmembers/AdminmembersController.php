@@ -191,7 +191,7 @@ final class AdminmembersController
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.delete', 'member ' . $uid . ($heir !== null ? ', stories moved' : ', stories removed'));
         // Stories, series and author pages all changed hands: clear the lot.
         \App\CachePurge::run($this->app, $this->db);
-        return \App\Saved::to('/adminmembers');
+        return \App\Saved::to('/adminmembers', \App\CachePurge::savedCode($this->app));
     }
 
     private function target(string $id): ?array

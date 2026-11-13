@@ -86,4 +86,21 @@ final class CachePurgeTest extends TestCase
         CachePurge::run($app, $this->db);
         $this->assertFileDoesNotExist($marker, 'after reset() the next save prunes again');
     }
+
+    public function test_no_cdn_save_says_saved(): void
+    {
+        $app = $this->app(['cdn' => ['enabled' => false]]); // trusted_proxy unset: nothing in front
+        $this->assertFalse(CachePurge::liveSoon($app));
+        $this->assertSame('added', CachePurge::savedCode($app, 'added'));
+        $this->assertSame('1', CachePurge::savedCode($app));
+    }
+
+    public function test_proxy_without_purge_says_live_soon(): void
+    {
+        $app = $this->app(['trusted_proxy' => true, 'cdn' => ['enabled' => false]]);
+        $this->assertTrue(CachePurge::liveSoon($app));
+        $this->assertSame('live_soon', CachePurge::savedCode($app, 'removed'));
+        $this->assertTrue(CachePurge::liveSoon($this->app(['trusted_proxy' => true])));
+        $this->assertFalse(CachePurge::liveSoon($this->app($this->cdn() + ['trusted_proxy' => true])), 'purging is configured');
+    }
 }

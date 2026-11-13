@@ -48,7 +48,7 @@ final class TagsController extends AdminScreen
         $id = (int) $this->db->lastInsertId();
         \App\ActivityLog::by($this->db, $this->session, 'tags.addtype', $name);
         $this->purge();
-        return \App\Saved::to('/tags?type=' . $id, 'added'); // land on the new type, ready to add its first tag
+        return \App\Saved::to('/tags?type=' . $id, \App\CachePurge::savedCode($this->app, 'added')); // land on the new type, ready to add its first tag
     }
 
     #[Auth] #[Post]
@@ -63,7 +63,7 @@ final class TagsController extends AdminScreen
         $this->db->query('UPDATE tag_types SET name = ? WHERE id = ?', [$name, (int) $type['id']]);
         \App\ActivityLog::by($this->db, $this->session, 'tags.updatetype', $name);
         $this->purge();
-        return \App\Saved::to('/tags');
+        return \App\Saved::to('/tags', \App\CachePurge::savedCode($this->app));
     }
 
     /** Swap with the type above or below; positions are renumbered 1..n first. */
@@ -77,7 +77,7 @@ final class TagsController extends AdminScreen
         $this->swapPosition('tag_types', $ids, (int) $type['id'], $dir);
         \App\ActivityLog::by($this->db, $this->session, 'tags.movetype', 'type ' . (int) $type['id'] . ' ' . $dir);
         $this->purge();
-        return \App\Saved::to('/tags', 'moved');
+        return \App\Saved::to('/tags', \App\CachePurge::savedCode($this->app, 'moved'));
     }
 
     #[Auth] #[Get] #[Post]
@@ -92,7 +92,7 @@ final class TagsController extends AdminScreen
         $this->db->query('DELETE FROM tag_types WHERE id = ?', [(int) $type['id']]);
         \App\ActivityLog::by($this->db, $this->session, 'tags.deletetype', (string) $type['name']);
         $this->purge();
-        return \App\Saved::to('/tags', 'removed');
+        return \App\Saved::to('/tags', \App\CachePurge::savedCode($this->app, 'removed'));
     }
 
     #[Auth] #[Post]
@@ -107,7 +107,7 @@ final class TagsController extends AdminScreen
         $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [(int) $type['id'], $name]);
         \App\ActivityLog::by($this->db, $this->session, 'tags.addtag', $name);
         $this->purge();
-        return \App\Saved::to('/tags', 'added');
+        return \App\Saved::to('/tags', \App\CachePurge::savedCode($this->app, 'added'));
     }
 
     #[Auth] #[Post]
@@ -122,7 +122,7 @@ final class TagsController extends AdminScreen
         $this->db->query('UPDATE tags SET name = ? WHERE id = ?', [$name, (int) $tag['id']]);
         \App\ActivityLog::by($this->db, $this->session, 'tags.update', $name);
         $this->purge();
-        return \App\Saved::to('/tags');
+        return \App\Saved::to('/tags', \App\CachePurge::savedCode($this->app));
     }
 
     /** GET shows the confirm step. POST deletes an unused tag, or a used one
@@ -145,7 +145,7 @@ final class TagsController extends AdminScreen
         });
         \App\ActivityLog::by($this->db, $this->session, 'tags.delete', (string) $tag['name']);
         $this->purge();
-        return \App\Saved::to('/tags', 'removed');
+        return \App\Saved::to('/tags', \App\CachePurge::savedCode($this->app, 'removed'));
     }
 
     private function name(): string
