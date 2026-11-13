@@ -5,6 +5,19 @@ use Kip\Database;
 
 final class AuthoringRepository
 {
+    /** What is waiting for a moderator, written once: the queue lists by
+     *  these, and the admin home and the settings board count by them.
+     *  Aliases: stories s, chapters ch (joined to its story s), users us. */
+    public const WAITING_STORY = 's.validated = 0 AND s.deleted_at IS NULL';
+    public const WAITING_CHAPTER = 'ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1';
+    public const WAITING_MEMBER = 'us.approved_at IS NULL AND us.email_verified_at IS NOT NULL AND us.is_locked = 0';
+
+    /** What is known about author au, packed for the queue row:
+     *  joined|stories posted|removed while waiting|reports on their stories. */
+    private const AUTHOR_FACTS = "au.created_at || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 1 AND x.deleted_at IS NULL)
+                 || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 0 AND x.deleted_at IS NOT NULL)
+                 || '|' || (SELECT COUNT(*) FROM reports r JOIN stories x ON x.id = r.story_id WHERE x.author_id = au.id)";
+
     public function __construct(private Database $db) {}
 
     /** ONE query for the story form: taxonomy rows for every caller, plus the
@@ -543,22 +556,16 @@ final class AuthoringRepository
             "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e, NULL AS f
              FROM users u WHERE u.id = ? AND u.role IN ('moderator', 'admin')
              UNION ALL
-             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at,
-                 au.created_at || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 1 AND x.deleted_at IS NULL)
-                 || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 0 AND x.deleted_at IS NOT NULL)
-                 || '|' || (SELECT COUNT(*) FROM reports r JOIN stories x ON x.id = r.story_id WHERE x.author_id = au.id)
+             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, " . self::AUTHOR_FACTS . "
              FROM stories s JOIN users au ON au.id = s.author_id
-             WHERE s.validated = 0 AND s.deleted_at IS NULL
+             WHERE " . self::WAITING_STORY . "
              UNION ALL
-             SELECT 'chapter', ch.id, ch.title, s.slug, au2.penname, ch.updated_at,
-                 au2.created_at || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au2.id AND x.validated = 1 AND x.deleted_at IS NULL)
-                 || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au2.id AND x.validated = 0 AND x.deleted_at IS NOT NULL)
-                 || '|' || (SELECT COUNT(*) FROM reports r JOIN stories x ON x.id = r.story_id WHERE x.author_id = au2.id)
-             FROM chapters ch JOIN stories s ON s.id = ch.story_id JOIN users au2 ON au2.id = s.author_id
-             WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1
+             SELECT 'chapter', ch.id, ch.title, s.slug, au.penname, ch.updated_at, " . self::AUTHOR_FACTS . "
+             FROM chapters ch JOIN stories s ON s.id = ch.story_id JOIN users au ON au.id = s.author_id
+             WHERE " . self::WAITING_CHAPTER . "
              UNION ALL
              SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at, NULL
-             FROM users us WHERE us.approved_at IS NULL AND us.email_verified_at IS NOT NULL AND us.is_locked = 0
+             FROM users us WHERE " . self::WAITING_MEMBER . "
              UNION ALL
              SELECT 'report', rp.id, rp.reason, COALESCE(st.slug, ''), (SELECT body FROM reviews rb WHERE rb.id = rp.review_id), rp.created_at, NULL
              FROM reports rp LEFT JOIN stories st ON st.id = rp.story_id

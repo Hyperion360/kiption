@@ -118,12 +118,12 @@ final class ManageController extends AdminScreen
         return $this->db->all(
             "SELECT '0gate' AS k, u.id AS n, '' AS a, '' AS b, '' AS c, '' AS d FROM users u WHERE u.id = ? AND u.role = 'admin'
              UNION ALL
-             SELECT '1stories', COUNT(*), '', '', '', '' FROM stories WHERE validated = 0 AND deleted_at IS NULL
+             SELECT '1stories', COUNT(*), '', '', '', '' FROM stories s WHERE " . \App\Repositories\AuthoringRepository::WAITING_STORY . "
              UNION ALL
              SELECT '1chapters', COUNT(*), '', '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
-             WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1
+             WHERE " . \App\Repositories\AuthoringRepository::WAITING_CHAPTER . "
              UNION ALL
-             SELECT '1members', COUNT(*), '', '', '', '' FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL AND is_locked = 0
+             SELECT '1members', COUNT(*), '', '', '', '' FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "
              UNION ALL
              SELECT '1reports', COUNT(*), '', '', '', '' FROM reports WHERE resolved_at IS NULL
              UNION ALL

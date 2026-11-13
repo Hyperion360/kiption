@@ -181,10 +181,10 @@ final class SettingsController
     private function waiting(): array
     {
         $row = $this->db->one(
-            "SELECT (SELECT COUNT(*) FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL AND is_locked = 0) AS members,
-                    (SELECT COUNT(*) FROM stories WHERE validated = 0 AND deleted_at IS NULL)
+            'SELECT (SELECT COUNT(*) FROM users us WHERE ' . \App\Repositories\AuthoringRepository::WAITING_MEMBER . ') AS members,
+                    (SELECT COUNT(*) FROM stories s WHERE ' . \App\Repositories\AuthoringRepository::WAITING_STORY . ')
                     + (SELECT COUNT(*) FROM chapters ch JOIN stories s ON s.id = ch.story_id
-                       WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1) AS queue") ?? [];
+                       WHERE ' . \App\Repositories\AuthoringRepository::WAITING_CHAPTER . ') AS queue') ?? [];
         return ['members' => (int) ($row['members'] ?? 0), 'queue' => (int) ($row['queue'] ?? 0)];
     }
 
