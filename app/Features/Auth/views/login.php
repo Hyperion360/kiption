@@ -11,5 +11,5 @@
   <label><?= \App\Lang::t('auth.password') ?> <input type="password" name="password" required autocomplete="current-password"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>
   <button><?= \App\Lang::t('auth.login.heading') ?></button>
 </form>
-<p class="auth-links"><a href="/auth/forgot"><?= \App\Lang::t('auth.login.forgot') ?></a> · <a href="/auth/link"><?= \App\Lang::t('auth.login.link') ?></a></p>
+<p class="auth-links"><a href="/auth/forgot"><?= \App\Lang::t('auth.login.forgot') ?></a> <a href="/auth/link"><?= \App\Lang::t('auth.login.link') ?></a></p>
 </section>
