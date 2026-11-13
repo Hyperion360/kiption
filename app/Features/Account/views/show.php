@@ -31,7 +31,7 @@
   </ul>
   <?php endif; ?>
   <h2 class="section-label"><?= \App\Lang::t('account.your_stories') ?></h2>
-  <?php if ($stories === []): ?><p class="empty-state"><?= \App\Lang::t('common.none_yet') ?> <a href="/story/new"><?= \App\Lang::t('account.start_one') ?></a></p>
+  <?php if ($stories === []): ?><p class="empty-state"><?= \App\Lang::t('common.none_yet') ?></p>
   <?php else: ?>
   <ul class="row-list">
     <?php foreach ($stories as $s): ?>
@@ -39,6 +39,7 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
+  <p class="section-more"><a href="/story/new"><?= \App\Lang::t('nav.post_story') ?></a></p>
   <?php if (\App\Settings::on('series_on')): ?>
   <h2 class="section-label"><?= \App\Lang::t('account.your_series') ?></h2>
   <?php if ($seriesList !== []): ?>

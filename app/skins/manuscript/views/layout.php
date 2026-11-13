@@ -93,14 +93,16 @@
     <?php $menuRead = ['/browse' => \App\Lang::t('nav.browse'), '/browse/recent' => \App\Lang::t('nav.recent'),
                        '/browse/authors' => \App\Lang::t('nav.authors'), '/series' => \App\Lang::t('nav.series'),
                        '/search' => \App\Lang::t('nav.search')];
-       $menuSeen = $menuRead + ['/account' => '', '/messages' => '', '/notifications' => '', '/auth/login' => '']; ?>
+       $menuSeen = $menuRead + ['/story/new' => '', '/account' => '', '/messages' => '', '/notifications' => '', '/auth/login' => '']; ?>
     <nav aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <?php if ($loggedIn ?? false): ?>
       <span class="sheet-group"><?= \App\Lang::t('nav.you') ?></span>
+<?= $this->render('menu_post') ?>
       <a href="/account"><?= \App\Lang::t('nav.library') ?></a>
       <?php if (\App\Features::on('pms')): ?><a href="/messages"><?= \App\Lang::t('nav.messages') ?></a><?php endif; ?>
       <a href="/notifications"><?= \App\Lang::t('nav.notifications') ?></a>
       <a href="/account/settings"><?= \App\Lang::t('account.settings') ?></a>
+<?= $this->render('menu_staff') ?>
       <?php endif; ?>
       <span class="sheet-group"><?= \App\Lang::t('nav.read') ?></span>
       <?php foreach ($menuRead as $menuUrl => $menuLabel): ?>
@@ -111,11 +113,6 @@
 <?php endforeach; ?>
       <?php if (!($loggedIn ?? false)): ?>
       <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>
-      <?php endif; ?>
-      <?php if ($isAdmin ?? false): ?>
-      <span class="sheet-group"><?= \App\Lang::t('nav.operator') ?></span>
-      <a href="/manage"><?= \App\Lang::t('nav.manage') ?></a>
-      <a href="/queue"><?= \App\Lang::t('nav.queue') ?></a>
       <?php endif; ?>
     </nav>
     <?php if (($loggedIn ?? false) && !empty($csrf)): ?>

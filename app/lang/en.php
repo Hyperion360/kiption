@@ -73,6 +73,7 @@ return [
     'nav.site_text' => 'Site text',
     'nav.post_news' => 'Post news',
     'nav.manage' => 'Archive admin',
+    'nav.post_story' => 'Post a story',
     'nav.site_label' => 'Site',
     'common.done' => 'Done',
     'theme.paper' => 'Paper',

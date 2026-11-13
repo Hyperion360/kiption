@@ -2,6 +2,7 @@
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('manage.heading') ?></h1>
 <p class="lede"><?= \App\Lang::t('manage.intro') ?></p>
+<p class="admin-quick"><a class="btn" href="/story/new"><?= \App\Lang::t('nav.post_story') ?></a></p>
 <?php
 $queue = $waiting['stories'] + $waiting['chapters'];
 $cards = [
