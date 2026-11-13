@@ -11,8 +11,10 @@ final class ActivityController extends AdminScreen
         if ($r = $this->deny()) return $r;
         $perPage = max(1, (int) $this->app->config('items_per_page', 20));
         $page = min(max(1, (int) ($this->request->get['page'] ?? 1)), intdiv(PHP_INT_MAX, $perPage));
-        $who = mb_substr(trim((string) ($this->request->get['who'] ?? '')), 0, 60);
-        $kind = (string) ($this->request->get['kind'] ?? '');
+        $who = $this->request->get['who'] ?? '';
+        $who = \is_string($who) ? mb_substr(trim($who), 0, 60) : '';
+        $kind = $this->request->get['kind'] ?? '';
+        if (!\is_string($kind)) $kind = '';
         if (!isset(\App\ActivityLog::KINDS[$kind])) $kind = '';
         $rows = \App\ActivityLog::recent($this->db, $perPage, ($page - 1) * $perPage, $who, $kind);
         $hasMore = \count($rows) > $perPage;

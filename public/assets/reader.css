@@ -438,8 +438,8 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .confirm-step { max-width: 560px; }
 .confirm-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-block-start: 24px; }
 .confirm-actions :is(a.btn, button) { min-height: 48px; padding-inline: 20px; }
-.confirm-actions .btn-danger { background: #a3261e; border-color: #a3261e; color: #fff; }
-.confirm-actions .btn-danger:hover { background: #861c16; color: #fff; }
+.confirm-actions .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.confirm-actions .btn-danger:hover { background: var(--danger); color: var(--bg); filter: brightness(.88); }
 /* The line that answers an admin save ("Saved.", "Removed."). It sits above
    the page it answers, at the page's own measure. */
 .saved-note { max-width: var(--page-measure, 1120px); margin: 16px auto 0; padding: 12px 16px; border-radius: 8px; border-inline-start: 4px solid var(--accent); font-size: 15px; }

@@ -19,18 +19,25 @@
       var form = el && el.form;
       return !!form && (form.getAttribute('method') || '').toLowerCase() === 'post' && !form.hasAttribute('data-unsaved-skip');
     }
-    /* Unsaved changes. A screen that came back with an error and still
-       holds what was typed starts out as changed; one that came back with
-       empty fields has nothing to lose. */
-    var changed = main.querySelector('.form-error, .error') !== null
-      && Array.prototype.some.call(main.querySelectorAll('input[type="text"], input:not([type]), input[type="email"], input[type="url"], input[type="number"], textarea'), function (f) {
-        return counts(f) && f.value !== '';
+    /* Unsaved changes, per form: saving one section of a screen must not
+       forget what was typed in another. A screen that came back with an
+       error and still holds what was typed starts out as changed; one that
+       came back with empty fields has nothing to lose. */
+    var dirty = [];
+    function mark(el) { if (counts(el) && dirty.indexOf(el.form) < 0) { dirty.push(el.form); } }
+    if (main.querySelector('.form-error, .error') !== null) {
+      Array.prototype.forEach.call(main.querySelectorAll('input[type="text"], input:not([type]), input[type="email"], input[type="url"], input[type="number"], textarea'), function (f) {
+        if (f.value !== '') { mark(f); }
       });
-    main.addEventListener('input', function (e) { if (counts(e.target)) { changed = true; } });
-    main.addEventListener('change', function (e) { if (counts(e.target)) { changed = true; } });
-    document.addEventListener('submit', function () { changed = false; });
+    }
+    main.addEventListener('input', function (e) { mark(e.target); });
+    main.addEventListener('change', function (e) { mark(e.target); });
+    document.addEventListener('submit', function (e) {
+      var i = dirty.indexOf(e.target);
+      if (i >= 0) { dirty.splice(i, 1); }
+    });
     window.addEventListener('beforeunload', function (e) {
-      if (!changed) { return; }
+      if (dirty.length === 0) { return; }
       e.preventDefault();
       e.returnValue = '';
     });

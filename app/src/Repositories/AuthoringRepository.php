@@ -558,7 +558,7 @@ final class AuthoringRepository
              WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1
              UNION ALL
              SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at, NULL
-             FROM users us WHERE us.approved_at IS NULL AND us.email_verified_at IS NOT NULL
+             FROM users us WHERE us.approved_at IS NULL AND us.email_verified_at IS NOT NULL AND us.is_locked = 0
              UNION ALL
              SELECT 'report', rp.id, rp.reason, COALESCE(st.slug, ''), (SELECT body FROM reviews rb WHERE rb.id = rp.review_id), rp.created_at, NULL
              FROM reports rp LEFT JOIN stories st ON st.id = rp.story_id

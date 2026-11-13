@@ -12,12 +12,15 @@ final class MassMail
     /** Seconds the whole archive waits between broadcasts from the screen. */
     public const COOLDOWN = 600;
 
+    /** Who a broadcast reaches: signed-up, approved, confirmed, not locked. */
+    private const REACHED = 'FROM users WHERE penname IS NOT NULL AND is_locked = 0
+        AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL';
+
     /** @return list<string> the addresses, oldest member first */
     public static function recipients(Database $db): array
     {
         return array_column($db->all(
-            'SELECT email FROM users WHERE penname IS NOT NULL AND is_locked = 0
-             AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL ORDER BY id'), 'email');
+            'SELECT email ' . self::REACHED . ' ORDER BY id'), 'email');
     }
 
     /** For the compose screen, in one statement: how many people a message
@@ -26,8 +29,7 @@ final class MassMail
     public static function summary(Database $db): array
     {
         $row = $db->one(
-            'SELECT (SELECT COUNT(*) FROM users WHERE penname IS NOT NULL AND is_locked = 0
-                     AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL) AS n,
+            'SELECT (SELECT COUNT(*) ' . self::REACHED . ') AS n,
                     (SELECT sent_at FROM mass_mail_log ORDER BY sent_at DESC LIMIT 1) AS last_at,
                     (SELECT subject FROM mass_mail_log ORDER BY sent_at DESC LIMIT 1) AS last_subject') ?? [];
         return ['n' => (int) ($row['n'] ?? 0), 'last_at' => $row['last_at'] ?? null, 'last_subject' => $row['last_subject'] ?? null];

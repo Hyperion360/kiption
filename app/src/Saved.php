@@ -20,7 +20,7 @@ final class Saved
 
     /** The only actions the line may offer to take back: each is its own
      *  opposite (lock and unlock, a feature switch pressed again). */
-    private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/toggle/[a-z0-9_]+)$#';
+    private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/set/[a-z0-9_]+/(on|off))$#';
 
     /** Redirect to $url with the code attached (before any #fragment). */
     public static function to(string $url, string $code = '1'): Response

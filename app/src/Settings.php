@@ -82,6 +82,15 @@ final class Settings
         Features::putSetting($key, $value);
     }
 
+    /** Would put() accept this value? Lets a form check every field before
+     *  it writes any of them. */
+    public static function accepts(string $key, string $value): bool
+    {
+        if (!\array_key_exists($key, self::KEYS)) return false;
+        try { self::validate($key, $value); } catch (\InvalidArgumentException) { return false; }
+        return true;
+    }
+
     private static function validate(string $key, string $value): void
     {
         [$kind, $rest] = array_pad(explode(':', self::KEYS[$key], 2), 2, '');

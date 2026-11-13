@@ -118,6 +118,22 @@ final class SettingsSectionsTest extends TestCase
         $this->assertSame('0', $this->setting('maintenance_on'));
     }
 
+    public function test_a_refused_section_saves_nothing_at_all(): void
+    {
+        $c = $this->client($this->adminId);
+        $before = $this->setting('site_name');
+        $res = $c->postWithToken('/settings/save', ['section' => 'basics', 'site_name' => 'Half Saved', 'slogan' => 'ok', 'items_per_page' => '99999']);
+        $this->assertSame(422, $res->status);
+        $this->assertSame($before, $this->setting('site_name'), 'one bad field keeps the good ones from saving too');
+    }
+
+    public function test_a_field_sent_as_a_list_is_refused_not_crashed(): void
+    {
+        $c = $this->client($this->adminId);
+        $this->assertSame(422, $c->postWithToken('/settings/save', ['section' => 'basics', 'site_name' => ['a', 'b'], 'slogan' => 'ok', 'items_per_page' => '15'])->status);
+        $this->assertSame(200, $c->get('/activity', ['who' => ['x'], 'kind' => ['y']])->status);
+    }
+
     public function test_an_unticked_box_in_the_saved_section_is_off(): void
     {
         $c = $this->client($this->adminId);

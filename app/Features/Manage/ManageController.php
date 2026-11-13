@@ -123,7 +123,7 @@ final class ManageController extends AdminScreen
              SELECT '1chapters', COUNT(*), '', '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
              WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1
              UNION ALL
-             SELECT '1members', COUNT(*), '', '', '', '' FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL
+             SELECT '1members', COUNT(*), '', '', '', '' FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL AND is_locked = 0
              UNION ALL
              SELECT '1reports', COUNT(*), '', '', '', '' FROM reports WHERE resolved_at IS NULL
              UNION ALL

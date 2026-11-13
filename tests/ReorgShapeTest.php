@@ -86,7 +86,7 @@ final class ReorgShapeTest extends TestCase
             if ($f[0] === '.') continue;
             // admin_nav, admin_tabs and confirm are shell partials every layout
             // and skin includes for owner screens, so they sit beside the layout.
-            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php', 'admin_nav.php', 'admin_tabs.php', 'confirm.php'],
+            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php', 'admin_nav.php', 'admin_tabs.php', 'admin_main.php', 'confirm.php'],
                 'app/views must hold only the kernel layout, its shell partials, maintenance and notice pages, found ' . $f);
         }
         $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');

@@ -1362,7 +1362,6 @@ return [
     'wordfilter.intro' => 'Words and phrases, one per line, that are not allowed in reviews, comments, private messages, the contact form, pennames and profile bios. Matching ignores capital letters and only finds whole words. Story and chapter text is never checked.',
     'wordfilter.label' => 'Blocked words and phrases',
     'wordfilter.save' => 'Save word filter',
-    'wordfilter.saved' => 'Word filter saved.',
     'wordfilter.count' => '{count} entries',
     'wordfilter.err_too_many' => 'The list is limited to {max} entries.',
     'wordfilter.err_too_long' => 'A word or phrase can be at most {max} characters.',

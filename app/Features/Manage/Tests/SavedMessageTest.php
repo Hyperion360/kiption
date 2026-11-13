@@ -139,7 +139,26 @@ final class SavedMessageTest extends TestCase
         $to = $c->postWithToken('/features/toggle/news', [])->headers['Location'] ?? '';
         parse_str((string) parse_url($to, PHP_URL_QUERY), $query);
         $this->assertSame('turned_off', $query['saved'] ?? '');
-        $this->assertStringContainsString('action="/features/toggle/news" class="inline"', $c->get('/features', $query)->body);
+        $this->assertStringContainsString('action="/features/set/news/on" class="inline"', $c->get('/features', $query)->body);
+        // Undo names the state to go back to, so pressing it twice (a second
+        // tab, the back button) cannot flip the switch a second time.
+        $this->assertSame(302, $c->postWithToken('/features/set/news/on', [])->status);
+        $this->assertSame(302, $c->postWithToken('/features/set/news/on', [])->status);
+        \App\Features::init(new \Kip\Database('sqlite:' . $this->path), []);
+        $this->assertTrue(\App\Features::on('news'));
+        $this->assertSame(422, $c->postWithToken('/features/set/news/sideways', [])->status);
+        $this->assertSame(422, $c->postWithToken('/features/set/no-such-flag/on', [])->status);
+    }
+
+    public function test_no_undo_when_nothing_changed(): void
+    {
+        $c = $this->client($this->adminId);
+        $c->postWithToken('/adminmembers/lock/' . $this->memberId, []);
+        $again = $c->postWithToken('/adminmembers/lock/' . $this->memberId, [])->headers['Location'] ?? '';
+        $this->assertSame('/adminmembers?saved=locked', $again, 'locking a locked member offers no undo that would unlock them');
+        $c->postWithToken('/adminmembers/unlock/' . $this->memberId, []);
+        $again = $c->postWithToken('/adminmembers/unlock/' . $this->memberId, [])->headers['Location'] ?? '';
+        $this->assertSame('/adminmembers?saved=unlocked', $again);
     }
 
     public function test_an_undo_button_never_comes_from_a_link_someone_else_made(): void

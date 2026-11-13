@@ -85,42 +85,8 @@
        panel on desktop. Guests see every destination in the desktop row. */ ?>
     <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
-  <?php /* Owner screens only: the list of every admin screen (a sidebar on
-     wide screens, a tab bar and sheet on phones) and the way back to the
-     list a sub-screen belongs to. Members and guests never get these bytes. */
-     $admin = ($isAdmin ?? false) ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? ''), $adminDatabase ?? null) : null;
-     if ($admin !== null): ?>
-  <div class="admin-shell" data-js-module="adminforms" data-count-text="<?= $this->e(\App\Lang::t('admin.count')) ?>">
-  <?= $this->render('admin_nav', ['admin' => $admin]) ?>
-  <div class="admin-body">
-  <?php if (count($admin['trail']) > 1): // a sub-screen: the list it belongs to. The sidebar and tab bar already lead home. ?>
-  <nav class="admin-trail" aria-label="<?= $this->e(\App\Lang::t('manage.trail_label')) ?>">
-    <?php foreach ($admin['trail'] as $step): ?><a href="<?= $this->e($step['url']) ?>"><?= \App\Lang::t($step['label']) ?></a><?php endforeach; ?>
-  </nav>
-  <?php endif; ?>
-  <?php endif; ?>
-  <?php /* The answer to a save: the redirect carried a short code and this is its line. Staff screens only. */
-     $savedKey = ($admin !== null || ($staff ?? false)) ? \App\Saved::message($request ?? null) : null;
-     if ($savedKey !== null): ?>
-  <?php $undo = \App\Saved::undo($request ?? null, (string) ($csrf ?? '')); ?>
-  <?php if ($undo === null): ?>
-  <p class="notice saved-note" role="status" data-js-module="saved"><?= \App\Lang::t($savedKey) ?></p>
-  <?php else: ?>
-  <div class="notice saved-note saved-note-undo" role="status" data-js-module="saved">
-    <span><?= \App\Lang::t($savedKey) ?></span>
-    <form method="post" action="<?= $this->e($undo) ?>" class="inline">
-      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-      <button type="submit" class="saved-undo"><?= \App\Lang::t('admin.undo') ?></button>
-    </form>
-  </div>
-  <?php endif; ?>
-  <?php endif; ?>
-  <main class="site-main"><?= $content ?></main>
-  <?php if ($admin !== null): ?>
-  </div>
-  </div>
-  <?= $this->render('admin_tabs', ['admin' => $admin]) ?>
-  <?php endif; ?>
+  <?= $this->render('admin_main', ['content' => $content, 'isAdmin' => $isAdmin ?? false, 'staff' => $staff ?? false,
+      'request' => $request ?? null, 'adminDatabase' => $adminDatabase ?? null, 'csrf' => $csrf ?? '']) ?>
   <?php /* The site footer (owner decision, 2026-10-02): the conventional
      home for secondary destinations the header has no room for (news, top
      lists, reading lists, challenges, the feed, operator pages), and the

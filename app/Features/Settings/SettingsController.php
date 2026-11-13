@@ -140,10 +140,11 @@ final class SettingsController
         $post = $this->request->post;
         $current = $this->current();
         $typed = [];
+        $odd = [];
         foreach (self::SECTIONS[$section] as $k) {
-            $typed[$k] = \App\Settings::KEYS[$k] === 'bool'
-                ? ((string) ($post[$k] ?? '0') === '1' ? '1' : '0')
-                : trim((string) ($post[$k] ?? $current[$k]));
+            $v = $post[$k] ?? (\App\Settings::KEYS[$k] === 'bool' ? '0' : $current[$k]);
+            if (!\is_string($v)) { $odd[] = \App\Lang::t('settings.' . $k); $v = $current[$k]; }
+            $typed[$k] = \App\Settings::KEYS[$k] === 'bool' ? ($v === '1' ? '1' : '0') : trim($v);
         }
         $refuse = fn (string $message): Response => new Response($this->board($typed, $message, $section), 422);
         $submitted = $typed;
@@ -155,35 +156,39 @@ final class SettingsController
         if (isset($typed['min_words']) && (int) $typed['min_words'] > 0 && (int) $typed['max_words'] > 0 && (int) $typed['min_words'] > (int) $typed['max_words']) {
             return $refuse(\App\Lang::t('settings.err_words'));
         }
+        // Check every field before writing any, so a refusal changes nothing.
+        $invalid = $odd;
+        foreach ($submitted as $k => $v) {
+            if (!\App\Settings::accepts($k, $v)) $invalid[] = \App\Lang::t('settings.' . $k);
+        }
+        if ($invalid !== []) return $refuse(\App\Lang::t('settings.err_fix') . ' ' . implode(', ', array_unique($invalid)));
         $changed = [];
-        $invalid = [];
         foreach ($submitted as $k => $v) {
             $was = \App\Settings::get($k);
-            try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = \App\Lang::t('settings.' . $k); continue; }
+            \App\Settings::put($k, $v);
             if ($was !== \App\Settings::get($k)) $changed[] = $k; // names only, never values
         }
         if ($changed !== []) {
             \App\ActivityLog::record($this->db, $adminId, 'settings.save', implode(', ', $changed));
             \App\CachePurge::run($this->app, $this->db);
         }
-        if ($invalid !== []) return $refuse(\App\Lang::t('settings.err_fix') . ' ' . implode(', ', $invalid));
         return \App\Saved::to('/settings#s-' . $section);
     }
 
-    /** Public paths of the pictures in the image library, for the share-picture choice. @return list<string> */
     /** What two of the switches are holding back right now, in one statement,
      *  so the page can say what a setting means today.
      *  @return array{members: int, queue: int} */
     private function waiting(): array
     {
         $row = $this->db->one(
-            "SELECT (SELECT COUNT(*) FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL) AS members,
+            "SELECT (SELECT COUNT(*) FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL AND is_locked = 0) AS members,
                     (SELECT COUNT(*) FROM stories WHERE validated = 0 AND deleted_at IS NULL)
                     + (SELECT COUNT(*) FROM chapters ch JOIN stories s ON s.id = ch.story_id
                        WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1) AS queue") ?? [];
         return ['members' => (int) ($row['members'] ?? 0), 'queue' => (int) ($row['queue'] ?? 0)];
     }
 
+    /** Public paths of the pictures in the image library, for the share-picture choice. @return list<string> */
     private function libraryImages(): array
     {
         $dir = (string) ($this->app->config('uploads', [])['dir'] ?? '');

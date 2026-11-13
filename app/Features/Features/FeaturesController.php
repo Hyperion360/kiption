@@ -51,13 +51,33 @@ final class FeaturesController
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
+        $was = Features::on($key);
+        return $this->put((int) $gate['id'], $key, !$was) ?? \App\Saved::withUndo('/features', $was ? 'turned_off' : 'turned_on',
+            '/features/set/' . $key . '/' . ($was ? 'on' : 'off'), $this->session->csrfToken());
+    }
+
+    /** Put one flag in a named state: the Undo after a switch. Naming the
+     *  state, not flipping, means a second press (another tab, the back
+     *  button) changes nothing. */
+    #[AuthAttr] #[Post]
+    public function set(string $key, string $state): Response
+    {
+        $gate = Adminness::requireAdmin($this->db, $this->session);
+        if ($gate instanceof Response) return $gate;
+        if ($state !== 'on' && $state !== 'off') return new Response(\App\Lang::t('admin.err_flag'), 422);
+        return $this->put((int) $gate['id'], $key, $state === 'on') ?? \App\Saved::to('/features', $state === 'on' ? 'turned_on' : 'turned_off');
+    }
+
+    /** Store the flag, log it and purge; a refusal for an unknown key. */
+    private function put(int $adminId, string $key, bool $on): ?Response
+    {
         try {
-            Features::toggle($key, !Features::on($key));
+            Features::toggle($key, $on);
         } catch (\InvalidArgumentException) {
             return new Response(\App\Lang::t('admin.err_flag'), 422);
         }
-        \App\ActivityLog::record($this->db, (int) $gate['id'], 'features.toggle', $key);
+        \App\ActivityLog::record($this->db, $adminId, 'features.toggle', $key);
         \App\CachePurge::run($this->app, $this->db);
-        return \App\Saved::withUndo('/features', Features::on($key) ? 'turned_on' : 'turned_off', '/features/toggle/' . $key, $this->session->csrfToken());
+        return null;
     }
 }

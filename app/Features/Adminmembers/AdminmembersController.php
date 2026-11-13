@@ -96,6 +96,7 @@ final class AdminmembersController
         if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
         if ((int) $target['id'] === (int) $gate['id']) return new Response(\App\Lang::t('adminmembers.err_self_lock'), 422);
         if ($this->isLastAdmin($target)) return new Response(\App\Lang::t('adminmembers.err_last_admin'), 422);
+        if ((int) $target['is_locked'] === 1) return \App\Saved::to('/adminmembers', 'locked'); // nothing changed, so nothing to undo
         $this->db->begin();
         try {
             $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [(int) $target['id']]);
@@ -116,6 +117,7 @@ final class AdminmembersController
         $target = $this->target($id);
         if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($this->isDeleted($target)) return new Response(\App\Lang::t('adminmembers.err_deleted'), 422);
+        if ((int) $target['is_locked'] === 0) return \App\Saved::to('/adminmembers', 'unlocked');
         $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [(int) $target['id']]);
         $this->purgeMember($target);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.unlock', 'member ' . (int) $target['id']);

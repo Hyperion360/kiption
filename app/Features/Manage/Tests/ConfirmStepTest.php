@@ -128,6 +128,46 @@ final class ConfirmStepTest extends TestCase
 
         $c->postWithToken('/queue/member/' . $id . '/reject', ['confirmed' => '1', 'reason' => 'No bots']);
         $this->assertSame(1, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$id])['is_locked']);
+        $this->assertStringNotContainsString('newcomer', $c->get('/queue')->body, 'a rejected applicant leaves the queue');
+        $this->assertStringNotContainsString('newcomer', $c->get('/manage')->body);
+    }
+
+    /** Every route that asks: the first post shows the question and the
+     *  thing is still there afterwards. */
+    public function test_each_destructive_route_asks_before_it_acts(): void
+    {
+        $c = $this->client($this->adminId);
+
+        $this->db->query('INSERT INTO invites (code, created_by) VALUES (?, ?)', ['abc123', $this->adminId]);
+        $invite = (int) $this->db->lastInsertId();
+        $this->assertAsks($c->postWithToken('/invites/revoke/' . $invite), 'invites.confirm_revoke');
+        $this->assertNotNull($this->db->one('SELECT id FROM invites WHERE id = ?', [$invite]));
+
+        mkdir($this->root . '/upl', 0775, true);
+        file_put_contents($this->root . '/upl/keep.png', 'x');
+        $this->assertAsks($c->postWithToken('/images/delete', ['name' => 'keep.png']), 'images.confirm_delete');
+        $this->assertFileExists($this->root . '/upl/keep.png');
+
+        $this->assertSame(302, $c->postWithToken('/text/addlanguage', ['code' => 'fr', 'name' => 'Francais', 'dir' => 'ltr'])->status);
+        $this->assertAsks($c->postWithToken('/text/removelanguage', ['code' => 'fr']), 'text.confirm_remove_language');
+        $this->assertFileExists($this->root . '/site-text/fr.php');
+
+        $this->db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES (?, ?, ?, ?, ?, 0)',
+            ['Pending Work', 'pending-work', 'S.', $this->memberId, 2]);
+        $story = (int) $this->db->lastInsertId();
+        $this->db->query("INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 1, 'One', 'Body.', 0, 1)", [$story]);
+        $chapter = (int) $this->db->lastInsertId();
+        $this->assertAsks($c->postWithToken('/queue/chapter/' . $chapter . '/remove'), 'queue.confirm_remove');
+        $this->assertAsks($c->postWithToken('/queue/story/' . $story . '/remove'), 'queue.confirm_remove');
+        $this->assertNotNull($this->db->one('SELECT id FROM stories WHERE id = ? AND deleted_at IS NULL', [$story]));
+        $this->assertNotNull($this->db->one('SELECT id FROM chapters WHERE id = ?', [$chapter]));
+    }
+
+    private function assertAsks(\Kip\Http\Response $r, string $question): void
+    {
+        $this->assertSame(200, $r->status, $question);
+        $this->assertStringContainsString(Lang::t($question), $r->body);
+        $this->assertStringContainsString('name="confirmed" value="1"', $r->body);
     }
 
     public function test_approving_never_asks(): void
