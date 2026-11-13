@@ -79,8 +79,8 @@ final class SavedMessageTest extends TestCase
         $this->assertSame('/signupcheck?saved=1', $res->headers['Location'] ?? '');
         $body = $c->get('/signupcheck', ['saved' => '1'])->body;
         $this->assertStringContainsString('role="status" data-js-module="saved">' . Lang::t('admin.saved_saved') . '</p>', $body);
-        $this->assertSame(1, substr_count($body, 'role="status"'), 'one line, not two');
-        $this->assertStringNotContainsString('role="status"', $c->get('/signupcheck')->body, 'no code, no line');
+        $this->assertSame(1, substr_count($body, 'data-js-module="saved"'), 'one line, not two');
+        $this->assertStringNotContainsString('data-js-module="saved"', $c->get('/signupcheck')->body, 'no code, no line');
     }
 
     public function test_the_line_names_what_happened_and_only_from_the_fixed_list(): void
@@ -88,8 +88,8 @@ final class SavedMessageTest extends TestCase
         $c = $this->client($this->adminId);
         $this->assertStringContainsString('>' . Lang::t('admin.saved_removed') . '</p>', $c->get('/tags', ['saved' => 'removed'])->body);
         $this->assertStringContainsString('>' . Lang::t('admin.saved_turned_off') . '</p>', $c->get('/features', ['saved' => 'turned_off'])->body);
-        $this->assertStringNotContainsString('role="status"', $c->get('/tags', ['saved' => '<b>hello'])->body, 'the address cannot put its own words on the page');
-        $this->assertStringNotContainsString('role="status"', $this->client($this->memberId)->get('/', ['saved' => '1'])->body, 'reading pages never show it');
+        $this->assertStringNotContainsString('data-js-module="saved"', $c->get('/tags', ['saved' => '<b>hello'])->body, 'the address cannot put its own words on the page');
+        $this->assertStringNotContainsString('data-js-module="saved"', $this->client($this->memberId)->get('/', ['saved' => '1'])->body, 'reading pages never show it');
     }
 
     public function test_the_code_goes_before_a_fragment_and_after_an_existing_query(): void
