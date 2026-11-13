@@ -153,4 +153,17 @@ final class QueueDecisionMailTest extends TestCase
         $this->assertSame(403, $this->client($this->heirId)->postWithToken('/queue/story/' . $sid . '/approve')->status);
         $this->assertSame('', $this->mail());
     }
+
+    public function test_a_decision_without_a_token_changes_nothing_and_mails_nobody(): void
+    {
+        $sid = $this->pendingStory();
+        $applicant = $this->applicant();
+        foreach (['/queue/story/' . $sid . '/approve', '/queue/story/' . $sid . '/reject', '/queue/member/' . $applicant . '/reject'] as $url) {
+            $this->assertSame(403, $this->client($this->moderatorId)->post($url)->status, $url);
+        }
+        $this->assertSame(0, (int) $this->db->one('SELECT validated FROM stories WHERE id = ?', [$sid])['validated']);
+        $this->assertNull($this->db->one('SELECT deleted_at FROM stories WHERE id = ?', [$sid])['deleted_at']);
+        $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$applicant])['is_locked']);
+        $this->assertSame('', $this->mail());
+    }
 }
