@@ -399,7 +399,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .home-cards a { display: flex; flex-direction: column; gap: 4px; min-height: 104px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); text-decoration: none; }
 .home-cards a:visited { color: var(--ink); }
 .home-cards a:hover { border-color: var(--line-strong); background: var(--hover); }
-.home-cards a.is-urgent { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.home-cards a.is-urgent { border-color: var(--accent); }
 .home-n { font: 600 34px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .home-cards a.is-urgent .home-n { color: var(--accent); }
 .home-label { font: 14px/1.4 var(--sans); color: var(--ink-2); }
