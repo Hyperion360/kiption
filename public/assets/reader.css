@@ -1665,6 +1665,8 @@ body.focus .site-head { display: none; }
 .manage-what { font: 14px/1.45 var(--sans); color: var(--ink-2); }
 @media (min-width:768px) { .site-main .manage-list { grid-template-columns: 1fr 1fr; column-gap: 32px; } }
 
+/* A report names its story on a line of its own, under what the reader wrote. */
+.queue-on { color: var(--ink-2); font: 15px/1.45 var(--sans); }
 /* The review queue keeps each item's actions on their own line at every width. */
 @media (min-width:768px) {
   .admin-rows.queue-rows > li { display: block; padding-block: 12px 0; }

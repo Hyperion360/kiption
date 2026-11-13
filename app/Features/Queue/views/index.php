@@ -86,7 +86,7 @@
       <li>
         <strong><?= $this->e($r['b']) ?></strong>
         <?php if ($r['d'] !== null): ?><blockquote class="chapter-meta"><?= $this->e($r['d']) ?></blockquote><?php endif; ?>
-        <?php if ($r['c'] !== ''): ?><?= \App\Lang::t('queue.on') ?> <a class="tap-link" href="/story/view/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a><?php endif; ?>
+        <?php if ($r['c'] !== ''): ?><div class="queue-on"><?= \App\Lang::t('queue.on') ?> <a class="tap-link" href="/story/view/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a></div><?php endif; ?>
         <div class="queue-actions">
         <a class="btn" href="/report/remove/<?= (int) $r['a'] ?>"><?= \App\Lang::t('queue.remove_content') ?></a>
         <form method="post" action="/report/resolve/<?= (int) $r['a'] ?>/dismiss" class="inline">
