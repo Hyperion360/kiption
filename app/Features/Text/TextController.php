@@ -20,7 +20,7 @@ final class TextController
     private const SECTIONS = [
         'visitors' => ['home', 'browse', 'search', 'story', 'reader', 'series', 'top', 'feed', 'news', 'challenges', 'lists', 'user', 'review', 'report', 'contact', 'auth', 'nav', 'foot', 'theme', 'msg', 'maintenance', 'error', 'site'],
         'members' => ['account', 'chapter', 'posting', 'messages', 'notifications', 'favorites', 'stats', 'mute', 'uploads'],
-        'admins' => ['manage', 'adminmembers', 'queue', 'activity', 'analytics', 'settings', 'features', 'text', 'categories', 'ratings', 'characters', 'tagsadmin', 'wrangling', 'taxonomy', 'pages', 'page', 'navlinks', 'images', 'invites', 'signupcheck', 'profilefields', 'templates', 'mailusers', 'wordfilter', 'notice', 'admin'],
+        'admins' => ['manage', 'saved', 'adminmembers', 'queue', 'activity', 'analytics', 'settings', 'features', 'text', 'categories', 'ratings', 'characters', 'tagsadmin', 'wrangling', 'taxonomy', 'pages', 'page', 'navlinks', 'images', 'invites', 'signupcheck', 'profilefields', 'templates', 'mailusers', 'wordfilter', 'notice', 'admin'],
         'shared' => ['common', 'form'],
     ];
 

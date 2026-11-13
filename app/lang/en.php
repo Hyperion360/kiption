@@ -1614,6 +1614,7 @@ return [
     'text.group.mute' => 'Mute button',
     'text.group.uploads' => 'Image uploads notice',
     'text.group.manage' => 'Admin home',
+    'text.group.saved' => 'Saved confirmations',
     'text.group.adminmembers' => 'Members admin',
     'text.group.queue' => 'Review queue',
     'text.group.activity' => 'Activity log',
