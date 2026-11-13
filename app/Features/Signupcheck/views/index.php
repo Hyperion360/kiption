@@ -2,7 +2,6 @@
 <section>
   <h1><?= \App\Lang::t('signupcheck.heading') ?></h1>
   <p class="lede"><?= \App\Lang::t('signupcheck.lede') ?></p>
-  <?php if ($saved): ?><p class="notice" role="status"><?= \App\Lang::t('signupcheck.saved') ?></p><?php endif; ?>
   <?php if (!empty($error)): ?><p class="error" role="alert"><?= \App\Lang::t($error) ?></p><?php endif; ?>
   <form method="post" action="/signupcheck/save">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">

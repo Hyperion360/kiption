@@ -68,7 +68,7 @@ final class WordfilterTest extends TestCase
 
     public function test_a_normal_list_saves(): void
     {
-        $this->assertSame(200, $this->save("badword\nanother one")->status);
+        $this->assertSame('/wordfilter?saved=1', $this->save("badword\nanother one")->headers['Location'] ?? '');
     }
 
 

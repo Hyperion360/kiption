@@ -24,7 +24,7 @@ final class SignupcheckController extends AdminScreen
         $err = $this->check()->save($this->request->postStr('enabled') === '1', $q, $a);
         if ($err !== null) return new Response($this->form($err, false, ['enabled' => (int) ($this->request->postStr('enabled') === '1'), 'question' => $q, 'answer' => $a]), 422);
         \App\ActivityLog::record($this->db, (int) $this->session->get('user_id'), 'signupcheck.save', $this->request->postStr('enabled') === '1' ? 'on' : 'off');
-        return Response::redirect('/signupcheck?saved=1');
+        return \App\Saved::to('/signupcheck');
     }
 
     private function check(): \App\SignupCheck

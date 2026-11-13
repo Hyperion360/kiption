@@ -63,7 +63,7 @@ final class TemplatesController
         $this->db->query('UPDATE mail_templates SET subject = ?, body = ? WHERE name = ?',
             [$subject, $body, $row['name']]);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'templates.update', $row['name']);
-        return Response::redirect('/templates');
+        return \App\Saved::to('/templates');
     }
 
     private function find(string $name): ?array

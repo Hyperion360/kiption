@@ -55,7 +55,7 @@ final class InvitesController
                 [$code, (int) $this->session->get('user_id')]);
             if ($inserted->rowCount() === 1) {
                 \App\ActivityLog::record($this->db, (int) $gate['id'], 'invites.create');
-                return Response::redirect('/invites');
+                return \App\Saved::to('/invites', 'added');
             }
         }
         return new Response(\App\Lang::t('invites.err_mint'), 500);
@@ -70,7 +70,7 @@ final class InvitesController
         // the audit trail (who invited whom), so revoke is a no-op for it.
         $this->db->query('DELETE FROM invites WHERE id = ? AND used_by IS NULL', [(int) $id]);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'invites.revoke');
-        return Response::redirect('/invites');
+        return \App\Saved::to('/invites', 'removed');
     }
 
     private function rows(): array

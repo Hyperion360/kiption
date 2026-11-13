@@ -56,7 +56,7 @@ final class NavController
             [$label, $url, $this->position(), $this->hidden()]);
         \App\ActivityLog::by($this->db, $this->session, 'nav.create', $label);
         $this->rebuild();
-        return Response::redirect('/nav');
+        return \App\Saved::to('/nav', 'added');
     }
 
     #[AuthAttr] #[Post]
@@ -72,7 +72,7 @@ final class NavController
             [$label, $url, $this->position(), $this->hidden(), (int) $id]);
         \App\ActivityLog::by($this->db, $this->session, 'nav.update', $label);
         $this->rebuild();
-        return Response::redirect('/nav');
+        return \App\Saved::to('/nav');
     }
 
     #[AuthAttr] #[Post]
@@ -85,7 +85,7 @@ final class NavController
         }
         \App\ActivityLog::by($this->db, $this->session, 'nav.delete', 'link ' . (int) $id);
         $this->rebuild();
-        return Response::redirect('/nav');
+        return \App\Saved::to('/nav', 'removed');
     }
 
     /** label 1-40, url internal-only (the router's own path shape: segments of

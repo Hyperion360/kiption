@@ -148,7 +148,7 @@ final class TextController
         if ($err !== null) return new Response($this->esc($err), 422);
         $this->publish($store);
         \App\ActivityLog::by($this->db, $this->session, 'text.addlanguage', (string) ($this->request->post['code'] ?? ''));
-        return Response::redirect('/text/languages');
+        return \App\Saved::to('/text/languages', 'added');
     }
 
     #[AuthAttr] #[Post]
@@ -163,7 +163,7 @@ final class TextController
         if ($err !== null) return new Response($this->esc($err), 422);
         $this->publish($store);
         \App\ActivityLog::by($this->db, $this->session, 'text.removelanguage', $code);
-        return Response::redirect('/text/languages');
+        return \App\Saved::to('/text/languages', 'removed');
     }
 
     /** Every string for one language (built-in plus the owner's changes) as JSON. */
@@ -213,7 +213,7 @@ final class TextController
         if ($result['error'] !== null) return new Response($this->esc($result['error']), 422);
         $this->publish($store);
         \App\ActivityLog::by($this->db, $this->session, 'text.import', $lang . ': ' . count($data) . ' strings');
-        return Response::redirect('/text?lang=' . $lang);
+        return \App\Saved::to('/text?lang=' . $lang);
     }
 
     /** Admin gate, then CSRF for writes, then the language in play. @return array{0: Store, 1: string}|Response */

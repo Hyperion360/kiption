@@ -68,7 +68,7 @@ final class ImagesController
             return new Response(\App\Lang::t('images.err_upload'), 422);
         }
         \App\ActivityLog::by($this->db, $this->session, 'images.upload', (string) ($file['name'] ?? ''));
-        return Response::redirect('/images');
+        return \App\Saved::to('/images', 'added');
     }
 
     /** Basename-confined unlink: any path separator (or empty name) is a 422,
@@ -89,7 +89,7 @@ final class ImagesController
         $target = $this->uploadsDir() . '/' . $name;
         if (!is_file($target) || !@unlink($target)) return new Response(\App\Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'images.delete', $name);
-        return Response::redirect('/images');
+        return \App\Saved::to('/images', 'removed');
     }
 
     /** The whole in-use set from ONE statement: both reference arms (avatar,

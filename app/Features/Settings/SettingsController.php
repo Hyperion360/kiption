@@ -103,7 +103,7 @@ final class SettingsController
         if ($invalid !== []) return new Response(\App\Lang::t('settings.err_invalid') . ' ' . implode(', ', $invalid), 422);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'settings.save', implode(', ', $changed));
         \App\CachePurge::run($this->app, $this->db);
-        return Response::redirect('/settings');
+        return \App\Saved::to('/settings');
     }
 
     /** Public paths of the pictures in the image library, for the share-picture choice. @return list<string> */

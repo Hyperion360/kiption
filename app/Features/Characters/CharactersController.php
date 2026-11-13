@@ -39,7 +39,7 @@ final class CharactersController extends AdminScreen
             [$category, $name, $slug, $this->description()]);
         \App\ActivityLog::by($this->db, $this->session, 'characters.create', $name);
         $this->purge();
-        return Response::redirect('/characters');
+        return \App\Saved::to('/characters', 'added');
     }
 
     #[Auth] #[Post]
@@ -56,7 +56,7 @@ final class CharactersController extends AdminScreen
             [$name, $category, $this->description(), (int) $row['id']]);
         \App\ActivityLog::by($this->db, $this->session, 'characters.update', $name);
         $this->purge();
-        return Response::redirect('/characters');
+        return \App\Saved::to('/characters');
     }
 
     #[Auth] #[Get] #[Post]
@@ -76,7 +76,7 @@ final class CharactersController extends AdminScreen
         });
         \App\ActivityLog::by($this->db, $this->session, 'characters.delete', (string) $row['name']);
         $this->purge();
-        return Response::redirect('/characters');
+        return \App\Saved::to('/characters', 'removed');
     }
 
     private function name(): string

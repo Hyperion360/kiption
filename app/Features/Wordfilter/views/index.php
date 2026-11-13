@@ -3,7 +3,6 @@
 <h1><?= \App\Lang::t('wordfilter.heading') ?></h1>
 <p class="lede"><?= \App\Lang::t('wordfilter.intro') ?></p>
 <?php if ($error): ?><p class="form-error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
-<?php if ($saved): ?><p class="notice" role="status"><?= $this->e($saved) ?></p><?php endif; ?>
 <form method="post" action="/wordfilter/save" class="form-card">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
   <label><?= \App\Lang::t('wordfilter.label') ?>

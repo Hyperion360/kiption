@@ -60,7 +60,7 @@ final class ProfilefieldsController extends AdminScreen
         if ($err !== null) return $this->form($err, 422);
         \App\ActivityLog::record($this->db, (int) $this->session->get('user_id'), 'profilefields.' . $action, $detail);
         $this->purge();
-        return Response::redirect('/profilefields');
+        return \App\Saved::to('/profilefields');
     }
 
     private function fields(): \App\ProfileFields

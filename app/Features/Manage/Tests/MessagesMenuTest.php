@@ -182,11 +182,11 @@ final class MessagesMenuTest extends TestCase
     {
         $a = $this->client($this->adminId);
         $this->assertSame(200, $a->get('/wordfilter')->status);
-        $this->assertSame(200, $a->postWithToken('/wordfilter/save', ['words' => "Banana Split\n\nbanana split\nzorp"])->status);
+        $this->assertSame(302, $a->postWithToken('/wordfilter/save', ['words' => "Banana Split\n\nbanana split\nzorp"])->status);
         $this->assertSame(['banana split', 'zorp'], \App\Features\Wordfilter\WordFilter::words($this->db));
         $m = $this->client($this->memberId);
         $this->assertSame(422, $m->postWithToken('/review/add/the-rabbit-hole', ['body' => 'zorp!', 'rating' => '', 'guest_name' => ''])->status);
-        $this->assertSame(200, $this->client($this->adminId)->postWithToken('/wordfilter/save', ['words' => ''])->status);
+        $this->assertSame(302, $this->client($this->adminId)->postWithToken('/wordfilter/save', ['words' => ''])->status);
         $this->assertSame([], \App\Features\Wordfilter\WordFilter::words($this->db));
         $this->assertSame(302, $this->client($this->memberId)->postWithToken('/review/add/the-rabbit-hole', ['body' => 'zorp!', 'rating' => '', 'guest_name' => ''])->status);
     }

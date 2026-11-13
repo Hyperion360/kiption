@@ -34,6 +34,7 @@ final class QueueController
             // the gate row already carries the viewer's role (c): the layout's
             // operator block costs no extra query here (the Task 4 ruling)
             'isAdmin' => ($moderator['c'] ?? '') === 'admin',
+            'staff' => true, // moderators get the saved line too
         ]);
     }
 
@@ -61,7 +62,7 @@ final class QueueController
                 ]);
             }
         }
-        return Response::redirect('/queue');
+        return \App\Saved::to('/queue', $op === 'approve' ? 'approved' : 'removed');
     }
 
     #[AuthAttr] #[Post]
@@ -76,7 +77,7 @@ final class QueueController
             if ($op === 'approve') $this->notifyPublish($coords[0]);
             \App\ActivityLog::by($this->db, $this->session, 'queue.chapter_' . $op, 'chapter ' . (int) $id . ' of ' . $coords[0]);
         }
-        return Response::redirect('/queue');
+        return \App\Saved::to('/queue', $op === 'approve' ? 'approved' : 'removed');
     }
 
     #[AuthAttr] #[Post]
@@ -100,7 +101,7 @@ final class QueueController
         // Both ops change directory membership: approve completes an
         // approval-mode member, reject locks them out of the listing.
         (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
-        return Response::redirect('/queue');
+        return \App\Saved::to('/queue', $op === 'approve' ? 'approved' : 'rejected');
     }
 
     /** The moderator's typed reason, or a polite default when left empty. */

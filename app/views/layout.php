@@ -99,6 +99,11 @@
   </nav>
   <?php endif; ?>
   <?php endif; ?>
+  <?php /* The answer to a save: the redirect carried a short code and this is its line. Staff screens only. */
+     $savedKey = ($admin !== null || ($staff ?? false)) ? \App\Saved::message($request ?? null) : null;
+     if ($savedKey !== null): ?>
+  <p class="notice saved-note" role="status" data-js-module="saved"><?= \App\Lang::t($savedKey) ?></p>
+  <?php endif; ?>
   <main class="site-main"><?= $content ?></main>
   <?php if ($admin !== null): ?>
   </div>

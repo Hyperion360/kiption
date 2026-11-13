@@ -58,6 +58,6 @@ final class FeaturesController
         }
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'features.toggle', $key);
         \App\CachePurge::run($this->app, $this->db);
-        return Response::redirect('/features');
+        return \App\Saved::to('/features', Features::on($key) ? 'turned_on' : 'turned_off');
     }
 }

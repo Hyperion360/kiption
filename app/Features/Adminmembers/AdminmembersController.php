@@ -78,7 +78,7 @@ final class AdminmembersController
         }
         Adminness::setRole($this->db, (int) $id, $role); // the iff invariant lives there
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.role', 'member ' . (int) $id . ' is now ' . $role);
-        return Response::redirect('/adminmembers');
+        return \App\Saved::to('/adminmembers');
     }
 
     /** Lock a member out: sign-in answers with a plain "locked" message and
@@ -102,7 +102,7 @@ final class AdminmembersController
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         $this->purgeMember($target);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.lock', 'member ' . (int) $target['id']);
-        return Response::redirect('/adminmembers');
+        return \App\Saved::to('/adminmembers');
     }
 
     #[AuthAttr] #[Post]
@@ -116,7 +116,7 @@ final class AdminmembersController
         $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [(int) $target['id']]);
         $this->purgeMember($target);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.unlock', 'member ' . (int) $target['id']);
-        return Response::redirect('/adminmembers');
+        return \App\Saved::to('/adminmembers');
     }
 
     /** The confirm step before a delete: asks what happens to their stories. */
@@ -184,7 +184,7 @@ final class AdminmembersController
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.delete', 'member ' . $uid . ($heir !== null ? ', stories moved' : ', stories removed'));
         // Stories, series and author pages all changed hands: clear the lot.
         \App\StaticCache\Cache::configured($this->app)->purgeAll();
-        return Response::redirect('/adminmembers');
+        return \App\Saved::to('/adminmembers');
     }
 
     private function target(string $id): ?array
