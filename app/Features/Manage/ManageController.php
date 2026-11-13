@@ -1,12 +1,12 @@
 <?php // app/Features/Manage/ManageController.php
 namespace App\Features\Manage;
-use App\Adminness;
-use Kip\{App, Database, Http\Request, Http\Response, Session, View};
+use App\AdminScreen;
+use Kip\Http\Response;
 use Kip\Routing\Auth as AuthAttr;
 
 /** /manage, "Archive admin": the one page that lists every owner screen in
  *  plain groups. Adding a screen is one line in LINKS. */
-final class ManageController
+final class ManageController extends AdminScreen
 {
     /** The groups, in the order they print. */
     public const GROUPS = [
@@ -45,39 +45,20 @@ final class ManageController
         ['settings', '/activity', 'manage.activity'],
     ];
 
-    public function __construct(
-        private View $view, private Request $request, private Database $db,
-        private Session $session, private App $app,
-    ) {}
-
     #[AuthAttr]
     public function index(): Response|string
     {
-        $gate = Adminness::requireAdmin($this->db, $this->session);
-        if ($gate instanceof Response) return $gate;
+        if ($r = $this->deny()) return $r;
         $groups = [];
         foreach (self::LINKS as $link) {
             if (isset($link[3]) && !\App\Features::on($link[3])) continue;
             $groups[$link[0]][] = ['url' => $link[1], 'label' => $link[2]];
         }
-        $title = \App\Lang::t('manage.heading');
-        return $this->view->render('manage/index', [
-            'title' => $title,
-            'head' => \App\Seo\Head::make(
-                siteName: (string) $this->app->config('site_name', 'Kiption'),
-                ogImage: (string) $this->app->config('og_image', ''),
-                baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
-            )->withTitle($title)->withCanonical('/manage')->withNoindex(),
-            'theme' => \App\Theme::current($this->request),
-            'request' => $this->request,
-            'navFile' => (string) $this->app->config('nav_file', ''),
-            'path' => $this->request->path,
+        return $this->page('manage/index', 'manage.heading', '/manage', [
             'groups' => $groups,
             'groupNames' => self::GROUPS,
             // The raw table editor: hidden when the archive turns it off (config admin.enabled).
             'database' => (bool) (((array) $this->app->config('admin', []))['enabled'] ?? true),
-            'loggedIn' => true,
-            'isAdmin' => true, // the gate above already proved it
         ]);
     }
 }

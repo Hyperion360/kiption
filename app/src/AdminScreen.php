@@ -2,10 +2,12 @@
 namespace App;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 
-/** The shared shell of the owner-only taxonomy managers (categories, ratings,
- *  tags, characters): the admin gate, the page render with the layout's
- *  standard data, and the one coarse cache purge every write ends with.
- *  Helpers are protected, so the router sees only each manager's actions. */
+/** The shared shell of the owner-only admin screens (the taxonomy managers,
+ *  word filter, signup question, profile fields, pages list, activity log,
+ *  mass mail and the manage menu): the admin gate, the page render with the
+ *  layout's standard data, and the one coarse cache purge taxonomy writes
+ *  end with. Helpers are protected, so the router sees only each screen's
+ *  actions. */
 abstract class AdminScreen
 {
     public function __construct(
@@ -24,9 +26,10 @@ abstract class AdminScreen
     protected function page(string $view, string $titleKey, string $canonical, array $data = []): string
     {
         $title = Lang::t($titleKey);
+        $head = $this->head()->withTitle($title)->withNoindex();
         return $this->view->render($view, $data + [
             'title' => $title,
-            'head' => $this->head()->withTitle($title)->withCanonical($canonical)->withNoindex(),
+            'head' => $canonical === '' ? $head : $head->withCanonical($canonical),
             'theme' => Theme::current($this->request),
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
@@ -34,6 +37,7 @@ abstract class AdminScreen
             'csrf' => $this->session->csrfToken(),
             'error' => null,
             'loggedIn' => true,
+            'isAdmin' => true, // deny() already proved it
         ]);
     }
 

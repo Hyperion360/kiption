@@ -1,58 +1,55 @@
 <?php // app/Features/Mailusers/MailusersController.php
 namespace App\Features\Mailusers;
-use App\Adminness;
-use App\MassMail;
+use App\{AdminScreen, MassMail};
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
 use Kip\Routing\{Auth as AuthAttr, Post};
 
 /** Owner broadcast: write a message, preview who gets it, then send. Admin
  *  only. The recipient rule and the sending loop live in App\MassMail, the
  *  same code the mail:users command runs. One broadcast per ten minutes. */
-final class MailusersController
+final class MailusersController extends AdminScreen
 {
     public function __construct(
-        private View $view, private Request $request, private Database $db,
-        private Session $session, private App $app, private \App\MailGuard $mailer,
-    ) {}
+        View $view, Request $request, Database $db, Session $session, App $app,
+        private \App\MailGuard $mailer,
+    ) {
+        parent::__construct($view, $request, $db, $session, $app);
+    }
 
     #[AuthAttr]
     public function index(): Response|string
     {
-        $gate = Adminness::requireAdmin($this->db, $this->session);
-        if ($gate instanceof Response) return $gate;
-        return $this->page('mailusers/index', '', '', null, 0);
+        if ($r = $this->deny()) return $r;
+        return $this->form('mailusers/index', '', '', null, 0);
     }
 
     /** Show the message as it will go, with the recipient count. Sends nothing. */
     #[AuthAttr] #[Post]
     public function preview(): Response|string
     {
-        $gate = Adminness::requireAdmin($this->db, $this->session);
-        if ($gate instanceof Response) return $gate;
+        if ($r = $this->deny()) return $r;
         [$subject, $body, $error] = $this->input();
         $count = count(MassMail::recipients($this->db));
-        if ($error !== null) return new Response($this->page('mailusers/index', $subject, $body, $error, $count), 422);
-        return $this->page('mailusers/preview', $subject, $body, null, $count);
+        if ($error !== null) return new Response($this->form('mailusers/index', $subject, $body, $error, $count), 422);
+        return $this->form('mailusers/preview', $subject, $body, null, $count);
     }
 
     #[AuthAttr] #[Post]
     public function send(): Response|string
     {
-        $gate = Adminness::requireAdmin($this->db, $this->session);
-        if ($gate instanceof Response) return $gate;
+        if ($r = $this->deny()) return $r;
         [$subject, $body, $error] = $this->input();
         $recipients = MassMail::recipients($this->db);
-        if ($error !== null) return new Response($this->page('mailusers/index', $subject, $body, $error, count($recipients)), 422);
+        if ($error !== null) return new Response($this->form('mailusers/index', $subject, $body, $error, count($recipients)), 422);
         if ($recipients === []) {
-            return new Response($this->page('mailusers/index', $subject, $body, \App\Lang::t('mailusers.err_nobody'), 0), 422);
+            return new Response($this->form('mailusers/index', $subject, $body, \App\Lang::t('mailusers.err_nobody'), 0), 422);
         }
-        if (!MassMail::claim($this->db, (int) $gate['id'], $subject, count($recipients))) {
-            return new Response($this->page('mailusers/index', $subject, $body, \App\Lang::t('mailusers.err_wait'), count($recipients)), 429);
+        if (!MassMail::claim($this->db, (int) $this->session->get('user_id'), $subject, count($recipients))) {
+            return new Response($this->form('mailusers/index', $subject, $body, \App\Lang::t('mailusers.err_wait'), count($recipients)), 429);
         }
         @set_time_limit(0);
         $mailed = MassMail::send($this->mailer, $recipients, $subject, $body);
-        $title = \App\Lang::t('mailusers.sent_heading');
-        return $this->view->render('mailusers/sent', $this->common($title) + ['mailed' => $mailed, 'total' => count($recipients)]);
+        return $this->page('mailusers/sent', 'mailusers.sent_heading', '', ['mailed' => $mailed, 'total' => count($recipients)]);
     }
 
     /** @return array{0: string, 1: string, 2: ?string} subject (one line), body, error */
@@ -65,28 +62,8 @@ final class MailusersController
         return [$subject, $body, null];
     }
 
-    private function page(string $view, string $subject, string $body, ?string $error, int $count): string
+    private function form(string $view, string $subject, string $body, ?string $error, int $count): string
     {
-        return $this->view->render($view, $this->common(\App\Lang::t('mailusers.heading'))
-            + ['subject' => $subject, 'body' => $body, 'error' => $error, 'count' => $count]);
-    }
-
-    private function common(string $title): array
-    {
-        return [
-            'title' => $title,
-            'head' => \App\Seo\Head::make(
-                siteName: (string) $this->app->config('site_name', 'Kiption'),
-                ogImage: (string) $this->app->config('og_image', ''),
-                baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
-            )->withTitle($title)->withNoindex(),
-            'theme' => \App\Theme::current($this->request),
-            'request' => $this->request,
-            'navFile' => (string) $this->app->config('nav_file', ''),
-            'path' => $this->request->path,
-            'csrf' => $this->session->csrfToken(),
-            'loggedIn' => true,
-            'isAdmin' => true,
-        ];
+        return $this->page($view, 'mailusers.heading', '', ['subject' => $subject, 'body' => $body, 'error' => $error, 'count' => $count]);
     }
 }
