@@ -1653,6 +1653,9 @@ body.focus .site-head { display: none; }
    what it is for; two columns from tablet width up. */
 .site-main .manage-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: 1fr; border-block-start: 1px solid var(--line); }
 .manage-list > li { border-block-end: 1px solid var(--line); }
+/* A group name belongs to the list under it: more room above than below. */
+.site-main h3:has(+ .manage-list) { margin-block: 36px 12px; }
+.site-main .home-all + section > h3 { margin-block-start: 16px; }
 .manage-list a { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 64px; padding: 10px 0; color: var(--ink); text-decoration: none; }
 .manage-list a:visited { color: var(--ink); }
 .manage-name { font: 600 16px/1.35 var(--sans); color: var(--accent); }
