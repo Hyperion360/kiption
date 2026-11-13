@@ -290,6 +290,7 @@ input, select, textarea {
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 input[type="checkbox"], input[type="radio"] { min-height: 0; width: 18px; height: 18px; accent-color: var(--accent); }
 input[type="search"] { min-height: 40px; }
+@media (max-width:767px) { input[type="search"] { min-height: 44px; } }
 textarea { min-height: 96px; line-height: 1.6; }
 button {
   min-height: 44px; padding: 8px 16px;
@@ -1528,6 +1529,7 @@ body.focus .site-head { display: none; }
   .stack-table tbody th, .stack-table td { display: block; padding: 0; border: 0; overflow-wrap: anywhere; }
   .stack-table tbody th, .stack-table td:first-child { font-size: 16px; font-weight: 500; }
   .stack-table td:empty { display: none; }
+  .stack-table td:first-child > a { display: inline-block; padding-block: 11px; }
   .stack-table td[data-label] { margin-block-start: 6px; }
   .stack-table td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); }
   .stack-table td:has(> .row-actions), .stack-table td:has(> form), .stack-table td:has(> a.btn) { margin-block-start: 12px; }

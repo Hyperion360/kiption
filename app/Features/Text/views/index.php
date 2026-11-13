@@ -13,14 +13,14 @@
 <h2><?= \App\Lang::t('text.groups') ?></h2>
 <?php foreach ($sections as $section => $groups): ?>
 <h3><?= \App\Lang::t('text.section.' . $section) ?></h3>
-<ul>
+<ul class="manage-list">
   <?php foreach ($groups as $code => $g): ?>
-  <li><a href="<?= $this->e('/text/group/' . $code . '?lang=' . $lang) ?>"><?= $this->e($g['label']) ?></a>
-    <span class="chapter-meta"><?= $this->e(\App\Lang::t('text.group_count', ['changed' => $g['changed'], 'total' => $g['total']])) ?></span></li>
+  <li><a href="<?= $this->e('/text/group/' . $code . '?lang=' . $lang) ?>"><span class="manage-name"><?= $this->e($g['label']) ?></span>
+    <span class="manage-what"><?= $this->e(\App\Lang::t('text.group_count', ['changed' => $g['changed'], 'total' => $g['total']])) ?></span></a></li>
   <?php endforeach; ?>
 </ul>
 <?php endforeach; ?>
-<p><a href="/text/languages"><?= \App\Lang::t('text.manage_languages') ?></a></p>
+<p><a class="btn" href="/text/languages"><?= \App\Lang::t('text.manage_languages') ?></a></p>
 <h2><?= \App\Lang::t('text.export') ?></h2>
 <p class="chapter-meta"><?= \App\Lang::t('text.export_note') ?></p>
 <p><a class="btn" href="<?= $this->e('/text/export?lang=' . $lang) ?>"><?= \App\Lang::t('text.export') ?></a></p>

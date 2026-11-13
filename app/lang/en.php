@@ -1481,7 +1481,7 @@ return [
     'text.group.ratings' => 'Ratings',
     'text.group.characters' => 'Characters',
     'text.group.tagsadmin' => 'Tags and tag types',
-    'text.group.wrangling' => 'Tag cleanup',
+    'text.group.wrangling' => 'Tag merging',
     'text.group.taxonomy' => 'Sorting and naming controls',
     'text.group.pages' => 'Pages list',
     'text.group.page' => 'Page editor',
