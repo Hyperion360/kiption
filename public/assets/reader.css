@@ -77,7 +77,7 @@ input, select, textarea { caret-color: var(--accent); }
 /* The owner's tagline: hidden on phones (no room beside the nav), a quiet
    one-line caption beside the name from 768px up. */
 .tagline { display: none; color: var(--muted); font: 14px/1.2 var(--sans); }
-.site-nav a, .nav-account {
+.site-nav a, .nav-account, .nav-post {
   display: inline-flex; align-items: center; min-height: 44px;
   padding-inline: 12px; white-space: nowrap; text-decoration: none;
   font: 500 15px/1 var(--sans); color: var(--ink);
@@ -87,6 +87,9 @@ input, select, textarea { caret-color: var(--accent); }
    below 768px (M1 shows only Search and Menu). */
 .site-nav .nav-wide { display: none; }
 .nav-account { display: none; }
+/* A guest's "Post a story": desktop only, where guests have no Menu link. */
+.site-head .nav-post { display: none; color: var(--accent); font-weight: 600; }
+.site-head .nav-post:hover { text-decoration: underline; }
 .nav-search { display: none; }
 .nav-search input {
   width: 300px; min-height: 40px; padding: 4px 10px;
@@ -1532,10 +1535,13 @@ body.focus .site-head { display: none; }
   .site-nav { gap: 6px; margin-inline-start: 0; }
   .site-nav .nav-wide { display: inline-flex; }
   .site-nav .nav-inline-search { display: none; }
-  .nav-search { display: block; margin-inline-start: auto; margin-inline-end: 6px; }
-  .nav-search input { padding: 0 14px; font-size: 14px; }
+  /* The search box gives way first when the row is tight (a tagline plus a
+     guest's "Post a story" at 1024px), so the header never overflows. */
+  .nav-search { display: block; flex: 0 10 300px; min-width: 140px; margin-inline-start: auto; margin-inline-end: 6px; }
+  .nav-search input { width: 100%; padding: 0 14px; font-size: 14px; }
   .nav-search-link { display: none; }
   .nav-menu-link:not(.is-member) { display: none; }
+  .site-head .nav-post { display: inline-flex; }
   /* Desktop menu (members): a right-hand panel instead of a bottom sheet. */
   #menu.sheet:target {
     inset: 0 0 0 auto; width: 360px; max-height: none;

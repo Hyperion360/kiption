@@ -85,6 +85,16 @@ final class GuestPostLinkTest extends TestCase
         }
     }
 
+    public function test_the_desktop_header_carries_the_guest_link_because_guests_have_no_menu_there(): void
+    {
+        $html = $this->client()->get('/browse')->body;
+        $head = substr($html, 0, (int) strpos($html, '</header>'));
+        $this->assertStringContainsString('<a href="/story/new" class="nav-post">', $head);
+        $this->assertLessThan(strpos($head, 'class="nav-account"'), strpos($head, 'class="nav-post"'), 'before Log in');
+        $id = (int) $this->db->one("SELECT id FROM users WHERE email = 'gp@e.test'")['id'];
+        $this->assertStringNotContainsString('nav-post', $this->client()->actingAs($id)->get('/browse')->body);
+    }
+
     public function test_no_guest_link_when_posting_is_paused(): void
     {
         \App\Features::init($this->db, []);

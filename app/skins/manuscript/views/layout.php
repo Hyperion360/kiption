@@ -57,6 +57,12 @@
     <form class="nav-search" role="search" action="/search" method="get">
       <input type="search" name="q" aria-label="<?= $this->e(\App\Lang::t('nav.search')) ?>" placeholder="<?= $this->e(\App\Lang::t('nav.search_placeholder')) ?>">
     </form>
+    <?php /* Guests have no Menu link on desktop, so their "Post a story"
+       sits in the header row there (hidden below 1024px, where the Menu
+       sheet carries it). Same bytes for every guest. */ ?>
+    <?php if (!($loggedIn ?? false)): ?>
+<?= $this->render('menu_post', ['guest' => true, 'class' => 'nav-post']) ?>
+    <?php endif; ?>
     <a class="nav-account" href="<?= ($loggedIn ?? false) ? '/account' : '/auth/login' ?>"><?= \App\Lang::t(($loggedIn ?? false) ? 'nav.library' : 'nav.login') ?></a>
     <a class="nav-search-link" href="/search"><?= \App\Lang::t('nav.search') ?></a>
     <button type="button" class="theme-toggle" data-js-module="toggle" aria-label="<?= $this->e(\App\Lang::t('nav.theme_toggle')) ?>" data-label-dark="<?= $this->e(\App\Lang::t('nav.theme_to_dark')) ?>" data-label-light="<?= $this->e(\App\Lang::t('nav.theme_to_light')) ?>"></button>

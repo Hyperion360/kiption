@@ -70,6 +70,12 @@
     </form>
     <?php /* The comp's right-edge "Library" (T2/D3): the member's shelf
        (continue reading, marked for later, follows) lives on /account. */ ?>
+    <?php /* Guests have no Menu link on desktop, so their "Post a story"
+       sits in the header row there (hidden below 1024px, where the Menu
+       sheet carries it). Same bytes for every guest. */ ?>
+    <?php if (!($loggedIn ?? false)): ?>
+<?= $this->render('menu_post', ['guest' => true, 'class' => 'nav-post']) ?>
+    <?php endif; ?>
     <a class="nav-account" href="<?= ($loggedIn ?? false) ? '/account' : '/auth/login' ?>"><?= \App\Lang::t(($loggedIn ?? false) ? 'nav.library' : 'nav.login') ?></a>
     <?php /* Below 1024px the search input is hidden and this plain link is
        the search affordance, sitting between the nav and the Menu control;
