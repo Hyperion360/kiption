@@ -6,19 +6,21 @@
   <?php if ($rows === []): ?>
   <p class="chapter-meta"><?= \App\Lang::t('activity.none') ?></p>
   <?php else: ?>
-  <table>
-    <tr>
-      <th scope="col"><?= \App\Lang::t('activity.when') ?></th>
-      <th scope="col"><?= \App\Lang::t('activity.who') ?></th>
+  <table class="stack-table activity-table">
+    <thead><tr>
       <th scope="col"><?= \App\Lang::t('activity.what') ?></th>
-    </tr>
+      <th scope="col"><?= \App\Lang::t('activity.who') ?></th>
+      <th scope="col"><?= \App\Lang::t('activity.when') ?></th>
+    </tr></thead>
+    <tbody>
     <?php foreach ($rows as $r): ?>
     <tr>
-      <td><?= $this->e($r['created_at']) ?></td>
-      <td><?= $this->e($r['actor_name'] !== '' ? $r['actor_name'] : \App\Lang::t('activity.unknown')) ?></td>
       <td><?= $this->e(\App\Lang::t('activity.a.' . $r['action'])) ?><?= $r['detail'] !== '' ? ': ' . $this->e($r['detail']) : '' ?></td>
+      <td data-label="<?= $this->e(\App\Lang::t('activity.who')) ?>"><?= $this->e($r['actor_name'] !== '' ? $r['actor_name'] : \App\Lang::t('activity.unknown')) ?></td>
+      <td data-label="<?= $this->e(\App\Lang::t('activity.when')) ?>"><time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $r['created_at'], true, true)) ?></time></td>
     </tr>
     <?php endforeach; ?>
+    </tbody>
   </table>
   <?php endif; ?>
   <?php if ($page > 1 || $hasMore): ?>

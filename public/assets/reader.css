@@ -1507,6 +1507,35 @@ body.focus .site-head { display: none; }
 .manage-what { font: 14px/1.45 var(--sans); color: var(--ink-2); }
 @media (min-width:768px) { .site-main .manage-list { grid-template-columns: 1fr 1fr; column-gap: 32px; } }
 
+/* The review queue keeps each item's actions on their own line at every width. */
+@media (min-width:768px) {
+  .admin-rows.queue-rows > li { display: block; padding-block: 12px 0; }
+  .admin-rows.queue-rows .queue-actions { margin-block: 8px 12px; }
+}
+/* Admin tables (features, pages, invites, activity log, tag merging, profile
+   fields): a table on wide screens, one card per row on phones. Each cell
+   carries its column name in data-label, shown once the header row hides. */
+.stack-table tbody th {
+  padding: 12px 16px; border-block-start: 1px solid var(--line); border-block-end: 0; background: none;
+  font: 500 14px/1.45 var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink); vertical-align: middle;
+}
+.stack-table .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+@media (max-width:767px) {
+  .site-main table.stack-table { display: block; overflow: visible; border: 0; background: none; }
+  .stack-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .stack-table tbody { display: block; }
+  .stack-table tr { display: block; margin-block-end: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line-strong); }
+  .stack-table tbody th, .stack-table td { display: block; padding: 0; border: 0; overflow-wrap: anywhere; }
+  .stack-table tbody th, .stack-table td:first-child { font-size: 16px; font-weight: 500; }
+  .stack-table td:empty { display: none; }
+  .stack-table td[data-label] { margin-block-start: 6px; }
+  .stack-table td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); }
+  .stack-table td:has(> .row-actions), .stack-table td:has(> form), .stack-table td:has(> a.btn) { margin-block-start: 12px; }
+  .stack-table td :is(button, a.btn, input) { min-height: 44px; font-size: 15px; }
+  .stack-table td form.inline { display: flex; }
+  .stack-table td form.inline input:not([type="hidden"]) { flex: 1; min-width: 0; }
+}
+
 /* Members admin: a table on wide screens, one card per member below 1024px.
    The markup is the same both ways. The role and status cells carry their
    column name in data-label, shown only once the header row is hidden. */

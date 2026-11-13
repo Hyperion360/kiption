@@ -2,6 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('invites.heading') ?></h1>
+  <p class="lede"><?= \App\Lang::t('invites.intro') ?></p>
   <form method="post" action="/invites/create" class="inline">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <button type="submit"><?= \App\Lang::t('invites.create') ?></button>
@@ -9,32 +10,32 @@
   <?php if ($rows === []): ?>
   <p class="chapter-meta"><?= \App\Lang::t('invites.none') ?></p>
   <?php else: ?>
-  <table>
-    <tr>
+  <table class="stack-table">
+    <thead><tr>
       <th scope="col"><?= \App\Lang::t('invites.code') ?></th>
       <th scope="col"><?= \App\Lang::t('invites.created_by') ?></th>
       <th scope="col"><?= \App\Lang::t('invites.created_at') ?></th>
       <th scope="col"><?= \App\Lang::t('invites.used_by') ?></th>
       <th scope="col"><?= \App\Lang::t('invites.used_at') ?></th>
       <th scope="col"><?= \App\Lang::t('invites.actions') ?></th>
-    </tr>
+    </tr></thead>
+    <tbody>
     <?php foreach ($rows as $row): ?>
     <tr>
       <td><code><?= $this->e($row['code']) ?></code><?php if ($row['used_by'] !== null): ?> <span class="chapter-meta">(<?= \App\Lang::t('invites.used') ?>)</span><?php endif; ?></td>
-      <td><?= $this->e($row['created_by_name']) ?></td>
-      <td><time datetime="<?= $this->e($row['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $row['created_at'], false)) ?></time></td>
-      <td><?= $row['used_by_name'] !== null ? $this->e($row['used_by_name']) : '' ?></td>
-      <td><?php if ($row['used_at'] !== null): ?><time datetime="<?= $this->e($row['used_at']) ?>"><?= $this->e(\App\Dates::format((string) $row['used_at'], false)) ?></time><?php endif; ?></td>
-      <td>
-        <?php if ($row['used_by'] === null): ?>
+      <td data-label="<?= $this->e(\App\Lang::t('invites.created_by')) ?>"><?= $this->e($row['created_by_name']) ?></td>
+      <td data-label="<?= $this->e(\App\Lang::t('invites.created_at')) ?>"><time datetime="<?= $this->e($row['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $row['created_at'], false)) ?></time></td>
+      <td data-label="<?= $this->e(\App\Lang::t('invites.used_by')) ?>"><?= $row['used_by_name'] !== null ? $this->e($row['used_by_name']) : '' ?></td>
+      <td data-label="<?= $this->e(\App\Lang::t('invites.used_at')) ?>"><?php if ($row['used_at'] !== null): ?><time datetime="<?= $this->e($row['used_at']) ?>"><?= $this->e(\App\Dates::format((string) $row['used_at'], false)) ?></time><?php endif; ?></td>
+      <td><?php if ($row['used_by'] === null): ?>
         <form method="post" action="/invites/revoke/<?= (int) $row['id'] ?>" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <button type="submit" aria-label="<?= $this->e(\App\Lang::t('invites.revoke')) ?> <?= $this->e($row['code']) ?>"><?= \App\Lang::t('invites.revoke') ?></button>
         </form>
-        <?php endif; ?>
-      </td>
+      <?php endif; ?></td>
     </tr>
     <?php endforeach; ?>
+    </tbody>
   </table>
   <?php endif; ?>
 </section>

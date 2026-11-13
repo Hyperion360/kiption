@@ -2,14 +2,14 @@
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('features.heading') ?></h1>
 <p class="lede"><?= \App\Lang::t('features.note') ?></p>
-<table>
+<table class="stack-table">
   <thead><tr><th scope="col"><?= \App\Lang::t('features.column_feature') ?></th><th scope="col"><?= \App\Lang::t('features.column_description') ?></th><th scope="col"><?= \App\Lang::t('features.column_state') ?></th><th scope="col"><?= \App\Lang::t('features.column_action') ?></th></tr></thead>
   <tbody>
 <?php foreach ($features as $key => $f): ?>
     <tr>
       <th scope="row"><?= \App\Lang::t('features.' . $key . '.name') ?></th>
       <td><?= \App\Lang::t($f['desc']) ?></td>
-      <td><?php if ($f['on']): ?><span class="badge"><?= \App\Lang::t('features.on') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('features.off') ?></span><?php endif; ?></td>
+      <td data-label="<?= $this->e(\App\Lang::t('features.column_state')) ?>"><?php if ($f['on']): ?><span class="badge"><?= \App\Lang::t('features.on') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('features.off') ?></span><?php endif; ?></td>
       <td>
         <form method="post" action="/features/toggle/<?= $this->e($key) ?>" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
