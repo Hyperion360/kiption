@@ -67,6 +67,7 @@
   </ul>
   <?php endif; ?>
   <?php endforeach; ?>
+  <?php if ($types !== []): ?>
   <h2><?= \App\Lang::t('tagsadmin.add_tag_heading') ?></h2>
   <form method="post" class="form-card" action="/tags/addtag">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
@@ -79,6 +80,7 @@
     <?php if ($isRelationships): ?><p class="chapter-meta"><?= \App\Lang::t('tagsadmin.relationships_help') ?></p><?php endif; ?>
     <button type="submit"><?= \App\Lang::t('common.create') ?></button>
   </form>
+  <?php endif; ?>
   <h2><?= \App\Lang::t('tagsadmin.add_type_heading') ?></h2>
   <form method="post" class="form-card" action="/tags/addtype">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
