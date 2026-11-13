@@ -190,4 +190,28 @@ final class QueueDecisionMailTest extends TestCase
         $this->assertNotNull($this->db->one('SELECT id FROM chapters WHERE id = ?', [$cid]));
         $this->assertSame('', $this->mail());
     }
+
+    public function test_removing_a_confirmed_chapter_deletes_it_and_keeps_the_story(): void
+    {
+        // The state-matrix cell chapter x remove: a hard delete that must
+        // leave the story and its other chapters in place, log exactly once,
+        // and survive a repeated click.
+        $sid = $this->pendingStory();
+        foreach ([1, 2, 3] as $pos) {
+            $this->db->query('INSERT INTO chapters (story_id, position, title, content, validated) VALUES (?, ?, ?, ?, 0)',
+                [$sid, $pos, 'Chapter ' . $pos, 'Text.']);
+        }
+        $mid = (int) $this->db->one('SELECT id FROM chapters WHERE story_id = ? AND position = 2', [$sid])['id'];
+        $c = $this->client($this->moderatorId);
+        $this->assertSame(302, $c->postWithToken('/queue/chapter/' . $mid . '/remove', ['confirmed' => '1', 'reason' => ''])->status);
+        $this->assertNull($this->db->one('SELECT id FROM chapters WHERE id = ?', [$mid]), 'the chapter is gone');
+        $this->assertNull($this->db->one('SELECT deleted_at FROM stories WHERE id = ?', [$sid])['deleted_at'], 'the story stays');
+        $this->assertSame(
+            [1, 2],
+            array_map('intval', array_column($this->db->all('SELECT position FROM chapters WHERE story_id = ? ORDER BY position', [$sid]), 'position')),
+            'later chapters slide down'
+        );
+        $c->postWithToken('/queue/chapter/' . $mid . '/remove', ['confirmed' => '1', 'reason' => '']);
+        $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'queue.chapter_remove'")['c'], 'one log line, repeat clicks add none');
+    }
 }
