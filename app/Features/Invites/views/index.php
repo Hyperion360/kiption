@@ -28,7 +28,7 @@
       <td data-label="<?= $this->e(\App\Lang::t('invites.used_by')) ?>"><?= $row['used_by_name'] !== null ? $this->e($row['used_by_name']) : '' ?></td>
       <td data-label="<?= $this->e(\App\Lang::t('invites.used_at')) ?>"><?php if ($row['used_at'] !== null): ?><time datetime="<?= $this->e($row['used_at']) ?>"><?= $this->e(\App\Dates::format((string) $row['used_at'], false)) ?></time><?php endif; ?></td>
       <td><?php if ($row['used_by'] === null): ?>
-        <form method="post" action="/invites/revoke/<?= (int) $row['id'] ?>" class="inline">
+        <form method="post" action="/invites/revoke/<?= (int) $row['id'] ?>" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('invites.confirm_revoke')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <button type="submit" aria-label="<?= $this->e(\App\Lang::t('invites.revoke')) ?> <?= $this->e($row['code']) ?>"><?= \App\Lang::t('invites.revoke') ?></button>
         </form>

@@ -110,6 +110,18 @@ final class AppJsContractTest extends TestCase
         $this->assertStringContainsString("'chips'", $loader, 'the loader knows the chips module');
     }
 
+    /* ---- confirm module (one-click actions that cannot be taken back) ---- */
+
+    public function test_the_confirm_module_asks_on_the_click_and_is_known_to_the_loader(): void
+    {
+        $this->assertFileExists(dirname(__DIR__) . '/public/assets/confirm.js');
+        $module = (string) file_get_contents(dirname(__DIR__) . '/public/assets/confirm.js');
+        $this->assertStringContainsString("addEventListener('click'", $module, 'a cancelled submit would leave the guarded button disabled');
+        $this->assertStringContainsString('data-confirm', $module, 'the question comes from the form, so the wording stays editable');
+        $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("'confirm'", $loader, 'the loader knows the confirm module');
+    }
+
     public function test_the_double_submission_guard_ships_in_the_core(): void
     {
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');

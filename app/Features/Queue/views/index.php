@@ -17,7 +17,7 @@
         <form method="post" action="/queue/story/<?= (int) $r['a'] ?>/approve" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
-        <form method="post" action="/queue/story/<?= (int) $r['a'] ?>/remove" class="inline">
+        <form method="post" action="/queue/story/<?= (int) $r['a'] ?>/remove" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('queue.confirm_remove')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <input name="reason" maxlength="1000" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>">
           <button type="submit"><?= \App\Lang::t('common.remove') ?></button>
@@ -37,7 +37,7 @@
         <form method="post" action="/queue/chapter/<?= (int) $r['a'] ?>/approve" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
-        <form method="post" action="/queue/chapter/<?= (int) $r['a'] ?>/remove" class="inline">
+        <form method="post" action="/queue/chapter/<?= (int) $r['a'] ?>/remove" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('queue.confirm_remove')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('common.remove') ?></button>
         </form>
         </div>
@@ -55,7 +55,7 @@
         <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/approve" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
-        <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject" class="inline">
+        <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('queue.confirm_reject')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <input name="reason" maxlength="1000" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>">
           <button type="submit"><?= \App\Lang::t('queue.reject') ?></button>

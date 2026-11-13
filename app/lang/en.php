@@ -581,6 +581,7 @@ return [
     // The nav-links admin form.
     'navlinks.heading' => 'Menu links',
     'navlinks.intro' => 'Extra links for the site menu, next to the built-in ones. Each link points to a page on this site, such as one of your own pages.',
+    'navlinks.confirm_delete' => 'Delete this menu link?',
     'navlinks.url_hint' => 'The part of the address after your site name, such as /page/view/about. Links to other sites are not allowed here.',
     'navlinks.position_hint' => 'A number. Links with lower numbers come first.',
     'navlinks.none' => 'No links yet.',
@@ -683,6 +684,8 @@ return [
     // The validation queue.
     'queue.heading' => 'Review queue and reports',
     'queue.intro' => 'New stories, chapters, and members wait here until you approve them. Reports from readers land here too.',
+    'queue.confirm_remove' => 'Remove this from the archive?',
+    'queue.confirm_reject' => 'Reject this member? Their account will be locked.',
     'queue.stories' => 'Stories',
     'queue.nothing_waiting' => 'Nothing waiting.',
     'queue.approve' => 'Approve',
@@ -972,6 +975,7 @@ return [
     // mode `invite` consumes the codes; this is where they come from.
     'invites.heading' => 'Invite codes',
     'invites.intro' => 'Each code lets one person sign up, once. Send a code to the person you want to invite. Revoke a code you no longer want used.',
+    'invites.confirm_revoke' => 'Revoke this invite code? It will stop working.',
     'invites.create' => 'Create an invite code',
     'invites.revoke' => 'Revoke',
     'invites.none' => 'No invite codes yet.',

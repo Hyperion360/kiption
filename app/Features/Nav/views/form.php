@@ -11,7 +11,7 @@
         <span class="chapter-meta"><?= $this->e($r['url']) ?><?= \App\Lang::t('navlinks.position', ['n' => (int) $r['position']]) ?></span>
         <div class="queue-actions">
         <a class="btn" href="/nav/edit/<?= (int) $r['id'] ?>"><?= \App\Lang::t('common.edit') ?></a>
-        <form method="post" action="/nav/delete/<?= (int) $r['id'] ?>" class="inline">
+        <form method="post" action="/nav/delete/<?= (int) $r['id'] ?>" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('navlinks.confirm_delete')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('common.delete') ?></button>
         </form>
         </div>
