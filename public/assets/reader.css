@@ -382,6 +382,17 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .member-facts { display: flex; flex-wrap: wrap; gap: 0 14px; }
 .ctx-warn { color: var(--danger); font-weight: 600; }
 .queue-what { min-width: 0; }
+/* Activity log: a heading per day, one line per thing, repeats folded. */
+.log-day { margin-block: 28px 0; font: 600 13px/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.site-main .log-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-block: 16px 8px; }
+.site-main .log-filter label { display: flex; flex-direction: column; gap: 4px; margin: 0; font: 600 13px/1.4 var(--sans); }
+.site-main .log-filter :is(input, select) { min-height: 44px; width: auto; max-width: 100%; }
+.log-burst details { width: 100%; }
+.log-burst summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; min-height: 44px; align-items: center; cursor: pointer; }
+.log-burst summary .home-log-what::before { content: "+ "; color: var(--muted); }
+.log-burst details[open] summary .home-log-what::before { content: "\2212  "; }
+.site-main .log-burst ul { list-style: none; margin: 4px 0 8px; padding: 0 0 0 18px; color: var(--ink-2); font-size: 14px; }
+.log-burst ul time { display: inline-block; min-width: 76px; color: var(--muted); }
 /* Admin home: what is waiting, then what happened, then every screen. */
 .site-main .home-cards { list-style: none; margin: 12px 0 28px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 900px) { .site-main .home-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

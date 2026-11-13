@@ -31,6 +31,13 @@ final class Dates
         return $out;
     }
 
+    /** Only the time of day, in the owner's 12 or 24 hour style. */
+    public static function time(?string $stamp): string
+    {
+        $t = $stamp === null || trim($stamp) === '' ? false : strtotime($stamp);
+        return $t === false ? '' : date(self::TIME[Settings::get('time_format')] ?? self::TIME['12h'], $t);
+    }
+
     /** Date-style choices for the settings form: value => example for today. */
     public static function examples(): array
     {

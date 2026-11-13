@@ -131,4 +131,45 @@ final class ActivityTest extends TestCase
         }
         $this->assertStringContainsString('line 2', $admin->get('/activity', ['page' => '0'])->body, 'page 0 is the first page');
     }
+
+    public function test_the_log_is_grouped_by_day_and_folds_repeats(): void
+    {
+        \App\ActivityLog::record($this->db, $this->adminId, 'settings.save', 'basics');
+        $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail, created_at) VALUES (NULL, '', 'auth.signin_failed', 'a@e.test', '2026-03-04 10:00:00'), (NULL, '', 'auth.signin_failed', 'b@e.test', '2026-03-04 10:01:00')");
+        $admin = $this->client($this->adminId);
+        $body = $admin->get('/activity')->body;
+        $this->assertStringContainsString('<h2 class="log-day">' . \App\Dates::format('2026-03-04') . '</h2>', $body);
+        $this->assertStringContainsString(\App\Lang::t('activity.times', ['what' => \App\Lang::t('activity.a.auth.signin_failed'), 'n' => 2]), $body);
+        $this->assertStringContainsString('a@e.test', $body);
+        $this->assertSame(1, substr_count($body, \App\Lang::t('activity.a.auth.signin_failed')));
+        $this->assertStringContainsString('<h2 class="log-day">' . \App\Lang::t('activity.today') . '</h2>', $admin->get('/activity', ['page' => '2'])->body);
+    }
+
+    public function test_the_log_can_be_narrowed_to_a_person_or_a_kind(): void
+    {
+        \App\ActivityLog::record($this->db, $this->adminId, 'settings.save', 'basics');
+        \App\ActivityLog::record($this->db, $this->memberId, 'kudos.add', 'A Story');
+        \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'x@e.test');
+        $admin = $this->client($this->adminId);
+        $setup = $admin->get('/activity', ['kind' => 'setup'])->body;
+        $this->assertStringContainsString('basics', $setup);
+        $this->assertStringNotContainsString('x@e.test', $setup);
+        $this->assertStringNotContainsString('A Story', $setup);
+        $other = $admin->get('/activity', ['kind' => 'other'])->body;
+        $this->assertStringContainsString('A Story', $other);
+        $this->assertStringNotContainsString('basics', $other);
+        $mine = $admin->get('/activity', ['who' => 'betaf'])->body;
+        $this->assertStringContainsString('basics', $mine);
+        $this->assertStringNotContainsString('A Story', $mine);
+        $this->assertStringContainsString(\App\Lang::t('activity.none_match'), $admin->get('/activity', ['who' => '%'])->body);
+        $this->assertStringContainsString('x@e.test', $admin->get('/activity', ['kind' => "x' OR 1=1 --"])->body);
+        $this->assertStringContainsString('href="/activity?page=2&amp;kind=other"', $admin->get('/activity', ['kind' => 'other'])->body . $this->moreOther($admin));
+    }
+
+    private function moreOther(TestClient $admin): string
+    {
+        \App\ActivityLog::record($this->db, $this->memberId, 'kudos.add', 'Two');
+        \App\ActivityLog::record($this->db, $this->memberId, 'favorites.add', 'Three');
+        return $admin->get('/activity', ['kind' => 'other'])->body;
+    }
 }

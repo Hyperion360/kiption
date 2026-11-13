@@ -51,10 +51,57 @@ final class ActivityLog
         self::record($db, $id > 0 ? $id : null, $action, $detail);
     }
 
-    /** @return list<array<string,mixed>> one extra row tells the caller whether another page exists */
-    public static function recent(Database $db, int $limit, int $offset): array
+    /** The kinds the log can be narrowed to, as the first part of the action
+     *  name. 'other' is everything no kind here claims. */
+    public const KINDS = [
+        'signin' => ['auth'],
+        'moderation' => ['queue', 'reports'],
+        'members' => ['members', 'invites', 'mailusers'],
+        'setup' => ['settings', 'features', 'text', 'wordfilter', 'nav', 'templates', 'categories', 'ratings', 'characters',
+            'tags', 'wrangling', 'profilefields', 'signupcheck', 'images', 'news', 'page', 'adminstories'],
+        'writing' => ['story', 'chapter', 'series', 'coauthors', 'challenges'],
+        'other' => [],
+    ];
+
+    /** @return list<array<string,mixed>> one extra row tells the caller whether another page exists.
+     *  $who narrows to pennames that start with it; $kind to one of KINDS. */
+    public static function recent(Database $db, int $limit, int $offset, string $who = '', string $kind = ''): array
     {
-        return $db->all('SELECT id, actor_id, actor_name, action, detail, created_at FROM activity_log ORDER BY id DESC LIMIT ? OFFSET ?',
-            [$limit + 1, $offset]);
+        $where = [];
+        $args = [];
+        if ($who !== '') {
+            $where[] = "actor_name LIKE ? ESCAPE '\\'";
+            $args[] = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $who) . '%';
+        }
+        if (isset(self::KINDS[$kind])) {
+            // Only names from the constant reach the statement, never what was typed.
+            $like = static fn (array $prefixes): string => implode(' OR ', array_map(static fn (string $p): string => "action LIKE '" . $p . ".%'", $prefixes));
+            $where[] = $kind === 'other'
+                ? 'NOT (' . $like(array_merge(...array_values(self::KINDS))) . ')'
+                : '(' . $like(self::KINDS[$kind]) . ')';
+        }
+        return $db->all('SELECT id, actor_id, actor_name, action, detail, created_at FROM activity_log'
+            . ($where === [] ? '' : ' WHERE ' . implode(' AND ', $where)) . ' ORDER BY id DESC LIMIT ? OFFSET ?',
+            [...$args, $limit + 1, $offset]);
+    }
+
+    /** Rows (newest first) as days of entries; the same thing done by the
+     *  same person several times in a row becomes one entry holding them all.
+     *  @param list<array<string,mixed>> $rows
+     *  @return array<string, list<list<array<string,mixed>>>> day (Y-m-d) => entries => rows */
+    public static function byDay(array $rows): array
+    {
+        $days = [];
+        foreach ($rows as $row) {
+            $t = strtotime((string) $row['created_at']);
+            $day = $t === false ? '' : date('Y-m-d', $t);
+            $last = isset($days[$day]) ? array_key_last($days[$day]) : null;
+            if ($last !== null && $days[$day][$last][0]['action'] === $row['action'] && $days[$day][$last][0]['actor_name'] === $row['actor_name']) {
+                $days[$day][$last][] = $row;
+            } else {
+                $days[$day][] = [$row];
+            }
+        }
+        return $days;
     }
 }
