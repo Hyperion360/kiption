@@ -1882,6 +1882,6 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .maintenance-banner a { color: inherit; text-decoration: underline; }
 /* A short plain-words explainer under an admin screen's heading. */
 .admin-help { color: var(--muted); max-width: 65ch; margin: 0 0 20px; }
-.admin-suggest { margin-block: 24px; }
-.admin-suggest .section-label { margin-block: 0 12px; }
+.admin-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 24px; }
+.admin-suggest .section-label { flex-basis: 100%; margin-block: 0 4px; }
 .btn-quiet { background: transparent; color: var(--ink-2); border: 1px solid var(--line); }
