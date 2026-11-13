@@ -43,9 +43,22 @@ final class WordfilterController extends AdminScreen
         return \App\Saved::to('/wordfilter');
     }
 
-    private function form(?string $error, ?string $saved): string
+    /** "Try a sentence": run the saved list over a line the owner types and
+     *  say what a member would be told. Nothing is stored or logged. */
+    #[AuthAttr] #[Post]
+    public function try(): Response|string
     {
+        if ($r = $this->deny()) return $r;
+        $sentence = mb_substr($this->request->postStr('sentence'), 0, 500);
+        if (!mb_check_encoding($sentence, 'UTF-8')) $sentence = '';
+        return $this->form(null, null, $sentence);
+    }
+
+    private function form(?string $error, ?string $saved, ?string $sentence = null): string
+    {
+        $tried = $sentence === null || trim($sentence) === '' ? null
+            : ['sentence' => $sentence, 'word' => WordFilter::find($this->db, $sentence)];
         return $this->page('wordfilter/index', 'wordfilter.heading', '/wordfilter',
-            ['words' => WordFilter::words($this->db), 'error' => $error, 'saved' => $saved]);
+            ['words' => WordFilter::words($this->db), 'error' => $error, 'saved' => $saved, 'tried' => $tried]);
     }
 }

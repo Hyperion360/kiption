@@ -30,6 +30,11 @@ final class WordfilterTest extends TestCase
 
     private function save(string $words): \Kip\Http\Response
     {
+        return $this->admin()->postWithToken('/wordfilter/save', ['words' => $words]);
+    }
+
+    private function admin(): TestClient
+    {
         $c = new TestClient(new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
@@ -40,7 +45,7 @@ final class WordfilterTest extends TestCase
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-wf-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ]));
-        return $c->actingAs($this->adminId)->postWithToken('/wordfilter/save', ['words' => $words]);
+        return $c->actingAs($this->adminId);
     }
 
     public function test_too_many_entries_is_refused(): void
@@ -76,5 +81,19 @@ final class WordfilterTest extends TestCase
     {
         $this->assertTrue(\App\Features\Wordfilter\WordFilter::matches('spam', "hello \xC3\x28 world"), 'malformed UTF-8 makes preg_match fail; that must block');
         $this->assertFalse(\App\Features\Wordfilter\WordFilter::matches('spam', 'hello world'));
+    }
+
+    public function test_try_a_sentence_answers_with_the_real_filter_and_keeps_nothing(): void
+    {
+        $this->save("darn\nrude phrase");
+        $c = $this->admin();
+        $logged = (int) $this->db->one('SELECT COUNT(*) AS n FROM activity_log')['n'];
+        $hit = $c->postWithToken('/wordfilter/try', ['sentence' => 'What a RUDE   phrase <b>that</b> is'])->body;
+        $this->assertStringContainsString(\App\Lang::t('wordfilter.try_blocked', ['word' => 'rude phrase']), $hit);
+        $this->assertStringContainsString('value="What a RUDE   phrase &lt;b&gt;that&lt;/b&gt; is"', $hit);
+        $clean = $c->postWithToken('/wordfilter/try', ['sentence' => 'Darning socks is fine'])->body;
+        $this->assertStringContainsString(\App\Lang::t('wordfilter.try_clean'), $clean);
+        $this->assertSame($logged, (int) $this->db->one('SELECT COUNT(*) AS n FROM activity_log')['n']);
+        $this->assertStringNotContainsString('role="status"', $c->postWithToken('/wordfilter/try', ['sentence' => '  '])->body);
     }
 }
