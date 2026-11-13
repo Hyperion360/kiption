@@ -184,7 +184,7 @@ $config = \App\Settings::apply($config);
 // The saved default language is known now: pick it, then let a member's own
 // cookie choice win when per-user language is on. Compiles the owner text once
 // if the compiled folder is missing.
-\App\SiteText\Boot::late($config, new \Kip\Database($config['db']['dsn']), $cookieLang, \App\Features::on('peruserlang'));
+\App\SiteText\Boot::late($config, static fn () => new \Kip\Database($config['db']['dsn']), $cookieLang, \App\Features::on('peruserlang'));
 // The RTA seam: the operator's site-wide adult label (config 'adult_rta',
 // the settings board's row overrides it). Set once at boot, zero queries;
 // a page-level withRating() call still wins inside Head.

@@ -63,7 +63,7 @@ final class UserRepository
         if (!preg_match('/^[a-z0-9_-]{3,30}$/', $penname)) {
             return [false, 'Penname must be 3-30 characters: lowercase letters, digits, dash, underscore.'];
         }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || \App\AccountSecurity::isReservedEmail($email)) {
             return [false, 'That email address is not valid.'];
         }
         if (strlen($password) < 8) {

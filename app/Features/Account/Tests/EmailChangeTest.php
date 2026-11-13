@@ -196,4 +196,30 @@ final class EmailChangeTest extends TestCase
         $this->assertIsArray($acc->applyEmailChange($this->token()));
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM login_links WHERE user_id = ?', [$id])['c']);
     }
+
+
+    public function test_a_password_change_since_the_request_voids_it(): void
+    {
+        // Whoever asked may have been an attacker the member has since reset away.
+        $this->ask('attacker@example.test');
+        $t = $this->token();
+        $this->db->query("UPDATE users SET password_hash = ? WHERE penname = 'betafriend'", [password_hash('a-new-password', PASSWORD_DEFAULT)]);
+        $this->assertSame(410, (new TestClient($this->app()))->get('/account/emailconfirm', ['t' => $t])->status);
+        $this->assertSame(410, (new TestClient($this->app()))->postWithToken('/account/emailapply', ['t' => $t])->status);
+        $this->assertSame('beta@example.test', $this->email());
+    }
+
+    public function test_reserved_invalid_addresses_cannot_be_claimed(): void
+    {
+        $res = $this->ask(\App\AccountSecurity::ANON_EMAIL);
+        $this->assertSame(422, $res->status);
+        $this->assertSame('', $this->token(), 'no link is mailed');
+        $this->assertSame('beta@example.test', $this->email());
+        $users = new \App\Repositories\UserRepository($this->db);
+        foreach ([\App\AccountSecurity::ANON_EMAIL, 'x@Deleted.INVALID'] as $reserved) {
+            [$ok] = $users->register('open', 'squatter', $reserved, 'password123', '');
+            $this->assertFalse($ok, $reserved . ' must not register');
+        }
+        $this->assertNull($this->db->one("SELECT 1 AS x FROM users WHERE penname = 'squatter'"));
+    }
 }

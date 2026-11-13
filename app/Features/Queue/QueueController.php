@@ -108,7 +108,7 @@ final class QueueController
      *  never undoes the decision. */
     private function mailApplicant(string $template, string $to, array $pairs): void
     {
-        if ($to === '' || str_ends_with($to, '@deleted.invalid')) return;
+        if ($to === '' || \App\AccountSecurity::isReservedEmail($to)) return;
         [$subject, $body] = \App\Templates::get($this->db, $template, ...\App\Templates::pair($template));
         try {
             $this->mailer->send($to, strtr($subject, $pairs), strtr($body, $pairs));

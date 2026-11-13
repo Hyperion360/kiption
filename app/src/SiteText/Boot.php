@@ -24,8 +24,10 @@ final class Boot
         self::choose($config['ui_lang'] ?? 'en', null);
     }
 
-    /** @param mixed $cookie the raw lang cookie, applied only when $cookieAllowed */
-    public static function late(array $config, Database $db, mixed $cookie = null, bool $cookieAllowed = false): void
+    /** @param Database|\Closure(): Database $db a connection, or a maker called only
+     *  when the compiled text is missing (so a normal request opens none)
+     *  @param mixed $cookie the raw lang cookie, applied only when $cookieAllowed */
+    public static function late(array $config, Database|\Closure $db, mixed $cookie = null, bool $cookieAllowed = false): void
     {
         if (!Lang::siteTextReady()) {
             // Back off for five minutes after a failed compile, so a read-only
@@ -35,6 +37,7 @@ final class Boot
             if ($mtime === false || time() - $mtime >= 300) {
                 $ok = false;
                 try {
+                    if ($db instanceof \Closure) $db = $db();
                     $db->one('SELECT 1 FROM site_text LIMIT 1'); // throws when the table is not migrated yet
                     $ok = Compiler::compile($db, self::dir($config)) !== false;
                 } catch (\Throwable $e) {

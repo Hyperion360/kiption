@@ -76,6 +76,12 @@ final class SiteTextBootTest extends TestCase
         touch($marker, time() - 400);
         Boot::late($this->config, $this->db);
         $this->assertGreaterThan(time() - 50, filemtime($marker), 'after five minutes it tries again and re-marks');
+
+        unlink($this->dir . '/site-text'); // the folder can be made now
+        touch($marker, time() - 400);
+        Boot::late($this->config, fn () => $this->db);
+        $this->assertFileDoesNotExist($marker, 'a compile that works again clears the marker');
+        $this->assertTrue(Lang::siteTextReady());
     }
 
     public function test_an_uninstalled_default_falls_back_to_english_and_an_unmigrated_db_is_not_fatal(): void

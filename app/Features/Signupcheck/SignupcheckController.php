@@ -2,7 +2,7 @@
 namespace App\Features\Signupcheck;
 use App\Adminness;
 use Kip\{App, Database, Http\Request, Http\Response, Session, View};
-use Kip\Routing\Post;
+use Kip\Routing\{Auth as AuthAttr, Post};
 
 /** Admin screen for the optional signup question (App\SignupCheck). Same
  *  guest-is-403 admin gate as the invites screen. */
@@ -13,6 +13,7 @@ final class SignupcheckController
         private Session $session, private App $app,
     ) {}
 
+    #[AuthAttr]
     public function index(): Response|string
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
@@ -20,7 +21,7 @@ final class SignupcheckController
         return $this->page(null, !empty($this->request->get['saved']));
     }
 
-    #[Post]
+    #[AuthAttr] #[Post]
     public function save(): Response|string
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);

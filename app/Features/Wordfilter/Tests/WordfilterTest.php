@@ -70,4 +70,11 @@ final class WordfilterTest extends TestCase
     {
         $this->assertSame(200, $this->save("badword\nanother one")->status);
     }
+
+
+    public function test_text_the_regex_cannot_read_is_refused_not_waved_through(): void
+    {
+        $this->assertTrue(\App\Features\Wordfilter\WordFilter::matches('spam', "hello \xC3\x28 world"), 'malformed UTF-8 makes preg_match fail; that must block');
+        $this->assertFalse(\App\Features\Wordfilter\WordFilter::matches('spam', 'hello world'));
+    }
 }

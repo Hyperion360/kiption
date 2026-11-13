@@ -35,6 +35,7 @@ final class AccountSecurity
         if ($new !== $confirm) return 'account.err_password_mismatch';
         $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($new, PASSWORD_DEFAULT), $userId]);
         $this->db->query('DELETE FROM password_resets WHERE email = (SELECT email FROM users WHERE id = ?)', [$userId]);
+        $this->db->query('DELETE FROM email_changes WHERE user_id = ?', [$userId]);
         return null;
     }
 
@@ -48,14 +49,15 @@ final class AccountSecurity
     {
         if (($err = $this->checkPassword($userId, $password, $ip)) !== null) return [$err, null];
         $newEmail = trim($newEmail);
-        if ($newEmail === '' || strlen($newEmail) > 254 || !filter_var($newEmail, FILTER_VALIDATE_EMAIL)) return ['account.err_email_invalid', null];
-        $me = $this->db->one('SELECT email FROM users WHERE id = ?', [$userId]);
+        if ($newEmail === '' || strlen($newEmail) > 254 || !filter_var($newEmail, FILTER_VALIDATE_EMAIL)
+            || self::isReservedEmail($newEmail)) return ['account.err_email_invalid', null];
+        $me = $this->db->one('SELECT email, password_hash FROM users WHERE id = ?', [$userId]);
         if ($me === null) return ['account.err_wrong_password', null];
         if (strcasecmp((string) $me['email'], $newEmail) === 0) return ['account.err_email_same', null];
         if ($this->emailTaken($newEmail, $userId)) return ['account.err_email_taken', null];
         $token = bin2hex(random_bytes(32));
-        $this->db->query('INSERT OR REPLACE INTO email_changes (user_id, new_email, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
-            [$userId, $newEmail, hash('sha256', $token), date('c', time() + self::EMAIL_TTL), date('c')]);
+        $this->db->query('INSERT OR REPLACE INTO email_changes (user_id, new_email, token_hash, pwd_epoch, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [$userId, $newEmail, hash('sha256', $token), self::epoch((string) $me['password_hash']), date('c', time() + self::EMAIL_TTL), date('c')]);
         return [null, $token];
     }
 
@@ -64,8 +66,22 @@ final class AccountSecurity
     public function peekEmailChange(string $token): bool
     {
         if (preg_match('/^[0-9a-f]{64}$/', $token) !== 1) return false;
-        $row = $this->db->one('SELECT expires_at FROM email_changes WHERE token_hash = ?', [hash('sha256', $token)]);
-        return $row !== null && strtotime((string) $row['expires_at']) >= time();
+        $row = $this->db->one('SELECT c.expires_at, c.pwd_epoch, u.password_hash FROM email_changes c JOIN users u ON u.id = c.user_id WHERE c.token_hash = ?', [hash('sha256', $token)]);
+        return $row !== null && strtotime((string) $row['expires_at']) >= time()
+            && hash_equals((string) $row['pwd_epoch'], self::epoch((string) $row['password_hash']));
+    }
+
+    /** The password-hash prefix that moves on every password change. */
+    private static function epoch(string $hash): string
+    {
+        return substr($hash, 0, \Kip\Auth::EPOCH_LEN);
+    }
+
+    /** Addresses under the reserved .invalid top-level domain belong to the
+     *  placeholder and scrubbed accounts; no member may claim one. */
+    public static function isReservedEmail(string $email): bool
+    {
+        return str_ends_with(strtolower(trim($email)), '.invalid');
     }
 
     /** Use the link: burns the token (the deleted row is the single-use
@@ -77,15 +93,18 @@ final class AccountSecurity
         $hash = hash('sha256', $token);
         $this->db->begin();
         try {
-            $row = $this->db->one('SELECT user_id, new_email, expires_at FROM email_changes WHERE token_hash = ?', [$hash]);
+            $row = $this->db->one('SELECT user_id, new_email, pwd_epoch, expires_at FROM email_changes WHERE token_hash = ?', [$hash]);
             $burned = $row === null ? 0 : $this->db->query('DELETE FROM email_changes WHERE token_hash = ?', [$hash])->rowCount();
             if ($burned !== 1 || strtotime((string) $row['expires_at']) < time()) {
                 $this->db->commit();
                 return 'account.email_link_expired';
             }
             $id = (int) $row['user_id'];
-            $owner = $this->db->one('SELECT is_locked, email FROM users WHERE id = ?', [$id]);
-            if ($owner === null || (int) $owner['is_locked'] === 1 || str_ends_with(strtolower((string) $owner['email']), '@deleted.invalid')) {
+            $owner = $this->db->one('SELECT is_locked, email, password_hash FROM users WHERE id = ?', [$id]);
+            // A password change or reset since the request voids it: whoever
+            // asked may have been an attacker the member has since locked out.
+            if ($owner === null || (int) $owner['is_locked'] === 1 || self::isReservedEmail((string) $owner['email'])
+                || !hash_equals((string) $row['pwd_epoch'], self::epoch((string) $owner['password_hash']))) {
                 $this->db->commit();
                 return 'account.email_link_expired';
             }

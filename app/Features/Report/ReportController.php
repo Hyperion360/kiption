@@ -93,7 +93,7 @@ final class ReportController
             $this->db->query('DELETE FROM reviews WHERE id = ?', [(int) $target['review_id']]);
             $cache->purgeStory((string) $target['slug'], []);
         }
-        if ($target['author_email'] !== null && !str_ends_with(strtolower((string) $target['author_email']), '.invalid')) {
+        if ($target['author_email'] !== null && !\App\AccountSecurity::isReservedEmail((string) $target['author_email'])) {
             [$subject, $body] = \App\Templates::get($this->db, 'content_removed', \App\Templates::DEFAULT_CONTENT_REMOVED[0], \App\Templates::DEFAULT_CONTENT_REMOVED[1]);
             $reason = trim($this->request->postStr('reason'));
             $pairs = [

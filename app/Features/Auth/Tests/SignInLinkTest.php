@@ -327,4 +327,12 @@ final class SignInLinkTest extends TestCase
     {
         $this->assertSame('https://a.test/auth/magic?t=abc', LoginLinks::url('https://a.test/', 'abc'));
     }
+
+
+    public function test_request_finds_an_account_whose_stored_email_has_uppercase(): void
+    {
+        $id = $this->registerUser('mixed@kiption.test');
+        $this->db->query("UPDATE users SET email = 'Mixed@Kiption.test' WHERE id = ?", [$id]);
+        $this->assertNotNull($this->links()->request('mixed@kiption.test', '10.0.3.1'));
+    }
 }

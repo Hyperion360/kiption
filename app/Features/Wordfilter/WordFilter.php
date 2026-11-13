@@ -46,7 +46,9 @@ final class WordFilter
         $parts = preg_split('/\s+/u', trim($word), -1, PREG_SPLIT_NO_EMPTY);
         if ($parts === false || $parts === []) return false;
         $pattern = '/(?<![\p{L}\p{N}])' . implode('\s+', array_map(static fn (string $p): string => preg_quote($p, '/'), $parts)) . '(?![\p{L}\p{N}])/iu';
-        return preg_match($pattern, $text) === 1;
+        // false is a regex error (malformed UTF-8, backtrack limit): refuse
+        // rather than let unreadable text through unchecked.
+        return preg_match($pattern, $text) !== 0;
     }
 
     /** The friendly refusal for a blocked submission, or null when it is clean. */

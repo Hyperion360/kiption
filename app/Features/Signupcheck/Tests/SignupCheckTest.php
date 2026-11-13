@@ -164,5 +164,6 @@ final class SignupCheckTest extends TestCase
         $this->assertSame(422, $admin->postWithToken('/signupcheck/save', ['enabled' => '1', 'question' => 'Q?', 'answer' => ''])->status);
         $this->assertNull($this->db->one('SELECT 1 AS x FROM signup_check'));
         $this->assertSame(403, $admin->post('/signupcheck/save', ['enabled' => '1', 'question' => 'Q?', 'answer' => 'A'], ['sec-fetch-site' => 'cross-site'])->status);
+        $this->assertSame(403, $admin->post('/signupcheck/save', ['enabled' => '1', 'question' => 'Q?', 'answer' => 'A'])->status, 'no token and no fetch headers is still refused');
     }
 }
