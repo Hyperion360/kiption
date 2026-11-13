@@ -8,7 +8,7 @@ $check = function (string $key, string $label, string $note = '') use ($current)
 };
 ?>
 <h1><?= \App\Lang::t('settings.heading') ?></h1>
-<p class="chapter-meta"><?= \App\Lang::t('settings.note') ?></p>
+<p class="lede"><?= \App\Lang::t('settings.note') ?></p>
 <form method="post" action="/settings/save" class="form-card">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
 

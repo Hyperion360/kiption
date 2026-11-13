@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('stats.heading') ?></h1>
-  <p class="chapter-meta"><?= \App\Lang::t('stats.approx_note') ?></p>
+  <p class="lede"><?= \App\Lang::t('stats.approx_note') ?></p>
   <?php if ($rows === []): ?>
     <p class="chapter-meta"><?= \App\Lang::t('stats.empty') ?></p>
   <?php else: ?>

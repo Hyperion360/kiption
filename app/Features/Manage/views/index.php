@@ -1,7 +1,7 @@
 <?php // app/Features/Manage/views/index.php ?>
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('manage.heading') ?></h1>
-<p class="chapter-meta"><?= \App\Lang::t('manage.intro') ?></p>
+<p class="lede"><?= \App\Lang::t('manage.intro') ?></p>
 <?php foreach ($groupNames as $gid => $gkey): if (empty($groups[$gid])) continue; ?>
 <section aria-labelledby="manage-<?= $this->e($gid) ?>">
   <h2 id="manage-<?= $this->e($gid) ?>"><?= \App\Lang::t($gkey) ?></h2>

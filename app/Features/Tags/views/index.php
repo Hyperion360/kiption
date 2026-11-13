@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('tagsadmin.heading') ?></h1>
-  <p class="chapter-meta"><?= \App\Lang::t('tagsadmin.help') ?></p>
+  <p class="lede"><?= \App\Lang::t('tagsadmin.help') ?></p>
   <p><a href="/wrangling"><?= \App\Lang::t('tagsadmin.wrangling_link') ?></a></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <?php foreach ($types as $type): ?>

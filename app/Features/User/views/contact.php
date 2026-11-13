@@ -7,7 +7,7 @@
     <p><a href="/user/view/<?= $this->e($slug) ?>"><?= \App\Lang::t('user.contact_back') ?></a></p>
   <?php else: ?>
     <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-    <p class="chapter-meta"><?= \App\Lang::t('user.contact_help') ?></p>
+    <p class="lede"><?= \App\Lang::t('user.contact_help') ?></p>
     <form method="post" action="/user/contact/<?= $this->e($slug) ?>">
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
       <label><?= \App\Lang::t('user.contact_message') ?> <textarea name="body" rows="8" maxlength="5000" required></textarea></label>

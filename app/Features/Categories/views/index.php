@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('categories.heading') ?></h1>
-  <p class="chapter-meta"><?= \App\Lang::t('categories.help') ?></p>
+  <p class="lede"><?= \App\Lang::t('categories.help') ?></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <ul class="admin-rows">
     <?php foreach ($tree as $c): ?>

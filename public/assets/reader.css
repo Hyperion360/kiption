@@ -383,6 +383,8 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .page-head > * { margin: 0; }
 .page-head h1 { font-size: 38px; line-height: 1.05; }
 .page-head .eyebrow { margin: 0; }
+/* The one intro size: the sentence under a page heading is body-size (16px),
+   a step quieter than body ink. Hints and metadata stay at 13px. */
 .lede { font: 16px/1.5 var(--sans); color: var(--ink-2); max-width: 60ch; }
 .page-head .page-actions { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font: 14px var(--sans); }
 .section-label {
@@ -418,7 +420,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   background: var(--surface); border: 1px solid var(--line-strong);
 }
 .auth-card h1 { font-size: 32px; margin: 0 0 6px; }
-.auth-card .lede { font-size: 14px; color: var(--muted); margin: 0 0 20px; }
+.auth-card .lede { margin: 0 0 20px; }
 .auth-card form :where(input:not([type="checkbox"]):not([type="hidden"]), select) { max-width: none; }
 .auth-card form:not(.inline) > button:last-of-type { width: 100%; }
 .auth-card .auth-links { margin: 18px 0 0; font: 14px var(--sans); color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }

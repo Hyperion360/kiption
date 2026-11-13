@@ -1,7 +1,7 @@
 <?php // app/Features/Text/views/index.php ?>
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('text.heading') ?></h1>
-<p class="chapter-meta"><?= \App\Lang::t('text.intro') ?></p>
+<p class="lede"><?= \App\Lang::t('text.intro') ?></p>
 <?= $this->render('text/_langbar', ['languages' => $languages, 'lang' => $lang, 'base' => '/text']) ?>
 <form method="get" action="/text/search" class="form-card" role="search">
   <input type="hidden" name="lang" value="<?= $this->e($lang) ?>">

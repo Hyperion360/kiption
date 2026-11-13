@@ -1,7 +1,7 @@
 <?php // app/views/analytics/index.php ?>
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('analytics.heading') ?></h1>
-<p class="chapter-meta"><?= \App\Lang::t('analytics.approx_note') ?></p>
+<p class="lede"><?= \App\Lang::t('analytics.approx_note') ?></p>
 <section>
   <h2><?= \App\Lang::t('analytics.totals') ?></h2>
   <table>

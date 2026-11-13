@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('templates.heading') ?></h1>
-  <p class="chapter-meta"><?= \App\Lang::t('templates.help') ?></p>
+  <p class="lede"><?= \App\Lang::t('templates.help') ?></p>
   <ul>
     <?php foreach ($rows as $r): ?>
       <li>

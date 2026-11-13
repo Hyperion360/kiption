@@ -1,7 +1,7 @@
 <?php // app/views/features/index.php ?>
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('features.heading') ?></h1>
-<p class="chapter-meta"><?= \App\Lang::t('features.note') ?></p>
+<p class="lede"><?= \App\Lang::t('features.note') ?></p>
 <table>
   <thead><tr><th scope="col"><?= \App\Lang::t('features.column_feature') ?></th><th scope="col"><?= \App\Lang::t('features.column_description') ?></th><th scope="col"><?= \App\Lang::t('features.column_state') ?></th><th scope="col"><?= \App\Lang::t('features.column_action') ?></th></tr></thead>
   <tbody>

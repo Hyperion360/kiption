@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('ratings.heading') ?></h1>
-  <p class="chapter-meta"><?= \App\Lang::t('ratings.help') ?></p>
+  <p class="lede"><?= \App\Lang::t('ratings.help') ?></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <ul>
     <?php foreach ($rows as $r): ?>

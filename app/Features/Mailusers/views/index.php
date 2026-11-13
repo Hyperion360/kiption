@@ -2,7 +2,7 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('mailusers.heading') ?></h1>
-  <p><?= \App\Lang::t('mailusers.intro') ?></p>
+  <p class="lede"><?= \App\Lang::t('mailusers.intro') ?></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <form method="post" action="/mailusers/preview">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
