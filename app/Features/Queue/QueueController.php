@@ -52,6 +52,7 @@ final class QueueController
         if ($coords !== null) {
             $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
             (\App\StaticCache\Cache::configured($this->app))->purgeAuthors(); // story counts changed
+            \App\CachePurge::run($this->app, $this->db); // the edge holds public pages for hours; removals must leave it too
             if ($op === 'approve') $this->notifyPublish($coords[0]);
             \App\ActivityLog::by($this->db, $this->session, 'queue.story_' . $op, (string) ($info['title'] ?? $coords[0]));
             if ($info !== null) {
@@ -76,6 +77,7 @@ final class QueueController
         $coords = $op === 'approve' ? $repo->approveChapter((int) $id) : $repo->removeChapter((int) $id);
         if ($coords !== null) {
             $this->purge($coords[0], $coords[1], $coords[2], $coords[3], $coords[4]);
+            \App\CachePurge::run($this->app, $this->db); // the edge holds public pages for hours; removals must leave it too
             if ($op === 'approve') $this->notifyPublish($coords[0]);
             \App\ActivityLog::by($this->db, $this->session, 'queue.chapter_' . $op, 'chapter ' . (int) $id . ' of ' . $coords[0]);
         }
@@ -104,6 +106,7 @@ final class QueueController
         // Both ops change directory membership: approve completes an
         // approval-mode member, reject locks them out of the listing.
         (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
+        \App\CachePurge::run($this->app, $this->db); // the edge holds public pages for hours; lockouts must reach it too
         return \App\Saved::to('/queue', $op === 'approve' ? 'approved' : 'rejected');
     }
 

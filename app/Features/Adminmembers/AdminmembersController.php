@@ -218,6 +218,7 @@ final class AdminmembersController
         $cache = \App\StaticCache\Cache::configured($this->app);
         if ((string) $target['profile_slug'] !== '') $cache->purgeUser((string) $target['profile_slug']);
         $cache->purgeAuthors();
+        \App\CachePurge::run($this->app, $this->db); // the edge holds public pages for hours; lockouts must reach it too
     }
 
     private function removeForm(array $target, ?string $error): string
