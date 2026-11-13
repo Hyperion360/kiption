@@ -185,6 +185,13 @@ final class GuestPostLinkTest extends TestCase
         $this->assertSame('/auth/login', $res->headers['Location'], 'only the literal post is honoured');
     }
 
+    public function test_register_says_why_only_when_the_guest_came_to_post(): void
+    {
+        $line = 'Create an account to post your story.';
+        $this->assertStringContainsString($line, $this->client()->get('/auth/register', ['to' => 'post'])->body);
+        $this->assertStringNotContainsString($line, $this->client()->get('/auth/register')->body);
+    }
+
     public function test_signing_in_after_the_redirect_opens_the_story_form_once(): void
     {
         $client = $this->client();

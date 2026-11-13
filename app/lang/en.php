@@ -117,6 +117,7 @@ return [
     'auth.to_post' => 'Sign in to post your story. New here? Create an account first; we will email you a link to confirm your address.',
     'auth.to_post_invite' => 'Sign in to post your story. New accounts here need an invitation.',
     'auth.to_post_register' => 'Create an account',
+    'auth.register.to_post' => 'Create an account to post your story. We will email you a link to confirm your address; after that, sign in and the story form opens.',
     'auth.login.lede' => 'Reading is open to everyone. Log in to bookmark, follow authors, review, and write.',
     'auth.forgot.lede' => 'Enter the email on your account and we will send a link to set a new password.',
     'auth.back_to_login' => 'Back to log in',
