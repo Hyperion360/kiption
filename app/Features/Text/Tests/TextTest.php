@@ -234,7 +234,7 @@ final class TextTest extends TestCase
         $this->assertSame(422, $c->postWithToken('/text/addlanguage', ['code' => 'de', 'name' => '<b>x', 'dir' => 'ltr'])->status);
         $this->assertSame(422, $c->postWithToken('/text/addlanguage', ['code' => 'de', 'name' => 'Deutsch', 'dir' => 'sideways'])->status);
         $this->assertSame(422, $c->postWithToken('/text/removelanguage', ['code' => 'en'])->status, 'built-in packs stay');
-        $this->assertSame(302, $c->postWithToken('/text/removelanguage', ['code' => 'fr'])->status);
+        $this->assertSame(302, $c->postWithToken('/text/removelanguage', ['code' => 'fr', 'confirmed' => '1'])->status);
         $this->assertFileDoesNotExist($this->root . '/site-text/fr.php');
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM site_text')['c'], 'its text went with it');
     }
@@ -243,7 +243,7 @@ final class TextTest extends TestCase
     {
         $this->db->query("INSERT INTO site_languages (code, name, dir) VALUES ('fr', 'Francais', 'ltr')");
         $c = $this->client($this->adminId, ['ui_lang' => 'fr']);
-        $this->assertSame(422, $c->postWithToken('/text/removelanguage', ['code' => 'fr'])->status);
+        $this->assertSame(422, $c->postWithToken('/text/removelanguage', ['code' => 'fr', 'confirmed' => '1'])->status);
     }
 
     public function test_export_is_a_json_download_of_every_string(): void

@@ -7,7 +7,7 @@
   <li><?= $this->e($l['name']) ?> <span class="chapter-meta">(<?= $this->e($l['code']) ?>, <?= \App\Lang::t($l['dir'] === 'rtl' ? 'text.rtl' : 'text.ltr') ?><?= $l['owned'] ? '' : ', ' . \App\Lang::t('text.builtin') ?><?= $l['code'] === $default ? ', ' . \App\Lang::t('text.default_mark') : '' ?>)</span>
     <a href="<?= $this->e('/text?lang=' . $l['code']) ?>"><?= \App\Lang::t('text.edit_language') ?></a>
     <?php if ($l['owned'] && $l['code'] !== $default): ?>
-    <form method="post" action="/text/removelanguage" class="inline-form">
+    <form method="post" action="/text/removelanguage" class="inline-form" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('text.confirm_remove_language')) ?>">
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
       <input type="hidden" name="code" value="<?= $this->e($l['code']) ?>">
       <button type="submit" class="link-btn"><?= \App\Lang::t('text.remove') ?></button>

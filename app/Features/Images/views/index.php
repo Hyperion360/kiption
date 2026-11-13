@@ -21,7 +21,7 @@
         <?php if ($f['inUse']): ?>
           <span class="badge"><?= \App\Lang::t('images.in_use') ?></span>
         <?php else: ?>
-        <form method="post" action="/images/delete" class="inline">
+        <form method="post" action="/images/delete" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('images.confirm_delete')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <input type="hidden" name="name" value="<?= $this->e($f['name']) ?>">
           <button type="submit"><?= \App\Lang::t('common.delete') ?></button>

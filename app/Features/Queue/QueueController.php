@@ -43,6 +43,7 @@ final class QueueController
     {
         if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
         if ($op !== 'approve' && $op !== 'remove') return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($op === 'remove' && !\App\Confirm::given($this->request)) return $this->ask('queue.confirm_remove', 'common.remove');
         $repo = new AuthoringRepository($this->db);
         $info = $this->db->one(
             'SELECT s.title, u.email, u.penname FROM stories s JOIN users u ON u.id = s.author_id
@@ -70,6 +71,7 @@ final class QueueController
     {
         if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
         if ($op !== 'approve' && $op !== 'remove') return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($op === 'remove' && !\App\Confirm::given($this->request)) return $this->ask('queue.confirm_remove', 'common.remove');
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveChapter((int) $id) : $repo->removeChapter((int) $id);
         if ($coords !== null) {
@@ -84,6 +86,7 @@ final class QueueController
     public function member(string $id, string $op): Response
     {
         if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if ($op === 'reject' && !\App\Confirm::given($this->request)) return $this->ask('queue.confirm_reject', 'queue.reject');
         if ($op === 'approve') {
             $done = $this->db->query('UPDATE users SET approved_at = ? WHERE id = ? AND approved_at IS NULL', [date('c'), (int) $id])->rowCount();
             if ($done === 1) \App\ActivityLog::by($this->db, $this->session, 'queue.member_approve', 'member ' . (int) $id);
@@ -122,6 +125,15 @@ final class QueueController
         } catch (\Throwable $e) {
             error_log("{$template} mail failed: " . $e->getMessage());
         }
+    }
+
+    /** The question page before a removal or a rejection (scripting off, or a
+     *  post that did not confirm). Only reached after the moderator gate. */
+    private function ask(string $question, string $yes): Response
+    {
+        $isAdmin = !(Adminness::requireAdmin($this->db, $this->session) instanceof Response);
+        return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, $question, $yes, '/queue', $isAdmin,
+            ['reason' => mb_substr(trim($this->request->postStr('reason')), 0, 1000)]));
     }
 
     private function moderator(): bool

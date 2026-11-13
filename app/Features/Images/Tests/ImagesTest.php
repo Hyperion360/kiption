@@ -130,14 +130,14 @@ final class ImagesTest extends TestCase
         $this->assertFileExists($dir . '/' . $name);
         // reference cleared: deletion removes the file
         $db->query("UPDATE stories SET cover_path = NULL WHERE slug = 'the-rabbit-hole'");
-        $this->assertSame(302, $admin->postWithToken('/images/delete', ['name' => $name])->status);
+        $this->assertSame(302, $admin->postWithToken('/images/delete', ['name' => $name, 'confirmed' => '1'])->status);
         $this->assertFileDoesNotExist($dir . '/' . $name, 'the orphan unlink removed the file');
         // basename confinement: any path separator is a 422, never an unlink target
         $this->assertSame(422, $admin->postWithToken('/images/delete', ['name' => '../' . $name])->status);
         $this->assertSame(422, $admin->postWithToken('/images/delete', ['name' => '..\\' . $name])->status);
         $this->assertSame(422, $admin->postWithToken('/images/delete', ['name' => ''])->status, 'empty name is not a file');
         // unknown names 404, not a silent redirect
-        $this->assertSame(404, $admin->postWithToken('/images/delete', ['name' => 'deadbeefdeadbeef.png'])->status);
+        $this->assertSame(404, $admin->postWithToken('/images/delete', ['name' => 'deadbeefdeadbeef.png', 'confirmed' => '1'])->status);
     }
 
     public function test_upload_rejections_render_422(): void

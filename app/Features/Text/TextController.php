@@ -159,6 +159,9 @@ final class TextController
         [$store] = $ctx;
         $code = (string) ($this->request->post['code'] ?? '');
         if ($code === $this->defaultLang()) return new Response($this->esc(Lang::t('text.err_remove_default')), 422);
+        if (!\App\Confirm::given($this->request)) {
+            return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, 'text.confirm_remove_language', 'text.remove', '/text/languages', true, ['code' => mb_substr($code, 0, 20)]));
+        }
         $err = $store->removeLanguage($code);
         if ($err !== null) return new Response($this->esc($err), 422);
         $this->publish($store);

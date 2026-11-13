@@ -80,6 +80,10 @@ final class NavController
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
+        if ($this->find($id) === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if (!\App\Confirm::given($this->request)) {
+            return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, 'navlinks.confirm_delete', 'common.delete', '/nav', true));
+        }
         if ($this->db->query('DELETE FROM nav_links WHERE id = ?', [(int) $id])->rowCount() === 0) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }

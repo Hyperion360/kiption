@@ -111,7 +111,7 @@ final class InvitesTest extends TestCase
         // an unused code revokes clean: the row is gone
         $code = $this->mintCode($admin);
         $unusedId = (int) $this->db()->one('SELECT id FROM invites WHERE code = ?', [$code])['id'];
-        $this->assertSame(302, $admin->postWithToken('/invites/revoke/' . $unusedId)->status);
+        $this->assertSame(302, $admin->postWithToken('/invites/revoke/' . $unusedId, ['confirmed' => '1'])->status);
         $this->assertNull($this->db()->one('SELECT id FROM invites WHERE id = ?', [$unusedId]));
         // a consumed code survives revoke: the audit trail keeps used_by set
         $code = $this->mintCode($admin);
@@ -121,12 +121,12 @@ final class InvitesTest extends TestCase
         $usedId = (int) $this->db()->one('SELECT id FROM invites WHERE code = ?', [$code])['id'];
         $usedBy = $this->db()->one('SELECT used_by FROM invites WHERE id = ?', [$usedId])['used_by'];
         $this->assertNotNull($usedBy);
-        $this->assertSame(302, $admin->postWithToken('/invites/revoke/' . $usedId)->status);
+        $this->assertSame(302, $admin->postWithToken('/invites/revoke/' . $usedId, ['confirmed' => '1'])->status);
         $row = $this->db()->one('SELECT used_by FROM invites WHERE id = ?', [$usedId]);
         $this->assertNotNull($row, 'a used code is never deleted');
         $this->assertSame((int) $usedBy, (int) $row['used_by']);
         // an unknown id still redirects (the delete is a no-op)
-        $this->assertSame(302, $admin->postWithToken('/invites/revoke/999')->status);
+        $this->assertSame(302, $admin->postWithToken('/invites/revoke/999', ['confirmed' => '1'])->status);
     }
 
     public function test_created_code_actually_registers(): void

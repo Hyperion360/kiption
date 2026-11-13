@@ -91,20 +91,20 @@ final class QueueDecisionMailTest extends TestCase
     public function test_rejecting_a_story_mails_the_reason_or_a_default(): void
     {
         $sid = $this->pendingStory();
-        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/remove', ['reason' => 'Needs a content warning']);
+        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/remove', ['confirmed' => '1', 'reason' => 'Needs a content warning']);
         $this->assertNotNull($this->db->one('SELECT deleted_at FROM stories WHERE id = ?', [$sid])['deleted_at']);
         $this->assertStringContainsString('Your story Pending Tale was not approved', $this->mail());
         $this->assertStringContainsString('Needs a content warning', $this->mail());
         @unlink($this->root . '/mail.log');
         $second = $this->pendingStory('pending-two');
-        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $second . '/remove', ['reason' => '']);
+        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $second . '/remove', ['confirmed' => '1', 'reason' => '']);
         $this->assertStringContainsString('content policy', $this->mail());
     }
 
     public function test_rejecting_a_member_locks_them_and_mails_the_reason(): void
     {
         $id = $this->applicant();
-        $this->assertSame(302, $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject', ['reason' => 'We could not verify you']) ->status);
+        $this->assertSame(302, $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject', ['confirmed' => '1', 'reason' => 'We could not verify you']) ->status);
         $this->assertSame(1, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$id])['is_locked']);
         $mail = $this->mail();
         $this->assertStringContainsString('hopeful@e.test', $mail);
@@ -114,9 +114,9 @@ final class QueueDecisionMailTest extends TestCase
 
     public function test_rejecting_a_non_pending_or_non_member_id_changes_nothing(): void
     {
-        $this->assertSame(302, $this->client($this->moderatorId)->postWithToken('/queue/member/' . $this->adminId . '/reject', ['reason' => 'x'])->status);
+        $this->assertSame(302, $this->client($this->moderatorId)->postWithToken('/queue/member/' . $this->adminId . '/reject', ['confirmed' => '1', 'reason' => 'x'])->status);
         $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->adminId])['is_locked']);
-        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $this->targetId . '/reject', ['reason' => 'x']);
+        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $this->targetId . '/reject', ['confirmed' => '1', 'reason' => 'x']);
         $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->targetId])['is_locked']);
         $this->assertSame('', $this->mail());
     }
@@ -124,7 +124,7 @@ final class QueueDecisionMailTest extends TestCase
     public function test_an_empty_member_reason_sends_a_polite_default(): void
     {
         $id = $this->applicant();
-        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject');
+        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject', ['confirmed' => '1']);
         $this->assertStringContainsString('requirements for new members', $this->mail());
     }
 
@@ -132,7 +132,7 @@ final class QueueDecisionMailTest extends TestCase
     {
         $this->db->query("INSERT INTO mail_templates (name, subject, body) VALUES ('member_rejected', 'Sorry {penname}', 'No. {reason}')");
         $id = $this->applicant();
-        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject', ['reason' => 'Full up']);
+        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject', ['confirmed' => '1', 'reason' => 'Full up']);
         $this->assertStringContainsString('Sorry hopeful', $this->mail());
         $this->assertStringContainsString('No. Full up', $this->mail());
     }

@@ -1318,6 +1318,8 @@ return [
     'admin.saved_moved' => 'Moved.',
     'admin.saved_turned_on' => 'Turned on.',
     'admin.saved_turned_off' => 'Turned off.',
+    'images.confirm_delete' => 'Delete this picture? Pages that link to it will show a broken picture.',
+    'text.confirm_remove_language' => 'Remove this language and every translation saved for it?',
     'admin.confirm_heading' => 'Are you sure?',
     'admin.confirm_note' => 'This cannot be undone.',
     'admin.confirm_cancel' => 'Cancel',

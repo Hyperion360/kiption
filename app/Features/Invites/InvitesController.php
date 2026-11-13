@@ -66,6 +66,9 @@ final class InvitesController
     {
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
+        if (!\App\Confirm::given($this->request)) {
+            return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, 'invites.confirm_revoke', 'invites.revoke', '/invites', true));
+        }
         // The delete only reaches unused codes: a consumed code is part of
         // the audit trail (who invited whom), so revoke is a no-op for it.
         $this->db->query('DELETE FROM invites WHERE id = ? AND used_by IS NULL', [(int) $id]);

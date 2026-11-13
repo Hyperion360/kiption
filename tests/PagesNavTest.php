@@ -140,7 +140,7 @@ final class PagesNavTest extends TestCase
         $this->assertSame(403, $this->client($this->memberId())->get('/nav')->status);
         $this->assertSame(403, $this->client($this->memberId())->postWithToken('/nav/delete/' . $id)->status);
         // delete removes the row and rebuilds the artifact
-        $this->assertSame(302, $admin->postWithToken('/nav/delete/' . $id)->status);
+        $this->assertSame(302, $admin->postWithToken('/nav/delete/' . $id, ['confirmed' => '1'])->status);
         $this->assertSame([], $db->all('SELECT * FROM nav_links'));
         $this->assertSame([], \App\NavLinks::all($this->navFile()), 'artifact rebuilt after delete');
         // unknown ids 404
