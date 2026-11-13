@@ -10,26 +10,27 @@ final class ManageController extends AdminScreen
 {
     /** The groups, in the order they print. */
     public const GROUPS = [
-        'content' => 'manage.group_content',
+        'stories' => 'manage.group_stories',
+        'pages' => 'manage.group_pages',
         'members' => 'manage.group_members',
         'look' => 'manage.group_look',
         'settings' => 'manage.group_settings',
     ];
 
-    /** Every owner screen: [group, address, language key for the label, optional feature flag that must be on]. */
+    /** Every owner screen: [group, address, language key for the label, optional feature flag that must be on].
+     *  The one-line description under each label is the label's key plus "_what". */
     public const LINKS = [
-        ['content', '/queue', 'manage.queue'],
-        ['content', '/news', 'manage.news', 'news'],
-        ['content', '/news/new', 'manage.news_post', 'news'],
-        ['content', '/pages/manage', 'manage.pages'],
-        ['content', '/page/new', 'manage.page_new'],
-        ['content', '/images', 'manage.images'],
-        ['content', '/categories', 'manage.categories'],
-        ['content', '/ratings', 'manage.ratings'],
-        ['content', '/tags', 'manage.tags'],
-        ['content', '/characters', 'manage.characters'],
-        ['content', '/wrangling', 'manage.wrangling', 'wrangling'],
-        ['content', '/analytics', 'manage.analytics', 'analytics'],
+        ['stories', '/queue', 'manage.queue'],
+        ['stories', '/categories', 'manage.categories'],
+        ['stories', '/ratings', 'manage.ratings'],
+        ['stories', '/tags', 'manage.tags'],
+        ['stories', '/characters', 'manage.characters'],
+        ['stories', '/wrangling', 'manage.wrangling', 'wrangling'],
+        ['pages', '/news', 'manage.news', 'news'],
+        ['pages', '/news/new', 'manage.news_post', 'news'],
+        ['pages', '/pages/manage', 'manage.pages'],
+        ['pages', '/page/new', 'manage.page_new'],
+        ['pages', '/images', 'manage.images'],
         ['members', '/adminmembers', 'manage.members'],
         ['members', '/mailusers', 'manage.mailusers'],
         ['members', '/invites', 'manage.invites'],
@@ -43,6 +44,7 @@ final class ManageController extends AdminScreen
         ['settings', '/features', 'manage.features'],
         ['settings', '/wordfilter', 'manage.wordfilter'],
         ['settings', '/activity', 'manage.activity'],
+        ['settings', '/analytics', 'manage.analytics', 'analytics'],
     ];
 
     /** The way back shown above every owner screen: the admin menu, then the

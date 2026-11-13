@@ -1496,6 +1496,17 @@ body.focus .site-head { display: none; }
   .admin-trail + .site-main { padding-block-start: 16px; }
 }
 
+/* The admin menu: each screen is one row with its name and a line saying
+   what it is for; two columns from tablet width up. */
+.site-main .manage-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; grid-template-columns: 1fr; border-block-start: 1px solid var(--line); }
+.manage-list > li { border-block-end: 1px solid var(--line); }
+.manage-list a { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: 64px; padding: 10px 0; color: var(--ink); text-decoration: none; }
+.manage-list a:visited { color: var(--ink); }
+.manage-name { font: 600 16px/1.35 var(--sans); color: var(--accent); }
+.manage-list a:hover .manage-name { text-decoration: underline; text-underline-offset: 2px; }
+.manage-what { font: 14px/1.45 var(--sans); color: var(--ink-2); }
+@media (min-width:768px) { .site-main .manage-list { grid-template-columns: 1fr 1fr; column-gap: 32px; } }
+
 /* Members admin: a table on wide screens, one card per member below 1024px.
    The markup is the same both ways. The role and status cells carry their
    column name in data-label, shown only once the header row is hidden. */
