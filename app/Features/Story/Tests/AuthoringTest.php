@@ -74,7 +74,8 @@ final class AuthoringTest extends TestCase
     public function test_story_requires_login(): void
     {
         $res = (new TestClient(new App($this->config())))->get('/story/new');
-        $this->assertSame(302, $res->status);
+        $this->assertSame(303, $res->status, 'a guest is sent to sign in, with the reason');
+        $this->assertSame('/auth/login?to=post', $res->headers['Location']);
     }
 
     public function test_validated_author_bypasses_queue(): void

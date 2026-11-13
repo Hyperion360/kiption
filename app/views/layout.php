@@ -160,6 +160,7 @@
       <a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a>
 <?php endforeach; ?>
       <?php if (!($loggedIn ?? false)): ?>
+<?= $this->render('menu_post', ['guest' => true]) ?>
       <a href="/auth/login"><?= \App\Lang::t('nav.login') ?></a>
       <?php endif; ?>
     </nav>

@@ -15,6 +15,30 @@ use Kip\View;
  */
 final class Posting
 {
+    /** The merged boot config's registration mode (open, verify, approval,
+     *  invite, or closed), captured once like AdminNav::init so views, which
+     *  have no config access, can ask about it. */
+    private static string $mode = 'verify';
+
+    public static function init(array $config): void
+    {
+        $mode = $config['registration_mode'] ?? 'verify';
+        self::$mode = is_string($mode) && $mode !== '' ? $mode : 'verify';
+    }
+
+    public static function registrationMode(): string
+    {
+        return self::$mode;
+    }
+
+    /** Whether a guest is offered "Post a story": posting is open and an
+     *  account can still be created. Every guest gets the same answer, built
+     *  only from cached settings, so the anonymous page cache stays safe. */
+    public static function guestOffered(): bool
+    {
+        return Settings::on('submissions_open') && self::$mode !== 'closed';
+    }
+
     public static function paused(Database $db, int $userId): bool
     {
         if (Settings::on('submissions_open')) return false;

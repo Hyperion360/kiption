@@ -585,9 +585,18 @@ final class StoryController
         return Response::redirect('/story/view/' . $slug);
     }
 
-    #[AuthAttr]
+    /** Open to guests on purpose: a guest is told why and sent to sign in,
+     *  then back here. The framework's own #[Auth] guard would drop the
+     *  reason, so the check is made here with Viewer, which also refuses a
+     *  session revoked by a password change. create() stays gated. */
     public function new(): Response|string
     {
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        if ($me === 0) {
+            $this->session->set('after_signin', '/story/new');
+            $to = (string) $this->app->config('registration_mode', 'verify') === 'closed' ? '/auth/login' : '/auth/login?to=post';
+            return Response::redirect($to, 303)->withHeader('Cache-Control', 'private, no-store');
+        }
         if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         return $this->renderForm($this->authoring()->formData(null, $this->uid()), null, null, null);
     }

@@ -30,7 +30,16 @@ final class AuthController
     {
         return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'head' => $this->head()->withTitle(\App\Lang::t('auth.login.heading'))->withCanonical('/auth/login')->withNoindex(),
             'csrf' => $this->session->csrfToken(), 'error' => isset($this->request->get['locked']) ? \App\Lang::t('auth.err_locked') : null,
-            'verified' => isset($this->request->get['verified'])]);
+            'verified' => isset($this->request->get['verified']),
+            'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify')]);
+    }
+
+    /** A guest who tapped "Post a story" arrives with the literal ?to=post.
+     *  Nothing else is honoured: the value picks a sentence, never a URL. */
+    private function toPost(): bool
+    {
+        return ($this->request->get['to'] ?? null) === 'post'
+            || $this->request->postStr('to') === 'post';
     }
 
     #[Post]
@@ -92,7 +101,11 @@ final class AuthController
      *  browser's runtime cache. */
     private function redirectWithPrefCookies(int $userId): Response
     {
-        $redirect = Response::redirect('/');
+        // A guest sent here from "Post a story" gets the form once, then the
+        // note is gone. Only the one known path is ever honoured.
+        $after = $this->session->get('after_signin');
+        $this->session->forget('after_signin');
+        $redirect = Response::redirect($after === '/story/new' ? '/story/new' : '/');
         if ($userId === 0) return $redirect;
         $prefs = $this->db->one('SELECT lang, theme FROM user_prefs WHERE user_id = ?', [$userId]);
         $cookies = [];
@@ -155,6 +168,7 @@ final class AuthController
             'head' => $this->head()->withTitle(\App\Lang::t('auth.register.title'))->withCanonical('/auth/register')->withNoindex(),
             'csrf' => $this->session->csrfToken(),
             'error' => null,
+            'toPost' => $this->toPost(),
             'mode' => (string) $this->app->config('registration_mode', 'verify'),
             'terms_url' => \App\Notices::termsUrl((string) $this->app->config('signup_terms_url', '')),
         ] + $this->checkFields());
@@ -210,7 +224,7 @@ final class AuthController
                 error_log("Verification mail failed: {$e->getMessage()}");
             }
         }
-        return Response::redirect('/auth/login');
+        return Response::redirect($this->request->postStr('to') === 'post' ? '/auth/login?to=post' : '/auth/login');
     }
 
     public function verify(string $token): Response
