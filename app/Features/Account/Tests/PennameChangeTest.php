@@ -217,4 +217,21 @@ final class PennameChangeTest extends TestCase
             ->get('/account/settings', ['saved' => 'penname'])->body;
         $this->assertStringNotContainsString($note, $purged);
     }
+
+    public function test_rename_gives_up_cleanly_when_every_numbered_slug_is_taken(): void
+    {
+        // The storm branch of UserRepository::rename(): Slug::unique exhausts
+        // its numbered forms and the member sees the taken-name refusal, with
+        // their own name and slug untouched.
+        $id = $this->member('Aaron');
+        $this->member('Zed'); // holds slug "zed"
+        for ($n = 2; $n <= 51; $n++) {
+            $this->db->query("INSERT INTO users (email, password_hash, penname, profile_slug, role, email_verified_at, approved_at) VALUES (?, 'x', ?, ?, 'member', ?, ?)",
+                ["z$n@pn.test", "Filler $n", "zed-$n", date('c'), date('c')]);
+        }
+        $users = new \App\Repositories\UserRepository($this->db);
+        $this->assertNull($users->rename($id, 'Zed'));
+        $this->assertSame('Aaron', $this->row($id)['penname'], 'rolled back');
+        $this->assertSame('aaron', $this->row($id)['profile_slug'], 'slug untouched');
+    }
 }

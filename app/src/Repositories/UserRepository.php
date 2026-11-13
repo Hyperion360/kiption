@@ -178,13 +178,13 @@ final class UserRepository
         } catch (\RuntimeException $e) {
             $this->db->rollBack();
             if ($e->getMessage() === 'slug collision storm') return null;
-            throw $e;
-        } catch (\PDOException $e) {
-            // A concurrent rename won the UNIQUE race on penname or
-            // profile_slug after pennameError() already said yes.
-            $this->db->rollBack();
-            $sqliteCode = (int) ($e->errorInfo[1] ?? 0);
-            if ($e->getCode() === '23000' || $sqliteCode === 19) return null; // constraint: name is taken
+            // PDOException extends RuntimeException: a concurrent rename that
+            // won the UNIQUE race on penname or profile_slug (after
+            // pennameError() already said yes) reads as a taken name too.
+            if ($e instanceof \PDOException) {
+                $sqliteCode = (int) ($e->errorInfo[1] ?? 0);
+                if ($e->getCode() === '23000' || $sqliteCode === 19) return null; // constraint: name is taken
+            }
             throw $e;
         } catch (\Throwable $e) {
             $this->db->rollBack();
