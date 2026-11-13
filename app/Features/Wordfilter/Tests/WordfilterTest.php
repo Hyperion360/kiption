@@ -94,6 +94,8 @@ final class WordfilterTest extends TestCase
         $clean = $c->postWithToken('/wordfilter/try', ['sentence' => 'Darning socks is fine'])->body;
         $this->assertStringContainsString(\App\Lang::t('wordfilter.try_clean'), $clean);
         $this->assertSame($logged, (int) $this->db->one('SELECT COUNT(*) AS n FROM activity_log')['n']);
-        $this->assertStringNotContainsString('role="status"', $c->postWithToken('/wordfilter/try', ['sentence' => '  '])->body);
+        $blank = $c->postWithToken('/wordfilter/try', ['sentence' => '  '])->body;
+        $this->assertStringNotContainsString(\App\Lang::t('wordfilter.try_clean'), $blank);
+        $this->assertStringNotContainsString(\App\Lang::t('wordfilter.try_blocked', ['word' => 'rude phrase']), $blank);
     }
 }
