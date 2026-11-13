@@ -29,7 +29,7 @@ final class MassMail
             try {
                 if ($mailer->send($email, $subject, $body) === true) $mailed++;
             } catch (\Throwable $e) {
-                error_log("mail:users failed for {$email}: " . $e->getMessage());
+                error_log('mail:users failed for one recipient: ' . $e->getMessage()); // never log the address
             }
         }
         return $mailed;
