@@ -307,6 +307,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .site-main form:where(:not(.inline):not(.text-settings)) label.inline { display: flex; margin-block-end: 18px; font: 15px/1.4 var(--sans); color: var(--ink); }
 .site-main form:where(:not(.inline):not(.text-settings)) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="range"]):not([type="file"]), select) { width: 100%; max-width: 560px; font-weight: 400; }
 .site-main form:where(:not(.inline):not(.text-settings)) textarea { width: 100%; font: 400 17px/1.6 var(--serif); }
+/* A file picker never pushes its card wider than a phone screen. */
+input[type="file"] { max-width: 100%; }
 .site-main fieldset:not(.text-settings fieldset):not(.rating-pips) { border: 1px solid var(--line); padding: 16px 18px 4px; margin: 0 0 18px; }
 .site-main fieldset legend { padding-inline: 6px; font: 600 12px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 /* A checkbox or radio label reads as one row: control, then its text. */
