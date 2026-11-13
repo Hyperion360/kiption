@@ -161,4 +161,10 @@ final class RegisterTest extends TestCase
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('name="robots" content="noindex"', $res->body);
     }
+
+    public function test_the_case_insensitive_email_lookup_uses_an_index(): void
+    {
+        $plan = implode(' ', array_column($this->db->all("EXPLAIN QUERY PLAN SELECT * FROM users WHERE lower(email) = lower(?)", ['a@b.test']), 'detail'));
+        $this->assertStringContainsString('USING INDEX', $plan, $plan);
+    }
 }
