@@ -581,6 +581,7 @@ final class StoryController
         $story = $this->db->one('SELECT id FROM stories WHERE slug = ? AND deleted_at IS NULL', [$slug]);
         if ($story === null) return new Response(\App\Lang::t('error.not_found'), 404);
         (new \App\Repositories\EngagementRepository($this->db))->toggleMark($slug, (int) $this->session->get('user_id'));
+        \App\ActivityLog::by($this->db, $this->session, 'story.mark', $slug);
         return Response::redirect('/story/view/' . $slug);
     }
 
@@ -723,6 +724,7 @@ final class StoryController
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
         $this->db->query('UPDATE stories SET cover_path = ? WHERE id = ?', [$path, $story['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'story.cover', $slug);
         [$seriesSlugs, $authorSlug] = $this->authoring()->purgeData((int) $story['id'], (int) $story['author_id']);
         $this->staticCache()->purgeStory($slug, $this->authoring()->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug);
         return Response::redirect('/story/edit/' . $slug);

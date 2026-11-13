@@ -42,6 +42,7 @@ final class AccountController
             $this->submittedFields = $input;
             return $this->refuse($err[0], ['label' => htmlspecialchars($err[1], ENT_QUOTES, 'UTF-8')]);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'account.fields', '');
         $this->purgeOwnProfile($me);
         return Response::redirect('/account/settings?done=fields');
     }
@@ -352,6 +353,7 @@ final class AccountController
             $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
             @unlink($dir . '/' . basename((string) $old['avatar_path']));
         }
+        \App\ActivityLog::by($this->db, $this->session, 'account.avatar', '');
         $this->purgeOwnProfile($userId);
         return Response::redirect('/account/settings');
     }
@@ -366,6 +368,7 @@ final class AccountController
         }
         $userId = (int) $this->session->get('user_id');
         $this->db->query('UPDATE users SET support_url = ? WHERE id = ?', [$url === '' ? null : $url, $userId]);
+        \App\ActivityLog::by($this->db, $this->session, 'account.support', '');
         $this->purgeOwnProfile($userId);
         return Response::redirect('/account/settings');
     }
@@ -426,6 +429,7 @@ final class AccountController
                 $binds);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+        \App\ActivityLog::by($this->db, $this->session, 'account.prefs', '');
         $this->purgeOwnProfile($me);
         // the beta badge flips directory membership too, not just the profile card
         (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();

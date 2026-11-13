@@ -32,6 +32,7 @@ final class NotificationsController
     public function read(): Response
     {
         (new Notifications($this->db))->markAllRead((int) $this->session->get('user_id'));
+        \App\ActivityLog::by($this->db, $this->session, 'notifications.read_all', '');
         return Response::redirect('/notifications');
     }
 

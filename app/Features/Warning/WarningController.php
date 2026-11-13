@@ -5,7 +5,7 @@ use Kip\Routing\Post;
 
 final class WarningController
 {
-    public function __construct(private Request $request) {}
+    public function __construct(private Request $request, private \Kip\Database $db, private \Kip\Session $session) {}
 
     /** The age gate's continue action. POST, not GET: a year-long preference
      *  cookie must not be settable by a third-party page's cross-site
@@ -16,6 +16,7 @@ final class WarningController
     public function accept(): Response
     {
         $to = \App\Redirects::safeReturn($this->request->postStr('return_to'));
+        \App\ActivityLog::by($this->db, $this->session, 'agegate.accept');
         return Response::redirect($to)->withHeader('Set-Cookie', \App\Cookie::long(\App\AgeGate::COOKIE, '1'));
     }
 }

@@ -57,6 +57,7 @@ final class ContactController
             }
         }
         if ($sent === 0) return $this->form('contact.err_mail', 502, $old);
+        \App\ActivityLog::record($this->db, null, 'contact.send', $sent . ' of ' . count($admins) . ' delivered');
         return Response::redirect('/contact?sent=1');
     }
 
