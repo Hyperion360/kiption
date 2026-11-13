@@ -56,9 +56,7 @@ final class AccountController
         [$err, $token] = $this->security()->requestEmailChange($me, $new, $this->request->postStr('current_password'), $this->request->ip);
         if ($err !== null) return $this->refuse($err);
         $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/account/emailconfirm?t=' . $token;
-        [$subject, $body] = \App\Templates::get($this->db, 'email_change_confirm', 'Confirm your new email address',
-            "Someone asked to use this address for an account on the archive. To confirm it is yours, open this link:\n\n{url}\n\n"
-            . "The link works once and expires in 24 hours. If this wasn't you, ignore this email and nothing will change.");
+        [$subject, $body] = \App\Templates::get($this->db, 'email_change_confirm', ...\App\Templates::pair('email_change_confirm'));
         try {
             $this->mailer()->send($new, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
         } catch (\Throwable $e) {
@@ -82,9 +80,7 @@ final class AccountController
     {
         $res = $this->security()->applyEmailChange($this->request->postStr('t'));
         if (\is_string($res)) return $this->emailView(null, 410, $res);
-        [$subject, $body] = \App\Templates::get($this->db, 'email_changed_notice', 'Your email address was changed',
-            "The email address on your archive account was changed to {new_email}.\n\n"
-            . "If you did this, there is nothing more to do. If you didn't, contact the archive owner right away.");
+        [$subject, $body] = \App\Templates::get($this->db, 'email_changed_notice', ...\App\Templates::pair('email_changed_notice'));
         try {
             $this->mailer()->send($res['old'], $subject, strtr($body, ['{new_email}' => $res['new']]), \App\MailGuard::CRITICAL);
         } catch (\Throwable $e) {

@@ -44,9 +44,7 @@ final class ContactController
         }
         $admins = $this->db->all("SELECT email FROM users WHERE role = 'admin' AND is_locked = 0 ORDER BY id");
         if ($admins === []) return $this->form('contact.err_nobody', 503, $old);
-        [$subject, $body] = \App\Templates::get($this->db, 'site_contact', 'New message from the contact form',
-            "{name} ({email}) wrote through the contact form:\n\n{message}\n\n"
-            . "Reply to this person at {email}. They are not signed in.");
+        [$subject, $body] = \App\Templates::get($this->db, 'site_contact', ...\App\Templates::pair('site_contact'));
         $text = strtr($body, ['{name}' => $name, '{email}' => $email, '{message}' => $message]);
         $mailer = $this->app->container->make(\App\MailGuard::class);
         $sent = 0;

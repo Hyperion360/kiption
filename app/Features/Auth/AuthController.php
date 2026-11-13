@@ -315,10 +315,7 @@ final class AuthController
         $token = (new \App\LoginLinks($this->db))->request($email, $this->request->ip);
         if ($token !== null) {
             $url = \App\LoginLinks::url((string) $this->app->config('base_url', 'http://localhost:8080'), $token);
-            [$subject, $body] = \App\Templates::get($this->db, 'signin_link', 'Your sign-in link',
-                "Here is the sign-in link you asked for:\n\n{url}\n\n"
-                . "It works once, for the next 30 minutes. Open it on the device you want to sign in on.\n\n"
-                . "If you didn't ask for this, you can ignore this email.");
+            [$subject, $body] = \App\Templates::get($this->db, 'signin_link', ...\App\Templates::pair('signin_link'));
             // Deferred past the response, like remind(): this send happens only
             // for real accounts, so its duration must not show in the timing.
             $this->app->defer(function () use ($email, $subject, $body, $url): void {

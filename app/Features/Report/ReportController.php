@@ -94,7 +94,7 @@ final class ReportController
             $cache->purgeStory((string) $target['slug'], []);
         }
         if ($target['author_email'] !== null && !\App\AccountSecurity::isReservedEmail((string) $target['author_email'])) {
-            [$subject, $body] = \App\Templates::get($this->db, 'content_removed', \App\Templates::DEFAULT_CONTENT_REMOVED[0], \App\Templates::DEFAULT_CONTENT_REMOVED[1]);
+            [$subject, $body] = \App\Templates::get($this->db, 'content_removed', ...\App\Templates::pair('content_removed'));
             $reason = trim($this->request->postStr('reason'));
             $pairs = [
                 '{what}' => \App\Lang::t($target['kind'] === 'story' ? 'report.what_story' : 'report.what_review'),

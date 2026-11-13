@@ -67,10 +67,6 @@ final class Templates
         ],
     ];
 
-    /** The content_removed pair, shared by the call site and seedDefaults. */
-    public const DEFAULT_CONTENT_REMOVED = ['Your {what} was removed',
-        "A moderator removed your {what} on \"{title}\".\n\n{reason}\n\nIf you think this was a mistake, reply to this email or contact the archive's owner."];
-
     /** Today's literals. These must stay byte-identical to the defaults the
      *  call sites pass: the pair a member receives before any admin edit is
      *  the pair the pre-template code interpolated. */
@@ -110,7 +106,8 @@ final class Templates
             "Thanks for submitting \"{title}\". A moderator decided not to publish it.\n\n{reason}\n\nYou are welcome to reply to this email with questions."],
         'member_rejected' => ['About your membership request',
             "Hello {penname},\n\nThanks for asking to join. A moderator decided not to approve the account.\n\n{reason}\n\nYou are welcome to reply to this email with questions."],
-        'content_removed' => self::DEFAULT_CONTENT_REMOVED,
+        'content_removed' => ['Your {what} was removed',
+            "A moderator removed your {what} on \"{title}\".\n\n{reason}\n\nIf you think this was a mistake, reply to this email or contact the archive's owner."],
     ];
 
     /** The built-in [subject, body] for a known name, for call sites that
