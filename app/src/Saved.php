@@ -21,7 +21,7 @@ final class Saved
     /** The only actions the line may offer to take back: a member lock or
      *  unlock, and a feature switch set to a named state (on or off), so
      *  pressing Undo twice can never flip it back again. */
-    private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/set/[a-z0-9_]+/(on|off))$#';
+    private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/set/[a-z0-9_]+/(on|off))$#D';
 
     /** Redirect to $url with the code attached (before any #fragment). */
     public static function to(string $url, string $code = '1'): Response
