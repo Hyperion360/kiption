@@ -78,6 +78,20 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->targetId . '"', $this->client($this->adminId)->get('/adminmembers')->body);
     }
 
+    public function test_each_row_says_when_they_last_signed_in_and_what_they_have_posted(): void
+    {
+        $writer = $this->user('roster-writer', 'member');
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES ('Only One', 'only-one', 'S.', ?, 2, 1)", [$writer]);
+        $this->db->query("INSERT INTO reports (reporter_id, story_id, reason) VALUES (?, ?, 'Spam')", [$this->adminId, (int) $this->db->lastInsertId()]);
+        $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail, created_at) VALUES (?, 'roster-writer', 'auth.signin', '', '2026-03-04 10:00:00')", [$writer]);
+        $body = $this->client($this->adminId)->get('/adminmembers', ['q' => 'roster-w'])->body;
+        $this->assertStringContainsString(\App\Lang::t('adminmembers.last_signin', ['date' => \App\Dates::format('2026-03-04 10:00:00')]), $body);
+        $this->assertStringContainsString(\App\Lang::t('adminmembers.stories_one', ['n' => 1]), $body);
+        $this->assertStringContainsString(\App\Lang::t('adminmembers.open_reports_one', ['n' => 1]), $body);
+        $quiet = $this->client($this->adminId)->get('/adminmembers', ['q' => 'roster-admin'])->body;
+        $this->assertStringContainsString(\App\Lang::t('adminmembers.no_signin'), $quiet);
+    }
+
     public function test_roster_shows_role_names_people_can_read(): void
     {
         $body = $this->client($this->adminId)->get('/adminmembers')->body;

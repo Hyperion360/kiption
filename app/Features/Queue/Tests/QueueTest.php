@@ -71,6 +71,21 @@ final class QueueTest extends TestCase
         $this->assertNotEquals(200, $client->get('/queue')->status);
     }
 
+    public function test_each_waiting_story_says_what_is_known_about_its_author(): void
+    {
+        $body = $this->clientAs(1)->get('/queue')->body;
+        $this->assertStringContainsString(\App\Lang::t('queue.ctx_first'), $body);
+        $this->assertStringNotContainsString('class="ctx-warn"', $body);
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES ('Live One', 'live-one', 'S.', ?, 2, 1)", [$this->memberId]);
+        $liveId = (int) $this->db->lastInsertId();
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, deleted_at) VALUES ('Gone', 'gone', 'S.', ?, 2, 0, ?)", [$this->memberId, date('c')]);
+        $this->db->query("INSERT INTO reports (reporter_id, story_id, reason) VALUES (1, ?, 'Spam')", [$liveId]);
+        $body = $this->clientAs(1)->get('/queue')->body;
+        $this->assertStringContainsString(\App\Lang::t('queue.ctx_posted_one', ['n' => 1]), $body);
+        $this->assertStringContainsString('<span class="ctx-warn">' . \App\Lang::t('queue.ctx_removed_one', ['n' => 1]) . '</span>', $body);
+        $this->assertStringContainsString('<span class="ctx-warn">' . \App\Lang::t('queue.ctx_reports_one', ['n' => 1]) . '</span>', $body);
+    }
+
     public function test_member_cannot_see_queue(): void
     {
         $res = $this->clientAs($this->memberId)->get('/queue');

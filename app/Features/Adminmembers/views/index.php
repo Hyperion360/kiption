@@ -19,6 +19,12 @@
         <?php if ($m['profile_slug'] !== null): ?>
           <a href="/user/view/<?= $this->e($m['profile_slug']) ?>"><?= \App\Lang::t('adminmembers.profile') ?></a>
         <?php endif; ?>
+        <?php $stories = (int) $m['stories']; $open = (int) $m['open_reports']; ?>
+        <p class="member-facts">
+          <span><?= $m['last_signin'] !== null ? \App\Lang::t('adminmembers.last_signin', ['date' => $this->e(\App\Dates::format((string) $m['last_signin']))]) : \App\Lang::t('adminmembers.no_signin') ?></span>
+          <span><?= \App\Lang::t($stories === 1 ? 'adminmembers.stories_one' : 'adminmembers.stories', ['n' => $stories]) ?></span>
+          <?php if ($open > 0): ?><span class="ctx-warn"><?= \App\Lang::t($open === 1 ? 'adminmembers.open_reports_one' : 'adminmembers.open_reports', ['n' => $open]) ?></span><?php endif; ?>
+        </p>
       </th>
       <td class="member-email"><?= $this->e($m['email']) ?></td>
       <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_role')) ?>">

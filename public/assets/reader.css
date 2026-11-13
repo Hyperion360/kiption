@@ -377,6 +377,11 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 /* A list of words is not prose: plain type, one per line. */
 .site-main form textarea.plain-list { font: 400 16px/1.5 var(--sans); }
 .lede-sub { display: block; font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
+/* Facts beside a decision: who this is, before the owner has to go and look. */
+.row-context, .member-facts { margin: 4px 0 0; font: 400 14px/1.45 var(--sans); color: var(--muted); }
+.member-facts { display: flex; flex-wrap: wrap; gap: 0 14px; }
+.ctx-warn { color: var(--danger); font-weight: 600; }
+.queue-what { min-width: 0; }
 /* Admin home: what is waiting, then what happened, then every screen. */
 .site-main .home-cards { list-style: none; margin: 12px 0 28px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 900px) { .site-main .home-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

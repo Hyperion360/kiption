@@ -39,7 +39,10 @@ final class AdminmembersController
         // Wildcards in the prefix are escaped (the SearchRepository idiom).
         $pattern = ($q === '' ? '' : str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $q)) . '%';
         $rows = $this->db->all(
-            "SELECT id, penname, email, role, is_locked, approved_at, email_verified_at, profile_slug
+            "SELECT id, penname, email, role, is_locked, approved_at, email_verified_at, profile_slug,
+                    (SELECT COUNT(*) FROM stories s WHERE s.author_id = users.id AND s.deleted_at IS NULL) AS stories,
+                    (SELECT COUNT(*) FROM reports r JOIN stories s ON s.id = r.story_id WHERE s.author_id = users.id AND r.resolved_at IS NULL) AS open_reports,
+                    (SELECT MAX(a.created_at) FROM activity_log a WHERE a.actor_id = users.id AND a.action IN ('auth.signin', 'auth.link_used')) AS last_signin
              FROM users WHERE COALESCE(penname, '') LIKE ? ESCAPE '\\' ORDER BY penname COLLATE NOCASE, id LIMIT ? OFFSET ?",
             [$pattern, $perPage, $offset]);
         return $this->view->render('adminmembers/index', [
