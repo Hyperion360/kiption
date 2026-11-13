@@ -341,6 +341,15 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .site-main td a.btn { min-height: 36px; padding: 4px 12px; font-size: 14px; }
 /* Moderation rows: the actions sit on their own line under the item. */
 .queue-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 8px 16px; }
+/* Admin rows (categories): the name, then its actions on one tidy line. */
+.site-main .admin-rows { list-style: none; margin-block: 16px 24px; padding: 0; }
+.admin-rows > li { padding-block: 12px 0; border-block-start: 1px solid var(--line); }
+.admin-rows > li:last-child { border-block-end: 1px solid var(--line); }
+.admin-rows .queue-actions { margin-block: 8px 12px; }
+@media (min-width:768px) {
+  .admin-rows > li { display: flex; align-items: center; gap: 8px; padding-block: 8px; }
+  .admin-rows .queue-actions { margin-block: 0; margin-inline-start: auto; }
+}
 .queue-actions .inline:has(> input[name="reason"]) { flex: 1 1 280px; max-width: 520px; flex-wrap: nowrap; }
 .queue-actions input[name="reason"] { flex: 1; min-width: 0; }
 .link-btn { min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
