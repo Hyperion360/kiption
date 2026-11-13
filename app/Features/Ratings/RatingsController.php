@@ -35,6 +35,7 @@ final class RatingsController extends AdminScreen
         $position = (int) $this->db->one('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM ratings')['p'];
         $this->db->query('INSERT INTO ratings (label, is_adult, warning_text, position) VALUES (?, ?, ?, ?)',
             [$label, $this->adult(), $this->warning(), $position]);
+        \App\ActivityLog::by($this->db, $this->session, 'ratings.create', $label);
         $this->purge();
         return Response::redirect('/ratings');
     }
@@ -49,6 +50,7 @@ final class RatingsController extends AdminScreen
         if ($label === '') return new Response($this->editForm($row, Lang::t('ratings.err_label')), 422);
         $this->db->query('UPDATE ratings SET label = ?, is_adult = ?, warning_text = ? WHERE id = ?',
             [$label, $this->adult(), $this->warning(), (int) $row['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'ratings.update', $label);
         $this->purge();
         return Response::redirect('/ratings');
     }
@@ -62,6 +64,7 @@ final class RatingsController extends AdminScreen
         if ($row === null || !in_array($dir, ['up', 'down'], true)) return new Response(\App\Lang::t('error.not_found'), 404);
         $ids = array_map('intval', array_column($this->db->all('SELECT id FROM ratings ORDER BY position, id'), 'id'));
         $this->swapPosition('ratings', $ids, (int) $row['id'], $dir);
+        \App\ActivityLog::by($this->db, $this->session, 'ratings.move', 'rating ' . (int) $row['id'] . ' ' . $dir);
         $this->purge();
         return Response::redirect('/ratings');
     }
@@ -91,6 +94,7 @@ final class RatingsController extends AdminScreen
             if ($target !== null) $this->db->query('UPDATE stories SET rating_id = ? WHERE rating_id = ?', [(int) $target['id'], (int) $row['id']]);
             $this->db->query('DELETE FROM ratings WHERE id = ?', [(int) $row['id']]);
         });
+        \App\ActivityLog::by($this->db, $this->session, 'ratings.delete', (string) $row['label']);
         $this->purge();
         return Response::redirect('/ratings');
     }

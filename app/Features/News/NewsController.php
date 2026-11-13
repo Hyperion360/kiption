@@ -94,6 +94,7 @@ final class NewsController
         if (!$repo->addComment((int) $id, (int) ($this->session->get('user_id') ?? 0), $body)) {
             return new Response(\App\Lang::t('news.err_comment_rate'), 429);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'news.comment', 'post ' . (int) $id);
         // The comment moves both cached surfaces: the item's list and the
         // index's comment-count scalar.
         $this->cache()->purgeNews((int) $id);
@@ -121,6 +122,7 @@ final class NewsController
             [(int) ($this->session->get('user_id') ?? 0), $title, $body]);
         $id = (int) $this->db->lastInsertId();
         $this->cache()->purgeNews($id);
+        \App\ActivityLog::by($this->db, $this->session, 'news.create', $title);
         return Response::redirect('/news/view/' . $id);
     }
 
@@ -150,6 +152,7 @@ final class NewsController
         // published_at stays put: no re-dating on edit (no scheduled publishing either)
         $this->db->query('UPDATE news SET title = ?, body = ? WHERE id = ?', [$title, $body, (int) $id]);
         $this->cache()->purgeNews((int) $id);
+        \App\ActivityLog::by($this->db, $this->session, 'news.update', 'post ' . (int) $id);
         return Response::redirect('/news/view/' . (int) $id);
     }
 
@@ -184,6 +187,7 @@ final class NewsController
         if ((new NewsRepository($this->db))->find((int) $id) === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $this->db->query('DELETE FROM news WHERE id = ?', [(int) $id]);
         $this->cache()->purgeNews((int) $id);
+        \App\ActivityLog::by($this->db, $this->session, 'news.delete', 'post ' . (int) $id);
         return Response::redirect('/news');
     }
 

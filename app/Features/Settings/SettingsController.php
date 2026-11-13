@@ -94,10 +94,14 @@ final class SettingsController
         $max = (int) $submitted['max_words'];
         if ($min > 0 && $max > 0 && $min > $max) $invalid[] = 'min_words';
         if ($invalid !== []) return new Response(\App\Lang::t('settings.err_invalid') . ' ' . implode(', ', $invalid), 422);
+        $changed = [];
         foreach ($submitted as $k => $v) {
-            try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = $k; }
+            $was = \App\Settings::get($k);
+            try { \App\Settings::put($k, $v); } catch (\InvalidArgumentException) { $invalid[] = $k; continue; }
+            if ($was !== \App\Settings::get($k)) $changed[] = $k; // names only, never values
         }
         if ($invalid !== []) return new Response(\App\Lang::t('settings.err_invalid') . ' ' . implode(', ', $invalid), 422);
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'settings.save', implode(', ', $changed));
         \App\CachePurge::run($this->app, $this->db);
         return Response::redirect('/settings');
     }

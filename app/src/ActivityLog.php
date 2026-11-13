@@ -21,6 +21,13 @@ final class ActivityLog
         }
     }
 
+    /** The common case: the signed-in member in $session did it. */
+    public static function by(Database $db, \Kip\Session $session, string $action, string $detail = ''): void
+    {
+        $id = (int) $session->get('user_id', 0);
+        self::record($db, $id > 0 ? $id : null, $action, $detail);
+    }
+
     /** @return list<array<string,mixed>> one extra row tells the caller whether another page exists */
     public static function recent(Database $db, int $limit, int $offset): array
     {

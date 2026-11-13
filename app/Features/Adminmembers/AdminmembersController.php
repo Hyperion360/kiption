@@ -101,6 +101,7 @@ final class AdminmembersController
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         $this->purgeMember($target);
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.lock', 'member ' . (int) $target['id']);
         return Response::redirect('/adminmembers');
     }
 
@@ -114,6 +115,7 @@ final class AdminmembersController
         if ($this->isDeleted($target)) return new Response(\App\Lang::t('adminmembers.err_deleted'), 422);
         $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [(int) $target['id']]);
         $this->purgeMember($target);
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.unlock', 'member ' . (int) $target['id']);
         return Response::redirect('/adminmembers');
     }
 
@@ -179,6 +181,7 @@ final class AdminmembersController
                 ['deleted-' . $uid . '@deleted.invalid', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $uid]);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+        \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.delete', 'member ' . $uid . ($heir !== null ? ', stories moved' : ', stories removed'));
         // Stories, series and author pages all changed hands: clear the lot.
         \App\StaticCache\Cache::configured($this->app)->purgeAll();
         return Response::redirect('/adminmembers');

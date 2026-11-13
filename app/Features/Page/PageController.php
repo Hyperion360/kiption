@@ -68,6 +68,7 @@ final class PageController
         if ($error !== null) return new Response($this->form(null, $error), 422);
         $noindex = ($this->request->postStr('noindex') ?? '') === '1' ? 1 : 0;
         $this->db->query('INSERT INTO pages (slug, title, body, noindex) VALUES (?, ?, ?, ?)', [$slug, $title, $body, $noindex]);
+        \App\ActivityLog::by($this->db, $this->session, 'page.create', $slug);
         return Response::redirect('/page/view/' . $slug);
     }
 
@@ -94,6 +95,7 @@ final class PageController
         $this->db->query("UPDATE pages SET title = ?, body = ?, noindex = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE slug = ?",
             [$title, $body, $noindex, $slug]);
         $this->cache()->purgePage($slug);
+        \App\ActivityLog::by($this->db, $this->session, 'page.update', $slug);
         return Response::redirect('/page/view/' . $slug);
     }
 
@@ -130,6 +132,7 @@ final class PageController
         if (in_array($slug, self::PROTECTED, true)) return new Response(\App\Lang::t('page.err_protected'), 422);
         $this->db->query('DELETE FROM pages WHERE slug = ?', [$slug]);
         $this->cache()->purgePage($slug);
+        \App\ActivityLog::by($this->db, $this->session, 'page.delete', $slug);
         return Response::redirect('/');
     }
 

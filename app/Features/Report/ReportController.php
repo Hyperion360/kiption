@@ -41,6 +41,7 @@ final class ReportController
         }
         if ($op === 'dismiss') {
             (new ReportRepository($this->db))->resolve((int) $id);
+            \App\ActivityLog::by($this->db, $this->session, 'reports.dismiss', 'report ' . (int) $id);
         }
         return Response::redirect('/queue');
     }
@@ -93,6 +94,7 @@ final class ReportController
             $this->db->query('DELETE FROM reviews WHERE id = ?', [(int) $target['review_id']]);
             $cache->purgeStory((string) $target['slug'], []);
         }
+        \App\ActivityLog::by($this->db, $this->session, 'reports.takedown', $target['kind'] . ' "' . $target['title'] . '" (report ' . (int) $id . ')');
         if ($target['author_email'] !== null && !\App\AccountSecurity::isReservedEmail((string) $target['author_email'])) {
             [$subject, $body] = \App\Templates::get($this->db, 'content_removed', ...\App\Templates::pair('content_removed'));
             $reason = trim($this->request->postStr('reason'));

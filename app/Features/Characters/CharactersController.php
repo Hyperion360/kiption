@@ -37,6 +37,7 @@ final class CharactersController extends AdminScreen
         $slug = Slug::unique(fn (string $s): bool => $this->db->one('SELECT 1 AS x FROM characters WHERE slug = ?', [$s]) !== null, Slug::make($name, 'character'));
         $this->db->query('INSERT INTO characters (category_id, name, slug, description) VALUES (?, ?, ?, ?)',
             [$category, $name, $slug, $this->description()]);
+        \App\ActivityLog::by($this->db, $this->session, 'characters.create', $name);
         $this->purge();
         return Response::redirect('/characters');
     }
@@ -53,6 +54,7 @@ final class CharactersController extends AdminScreen
         if ($error !== null) return new Response($this->editForm($row, $error), 422);
         $this->db->query('UPDATE characters SET name = ?, category_id = ?, description = ? WHERE id = ?',
             [$name, $category, $this->description(), (int) $row['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'characters.update', $name);
         $this->purge();
         return Response::redirect('/characters');
     }
@@ -72,6 +74,7 @@ final class CharactersController extends AdminScreen
             $this->db->query('DELETE FROM story_characters WHERE character_id = ?', [(int) $row['id']]);
             $this->db->query('DELETE FROM characters WHERE id = ?', [(int) $row['id']]);
         });
+        \App\ActivityLog::by($this->db, $this->session, 'characters.delete', (string) $row['name']);
         $this->purge();
         return Response::redirect('/characters');
     }

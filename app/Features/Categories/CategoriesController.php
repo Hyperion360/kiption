@@ -38,6 +38,7 @@ final class CategoriesController extends AdminScreen
         $position = (int) $this->db->one('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM categories WHERE parent_id IS ?', [$parent])['p'];
         $this->db->query('INSERT INTO categories (parent_id, name, slug, description, position) VALUES (?, ?, ?, ?, ?)',
             [$parent, $name, $slug, $this->description(), $position]);
+        \App\ActivityLog::by($this->db, $this->session, 'categories.create', $name);
         $this->purge();
         return Response::redirect('/categories');
     }
@@ -63,6 +64,7 @@ final class CategoriesController extends AdminScreen
             : (int) $this->db->one('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM categories WHERE parent_id IS ?', [$parent])['p'];
         $this->db->query('UPDATE categories SET name = ?, description = ?, parent_id = ?, locked = ?, position = ? WHERE id = ?',
             [$name, $this->description(), $parent, ($this->request->post['locked'] ?? '') === '1' ? 1 : 0, $position, (int) $row['id']]);
+        \App\ActivityLog::by($this->db, $this->session, 'categories.update', $name);
         $this->purge();
         return Response::redirect('/categories');
     }
@@ -79,6 +81,7 @@ final class CategoriesController extends AdminScreen
             'SELECT id FROM categories WHERE parent_id IS ? ORDER BY position, id',
             [$row['parent_id'] === null ? null : (int) $row['parent_id']]), 'id'));
         $this->swapPosition('categories', $ids, (int) $row['id'], $dir);
+        \App\ActivityLog::by($this->db, $this->session, 'categories.move', 'category ' . (int) $row['id'] . ' ' . $dir);
         $this->purge();
         return Response::redirect('/categories');
     }
@@ -113,6 +116,7 @@ final class CategoriesController extends AdminScreen
             }
             $this->db->query('DELETE FROM categories WHERE id = ?', [(int) $row['id']]);
         });
+        \App\ActivityLog::by($this->db, $this->session, 'categories.delete', (string) $row['name']);
         $this->purge();
         return Response::redirect('/categories');
     }
