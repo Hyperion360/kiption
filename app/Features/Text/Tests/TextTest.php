@@ -274,4 +274,18 @@ final class TextTest extends TestCase
         $this->assertStringNotContainsString('href="/text"', $this->client($this->memberId)->get('/')->body);
         $this->assertStringNotContainsString('href="/text"', $this->client()->get('/')->body);
     }
+
+    public function test_an_import_checks_the_language_once_not_once_per_string(): void
+    {
+        $keys = array_slice(array_keys(array_filter(Lang::base(), fn($v, $k) => $k[0] !== '_' && strpbrk((string) $v, "{<>\"\r\n") === false, ARRAY_FILTER_USE_BOTH)), 0, 40);
+        $map = array_fill_keys($keys, 'Imported text');
+        $lookups = 0;
+        $this->db->onQuery(function (string $sql) use (&$lookups): void {
+            if (stripos($sql, 'FROM site_languages') !== false) $lookups++;
+        });
+        $res = (new \App\SiteText\Store($this->db))->import('en', $map);
+        $this->assertNull($res['error']);
+        $this->assertSame(40, $res['saved']);
+        $this->assertLessThanOrEqual(1, $lookups, "import looked up the language list {$lookups} times");
+    }
 }

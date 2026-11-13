@@ -57,6 +57,12 @@ final class Store
     public function put(string $lang, string $key, string $value): ?string
     {
         if (!$this->has($lang)) return Lang::t('text.err_language');
+        return $this->write($lang, $key, $value);
+    }
+
+    /** put() for a language the caller already checked. */
+    private function write(string $lang, string $key, string $value): ?string
+    {
         $value = str_replace("\r\n", "\n", $value);
         if ($key === '' || $key[0] === '_' || !isset(Lang::base()[$key])) return Lang::t('text.err_key');
         $builtin = Lang::builtin($lang)[$key] ?? null;
@@ -111,7 +117,7 @@ final class Store
         try {
             $n = 0;
             foreach ($map as $key => $value) {
-                $err = $this->put($lang, (string) $key, (string) $value);
+                $err = $this->write($lang, (string) $key, (string) $value);
                 if ($err !== null) {
                     $this->db->rollBack();
                     return ['saved' => 0, 'error' => (string) $key . ': ' . $err];
