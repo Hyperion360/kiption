@@ -21,7 +21,7 @@
   <?php endif; ?>
   <h2><?= $row === null ? \App\Lang::t('navlinks.new') : \App\Lang::t('navlinks.edit') ?></h2>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-  <form method="post" action="<?= $row === null ? '/nav/create' : '/nav/update/' . (int) $row['id'] ?>">
+  <form method="post" class="form-card" action="<?= $row === null ? '/nav/create' : '/nav/update/' . (int) $row['id'] ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('navlinks.label') ?> <input name="label" required maxlength="40" value="<?= $this->e($row['label'] ?? '') ?>"></label>
     <label><?= \App\Lang::t('navlinks.url') ?> <input name="url" required value="<?= $this->e($row['url'] ?? '') ?>" placeholder="/page/view/about"> <span class="field-hint"><?= \App\Lang::t('navlinks.url_hint') ?></span></label>

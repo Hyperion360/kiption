@@ -34,7 +34,7 @@
   <?php endif; ?>
   <?php endforeach; ?>
   <h2><?= \App\Lang::t('tagsadmin.add_tag_heading') ?></h2>
-  <form method="post" action="/tags/addtag">
+  <form method="post" class="form-card" action="/tags/addtag">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('tagsadmin.type') ?>
       <select name="tag_type_id" required>
@@ -45,7 +45,7 @@
     <button type="submit"><?= \App\Lang::t('common.create') ?></button>
   </form>
   <h2><?= \App\Lang::t('tagsadmin.add_type_heading') ?></h2>
-  <form method="post" action="/tags/addtype">
+  <form method="post" class="form-card" action="/tags/addtype">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('taxonomy.name') ?> <input name="name" required maxlength="60"></label>
     <button type="submit"><?= \App\Lang::t('common.create') ?></button>

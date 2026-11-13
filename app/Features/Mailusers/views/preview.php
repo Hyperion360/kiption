@@ -5,7 +5,7 @@
   <p><strong><?= \App\Lang::t('mailusers.recipient_count', ['n' => number_format($count)]) ?></strong></p>
   <p><?= \App\Lang::t('mailusers.subject') ?>: <strong><?= $this->e($subject) ?></strong></p>
   <pre class="mail-preview"><?= $this->e($body) ?></pre>
-  <form method="post" action="/mailusers/send">
+  <form method="post" class="form-card" action="/mailusers/send">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <input type="hidden" name="subject" value="<?= $this->e($subject) ?>">
     <input type="hidden" name="body" value="<?= $this->e($body) ?>">

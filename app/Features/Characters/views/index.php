@@ -18,7 +18,7 @@
   </ul>
   <?php endif; ?>
   <h2><?= \App\Lang::t('characters.add_heading') ?></h2>
-  <form method="post" action="/characters/create">
+  <form method="post" class="form-card" action="/characters/create">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('taxonomy.name') ?> <input name="name" required maxlength="80"></label>
     <label><?= \App\Lang::t('characters.category') ?>

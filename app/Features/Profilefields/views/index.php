@@ -37,7 +37,7 @@
   </table>
   <?php endif; ?>
   <h2><?= \App\Lang::t('profilefields.add_heading') ?></h2>
-  <form method="post" action="/profilefields/add">
+  <form method="post" class="form-card" action="/profilefields/add">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('profilefields.label') ?> <input name="label" required maxlength="60"></label>
     <label><?= \App\Lang::t('profilefields.type') ?>

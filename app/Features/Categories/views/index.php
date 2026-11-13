@@ -24,7 +24,7 @@
     <?php endforeach; ?>
   </ul>
   <h2><?= \App\Lang::t('categories.add_heading') ?></h2>
-  <form method="post" action="/categories/create">
+  <form method="post" class="form-card" action="/categories/create">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('categories.name') ?> <input name="name" required maxlength="100"></label>
     <label><?= \App\Lang::t('categories.description') ?> <textarea name="description" rows="2" maxlength="500"></textarea></label>

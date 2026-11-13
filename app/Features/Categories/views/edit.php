@@ -3,7 +3,7 @@
 <section>
   <h1><?= \App\Lang::t('categories.edit_heading') ?></h1>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-  <form method="post" action="/categories/update/<?= (int) $row['id'] ?>">
+  <form method="post" class="form-card" action="/categories/update/<?= (int) $row['id'] ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('categories.name') ?> <input name="name" required maxlength="100" value="<?= $this->e($row['name']) ?>"></label>
     <label><?= \App\Lang::t('categories.description') ?> <textarea name="description" rows="2" maxlength="500"><?= $this->e($row['description']) ?></textarea></label>

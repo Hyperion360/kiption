@@ -3,7 +3,7 @@
 <section>
   <h1><?= \App\Lang::t('characters.edit_heading') ?></h1>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-  <form method="post" action="/characters/update/<?= (int) $character['id'] ?>">
+  <form method="post" class="form-card" action="/characters/update/<?= (int) $character['id'] ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('taxonomy.name') ?> <input name="name" required maxlength="80" value="<?= $this->e($character['name']) ?>"></label>
     <label><?= \App\Lang::t('characters.category') ?>

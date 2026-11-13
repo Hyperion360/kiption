@@ -24,7 +24,7 @@
     <?php endforeach; ?>
   </ul>
   <h2><?= \App\Lang::t('ratings.add_heading') ?></h2>
-  <form method="post" action="/ratings/create">
+  <form method="post" class="form-card" action="/ratings/create">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('ratings.label') ?> <input name="label" required maxlength="40"></label>
     <label class="inline"><input type="checkbox" name="is_adult" value="1"> <?= \App\Lang::t('ratings.adult_label') ?></label>
