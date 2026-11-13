@@ -6,7 +6,17 @@
 (function (Kip) {
   if (!Kip) { return; }
   Kip.init(function () {
-    if (!document.querySelector('.saved-note') || !window.history || !window.history.replaceState) { return; }
+    var note = document.querySelector('.saved-note');
+    if (!note) { return; }
+    // Publish the line's height so jump targets can clear it on a phone.
+    var root = document.documentElement;
+    var publish = function () {
+      root.style.setProperty('--saved-h', (note.isConnected ? note.offsetHeight : 0) + 'px');
+    };
+    publish();
+    if (window.ResizeObserver) { new ResizeObserver(publish).observe(note); }
+    else { window.addEventListener('resize', publish); }
+    if (!window.history || !window.history.replaceState) { return; }
     var url = new URL(window.location.href);
     ['saved', 'undo', 'undo_key'].forEach(function (k) { url.searchParams.delete(k); });
     window.history.replaceState(null, '', url.pathname + url.search + url.hash);

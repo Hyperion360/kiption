@@ -419,7 +419,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
    under it, so the answer to the save is always in view. */
 .admin-body:has(.settings-jump) > .saved-note { position: sticky; top: 8px; z-index: 4; box-shadow: 0 0 0 8px var(--bg); }
 .saved-note ~ .site-main .settings-jump { top: 62px; }
-.saved-note ~ .site-main .settings-section { scroll-margin-top: 138px; }
+.saved-note ~ .site-main .settings-section { scroll-margin-top: calc(138px + var(--saved-h, 0px)); }
 .settings-section h2 { margin: 0 0 4px; font: 600 20px/1.3 var(--sans); }
 .settings-section h2 + .chapter-meta { margin-block-end: 16px; }
 .facts-now { max-width: 640px; margin: 12px 0 16px; padding: 10px 12px; border-inline-start: 3px solid var(--accent); background: var(--pill-bg); font: 14px/1.5 var(--sans); color: var(--ink-2); }
@@ -1624,7 +1624,7 @@ body.focus .site-head { display: none; }
 }
 .admin-tabs a {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  min-height: 56px; color: var(--ink-2); text-decoration: none; font: 500 11px/1.2 var(--sans);
+  min-height: 56px; color: var(--ink-2); text-decoration: none; font: 500 12px/1.2 var(--sans);
 }
 .admin-tabs svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .admin-tabs a[aria-current="page"] { color: var(--accent); font-weight: 600; box-shadow: inset 0 2px 0 var(--accent); }
