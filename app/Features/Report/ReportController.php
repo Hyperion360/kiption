@@ -53,7 +53,8 @@ final class ReportController
     #[AuthAttr]
     public function remove(string $id): Response|string
     {
-        if (Adminness::requireModerator($this->db, $this->session) instanceof Response) {
+        $me = Adminness::requireModerator($this->db, $this->session);
+        if ($me instanceof Response) {
             return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         $target = $this->target($id);
@@ -67,6 +68,7 @@ final class ReportController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'target' => $target, 'reportId' => (int) $id,
+            'isAdmin' => ($me['role'] ?? '') === 'admin', // an admin keeps the admin list; a moderator never sees it
             'csrf' => $this->session->csrfToken(), 'loggedIn' => true,
         ]);
     }

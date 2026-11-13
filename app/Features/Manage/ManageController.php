@@ -57,6 +57,8 @@ final class ManageController extends AdminScreen
         $seg = explode('/', ltrim($path, '/'));
         // News and pages share their first segment with public reading pages.
         if (in_array($seg[0], ['news', 'page'], true) && !in_array($seg[1] ?? '', ['new', 'edit', 'remove'], true)) return [];
+        // Removing reported content is a queue step; filing a report (/report/story, /report/review) is a reader's.
+        if ($seg[0] === 'report') { if (($seg[1] ?? '') !== 'remove') return []; $seg[0] = 'queue'; }
         $parent = null;
         foreach (self::LINKS as $link) {
             if ($link[1] === $path) { $parent = null; break; }

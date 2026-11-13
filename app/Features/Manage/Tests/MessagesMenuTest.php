@@ -234,7 +234,8 @@ final class MessagesMenuTest extends TestCase
         $this->assertSame(['/manage'], $urls('/text/group/msg'));
         $this->assertSame(['/manage', '/pages/manage'], $urls('/page/edit/about'));
         $this->assertSame(['/manage', '/news'], $urls('/news/edit/1'));
-        foreach (['/', '/news', '/news/view/1', '/page/view/about', '/account', '/browse'] as $public) {
+        $this->assertSame(['/manage', '/queue'], $urls('/report/remove/7'), 'removing reported content belongs to the queue');
+        foreach (['/', '/news', '/news/view/1', '/page/view/about', '/account', '/browse', '/report/story/x'] as $public) {
             $this->assertSame([], $urls($public), $public . ' is not an owner screen');
         }
     }

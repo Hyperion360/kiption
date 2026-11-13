@@ -139,6 +139,13 @@ final class ReportRemoveTest extends TestCase
         $this->assertStringContainsString('href="/report/remove/' . $rid . '"', $this->client($this->moderatorId)->get('/queue')->body);
     }
 
+    public function test_the_removal_page_keeps_the_admin_list_for_admins_only(): void
+    {
+        $rid = $this->report($this->story(), null);
+        $this->assertStringContainsString('class="admin-shell"', $this->client($this->adminId)->get('/report/remove/' . $rid)->body);
+        $this->assertStringNotContainsString('class="admin-shell"', $this->client($this->moderatorId)->get('/report/remove/' . $rid)->body, 'moderators never see the owner screens');
+    }
+
     public function test_members_guests_missing_tokens_and_closed_reports_are_refused(): void
     {
         $sid = $this->story();
