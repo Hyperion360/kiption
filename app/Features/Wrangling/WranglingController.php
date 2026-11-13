@@ -112,7 +112,7 @@ final class WranglingController
             // (purgeAll), and lazy re-caching absorbs the cost. Merges are
             // rare admin actions.
             \App\ActivityLog::by($this->db, $this->session, 'wrangling.merge', 'tag ' . $synonymId . ' into ' . $canonicalId);
-            $this->staticCache()->purgeAll();
+            \App\CachePurge::run($this->app, $this->db);
             return \App\Saved::to('/wrangling');
         }
         if ($synonymId !== 0 && $synonym === null) return new Response(\App\Lang::t('error.not_found'), 404);
@@ -129,7 +129,7 @@ final class WranglingController
         if ($tag === null) return new Response(\App\Lang::t('error.not_found'), 404);
         $this->db->query('UPDATE tags SET canonical_id = NULL WHERE id = ?', [(int) $id]);
         \App\ActivityLog::by($this->db, $this->session, 'wrangling.unmerge', 'tag ' . (int) $id);
-        $this->staticCache()->purgeAll(); // the tag's label just changed on every page it sits on
+        \App\CachePurge::run($this->app, $this->db); // the tag's label just changed on every page it sits on
         return \App\Saved::to('/wrangling', 'removed');
     }
 
@@ -178,14 +178,6 @@ final class WranglingController
         }
         ksort($data['allGroups']);
         return $this->view->render('wrangling/merge', $data);
-    }
-
-    /** The StoryController idiom: config-injected dir when present, the
-     *  tree's public/cache otherwise, so tests pin purges without ever
-     *  writing into the real dir. */
-    private function staticCache(): \App\StaticCache\Cache
-    {
-        return \App\StaticCache\Cache::configured($this->app);
     }
 
     private function head(): \App\Seo\Head

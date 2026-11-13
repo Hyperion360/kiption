@@ -47,4 +47,71 @@ final class CdnTest extends TestCase
         $this->assertFalse($cdn->purge('archive.example.test'), 'a failed purge reports false, never throws');
         $this->assertCount(1, $this->calls, 'the transport was attempted exactly once');
     }
+
+    /** Point error_log at a temp file; the closure reads what was logged. */
+    private function captureErrorLog(): \Closure
+    {
+        $file = tempnam(sys_get_temp_dir(), 'kiption-cdnlog-');
+        $this->previousLog = (string) ini_get('error_log');
+        ini_set('error_log', $file);
+        $this->logFile = $file;
+        return static fn (): string => (string) file_get_contents($file);
+    }
+
+    private string $previousLog = '';
+    private string $logFile = '';
+
+    protected function tearDown(): void
+    {
+        if ($this->logFile !== '') {
+            ini_set('error_log', $this->previousLog);
+            @unlink($this->logFile);
+            $this->logFile = '';
+        }
+    }
+
+    /** A Cdn whose transport answers the queued HTTP statuses in order and
+     *  records each request body into $sent. */
+    private function cdnReturning(array $statuses, array &$sent = []): Cdn
+    {
+        return new Cdn(['enabled' => true, 'zone_id' => 'zone123', 'api_token' => 'secret-token'],
+            function (string $url, string $body, string $token) use (&$statuses, &$sent): int {
+                $sent[] = $body;
+                return (int) array_shift($statuses);
+            });
+    }
+
+    public function test_non_2xx_logs_status_without_token(): void
+    {
+        $log = $this->captureErrorLog();
+        $this->assertFalse($this->cdnReturning([500])->purge('x.example/'));
+        $this->assertStringContainsString('cdn purge failed: status=500 host=x.example/', $log());
+        $this->assertStringNotContainsString('secret-token', $log());
+        $this->assertStringNotContainsString('zone123', $log());
+    }
+
+    public function test_429_logs_rate_limited(): void
+    {
+        $log = $this->captureErrorLog();
+        $this->assertFalse($this->cdnReturning([429])->purge('x.example/'));
+        $this->assertStringContainsString('cdn purge rate-limited', $log());
+    }
+
+    public function test_prefix_400_falls_back_to_hosts_once(): void
+    {
+        $sent = [];
+        $this->assertTrue($this->cdnReturning([400, 200], $sent)->purge('x.example/'));
+        $this->assertCount(2, $sent);
+        $this->assertStringContainsString('"prefixes"', $sent[0]);
+        $this->assertSame('{"hosts":["x.example"]}', $sent[1]);
+    }
+
+    public function test_a_second_400_is_logged_and_not_retried_again(): void
+    {
+        $log = $this->captureErrorLog();
+        $sent = [];
+        $this->assertFalse($this->cdnReturning([400, 400, 200], $sent)->purge('x.example/'));
+        $this->assertCount(2, $sent);
+        $this->assertStringContainsString('cdn purge failed: status=400', $log());
+    }
 }

@@ -42,11 +42,12 @@ abstract class AdminScreen
     }
 
     /** Category, rating and tag names print on story pages, browse lists and
-     *  search, so any write refreshes the whole static page cache. These are
-     *  rare owner actions; lazy re-caching absorbs the cost. */
-    protected function purge(): void
+     *  search, so any write refreshes the whole static page cache, the sitemap
+     *  and the CDN's copy (the one shared purge set). These are rare owner
+     *  actions; lazy re-caching absorbs the cost. */
+    protected function purge(): bool
     {
-        StaticCache\Cache::configured($this->app)->purgeAll();
+        return CachePurge::run($this->app, $this->db);
     }
 
     /** Run $work in one transaction: commit when it returns, roll back and

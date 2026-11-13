@@ -15,8 +15,10 @@ final class Cdn
     private const ENDPOINT = 'https://api.cloudflare.com/client/v4/zones/';
 
     /** @param array<string, mixed> $config the cdn.* config block
-     *  @param ?\Closure(string $url, string $body, string $token): bool $transport
-     *      test seam; the default is the raw-HTTPS POST below */
+     *  @param ?\Closure(string $url, string $body, string $token): (int|bool) $transport
+     *      test seam; answers the HTTP status (0 for a connect failure). A
+     *      plain true counts as 200 and false as 0. The default is the raw
+     *      HTTPS POST below. */
     public function __construct(
         private array $config,
         private ?\Closure $transport = null,
@@ -29,17 +31,32 @@ final class Cdn
         $token = (string) ($this->config['api_token'] ?? '');
         if ($zone === '' || $token === '' || $hostPrefix === '') return false;
         $url = self::ENDPOINT . rawurlencode($zone) . '/purge_cache';
-        $body = (string) json_encode(['prefixes' => [$hostPrefix]]);
+        $status = $this->send($url, ['prefixes' => [$hostPrefix]], $token);
+        if ($status === 400) {
+            // Not every plan accepts a prefix purge; a host purge works on all of them.
+            $host = (string) preg_replace('#^[a-z]+://#i', '', $hostPrefix);
+            $status = $this->send($url, ['hosts' => [explode('/', $host)[0]]], $token);
+        }
+        if ($status >= 200 && $status < 300) return true;
+        // Status and host only, never the token, URL query or body.
+        error_log($status === 429 ? 'cdn purge rate-limited' : 'cdn purge failed: status=' . $status . ' host=' . $hostPrefix);
+        return false; // a stale edge for one TTL window, not a failed write
+    }
+
+    /** @param array<string, list<string>> $payload */
+    private function send(string $url, array $payload, string $token): int
+    {
         try {
-            return ($this->transport ?? $this->post(...))($url, $body, $token);
+            $r = ($this->transport ?? $this->post(...))($url, (string) json_encode($payload), $token);
+            return is_bool($r) ? ($r ? 200 : 0) : (int) $r;
         } catch (\Throwable) {
-            return false; // a stale edge for one TTL window, not a failed write
+            return 0;
         }
     }
 
-    /** The raw transport: one POST, 5 seconds total, a non-2xx answer (or a
-     *  connect failure) is false. TLS peer verification stays on. */
-    private function post(string $url, string $body, string $token): bool
+    /** The raw transport: one POST, 5 seconds total. Answers the HTTP status,
+     *  or 0 on a connect failure. TLS peer verification stays on. */
+    private function post(string $url, string $body, string $token): int
     {
         $ctx = stream_context_create(['http' => [
             'method' => 'POST',
@@ -48,11 +65,10 @@ final class Cdn
             'timeout' => 5,
             'ignore_errors' => true, // a 4xx/5xx body must not raise; we read the status
         ], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
-        if (@file_get_contents($url, false, $ctx) === false) return false;
+        if (@file_get_contents($url, false, $ctx) === false) return 0;
         foreach ($http_response_header ?? [] as $line) {
-            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m) === 1
-                && (int) $m[1] >= 200 && (int) $m[1] < 300) return true;
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m) === 1) return (int) $m[1];
         }
-        return false;
+        return 0;
     }
 }

@@ -190,7 +190,7 @@ final class AdminmembersController
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.delete', 'member ' . $uid . ($heir !== null ? ', stories moved' : ', stories removed'));
         // Stories, series and author pages all changed hands: clear the lot.
-        \App\StaticCache\Cache::configured($this->app)->purgeAll();
+        \App\CachePurge::run($this->app, $this->db);
         return \App\Saved::to('/adminmembers');
     }
 

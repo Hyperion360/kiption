@@ -36,6 +36,7 @@ final class AccountController
     public function fields(): Response
     {
         $me = (int) $this->session->get('user_id');
+        if (($limited = $this->profileSaveThrottled($me)) !== null) return $limited;
         $given = $this->request->post['field'] ?? [];
         $input = [];
         foreach (\is_array($given) ? $given : [] as $id => $v) if (\is_scalar($v)) $input[(int) $id] = (string) $v;
@@ -45,7 +46,7 @@ final class AccountController
             return $this->refuse($err[0], ['label' => htmlspecialchars($err[1], ENT_QUOTES, 'UTF-8')]);
         }
         \App\ActivityLog::by($this->db, $this->session, 'account.fields', '');
-        $this->purgeOwnProfile($me);
+        $this->purgeOwnProfile();
         return Response::redirect('/account/settings?done=fields');
     }
 
@@ -154,7 +155,7 @@ final class AccountController
             @unlink($dir . '/' . basename($avatar));
         }
         (new \Kip\Auth($this->db, $this->session))->logout();
-        \App\StaticCache\Cache::configured($this->app)->purgeAll();
+        \App\CachePurge::run($this->app, $this->db);
     }
 
     /** The Library: the reading shelf, the member's own work and follows. */
@@ -176,9 +177,9 @@ final class AccountController
     }
 
     /** The settings page again with a refusal message, for a failed security form. */
-    private function refuse(string $errorKey, array $params = []): Response
+    private function refuse(string $errorKey, array $params = [], ?int $status = null): Response
     {
-        $status = $errorKey === \App\AccountSecurity::THROTTLED ? 429 : 422;
+        $status ??= $errorKey === \App\AccountSecurity::THROTTLED ? 429 : 422;
         $this->errorParams = $params;
         $html = $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'), null, $errorKey));
         return new Response($html, $status);
@@ -341,6 +342,7 @@ final class AccountController
     public function avatar(): Response
     {
         if (!\App\Settings::on('uploads_on')) return new Response(\App\Lang::t('uploads.off'), 403);
+        if (($limited = $this->profileSaveThrottled((int) $this->session->get('user_id'))) !== null) return $limited;
         $file = $this->request->file('avatar');
         if ($file === null) {
             return new Response(\App\Lang::t('images.err_avatar'), 422);
@@ -359,7 +361,7 @@ final class AccountController
             @unlink($dir . '/' . basename((string) $old['avatar_path']));
         }
         \App\ActivityLog::by($this->db, $this->session, 'account.avatar', '');
-        $this->purgeOwnProfile($userId);
+        $this->purgeOwnProfile();
         return Response::redirect('/account/settings');
     }
 
@@ -398,6 +400,7 @@ final class AccountController
     #[AuthAttr] #[Post]
     public function support(): Response
     {
+        if (($limited = $this->profileSaveThrottled((int) $this->session->get('user_id'))) !== null) return $limited;
         $url = trim($this->request->postStr('support_url'));
         // The form's maxlength=200 is client-side only; the server enforces both rules.
         if ($url !== '' && (strlen($url) > 200 || !preg_match('#^https?://#', $url))) {
@@ -406,7 +409,7 @@ final class AccountController
         $userId = (int) $this->session->get('user_id');
         $this->db->query('UPDATE users SET support_url = ? WHERE id = ?', [$url === '' ? null : $url, $userId]);
         \App\ActivityLog::by($this->db, $this->session, 'account.support', '');
-        $this->purgeOwnProfile($userId);
+        $this->purgeOwnProfile();
         return Response::redirect('/account/settings');
     }
 
@@ -414,6 +417,7 @@ final class AccountController
     public function prefs(): Response
     {
         $me = (int) $this->session->get('user_id');
+        if (($limited = $this->profileSaveThrottled($me)) !== null) return $limited;
         $bio = substr(trim($this->request->postStr('bio')), 0, 2000);
         if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $bio)) !== null) return new Response($blocked, 422);
         $isBeta = isset($this->request->post['is_beta']) ? 1 : 0;
@@ -467,9 +471,7 @@ final class AccountController
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         \App\ActivityLog::by($this->db, $this->session, 'account.prefs', '');
-        $this->purgeOwnProfile($me);
-        // the beta badge flips directory membership too, not just the profile card
-        (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
+        $this->purgeOwnProfile();
         // The cookie sync (ruling 5): the save is a write point, so the pref and
         // the runtime cookie land together. Every directive is one
         // withAddedHeader leaf, the same chain shape whatever the count
@@ -494,13 +496,22 @@ final class AccountController
         return $redirect;
     }
 
-    /** Any account-side change (avatar, support link, prefs) refreshes the
-     *  member's three public profile pages. */
-    private function purgeOwnProfile(int $userId): void
+    /** Any account-side change (avatar, support link, profile fields, prefs)
+     *  refreshes the public pages, edge copy included. Profile edits are rare
+     *  and the sitemap rewrite is cheap at small-archive scale, so the whole
+     *  purge set runs rather than one member's three pages. */
+    private function purgeOwnProfile(): void
     {
-        $slug = $this->db->one('SELECT profile_slug FROM users WHERE id = ?', [$userId]);
-        if ($slug === null) return;
-        (\App\StaticCache\Cache::configured($this->app))->purgeUser((string) $slug['profile_slug']);
+        \App\CachePurge::run($this->app, $this->db);
+    }
+
+    /** One member's profile saves share a throttle (10 per member and 30 per
+     *  address in 15 minutes). Over the cap the settings page comes back at
+     *  429 and nothing is saved or purged. Null when there is room. */
+    private function profileSaveThrottled(int $me): ?Response
+    {
+        if ((new \App\AttemptLimiter($this->db))->claim('profile_save', (string) $me, $this->request->ip, 10, 30)) return null;
+        return $this->refuse('account.too_many_changes', [], 429);
     }
 
     private function head(): \App\Seo\Head
