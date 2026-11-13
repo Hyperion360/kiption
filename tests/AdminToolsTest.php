@@ -240,17 +240,13 @@ final class AdminToolsTest extends TestCase
         $this->assertStringNotContainsString('Ghosted', $body, 'soft-deleted stories stay off the guest home');
     }
 
-    public function test_demote_confirm_text_cannot_break_out_of_the_handler(): void
+    public function test_the_members_page_carries_no_inline_handler(): void
     {
-        file_put_contents($this->root . '/xx.php', '<?php return ["adminmembers.demote_confirm" => "x\');alert(1);(\'&#39;&quot;"];');
-        \App\Lang::addPackPath('xx', $this->root . '/xx.php');
-        \App\Lang::setCurrent('xx');
-        try {
-            $body = $this->client($this->adminId())->get('/adminmembers')->body;
-        } finally {
-            \App\Lang::setCurrent('en');
-        }
-        $this->assertStringContainsString('onclick="return confirm(&quot;x\\u0027);alert(1);(\\u0027\\u0026#39;\\u0026quot;&quot;)"', $body);
+        // Your own row used to offer role buttons behind an onclick confirm.
+        // The row now shows the role only, so the page needs no handler at all.
+        $body = $this->client($this->adminId())->get('/adminmembers')->body;
+        $this->assertStringNotContainsString('onclick=', $body);
+        $this->assertStringNotContainsString('action="/adminmembers/role/' . $this->adminId() . '/', $body);
     }
 
     public function test_admin_members_index_lists_roles_and_searches(): void
@@ -266,9 +262,9 @@ final class AdminToolsTest extends TestCase
         $this->assertStringContainsString('validated_author', $body, 'role badge');
         $this->assertStringContainsString('Locked', $body, 'status badge');
         $this->assertStringContainsString('action="/adminmembers/role/' . $this->memberId() . '/admin"', $body, 'role-select form');
-        // self-demotion is offered with a confirm (the admin row is flagged)
+        // the admin's own row is flagged, and offers no way to change its own role
         $this->assertStringContainsString('(you)', $body);
-        $this->assertStringContainsString('Demote yourself', $body);
+        $this->assertStringNotContainsString('action="/adminmembers/role/' . $this->adminId() . '/', $body);
         // penname-prefix search narrows the roster
         $search = $admin->get('/adminmembers', ['q' => 'beta'])->body;
         $this->assertStringContainsString('betafriend', $search);

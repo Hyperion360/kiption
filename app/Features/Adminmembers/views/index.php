@@ -23,16 +23,16 @@
       <td class="member-email"><?= $this->e($m['email']) ?></td>
       <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_role')) ?>">
         <span class="badge"><?= \App\Lang::t('adminmembers.role.' . $m['role']) ?></span>
+        <?php if (!$isSelf): ?>
         <div class="member-actions">
         <?php foreach ($roles as $r): if ($r !== $m['role']): ?>
         <form method="post" action="/adminmembers/role/<?= (int) $m['id'] ?>/<?= $this->e($r) ?>" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-          <button type="submit"<?php if ($isSelf): ?>
-            onclick="return confirm(<?= $this->e(json_encode(\App\Lang::t('adminmembers.demote_confirm'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP)) ?>)"
-          <?php endif; ?>><?= \App\Lang::t('adminmembers.make.' . $r) ?></button>
+          <button type="submit"><?= \App\Lang::t('adminmembers.make.' . $r) ?></button>
         </form>
         <?php endif; endforeach; ?>
         </div>
+        <?php endif; ?>
       </td>
       <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_status')) ?>">
         <?php $deleted = str_ends_with((string) $m['email'], '@deleted.invalid'); ?>

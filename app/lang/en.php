@@ -525,7 +525,6 @@ return [
     'adminmembers.no_penname' => '(no penname)',
     'adminmembers.you' => '(you)',
     'adminmembers.profile' => 'profile',
-    'adminmembers.demote_confirm' => 'Demote yourself? You will lose admin access.',
     'adminmembers.locked' => 'Locked',
     'adminmembers.unverified' => 'Unverified',
     'adminmembers.unapproved' => 'Unapproved',

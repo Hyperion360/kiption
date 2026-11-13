@@ -87,6 +87,17 @@ final class AdminmembersTest extends TestCase
         $this->assertStringNotContainsString('>moderator<', $body);
     }
 
+    public function test_your_own_row_shows_your_role_without_buttons_to_change_it(): void
+    {
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        $this->assertStringNotContainsString('action="/adminmembers/role/' . $this->adminId . '/', $body, 'no role form on your own row');
+        $this->assertStringContainsString('>Admin</span>', $body, 'your role still shows');
+        $this->assertStringContainsString('action="/adminmembers/role/' . $this->targetId . '/moderator"', $body, 'other rows keep theirs');
+        // The page only stops offering it; the server rule is unchanged.
+        \App\Adminness::setRole($this->db, $this->heirId, 'admin');
+        $this->assertSame(302, $this->client($this->adminId)->postWithToken('/adminmembers/role/' . $this->adminId . '/member')->status);
+    }
+
     public function test_locking_signs_out_a_member_who_is_already_in(): void
     {
         $other = $this->user('second-admin', 'admin');
