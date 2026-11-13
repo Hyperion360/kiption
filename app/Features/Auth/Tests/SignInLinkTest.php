@@ -62,6 +62,12 @@ final class SignInLinkTest extends TestCase
 
     // --- the token lifecycle ---
 
+    public function test_an_overlong_address_is_refused_before_it_is_stored(): void
+    {
+        $this->assertNull($this->links()->request(str_repeat('a', 300) . '@example.test', '203.0.113.9'));
+        $this->assertNull($this->db->one('SELECT 1 AS x FROM login_attempts WHERE length(email) > 254'));
+    }
+
     public function test_a_minted_link_signs_in_once(): void
     {
         $id = $this->registerUser();

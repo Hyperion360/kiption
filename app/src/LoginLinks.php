@@ -72,6 +72,8 @@ final class LoginLinks
     public function request(string $email, string $ip): ?string
     {
         $email = mb_strtolower(trim($email));
+        // No real address is longer (RFC 5321); refuse before it reaches the attempts table.
+        if ($email === '' || strlen($email) > 254) return null;
         if (!$this->claim($email, $ip)) return null;
         $user = $this->db->one('SELECT id FROM users WHERE lower(email) = ?', [$email]);
         return $user === null ? null : $this->mint((int) $user['id'], self::REQUEST_TTL);
