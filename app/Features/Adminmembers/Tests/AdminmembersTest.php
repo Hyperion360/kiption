@@ -213,8 +213,9 @@ final class AdminmembersTest extends TestCase
     {
         $token = bin2hex(random_bytes(32));
         $exp = date('c', time() + 3600);
-        $this->db->query('INSERT INTO email_changes (user_id, new_email, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?)',
-            [$id, 'taken-over@e.test', hash('sha256', $token), $exp, date('c')]);
+        $epoch = substr((string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$id])['password_hash'], 0, \Kip\Auth::EPOCH_LEN);
+        $this->db->query('INSERT INTO email_changes (user_id, new_email, token_hash, pwd_epoch, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [$id, 'taken-over@e.test', hash('sha256', $token), $epoch, $exp, date('c')]);
         $this->db->query('INSERT INTO password_resets (email, token_hash, expires_at) VALUES (?, ?, ?)',
             [$email, hash('sha256', 'r' . $token), $exp]);
         $this->db->query('INSERT INTO email_verifications (email, token_hash, expires_at) VALUES (?, ?, ?)',
