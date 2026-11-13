@@ -415,6 +415,9 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .settings-jump a:hover { background: var(--hover); color: var(--ink); }
 .settings-section { scroll-margin-top: 76px; margin-block-end: 24px; }
 .settings-section h2 { margin: 0 0 4px; font: 600 20px/1.3 var(--sans); }
+.facts-now { max-width: 640px; margin: 12px 0 16px; padding: 10px 12px; border-inline-start: 3px solid var(--accent); background: var(--pill-bg); font: 14px/1.5 var(--sans); color: var(--ink-2); }
+.facts-now p { margin: 0; }
+.site-main .facts-now ul { margin: 4px 0; padding-inline-start: 20px; color: var(--ink); }
 .settings-section .consequence :is(p, blockquote) { margin: 0; }
 .settings-section .consequence blockquote { margin-block-start: 6px; padding: 0; border: 0; font: 15px/1.5 var(--serif); color: var(--ink); }
 .settings-section .consequence { margin: 4px 0 12px; padding: 10px 12px; border-inline-start: 3px solid var(--accent); background: var(--pill-bg); font: 14px/1.5 var(--sans); color: var(--ink-2); }

@@ -20,7 +20,8 @@ final class MailusersController extends AdminScreen
     public function index(): Response|string
     {
         if ($r = $this->deny()) return $r;
-        return $this->form('mailusers/index', '', '', null, 0);
+        $now = MassMail::summary($this->db);
+        return $this->form('mailusers/index', '', '', null, $now['n'], $now);
     }
 
     /** Show the message as it will go, with the recipient count. Sends nothing. */
@@ -63,8 +64,8 @@ final class MailusersController extends AdminScreen
         return [$subject, $body, null];
     }
 
-    private function form(string $view, string $subject, string $body, ?string $error, int $count): string
+    private function form(string $view, string $subject, string $body, ?string $error, int $count, ?array $now = null): string
     {
-        return $this->page($view, 'mailusers.heading', '', ['subject' => $subject, 'body' => $body, 'error' => $error, 'count' => $count]);
+        return $this->page($view, 'mailusers.heading', '', ['subject' => $subject, 'body' => $body, 'error' => $error, 'count' => $count, 'now' => $now]);
     }
 }

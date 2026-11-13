@@ -20,6 +20,19 @@ final class MassMail
              AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL ORDER BY id'), 'email');
     }
 
+    /** For the compose screen, in one statement: how many people a message
+     *  would reach now (the recipients() rule) and the last one that went out.
+     *  @return array{n: int, last_at: ?string, last_subject: ?string} */
+    public static function summary(Database $db): array
+    {
+        $row = $db->one(
+            'SELECT (SELECT COUNT(*) FROM users WHERE penname IS NOT NULL AND is_locked = 0
+                     AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL) AS n,
+                    (SELECT sent_at FROM mass_mail_log ORDER BY sent_at DESC LIMIT 1) AS last_at,
+                    (SELECT subject FROM mass_mail_log ORDER BY sent_at DESC LIMIT 1) AS last_subject') ?? [];
+        return ['n' => (int) ($row['n'] ?? 0), 'last_at' => $row['last_at'] ?? null, 'last_subject' => $row['last_subject'] ?? null];
+    }
+
     /** Send to each recipient once. One bad address never stops the batch
      *  (the Digest idiom). Returns how many were handed to the mail layer. */
     public static function send(MailGuard $mailer, array $recipients, string $subject, string $body): int

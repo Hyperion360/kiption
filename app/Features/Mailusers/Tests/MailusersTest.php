@@ -160,4 +160,16 @@ final class MailusersTest extends TestCase
         $this->assertNotSame(200, $this->client()->get('/mailusers')->status);
         $this->assertSame('', $this->mail());
     }
+
+    public function test_the_compose_screen_says_who_it_reaches_and_when_the_last_one_went(): void
+    {
+        $n = $this->eligible();
+        $body = $this->client($this->adminId)->get('/mailusers')->body;
+        $this->assertStringContainsString(\App\Lang::t($n === 1 ? 'mailusers.reach_one' : 'mailusers.reach', ['n' => $n]), $body);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.last_never'), $body);
+        $this->assertTrue(\App\MassMail::claim($this->db, $this->adminId, 'Autumn <news>', $n));
+        $body = $this->client($this->adminId)->get('/mailusers')->body;
+        $this->assertStringContainsString('Autumn &lt;news&gt;', $body);
+        $this->assertStringNotContainsString(\App\Lang::t('mailusers.last_never'), $body);
+    }
 }
