@@ -294,4 +294,48 @@ final class AdminmembersTest extends TestCase
         $this->assertSame(422, $res->status);
         $this->assertSame($before, $this->db->one('SELECT * FROM users WHERE id = ?', [$this->targetId]));
     }
+
+    public function test_stories_cannot_be_handed_to_a_locked_or_unapproved_member(): void
+    {
+        $admin = $this->client($this->adminId);
+        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [$this->heirId]);
+        $this->assertSame(422, $admin->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'move', 'penname' => 'heir-member'])->status, 'locked');
+        $this->db->query('UPDATE users SET is_locked = 0, approved_at = NULL WHERE id = ?', [$this->heirId]);
+        $this->assertSame(422, $admin->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'move', 'penname' => 'heir-member'])->status, 'unapproved');
+        $this->db->query('UPDATE users SET approved_at = ?, email_verified_at = NULL WHERE id = ?', [date('c'), $this->heirId]);
+        $this->assertSame(422, $admin->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'move', 'penname' => 'heir-member'])->status, 'unverified');
+        $this->assertSame($this->targetId, (int) $this->db->one("SELECT author_id FROM stories WHERE slug = 'leaving-tale'")['author_id']);
+        $this->assertSame('leaving-member', $this->db->one('SELECT penname FROM users WHERE id = ?', [$this->targetId])['penname']);
+    }
+
+    public function test_the_new_owner_is_found_ignoring_case_and_padding_and_inherits_series_without_a_duplicate_coauthor(): void
+    {
+        $this->db->query('INSERT INTO series (title, slug, owner_id) VALUES (?, ?, ?)', ['Saga', 'saga', $this->targetId]);
+        $storyId = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'leaving-tale'")['id'];
+        $this->db->query('INSERT INTO coauthors (story_id, user_id) VALUES (?, ?)', [$storyId, $this->heirId]);
+        $res = $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'move', 'penname' => '  HEIR-Member ']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame($this->heirId, (int) $this->db->one("SELECT owner_id FROM series WHERE slug = 'saga'")['owner_id']);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM coauthors WHERE story_id = ? AND user_id = ?', [$storyId, $this->heirId])['c'],
+            'the new owner is no longer listed as a coauthor of their own story');
+    }
+
+    public function test_unknown_members_get_a_404_and_a_deleted_one_cannot_get_a_new_role(): void
+    {
+        $admin = $this->client($this->adminId);
+        foreach (['lock', 'unlock'] as $action) {
+            $this->assertSame(404, $admin->postWithToken('/adminmembers/' . $action . '/99999')->status, $action);
+        }
+        $this->assertSame(404, $admin->get('/adminmembers/remove/99999')->status);
+        $admin->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => 'remove']);
+        $this->assertSame(422, $admin->postWithToken('/adminmembers/role/' . $this->targetId . '/moderator')->status);
+        $this->assertSame('member', $this->db->one('SELECT role FROM users WHERE id = ?', [$this->targetId])['role']);
+    }
+
+    public function test_a_cross_site_delete_is_refused_and_nothing_changes(): void
+    {
+        $res = $this->client($this->adminId)->post('/adminmembers/destroy/' . $this->targetId, ['stories' => 'remove'], ['sec-fetch-site' => 'cross-site']);
+        $this->assertSame(403, $res->status);
+        $this->assertSame('leaving-member', $this->db->one('SELECT penname FROM users WHERE id = ?', [$this->targetId])['penname']);
+    }
 }
