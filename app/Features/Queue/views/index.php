@@ -28,7 +28,7 @@
         <p class="row-context"><?php foreach ($about($r['f']) as [$fact, $warn]): ?><span<?= $warn ? ' class="ctx-warn"' : '' ?>><?= $fact ?></span> <?php endforeach; ?></p></div>
         <div class="queue-actions">
         <form method="post" action="/queue/story/<?= (int) $r['a'] ?>/approve" class="inline">
-          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="btn-primary"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <form method="post" action="/queue/story/<?= (int) $r['a'] ?>/remove" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('queue.confirm_remove')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
@@ -49,7 +49,7 @@
         <p class="row-context"><?php foreach ($about($r['f']) as [$fact, $warn]): ?><span<?= $warn ? ' class="ctx-warn"' : '' ?>><?= $fact ?></span> <?php endforeach; ?></p></div>
         <div class="queue-actions">
         <form method="post" action="/queue/chapter/<?= (int) $r['a'] ?>/approve" class="inline">
-          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="btn-primary"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <form method="post" action="/queue/chapter/<?= (int) $r['a'] ?>/remove" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('queue.confirm_remove')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('common.remove') ?></button>
@@ -67,7 +67,7 @@
         <strong><?= $this->e($r['b']) ?></strong> (<?= $this->e($r['c']) ?>)
         <div class="queue-actions">
         <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/approve" class="inline">
-          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
+          <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="btn-primary"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject" class="inline" data-js-module="confirm" data-confirm="<?= $this->e(\App\Lang::t('queue.confirm_reject')) ?>">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">

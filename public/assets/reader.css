@@ -363,6 +363,9 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 }
 .queue-actions .inline:has(> input[name="reason"]) { flex: 1 1 280px; max-width: 520px; flex-wrap: nowrap; }
 .queue-actions input[name="reason"] { flex: 1; min-width: 0; }
+/* Approve is the expected answer, so it alone is filled; Remove and Reject
+   stay outlined. Same height as its neighbours. */
+.queue-actions .btn-primary { min-height: 44px; padding-inline: 16px; }
 .link-btn { min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .link-btn:hover { background: none; color: var(--accent-hover); }
 /* Form card (Kip blog S3 "Leave a comment"): a white surface holding a
