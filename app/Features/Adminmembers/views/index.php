@@ -1,9 +1,10 @@
 <?php // app/views/adminmembers/index.php ?>
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('adminmembers.heading') ?></h1>
-<form method="get" action="/adminmembers" class="inline">
+<form method="get" action="/adminmembers" class="inline" data-js-module="listfilter" data-filter-rows=".member-table tbody tr">
   <input type="search" name="q" value="<?= $this->e($q) ?>" placeholder="<?= $this->e(\App\Lang::t('adminmembers.search_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('adminmembers.search_aria')) ?>">
   <button type="submit"><?= \App\Lang::t('adminmembers.search') ?></button>
+  <span class="chapter-meta live-filter-note" data-filter-note hidden><?= \App\Lang::t('adminmembers.filter_note') ?></span>
 </form>
 <table class="member-table">
   <thead><tr><th scope="col"><?= \App\Lang::t('adminmembers.column_member') ?></th><th scope="col"><?= \App\Lang::t('adminmembers.column_email') ?></th><th scope="col"><?= \App\Lang::t('adminmembers.column_role') ?></th><th scope="col"><?= \App\Lang::t('adminmembers.column_status') ?></th></tr></thead>

@@ -90,7 +90,7 @@
      list a sub-screen belongs to. Members and guests never get these bytes. */
      $admin = ($isAdmin ?? false) ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? ''), $adminDatabase ?? null) : null;
      if ($admin !== null): ?>
-  <div class="admin-shell">
+  <div class="admin-shell" data-js-module="adminforms" data-count-text="<?= $this->e(\App\Lang::t('admin.count')) ?>">
   <?= $this->render('admin_nav', ['admin' => $admin]) ?>
   <div class="admin-body">
   <?php if (count($admin['trail']) > 1): // a sub-screen: the list it belongs to. The sidebar and tab bar already lead home. ?>

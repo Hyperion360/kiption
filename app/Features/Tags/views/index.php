@@ -20,6 +20,11 @@
     <p><a href="/wrangling"><?= \App\Lang::t('tagsadmin.alike_link') ?></a></p>
   </div>
   <?php endif; ?>
+  <?php /* Shown by the listfilter module only. */ ?>
+  <p class="live-filter" hidden data-js-module="listfilter" data-filter-rows=".tag-rows > li">
+    <label><?= \App\Lang::t('admin.filter_label') ?> <input type="search" autocomplete="off"></label>
+    <span class="chapter-meta" data-filter-none hidden><?= \App\Lang::t('admin.filter_none') ?></span>
+  </p>
   <?php foreach ($types as $type): ?>
   <h2><?= $this->e($type['name']) ?></h2>
   <div class="queue-actions">
@@ -33,7 +38,7 @@
     <a class="btn" href="/tags/deletetype/<?= (int) $type['id'] ?>"><?= \App\Lang::t('tagsadmin.delete_type') ?></a>
   </div>
   <?php if (empty($byType[(int) $type['id']])): ?><p class="chapter-meta"><?= \App\Lang::t('tagsadmin.no_tags') ?></p><?php else: ?>
-  <ul class="admin-rows">
+  <ul class="admin-rows tag-rows">
     <?php foreach ($byType[(int) $type['id']] as $t): ?>
     <li>
       <strong><?= $this->e($t['name']) ?></strong>

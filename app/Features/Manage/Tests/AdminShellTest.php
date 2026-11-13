@@ -147,4 +147,15 @@ final class AdminShellTest extends TestCase
         $this->assertSame(403, $this->client($this->memberId)->get('/manage')->status);
         $this->assertNotSame(200, $this->client()->get('/manage')->status);
     }
+
+    public function test_admin_screens_carry_the_markers_the_helper_scripts_look_for(): void
+    {
+        $c = $this->client($this->adminId);
+        $tags = $c->get('/tags')->body;
+        $this->assertStringContainsString('class="admin-shell" data-js-module="adminforms" data-count-text="' . \App\Lang::t('admin.count') . '"', $tags);
+        $this->assertStringContainsString('data-hint="' . \App\Lang::t('manage.find_key') . '"', $tags);
+        $this->assertStringContainsString('hidden data-js-module="listfilter" data-filter-rows=".tag-rows > li"', $tags, 'hidden until the script shows it');
+        $this->assertStringContainsString('data-js-module="listfilter" data-filter-rows=".member-table tbody tr"', $c->get('/adminmembers')->body);
+        $this->assertStringNotContainsString('adminforms', $this->client($this->memberId)->get('/')->body, 'reading pages never load them');
+    }
 }

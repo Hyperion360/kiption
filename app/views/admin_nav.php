@@ -8,7 +8,7 @@
   <a class="sheet-done" href="#sheet-close"><?= \App\Lang::t('common.done') ?></a>
   <a class="admin-nav-home" href="/manage"<?= $admin['current'] === '/manage' ? ' aria-current="page"' : '' ?>><?= \App\Lang::t('manage.heading') ?></a>
   <?php /* Shown by the adminnav module only: without scripting the full list is already on screen. */ ?>
-  <input class="admin-nav-filter" type="search" hidden data-js-module="adminnav" aria-label="<?= $this->e(\App\Lang::t('manage.find')) ?>" placeholder="<?= $this->e(\App\Lang::t('manage.find')) ?>">
+  <input class="admin-nav-filter" type="search" hidden data-js-module="adminnav" aria-keyshortcuts="/ Control+K Meta+K" data-hint="<?= $this->e(\App\Lang::t('manage.find_key')) ?>" aria-label="<?= $this->e(\App\Lang::t('manage.find')) ?>" placeholder="<?= $this->e(\App\Lang::t('manage.find')) ?>">
   <?php foreach ($admin['groups'] as $i => $g): ?>
   <p class="admin-nav-group" id="admin-nav-g<?= $i ?>"><?= \App\Lang::t($g['label']) ?></p>
   <ul aria-labelledby="admin-nav-g<?= $i ?>">

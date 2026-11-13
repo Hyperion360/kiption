@@ -122,6 +122,26 @@ final class AppJsContractTest extends TestCase
         $this->assertStringContainsString("'confirm'", $loader, 'the loader knows the confirm module');
     }
 
+    /* ---- admin helpers (find a screen, narrow a list, unsaved changes) ---- */
+
+    public function test_the_admin_modules_exist_and_are_known_to_the_loader(): void
+    {
+        $assets = dirname(__DIR__) . '/public/assets/';
+        $loader = (string) file_get_contents($assets . 'app.js');
+        foreach (['adminnav', 'saved', 'listfilter', 'adminforms'] as $m) {
+            $this->assertFileExists($assets . $m . '.js');
+            $this->assertStringContainsString("'" . $m . "'", $loader, 'the loader knows the ' . $m . ' module');
+        }
+        $nav = (string) file_get_contents($assets . 'adminnav.js');
+        $this->assertStringContainsString("e.key === '/'", $nav, 'slash jumps to the find box');
+        $this->assertStringContainsString('typing', $nav, 'a slash typed into a field stays a slash');
+        $forms = (string) file_get_contents($assets . 'adminforms.js');
+        $this->assertStringContainsString("'beforeunload'", $forms, 'leaving with typed changes asks first');
+        $this->assertStringContainsString("addEventListener('submit'", $forms, 'saving never asks');
+        $this->assertStringContainsString('data-count-text', $forms, 'the count wording comes from the page, so it stays editable');
+        $this->assertStringContainsString('data-filter-rows', (string) file_get_contents($assets . 'listfilter.js'));
+    }
+
     public function test_the_double_submission_guard_ships_in_the_core(): void
     {
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');

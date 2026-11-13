@@ -14,7 +14,7 @@
 <section class="try-box" id="try">
   <h2><?= \App\Lang::t('wordfilter.try_heading') ?></h2>
   <p class="chapter-meta"><?= \App\Lang::t('wordfilter.try_help') ?></p>
-  <form method="post" action="/wordfilter/try#try" class="form-card">
+  <form method="post" action="/wordfilter/try#try" class="form-card" data-unsaved-skip>
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <label><?= \App\Lang::t('wordfilter.try_label') ?>
       <input type="text" name="sentence" maxlength="500" value="<?= $this->e((string) (($tried ?? null)['sentence'] ?? '')) ?>">

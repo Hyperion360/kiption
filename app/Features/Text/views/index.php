@@ -11,9 +11,14 @@
   <button type="submit" class="btn-primary"><?= \App\Lang::t('text.search_button') ?></button>
 </form>
 <h2><?= \App\Lang::t('text.groups') ?></h2>
+<?php /* Shown by the listfilter module only. */ ?>
+<p class="live-filter" hidden data-js-module="listfilter" data-filter-rows=".text-groups > li">
+  <label><?= \App\Lang::t('admin.filter_label') ?> <input type="search" autocomplete="off"></label>
+  <span class="chapter-meta" data-filter-none hidden><?= \App\Lang::t('admin.filter_none') ?></span>
+</p>
 <?php foreach ($sections as $section => $groups): ?>
 <h3><?= \App\Lang::t('text.section.' . $section) ?></h3>
-<ul class="manage-list">
+<ul class="manage-list text-groups">
   <?php foreach ($groups as $code => $g): ?>
   <li><a href="<?= $this->e('/text/group/' . $code . '?lang=' . $lang) ?>"><span class="manage-name"><?= $this->e($g['label']) ?></span>
     <span class="manage-what"><?= $this->e(\App\Lang::t('text.group_count', ['changed' => $g['changed'], 'total' => $g['total']])) ?></span></a></li>

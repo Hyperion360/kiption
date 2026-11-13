@@ -419,6 +419,14 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .facts-now p { margin: 0; }
 .facts-now blockquote { margin: 6px 0 0; padding-inline-start: 12px; border-inline-start: 2px solid var(--line-strong); color: var(--ink); }
 .try-box { margin-top: 32px; }
+.live-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 12px 0; font: 14px var(--sans); }
+.live-filter[hidden], .live-filter-note[hidden], .char-count[hidden] { display: none; }
+.live-filter label { display: flex; align-items: center; gap: 8px; color: var(--ink-2); }
+.live-filter input { min-height: 44px; min-width: min(280px, 60vw); }
+.live-filter-note { flex-basis: 100%; }
+.char-count { display: block; margin: 2px 0 8px; font: 12px var(--sans); color: var(--muted); }
+.char-count-near { color: var(--danger); font-weight: 600; }
+.admin-body textarea { resize: vertical; }
 .site-main .facts-now ul { margin: 4px 0; padding-inline-start: 20px; color: var(--ink); }
 .settings-section .consequence :is(p, blockquote) { margin: 0; }
 .settings-section .consequence blockquote { margin-block-start: 6px; padding: 0; border: 0; font: 15px/1.5 var(--serif); color: var(--ink); }
