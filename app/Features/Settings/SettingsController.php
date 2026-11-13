@@ -59,6 +59,7 @@ final class SettingsController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'current' => $typed + $this->current(),
+            'waiting' => $this->waiting(),
             'error' => $error, 'errorSection' => $section,
             'languages' => array_map(static fn (string $c): array => ['code' => $c, 'name' => \App\Lang::name($c)], \App\Lang::installed()),
             'dateExamples' => \App\Dates::examples(),
@@ -170,6 +171,19 @@ final class SettingsController
     }
 
     /** Public paths of the pictures in the image library, for the share-picture choice. @return list<string> */
+    /** What two of the switches are holding back right now, in one statement,
+     *  so the page can say what a setting means today.
+     *  @return array{members: int, queue: int} */
+    private function waiting(): array
+    {
+        $row = $this->db->one(
+            "SELECT (SELECT COUNT(*) FROM users WHERE approved_at IS NULL AND email_verified_at IS NOT NULL) AS members,
+                    (SELECT COUNT(*) FROM stories WHERE validated = 0 AND deleted_at IS NULL)
+                    + (SELECT COUNT(*) FROM chapters ch JOIN stories s ON s.id = ch.story_id
+                       WHERE ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1) AS queue") ?? [];
+        return ['members' => (int) ($row['members'] ?? 0), 'queue' => (int) ($row['queue'] ?? 0)];
+    }
+
     private function libraryImages(): array
     {
         $dir = (string) ($this->app->config('uploads', [])['dir'] ?? '');

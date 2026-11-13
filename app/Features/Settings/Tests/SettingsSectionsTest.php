@@ -150,4 +150,17 @@ final class SettingsSectionsTest extends TestCase
         $this->assertSame(403, $this->client($this->memberId)->postWithToken('/settings/save', ['section' => 'maintenance', 'maintenance_on' => '1'])->status);
         $this->assertNotSame('1', $this->setting('maintenance_on'));
     }
+
+    public function test_settings_say_what_they_are_holding_back_right_now(): void
+    {
+        $body = $this->client($this->adminId)->get('/settings')->body;
+        $this->assertStringContainsString(Lang::t('settings.waiting_members_none'), $body);
+        $this->assertStringContainsString(Lang::t('settings.maintenance_now_off'), $body);
+        $this->assertStringContainsString(Lang::t('maintenance.body'), $body);
+        $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            ['wait@e.test', 'x', 'waiting', 'member', 0, date('c'), 'waiting']);
+        $body = $this->client($this->adminId)->get('/settings')->body;
+        $this->assertStringContainsString(Lang::t('settings.waiting_members_one', ['n' => 1]), $body);
+        $this->assertStringContainsString('<a href="/queue">' . Lang::t('settings.waiting_link') . '</a>', $body);
+    }
 }

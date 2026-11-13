@@ -45,6 +45,8 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <?php if (($errorSection ?? '') === 'stories'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <?= $check('submissions_open', \App\Lang::t('settings.submissions_open'), \App\Lang::t('settings.submissions_open_note')) ?>
   <?= $check('validation_required', \App\Lang::t('settings.validation_required')) ?>
+  <p class="consequence"><?= \App\Lang::t($waiting['queue'] === 0 ? 'settings.waiting_queue_none' : ($waiting['queue'] === 1 ? 'settings.waiting_queue_one' : 'settings.waiting_queue'), ['n' => $waiting['queue']]) ?>
+    <?php if ($waiting['queue'] !== 0): ?><a href="/queue"><?= \App\Lang::t('settings.waiting_link') ?></a><?php endif; ?></p>
   <label><?= \App\Lang::t('settings.min_words') ?>
     <input name="min_words" type="number" min="0" max="100000" value="<?= $this->e($current['min_words']) ?>">
   </label>
@@ -99,6 +101,8 @@ $check = function (string $key, string $label, string $note = '') use ($current)
       <?php endforeach; ?>
     </select>
   </label>
+  <p class="consequence"><?= \App\Lang::t($waiting['members'] === 0 ? 'settings.waiting_members_none' : ($waiting['members'] === 1 ? 'settings.waiting_members_one' : 'settings.waiting_members'), ['n' => $waiting['members']]) ?>
+    <?php if ($waiting['members'] !== 0): ?><a href="/queue"><?= \App\Lang::t('settings.waiting_link') ?></a><?php endif; ?></p>
   <?= $check('profiles_public', \App\Lang::t('settings.profiles_public'), \App\Lang::t('settings.profiles_public_note')) ?>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_members')]) ?></button>
 </form>
@@ -187,6 +191,10 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <?php if (($errorSection ?? '') === 'maintenance'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <label><input type="checkbox" name="maintenance_on" value="1"<?= $current['maintenance_on'] === '1' ? ' checked' : '' ?>> <?= \App\Lang::t('settings.maintenance_on') ?></label>
   <p class="chapter-meta"><?= \App\Lang::t('settings.maintenance_note') ?></p>
+  <div class="consequence">
+    <p><?= \App\Lang::t($current['maintenance_on'] === '1' ? 'settings.maintenance_now_on' : 'settings.maintenance_now_off') ?></p>
+    <blockquote><strong><?= \App\Lang::t('maintenance.title') ?></strong><br><?= \App\Lang::t('maintenance.body') ?></blockquote>
+  </div>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_maintenance')]) ?></button>
 </form>
 </section>
