@@ -233,4 +233,17 @@ final class EmailChangeTest extends TestCase
         }
         $this->assertNull($this->db->one("SELECT 1 AS x FROM users WHERE penname = 'squatter'"));
     }
+
+    public function test_a_case_variant_of_a_taken_address_is_refused_at_request_and_at_apply(): void
+    {
+        $res = $this->ask('DEMO@Example.TEST');
+        $this->assertSame(422, $res->status);
+        $this->assertSame('', $this->token());
+        $this->ask('late2@example.test');
+        $t = $this->token();
+        $this->db->query("UPDATE users SET email = 'LATE2@Example.test' WHERE penname = 'Demo Author'");
+        $done = (new TestClient($this->app()))->postWithToken('/account/emailapply', ['t' => $t]);
+        $this->assertSame(410, $done->status);
+        $this->assertSame('beta@example.test', $this->email());
+    }
 }
