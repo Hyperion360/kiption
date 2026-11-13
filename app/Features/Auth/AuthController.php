@@ -51,6 +51,7 @@ final class AuthController
             \App\ActivityLog::recordOnce($this->db, null, 'auth.signin_throttled', 'too many attempts');
             return new Response(
                 $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                    'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                     'error' => \App\Lang::t('auth.err_throttle')]),
                 429
             );
@@ -64,18 +65,21 @@ final class AuthController
                     $this->auth->logout();
                     \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'account locked');
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                        'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                         'error' => \App\Lang::t('auth.err_locked')]);
                 }
                 if ($user['email_verified_at'] === null) {
                     $this->auth->logout();
                     \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'email not confirmed');
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                        'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                         'error' => \App\Lang::t('auth.err_unverified')]);
                 }
                 if ($user['approved_at'] === null) {
                     $this->auth->logout();
                     \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'not approved yet');
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                        'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                         'error' => \App\Lang::t('auth.err_unapproved')]);
                 }
             }
@@ -86,7 +90,7 @@ final class AuthController
         // address could be someone else's. (Throttled attempts return above, so a
         // flood cannot grow this log without bound.)
         \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'wrong email or password');
-        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'error' => \App\Lang::t('auth.err_wrong')]);
+        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'), 'error' => \App\Lang::t('auth.err_wrong')]);
     }
 
     /** The cookie-sync seam (phase 12d ruling 1): the prefs row is the source

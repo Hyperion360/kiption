@@ -7,6 +7,7 @@
 <?php if (!empty($verified)): ?><p class="notice"><?= \App\Lang::t('auth.login.email_verified') ?></p><?php endif; ?>
 <form method="post" action="/auth/attempt">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  <?php if (!empty($toPost)): ?><input type="hidden" name="to" value="post"><?php endif; ?>
   <label><?= \App\Lang::t('auth.email') ?> <input type="email" name="email" required autocomplete="email"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>
   <label><?= \App\Lang::t('auth.password') ?> <input type="password" name="password" required autocomplete="current-password"<?= isset($error) ? ' aria-describedby="form-error"' : '' ?>></label>
   <button><?= \App\Lang::t('auth.login.heading') ?></button>
