@@ -55,6 +55,9 @@ final class AccountSecurity
         if ($me === null) return ['account.err_wrong_password', null];
         if (strcasecmp((string) $me['email'], $newEmail) === 0) return ['account.err_email_same', null];
         if ($this->emailTaken($newEmail, $userId)) return ['account.err_email_taken', null];
+        // Each request mails an address the member typed, so the right password
+        // alone must not allow an endless stream of them. Never cleared.
+        if (!$this->limiter->claim('emailchange', 'u' . $userId, $ip, 3, 10)) return [self::THROTTLED, null];
         $token = bin2hex(random_bytes(32));
         $this->db->query('INSERT OR REPLACE INTO email_changes (user_id, new_email, token_hash, pwd_epoch, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
             [$userId, $newEmail, hash('sha256', $token), self::epoch((string) $me['password_hash']), date('c', time() + self::EMAIL_TTL), date('c')]);

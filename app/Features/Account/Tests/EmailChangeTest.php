@@ -63,6 +63,17 @@ final class EmailChangeTest extends TestCase
         return $m[1] ?? '';
     }
 
+    public function test_email_change_requests_are_capped_even_with_the_right_password(): void
+    {
+        for ($i = 1; $i <= 3; $i++) {
+            $this->assertSame(302, $this->ask('victim' . $i . '@example.test')->status);
+        }
+        $before = substr_count((string) file_get_contents($this->log), 'emailconfirm?t=');
+        $this->ask('victim4@example.test');
+        $this->assertSame($before, substr_count((string) file_get_contents($this->log), 'emailconfirm?t='),
+            'a fourth request in the window must not mail anyone');
+    }
+
     public function test_asking_mails_the_new_address_and_changes_nothing_yet(): void
     {
         $res = $this->ask();
