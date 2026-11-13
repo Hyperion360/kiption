@@ -154,9 +154,11 @@ final class UserRepository
     }
 
     /** Rename a member and move their profile URL to match. Returns the old
-     *  [penname, profile_slug] so the caller can log, or null when slug
-     *  de-duplication gave up (the "collision storm" RuntimeException from
-     *  Slug::unique): the caller shows the taken-name error, never a 500.
+     *  [penname, profile_slug] so the caller can log, or null when the name
+     *  could not be taken: slug de-duplication gave up (the "collision storm"
+     *  RuntimeException from Slug::unique), or a concurrent rename won the
+     *  penname or slug uniqueness race between pennameError() and the write.
+     *  Either way the caller shows the taken-name error, never a 500.
      *  The caller validates with pennameError() first. */
     public function rename(int $userId, string $penname): ?array
     {
@@ -176,6 +178,13 @@ final class UserRepository
         } catch (\RuntimeException $e) {
             $this->db->rollBack();
             if ($e->getMessage() === 'slug collision storm') return null;
+            throw $e;
+        } catch (\PDOException $e) {
+            // A concurrent rename won the UNIQUE race on penname or
+            // profile_slug after pennameError() already said yes.
+            $this->db->rollBack();
+            $sqliteCode = (int) ($e->errorInfo[1] ?? 0);
+            if ($e->getCode() === '23000' || $sqliteCode === 19) return null; // constraint: name is taken
             throw $e;
         } catch (\Throwable $e) {
             $this->db->rollBack();

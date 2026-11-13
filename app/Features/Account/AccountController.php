@@ -8,6 +8,13 @@ final class AccountController
     /** The ?done= values settings() turns into a confirmation line. */
     private const DONE = ['password', 'emailsent', 'fields'];
 
+    /** Pen-name changes per 15 minutes (AttemptLimiter's fixed window):
+     *  this many per member and PENNAME_MAX_IP across all members sharing
+     *  one address. Renames write public pages and a slug-redirect row, so
+     *  they stay scarce. */
+    private const PENNAME_MAX_PER_MEMBER = 3;
+    private const PENNAME_MAX_PER_IP = 10;
+
     /** Values for the refusal line (already HTML-safe) and the answers a
      *  member typed, so a refused form comes back as they left it. */
     private array $errorParams = [];
@@ -381,7 +388,7 @@ final class AccountController
     {
         $me = (int) $this->session->get('user_id');
         $name = trim($this->request->postStr('penname'));
-        if (!(new \App\AttemptLimiter($this->db))->claim('penname', (string) $me, $this->request->ip, 3, 10)) {
+        if (!(new \App\AttemptLimiter($this->db))->claim('penname', (string) $me, $this->request->ip, self::PENNAME_MAX_PER_MEMBER, self::PENNAME_MAX_PER_IP)) {
             return $this->refusePenname(\App\Lang::t('account.too_many_changes'), $name, 429);
         }
         $users = new \App\Repositories\UserRepository($this->db);
