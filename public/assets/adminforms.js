@@ -15,13 +15,17 @@
     var main = shell && shell.querySelector('main');
     if (!main) { return; }
 
-    /* Unsaved changes. A screen that came back with an error still holds
-       what was typed, so it starts out as changed. */
-    var changed = main.querySelector('.form-error, .error') !== null;
     function counts(el) {
       var form = el && el.form;
       return !!form && (form.getAttribute('method') || '').toLowerCase() === 'post' && !form.hasAttribute('data-unsaved-skip');
     }
+    /* Unsaved changes. A screen that came back with an error and still
+       holds what was typed starts out as changed; one that came back with
+       empty fields has nothing to lose. */
+    var changed = main.querySelector('.form-error, .error') !== null
+      && Array.prototype.some.call(main.querySelectorAll('input[type="text"], input:not([type]), input[type="email"], input[type="url"], input[type="number"], textarea'), function (f) {
+        return counts(f) && f.value !== '';
+      });
     main.addEventListener('input', function (e) { if (counts(e.target)) { changed = true; } });
     main.addEventListener('change', function (e) { if (counts(e.target)) { changed = true; } });
     document.addEventListener('submit', function () { changed = false; });

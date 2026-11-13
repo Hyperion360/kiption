@@ -421,6 +421,8 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .try-box { margin-top: 32px; }
 .live-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 12px 0; font: 14px var(--sans); }
 .live-filter[hidden], .live-filter-note[hidden], .char-count[hidden] { display: none; }
+/* Rows the filter has set aside: their own display rules must not bring them back. */
+.tag-rows > li[hidden], .text-groups > li[hidden], .member-table tbody tr[hidden] { display: none !important; }
 .live-filter label { display: flex; align-items: center; gap: 8px; color: var(--ink-2); }
 .live-filter input { min-height: 44px; min-width: min(280px, 60vw); }
 .live-filter-note { flex-basis: 100%; }
