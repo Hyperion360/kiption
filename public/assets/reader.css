@@ -499,6 +499,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .site-main td form.inline { margin: 0; }
 .site-main td button, .site-main td input, .site-main td select { min-height: 36px; font-size: 14px; }
 .site-main td button { padding: 4px 12px; }
+.stack-table:not(.member-table) td button { white-space: nowrap; }
 /* Plain (unclassed) lists only: every component list owns its own box. */
 .site-main :where(ol, ul):not([class]) { padding-inline-start: 1.4em; }
 .site-main :where(ol, ul):not([class]) > li { margin-block: 4px; }
