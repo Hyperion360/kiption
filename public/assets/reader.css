@@ -406,7 +406,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 /* Admin home: what is waiting, then what happened, then every screen. */
 .site-main .home-cards { list-style: none; margin: 12px 0 28px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 900px) { .site-main .home-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.home-cards a { display: flex; flex-direction: column; gap: 4px; min-height: 104px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); text-decoration: none; }
+.home-cards a { display: flex; flex-direction: column; gap: 4px; min-height: 104px; padding: 16px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); text-decoration: none; }
 .home-cards a:visited { color: var(--ink); }
 .home-cards a:hover { border-color: var(--line-strong); background: var(--hover); }
 .home-cards a.is-urgent { border-color: var(--accent); }
@@ -461,10 +461,10 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .confirm-actions .btn-danger:hover { background: var(--danger); color: var(--bg); filter: brightness(.88); }
 /* The line that answers an admin save ("Saved.", "Removed."). It sits above
    the page it answers, at the page's own measure. */
-.saved-note { margin: 16px 20px 0; padding: 12px 16px; border-radius: 8px; border-inline-start: 4px solid var(--accent); font-size: 15px; }
+.saved-note { margin: 16px 20px 0; padding: 12px 16px; border-radius: 0; border-inline-start: 4px solid var(--accent); font-size: 15px; }
 .saved-note-undo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .saved-note-undo form { margin: 0; }
-.saved-note .saved-undo { min-height: 44px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font: 600 15px var(--sans); cursor: pointer; }
+.saved-note .saved-undo { min-height: 44px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 0; background: var(--surface); color: var(--ink); font: 600 15px var(--sans); cursor: pointer; }
 .saved-note .saved-undo:hover { background: var(--hover); }
 /* Its edges follow the page column below it, the same gutters and widths the
    way-back trail uses, so the line and the heading start at one left edge. */
