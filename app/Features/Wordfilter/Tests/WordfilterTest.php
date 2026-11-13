@@ -98,4 +98,16 @@ final class WordfilterTest extends TestCase
         $this->assertStringNotContainsString(\App\Lang::t('wordfilter.try_clean'), $blank);
         $this->assertStringNotContainsString(\App\Lang::t('wordfilter.try_blocked', ['word' => 'rude phrase']), $blank);
     }
+
+    public function test_try_truncates_to_500_characters(): void
+    {
+        $body = $this->admin()->postWithToken('/wordfilter/try', ['sentence' => str_repeat('a', 600)])->body;
+        $this->assertStringContainsString(str_repeat('a', 500), $body);
+        $this->assertStringNotContainsString(str_repeat('a', 501), $body);
+    }
+
+    public function test_try_with_invalid_utf8_answers_without_a_500(): void
+    {
+        $this->assertLessThan(500, $this->admin()->postWithToken('/wordfilter/try', ['sentence' => "\xff\xfe"])->status);
+    }
 }

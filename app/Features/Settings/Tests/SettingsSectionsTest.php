@@ -179,4 +179,17 @@ final class SettingsSectionsTest extends TestCase
         $this->assertStringContainsString(Lang::t('settings.waiting_members_one', ['n' => 1]), $body);
         $this->assertStringContainsString('<a href="/queue">' . Lang::t('settings.waiting_link') . '</a>', $body);
     }
+
+    public function test_saving_a_section_logs_once_and_a_no_change_save_logs_nothing_new(): void
+    {
+        $c = $this->client($this->adminId);
+        $count = fn (): int => (int) $this->db->one("SELECT COUNT(*) AS n FROM activity_log WHERE action = 'settings.save'")['n'];
+        $before = $count();
+        $post = ['section' => 'basics', 'site_name' => 'Gazette', 'slogan' => 'Read late', 'items_per_page' => '15'];
+        $c->postWithToken('/settings/save', $post);
+        $after = $count();
+        $this->assertSame($before + 1, $after);
+        $c->postWithToken('/settings/save', $post);
+        $this->assertSame($after, $count());
+    }
 }
