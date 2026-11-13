@@ -282,4 +282,16 @@ final class SchemaTest extends TestCase
         // The whole point: rendered output identical to the legacy HTML.
         $this->assertSame($legacy . "\n", \App\Markdown::render((string) $ch['content']));
     }
+
+    public function test_the_admin_context_indexes_migration_can_run_twice(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $m = require dirname(__DIR__) . '/app/migrations/064_admin_context_indexes.php';
+        $m->up($db);
+        $m->up($db);
+        $m->down($db);
+        $m->down($db);
+        $this->assertSame(0, (int) $db->one("SELECT COUNT(*) c FROM sqlite_master WHERE type='index' AND name = 'idx_reports_story'")['c']);
+    }
 }
