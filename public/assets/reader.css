@@ -1481,6 +1481,35 @@ body.focus .site-head { display: none; }
   .chip { min-height: 44px; }
 }
 
+/* Members admin: a table on wide screens, one card per member below 1024px.
+   The markup is the same both ways. The role and status cells carry their
+   column name in data-label, shown only once the header row is hidden. */
+.member-table tbody th {
+  padding: 12px 16px; border-block-start: 1px solid var(--line); border-block-end: 0; background: none;
+  font: 500 14px/1.45 var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink); vertical-align: middle;
+}
+.member-table tbody th a { margin-inline-start: 6px; font-weight: 400; }
+.member-table .member-email { overflow-wrap: break-word; }
+.member-table td .badge, .member-table td > .chapter-meta { margin-inline-end: 4px; }
+.member-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 8px; }
+@media (max-width:1023px) {
+  .site-main table.member-table { display: block; overflow: visible; border: 0; background: none; }
+  .member-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .member-table tbody { display: block; }
+  .member-table tr { display: block; margin-block-end: 16px; padding: 16px; background: var(--surface); border: 1px solid var(--line-strong); }
+  .member-table tbody th, .member-table td { display: block; padding: 0; border: 0; }
+  .member-table tbody th { font-size: 17px; }
+  .member-table .member-email { margin-block-start: 2px; color: var(--muted); overflow-wrap: anywhere; }
+  .member-table td[data-label] { margin-block-start: 14px; padding-block-start: 14px; border-block-start: 1px solid var(--line); }
+  .member-table td[data-label]::before {
+    content: attr(data-label); display: inline-block; min-width: 64px;
+    font: 500 12px/1.4 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+  }
+  .member-table .member-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin-block-start: 12px; }
+  .member-table .member-actions form.inline { display: flex; }
+  .member-table .member-actions :is(button, a.btn) { width: 100%; min-height: 44px; }
+}
+
 /* Motion kill switch: nothing animates for reduced-motion visitors. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

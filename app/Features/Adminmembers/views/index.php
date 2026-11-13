@@ -5,7 +5,7 @@
   <input type="search" name="q" value="<?= $this->e($q) ?>" placeholder="<?= $this->e(\App\Lang::t('adminmembers.search_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('adminmembers.search_aria')) ?>">
   <button type="submit"><?= \App\Lang::t('adminmembers.search') ?></button>
 </form>
-<table>
+<table class="member-table">
   <thead><tr><th scope="col"><?= \App\Lang::t('adminmembers.column_member') ?></th><th scope="col"><?= \App\Lang::t('adminmembers.column_email') ?></th><th scope="col"><?= \App\Lang::t('adminmembers.column_role') ?></th><th scope="col"><?= \App\Lang::t('adminmembers.column_status') ?></th></tr></thead>
   <tbody>
 <?php foreach ($rows as $m): ?>
@@ -14,15 +14,16 @@
     $penname = $m['penname'] === null ? \App\Lang::t('adminmembers.no_penname') : (string) $m['penname'];
 ?>
     <tr>
-      <td>
+      <th scope="row">
         <?= $this->e($penname) ?><?= $isSelf ? ' ' . \App\Lang::t('adminmembers.you') : '' ?>
         <?php if ($m['profile_slug'] !== null): ?>
           <a href="/user/view/<?= $this->e($m['profile_slug']) ?>"><?= \App\Lang::t('adminmembers.profile') ?></a>
         <?php endif; ?>
-      </td>
-      <td><?= $this->e($m['email']) ?></td>
-      <td>
+      </th>
+      <td class="member-email"><?= $this->e($m['email']) ?></td>
+      <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_role')) ?>">
         <span class="badge"><?= \App\Lang::t('adminmembers.role.' . $m['role']) ?></span>
+        <div class="member-actions">
         <?php foreach ($roles as $r): if ($r !== $m['role']): ?>
         <form method="post" action="/adminmembers/role/<?= (int) $m['id'] ?>/<?= $this->e($r) ?>" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
@@ -31,8 +32,9 @@
           <?php endif; ?>><?= \App\Lang::t('adminmembers.make.' . $r) ?></button>
         </form>
         <?php endif; endforeach; ?>
+        </div>
       </td>
-      <td>
+      <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_status')) ?>">
         <?php $deleted = str_ends_with((string) $m['email'], '@deleted.invalid'); ?>
         <?php if ($deleted): ?><span class="badge"><?= \App\Lang::t('adminmembers.deleted') ?></span><?php endif; ?>
         <?php if ((int) $m['is_locked'] === 1 && !$deleted): ?><span class="badge"><?= \App\Lang::t('adminmembers.locked') ?></span><?php endif; ?>
@@ -40,11 +42,13 @@
         <?php if ($m['approved_at'] === null): ?><span class="badge"><?= \App\Lang::t('adminmembers.unapproved') ?></span><?php endif; ?>
         <?php if ((int) $m['is_locked'] === 0 && $m['email_verified_at'] !== null && $m['approved_at'] !== null): ?><span class="chapter-meta"><?= \App\Lang::t('adminmembers.active') ?></span><?php endif; ?>
         <?php if (!$isSelf && !$deleted): ?>
+        <div class="member-actions">
         <form method="post" action="/adminmembers/<?= (int) $m['is_locked'] === 1 ? 'unlock' : 'lock' ?>/<?= (int) $m['id'] ?>" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <button type="submit"><?= \App\Lang::t((int) $m['is_locked'] === 1 ? 'adminmembers.unlock' : 'adminmembers.lock') ?></button>
         </form>
         <a href="/adminmembers/remove/<?= (int) $m['id'] ?>" class="btn"><?= \App\Lang::t('adminmembers.delete') ?></a>
+        </div>
         <?php endif; ?>
       </td>
     </tr>
