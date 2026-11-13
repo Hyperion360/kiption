@@ -2,6 +2,7 @@
 <section>
   <h1><?= \App\Lang::t('activity.heading') ?></h1>
   <p class="lede"><?= \App\Lang::t('activity.lede') ?></p>
+  <p class="chapter-meta"><?= \App\Lang::t('activity.retention') ?></p>
   <?php if ($rows === []): ?>
   <p class="chapter-meta"><?= \App\Lang::t('activity.none') ?></p>
   <?php else: ?>

@@ -357,6 +357,17 @@ final class ActivityCoverageTest extends TestCase
         $this->assertCount(1, $rows, 'a bot hammering the form must not flood the log');
     }
 
+    public function test_entries_older_than_a_year_are_pruned_and_the_page_says_so(): void
+    {
+        $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail, created_at) VALUES (NULL, '', 'auth.signout', 'old', datetime('now', '-400 days'))");
+        $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail, created_at) VALUES (NULL, '', 'auth.signout', 'recent', datetime('now', '-300 days'))");
+        \App\ActivityLog::prune($this->db);
+        $details = array_column($this->rows(), 'detail');
+        $this->assertNotContains('old', $details);
+        $this->assertContains('recent', $details);
+        $this->assertStringContainsString('older than one year', $this->client($this->adminId)->get('/activity')->body);
+    }
+
     // ---- the viewer ----
 
     public function test_every_logged_action_has_a_readable_label_and_the_page_pages(): void

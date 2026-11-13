@@ -16,9 +16,17 @@ final class ActivityLog
             $name = $actorId === null ? '' : (string) ($db->one('SELECT penname FROM users WHERE id = ?', [$actorId])['penname'] ?? '');
             $db->query('INSERT INTO activity_log (actor_id, actor_name, action, detail) VALUES (?, ?, ?, ?)',
                 [$actorId, $name, mb_substr($action, 0, 60), mb_substr($detail, 0, self::MAX_DETAIL)]);
+            if (random_int(1, 200) === 1) self::prune($db);
         } catch (\Throwable) {
             // best effort by design
         }
+    }
+
+    /** Entries are kept for one year. record() calls this now and then, so
+     *  no scheduled job is needed; the activity page tells owners the rule. */
+    public static function prune(Database $db): void
+    {
+        $db->query("DELETE FROM activity_log WHERE created_at < datetime('now', '-1 year')");
     }
 
     /** Like record(), but at most one line per action every $minutes, for

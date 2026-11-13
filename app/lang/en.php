@@ -1009,6 +1009,7 @@ return [
     'profilefields.err_url' => 'The link in "{label}" must start with http:// or https://.',
     'activity.heading' => 'Activity log',
     'activity.lede' => 'Every change and sign-in event, newest first.',
+    'activity.retention' => 'Entries older than one year are deleted automatically.',
     'activity.none' => 'Nothing yet.',
     'activity.when' => 'When',
     'activity.who' => 'Who',
