@@ -126,6 +126,10 @@ final class PerUserTest extends TestCase
         $this->assertSame(302, $res->status);
         $this->assertContains('lang=xx; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax',
             $this->cookieLeaves($res), 'login syncs the cookie from the pref as one list leaf');
+        // three-letter codes are valid languages too (Lang::validCode)
+        $db->query('UPDATE user_prefs SET lang = ? WHERE user_id = ?', ['haw', $this->memberId()]);
+        $three = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);
+        $this->assertContains('lang=haw; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax', $this->cookieLeaves($three));
         // a prefs-less member logs in with no cookie directives at all
         $db->query('DELETE FROM user_prefs WHERE user_id = ?', [$this->memberId()]);
         $bare = $this->client()->post('/auth/attempt', ['email' => 'beta@example.test', 'password' => 'password123']);

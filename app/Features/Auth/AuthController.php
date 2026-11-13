@@ -88,7 +88,7 @@ final class AuthController
         $prefs = $this->db->one('SELECT lang, theme FROM user_prefs WHERE user_id = ?', [$userId]);
         $cookies = [];
         $lang = (string) ($prefs['lang'] ?? '');
-        if (\App\Features::on('peruserlang') && preg_match('/^[a-z]{2}$/', $lang) === 1) {
+        if (\App\Features::on('peruserlang') && \App\Lang::validCode($lang)) {
             $cookies[] = \App\Cookie::long('lang', $lang);
         }
         $theme = (string) ($prefs['theme'] ?? '');
