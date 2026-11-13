@@ -1,7 +1,7 @@
 <?php // app/views/adminmembers/index.php ?>
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('adminmembers.heading') ?></h1>
-<form method="get" action="/adminmembers" class="inline" data-js-module="listfilter" data-filter-rows=".member-table tbody tr">
+<form method="get" action="/adminmembers" class="inline" data-js-module="listfilter" data-filter-rows=".member-table tbody tr" data-filter-text=".member-name, .member-email">
   <input type="search" name="q" value="<?= $this->e($q) ?>" placeholder="<?= $this->e(\App\Lang::t('adminmembers.search_placeholder')) ?>" aria-label="<?= $this->e(\App\Lang::t('adminmembers.search_aria')) ?>">
   <button type="submit"><?= \App\Lang::t('adminmembers.search') ?></button>
   <span class="chapter-meta live-filter-note" data-filter-note hidden><?= \App\Lang::t('adminmembers.filter_note') ?></span>
@@ -16,7 +16,7 @@
 ?>
     <tr>
       <th scope="row">
-        <?= $this->e($penname) ?><?= $isSelf ? ' ' . \App\Lang::t('adminmembers.you') : '' ?>
+        <span class="member-name"><?= $this->e($penname) ?></span><?= $isSelf ? ' ' . \App\Lang::t('adminmembers.you') : '' ?>
         <?php if ($m['profile_slug'] !== null): ?>
           <a href="/user/view/<?= $this->e($m['profile_slug']) ?>"><?= \App\Lang::t('adminmembers.profile') ?></a>
         <?php endif; ?>

@@ -155,7 +155,7 @@ final class AdminShellTest extends TestCase
         $this->assertStringContainsString('class="admin-shell" data-js-module="adminforms" data-count-text="' . \App\Lang::t('admin.count') . '"', $tags);
         $this->assertStringContainsString('data-hint="' . \App\Lang::t('manage.find_key') . '"', $tags);
         $this->assertStringContainsString('hidden data-js-module="listfilter" data-filter-rows=".tag-rows > li"', $tags, 'hidden until the script shows it');
-        $this->assertStringContainsString('data-js-module="listfilter" data-filter-rows=".member-table tbody tr"', $c->get('/adminmembers')->body);
+        $this->assertStringContainsString('data-js-module="listfilter" data-filter-rows=".member-table tbody tr" data-filter-text=".member-name, .member-email"', $c->get('/adminmembers')->body);
         $this->assertStringNotContainsString('adminforms', $this->client($this->memberId)->get('/')->body, 'reading pages never load them');
     }
 }
