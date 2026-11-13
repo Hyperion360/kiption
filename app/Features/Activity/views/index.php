@@ -36,7 +36,7 @@
     <?php else: ?>
     <li class="log-burst"><details>
       <summary><span class="home-log-what"><?= \App\Lang::t('activity.times', ['what' => $what, 'n' => count($burst)]) ?></span>
-        <span class="home-log-meta"><?= $name($r) ?>, <?= $clock($burst[count($burst) - 1]) ?> <?= \App\Lang::t('activity.to') ?> <?= $clock($r) ?></span></summary>
+        <span class="home-log-meta"><?= $name($r) ?>, <?php $from = $clock($burst[count($burst) - 1]); $to = $clock($r); ?><?= $from === $to ? $to : $from . ' ' . \App\Lang::t('activity.to') . ' ' . $to ?></span></summary>
       <ul>
         <?php foreach ($burst as $one): ?>
         <li><time datetime="<?= $this->e($one['created_at']) ?>"><?= $clock($one) ?></time><?= (string) $one['detail'] !== '' ? ' ' . $this->e($one['detail']) : '' ?></li>
