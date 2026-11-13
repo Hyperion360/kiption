@@ -1255,6 +1255,7 @@ return [
     'text.original' => 'Original: {text}',
     'text.keeps' => 'Keep these exactly: {names}',
     'text.save' => 'Save',
+    'text.saved' => 'Saved.',
     'text.revert_note' => 'An empty box restores the original text.',
     'text.manage_languages' => 'Languages',
     'text.add_language' => 'Add a language',

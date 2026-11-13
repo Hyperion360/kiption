@@ -3,6 +3,7 @@
 <?php $dir = 'ltr'; foreach ($languages as $l) { if ($l['code'] === $lang) { $dir = $l['dir']; } } ?>
 <p><a href="<?= $this->e('/text?lang=' . $lang) ?>"><?= \App\Lang::t('text.back') ?></a></p>
 <h1><?= $q !== '' ? $this->e(\App\Lang::t('text.search_results', ['q' => $q])) : $this->e($prefix) ?></h1>
+<?php if ($saved): ?><p class="notice" role="status"><?= \App\Lang::t('text.saved') ?></p><?php endif; ?>
 <p class="chapter-meta"><?= \App\Lang::t('text.revert_note') ?></p>
 <?php if ($entries === []): ?>
 <p><?= \App\Lang::t('text.search_none') ?></p>

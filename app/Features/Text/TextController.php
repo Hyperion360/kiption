@@ -51,6 +51,7 @@ final class TextController
         if ($entries === []) return new Response(Lang::t('error.not_found'), 404);
         return $this->page('text/group', Lang::t('text.heading') . ': ' . $prefix, '/text/group/' . $prefix, [
             'entries' => $entries, 'lang' => $lang, 'languages' => $store->languages(), 'prefix' => $prefix, 'q' => '',
+            'saved' => !empty($this->request->get['saved']),
         ]);
     }
 
@@ -74,7 +75,7 @@ final class TextController
         });
         return $this->page('text/group', Lang::t('text.heading'), '/text/search', [
             'entries' => array_slice($entries, 0, self::SEARCH_LIMIT), 'lang' => $lang,
-            'languages' => $store->languages(), 'prefix' => '', 'q' => $q,
+            'languages' => $store->languages(), 'prefix' => '', 'q' => $q, 'saved' => false,
         ]);
     }
 
@@ -96,7 +97,7 @@ final class TextController
         if ($result['error'] !== null) return new Response($this->esc($result['error']), 422);
         $this->publish($store);
         $first = (string) array_key_first($values);
-        $to = '/text/group/' . ($first === '' ? '' : self::groupOfKey($first)) . '?lang=' . $lang;
+        $to = '/text/group/' . ($first === '' ? '' : self::groupOfKey($first)) . '?lang=' . $lang . '&saved=1';
         return Response::redirect($first === '' ? '/text?lang=' . $lang : $to);
     }
 
