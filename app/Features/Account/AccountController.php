@@ -109,7 +109,7 @@ final class AccountController
         $title = \App\Lang::t('account.delete_heading');
         return $this->view->render('account/delete', ['title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical('/account/delete')->withNoindex(),
-            'csrf' => $this->session->csrfToken(), 'error' => null,
+            'csrf' => $this->session->csrfToken(), 'error' => null, 'loggedIn' => true,
             'lastAdmin' => $this->security()->isLastAdmin($me)]);
     }
 
@@ -125,7 +125,7 @@ final class AccountController
         if ($err !== null) {
             $html = $this->view->render('account/delete', ['title' => $title,
                 'head' => $this->head()->withTitle($title)->withCanonical('/account/delete')->withNoindex(),
-                'csrf' => $this->session->csrfToken(), 'error' => $err,
+                'csrf' => $this->session->csrfToken(), 'error' => $err, 'loggedIn' => true,
                 'lastAdmin' => $this->security()->isLastAdmin($me)]);
             return new Response($html, $err === \App\AccountSecurity::THROTTLED ? 429 : 422);
         }
