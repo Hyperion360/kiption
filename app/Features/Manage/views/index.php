@@ -2,6 +2,9 @@
 <?php $this->layout('layout'); ?>
 <h1><?= \App\Lang::t('manage.heading') ?></h1>
 <p class="lede"><?= \App\Lang::t('manage.intro') ?></p>
+<?php if ($stillOwner): ?>
+<p class="admin-help"><?= $this->e(\App\Lang::t('manage.pick_penname')) ?> <a href="/account/settings#penname"><?= $this->e(\App\Lang::t('manage.pick_penname_link')) ?></a></p>
+<?php endif; ?>
 <p class="admin-quick"><a class="btn" href="/story/new"><?= \App\Lang::t('nav.post_story') ?></a></p>
 <?php
 $queue = $waiting['stories'] + $waiting['chapters'];

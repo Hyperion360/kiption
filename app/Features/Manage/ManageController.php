@@ -91,8 +91,9 @@ final class ManageController extends AdminScreen
         $waiting = ['stories' => 0, 'chapters' => 0, 'members' => 0, 'reports' => 0, 'new' => 0];
         $recent = [];
         $admin = false;
+        $stillOwner = false;
         foreach ($this->homeRows($uid) as $row) {
-            if ($row['k'] === '0gate') $admin = true;
+            if ($row['k'] === '0gate') { $admin = true; $stillOwner = (string) $row['a'] === 'Owner'; }
             elseif ($row['k'] === '2log') $recent[] = $row;
             else $waiting[substr($row['k'], 1)] = (int) $row['n'];
         }
@@ -110,6 +111,7 @@ final class ManageController extends AdminScreen
             'groups' => $groups,
             'groupNames' => self::GROUPS,
             'database' => $database,
+            'stillOwner' => $stillOwner,
         ]);
     }
 
@@ -120,7 +122,7 @@ final class ManageController extends AdminScreen
     private function homeRows(int $userId): array
     {
         return $this->db->all(
-            "SELECT '0gate' AS k, u.id AS n, '' AS a, '' AS b, '' AS c, '' AS d FROM users u WHERE u.id = ? AND u.role = 'admin'
+            "SELECT '0gate' AS k, u.id AS n, u.penname AS a, '' AS b, '' AS c, '' AS d FROM users u WHERE u.id = ? AND u.role = 'admin'
              UNION ALL
              SELECT '1stories', COUNT(*), '', '', '', '' FROM stories s WHERE " . \App\Repositories\AuthoringRepository::WAITING_STORY . "
              UNION ALL

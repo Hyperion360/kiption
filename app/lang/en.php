@@ -1438,6 +1438,8 @@ return [
     'manage.find' => 'Find a screen',
     'manage.find_key' => 'Find a screen (press /)',
     'manage.find_none' => 'No screen has that name.',
+    'manage.pick_penname' => 'You are still called "Owner".',
+    'manage.pick_penname_link' => 'Pick the name readers will see.',
     'manage.intro' => 'Everything you can change in your archive, in one place.',
     'manage.group_stories' => 'Stories',
     'manage.group_pages' => 'News and pages',
