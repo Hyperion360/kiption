@@ -139,11 +139,13 @@ final class RegisterTest extends TestCase
     {
         $client = $this->client();
         $res = $client->post('/auth/store', $this->form(['penname' => 'DeMo Author']));
-        $this->assertStringContainsString('Penname is already taken', $res->body); // NOCASE unique
+        $this->assertStringContainsString('That pen name is already taken', $res->body); // NOCASE unique
         $res = $client->post('/auth/store', $this->form(['penname' => 'bad name!']));
-        $this->assertStringContainsString('Penname must be 3-30 characters', $res->body);
-        $res = $client->post('/auth/store', $this->form(['penname' => 'Upper']));
-        $this->assertStringContainsString('lowercase letters', $res->body);
+        $this->assertStringContainsString('A pen name is 2 to 40 characters', $res->body);
+        // capitals, spaces and accents are fine now
+        $res = $client->post('/auth/store', $this->form(['penname' => 'Upper Case Chloé', 'email' => 'upper@e.test']));
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame('Upper Case Chloé', $this->db->one("SELECT penname FROM users WHERE email = 'upper@e.test'")['penname']);
         $res = $client->post('/auth/store', $this->form(['email' => 'demo@example.test']));
         $this->assertStringContainsString('Email is already registered', $res->body);
         // a case change is the same mailbox: sign-in links match emails case-insensitively

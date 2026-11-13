@@ -12,9 +12,47 @@ final class UserRepository
         return $this->db->one('SELECT * FROM users WHERE lower(email) = lower(?)', [$email]);
     }
 
-    public function pennameTaken(string $penname): bool
+    /** The pen name as it is stored: NFC-normalised when the intl extension
+     *  is there, untouched otherwise. False when the bytes are not valid UTF-8. */
+    public static function normalizePenname(string $penname): string|false
     {
-        return $this->db->one('SELECT 1 AS x FROM users WHERE penname = ? COLLATE NOCASE', [$penname]) !== null;
+        if (!class_exists('Normalizer')) return preg_match('//u', $penname) === 1 ? $penname : false;
+        return \Normalizer::normalize($penname, \Normalizer::FORM_C);
+    }
+
+    /** The one pen-name rule, shared by sign-up and rename. Null when the
+     *  name is usable; otherwise the Lang key of the reason. $exceptId lets a
+     *  member keep (or re-case) their own current name. */
+    public function pennameError(string $penname, int $exceptId = 0): ?string
+    {
+        $normalized = self::normalizePenname($penname);
+        if ($normalized === false) return 'auth.err_penname_format';
+        $penname = $normalized;
+        $own = $exceptId > 0 ? $this->db->one('SELECT penname FROM users WHERE id = ?', [$exceptId]) : null;
+        $isOwnName = $own !== null && mb_strtolower($penname) === mb_strtolower((string) $own['penname']);
+        if (!$isOwnName) {
+            $word = '[\p{L}\p{M}0-9_.\'-]+';
+            $ok = preg_match('/^' . $word . '(?: ' . $word . ')*$/u', $penname);
+            $len = mb_strlen($penname);
+            if ($ok !== 1 || $len < 2 || $len > 40 || preg_match('/\p{M}{3,}/u', $penname) !== 0) {
+                return 'auth.err_penname_format'; // false (invalid UTF-8) lands here too
+            }
+            if (preg_match('/\p{Latin}/u', $penname) === 1 && preg_match('/[\p{Cyrillic}\p{Greek}]/u', $penname) === 1) {
+                return 'account.penname_mixed_scripts';
+            }
+        }
+        if ($this->db->one('SELECT id FROM users WHERE penname = ? COLLATE NOCASE AND id != ?', [$penname, $exceptId]) !== null) {
+            return 'auth.err_penname_taken';
+        }
+        // A name that would take a slug another member already holds (or its
+        // numbered form) reads as that member in a URL. Names with no Latin
+        // letters all slug to "member" and are not refused for it.
+        $base = \App\Slug::make($penname, 'member');
+        if ($base !== 'member'
+            && $this->db->one('SELECT 1 AS x FROM users WHERE id <> ? AND (profile_slug = ? OR profile_slug GLOB ?)', [$exceptId, $base, $base . '-[0-9]*']) !== null) {
+            return 'auth.err_penname_taken';
+        }
+        return null;
     }
 
     /** @return string raw verify token (hex), stored hashed */
@@ -55,14 +93,10 @@ final class UserRepository
     /** Register under a mode. Returns [ok, error]. */
     public function register(string $mode, string $penname, string $email, string $password, string $inviteCode): array
     {
-        // A taken penname belongs to someone regardless of charset: NOCASE-collision wins
-        // over format validation (grandfathered and future-imported pennames can be exotic).
-        if ($this->pennameTaken($penname)) {
-            return [false, 'Penname is already taken.'];
+        if (($reason = $this->pennameError($penname)) !== null) {
+            return [false, \App\Lang::t($reason)];
         }
-        if (!preg_match('/^[a-z0-9_-]{3,30}$/', $penname)) {
-            return [false, 'Penname must be 3-30 characters: lowercase letters, digits, dash, underscore.'];
-        }
+        $penname = (string) self::normalizePenname($penname);
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || \App\AccountSecurity::isReservedEmail($email)) {
             return [false, 'That email address is not valid.'];
         }

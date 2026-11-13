@@ -6,7 +6,8 @@
   <form method="post" action="/auth/store">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <?php if (!empty($toPost)): ?><input type="hidden" name="to" value="post"><?php endif; ?>
-    <label><?= \App\Lang::t('auth.register.penname') ?> <input name="penname" required maxlength="30" value="<?= $this->e($penname ?? '') ?>"></label>
+    <label><?= \App\Lang::t('auth.register.penname') ?> <input name="penname" required minlength="2" maxlength="40" aria-describedby="penname-hint" value="<?= $this->e($penname ?? '') ?>"></label>
+    <p id="penname-hint" class="hint"><?= \App\Lang::t('auth.register.penname_hint') ?></p>
     <label><?= \App\Lang::t('auth.email') ?> <input type="email" name="email" required value="<?= $this->e($email ?? '') ?>"></label>
     <label><?= \App\Lang::t('auth.password') ?> <input type="password" name="password" required minlength="8"></label>
     <label><?= \App\Lang::t('auth.register.confirm_password') ?> <input type="password" name="confirm" required minlength="8"></label>
