@@ -1385,6 +1385,7 @@ return [
     'admin.saved_moved' => 'Moved.',
     'admin.saved_locked' => 'Locked. They cannot sign in until you unlock them.',
     'admin.saved_unlocked' => 'Unlocked. They can sign in again.',
+    'admin.saved_changed_since' => 'Someone changed this since. Nothing was undone.',
     'admin.count' => '{n} of {max} characters',
     'admin.filter_label' => 'Filter this list',
     'admin.filter_none' => 'Nothing here matches.',

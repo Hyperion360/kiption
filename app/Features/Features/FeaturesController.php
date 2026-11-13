@@ -53,7 +53,7 @@ final class FeaturesController
         if ($gate instanceof Response) return $gate;
         $was = Features::on($key);
         return $this->put((int) $gate['id'], $key, !$was) ?? \App\Saved::withUndo('/features', $was ? 'turned_off' : 'turned_on',
-            '/features/set/' . $key . '/' . ($was ? 'on' : 'off'), $this->session->csrfToken());
+            '/features/set/' . $key . '/' . ($was ? 'on' : 'off') . '?from=' . ($was ? 'off' : 'on'), $this->session->csrfToken());
     }
 
     /** Put one flag in a named state: the Undo after a switch. Naming the
@@ -65,6 +65,7 @@ final class FeaturesController
         $gate = Adminness::requireAdmin($this->db, $this->session);
         if ($gate instanceof Response) return $gate;
         if ($state !== 'on' && $state !== 'off') return new Response(\App\Lang::t('admin.err_flag'), 422);
+        if (\App\Saved::staleUndo($this->request, Features::on($key) ? 'on' : 'off')) return \App\Saved::to('/features', 'changed_since');
         return $this->put((int) $gate['id'], $key, $state === 'on') ?? \App\Saved::to('/features', $state === 'on' ? 'turned_on' : 'turned_off');
     }
 

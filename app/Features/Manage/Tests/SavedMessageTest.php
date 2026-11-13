@@ -127,7 +127,7 @@ final class SavedMessageTest extends TestCase
         parse_str((string) parse_url($to, PHP_URL_QUERY), $query);
         $body = $c->get('/adminmembers', $query)->body;
         $this->assertStringContainsString(Lang::t('admin.saved_locked'), $body);
-        $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->memberId . '" class="inline"', $body);
+        $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->memberId . '?from=locked" class="inline"', $body);
         $this->assertStringContainsString('class="saved-undo">' . Lang::t('admin.undo') . '</button>', $body);
         $c->postWithToken('/adminmembers/unlock/' . $this->memberId, []);
         $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->memberId])['is_locked']);
@@ -139,7 +139,7 @@ final class SavedMessageTest extends TestCase
         $to = $c->postWithToken('/features/toggle/news', [])->headers['Location'] ?? '';
         parse_str((string) parse_url($to, PHP_URL_QUERY), $query);
         $this->assertSame('turned_off', $query['saved'] ?? '');
-        $this->assertStringContainsString('action="/features/set/news/on" class="inline"', $c->get('/features', $query)->body);
+        $this->assertStringContainsString('action="/features/set/news/on?from=off" class="inline"', $c->get('/features', $query)->body);
         // Undo names the state to go back to, so pressing it twice (a second
         // tab, the back button) cannot flip the switch a second time.
         $this->assertSame(302, $c->postWithToken('/features/set/news/on', [])->status);
@@ -148,6 +148,37 @@ final class SavedMessageTest extends TestCase
         $this->assertTrue(\App\Features::on('news'));
         $this->assertSame(422, $c->postWithToken('/features/set/news/sideways', [])->status);
         $this->assertSame(422, $c->postWithToken('/features/set/no-such-flag/on', [])->status);
+    }
+
+    public function test_a_stale_member_undo_changes_nothing_and_says_so(): void
+    {
+        $c = $this->client($this->adminId);
+        $c->postWithToken('/adminmembers/lock/' . $this->memberId, []); // the first admin locks; its Undo would unlock
+        $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [$this->memberId]); // another admin unlocks
+        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [$this->memberId]); // and a third locks again
+        $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [$this->memberId]); // now unlocked
+        $res = $c->request('POST', '/adminmembers/unlock/' . $this->memberId, ['from' => 'locked'], ['_token' => $c->csrfToken()]);
+        $this->assertSame('/adminmembers?saved=changed_since', $res->headers['Location'] ?? '');
+        $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->memberId])['is_locked']);
+        // Locked again by someone else, then the first admin's Undo for a later unlock arrives: it expected locked.
+        $c->postWithToken('/adminmembers/lock/' . $this->memberId, []);
+        $res = $c->request('POST', '/adminmembers/lock/' . $this->memberId, ['from' => 'unlocked'], ['_token' => $c->csrfToken()]);
+        $this->assertSame('/adminmembers?saved=changed_since', $res->headers['Location'] ?? '');
+        $this->assertSame(1, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->memberId])['is_locked']);
+        $this->assertStringContainsString(Lang::t('admin.saved_changed_since'), $c->get('/adminmembers', ['saved' => 'changed_since'])->body);
+    }
+
+    public function test_a_stale_feature_undo_changes_nothing_and_says_so(): void
+    {
+        $c = $this->client($this->adminId);
+        $c->postWithToken('/features/toggle/news', []); // off; its Undo is set/news/on?from=off
+        $c->postWithToken('/features/set/news/on', []); // someone turns it back on by hand
+        $res = $c->request('POST', '/features/set/news/off', ['from' => 'on'], ['_token' => $c->csrfToken()]);
+        $this->assertSame('/features?saved=turned_off', $res->headers['Location'] ?? '', 'a matching Undo goes ahead');
+        $res = $c->request('POST', '/features/set/news/on', ['from' => 'on'], ['_token' => $c->csrfToken()]);
+        $this->assertSame('/features?saved=changed_since', $res->headers['Location'] ?? '', 'the switch is off now, not on');
+        \App\Features::init(new \Kip\Database('sqlite:' . $this->path), []);
+        $this->assertFalse(\App\Features::on('news'));
     }
 
     public function test_no_undo_when_nothing_changed(): void

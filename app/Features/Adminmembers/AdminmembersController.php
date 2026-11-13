@@ -94,6 +94,7 @@ final class AdminmembersController
         if ($gate instanceof Response) return $gate;
         $target = $this->target($id);
         if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if (\App\Saved::staleUndo($this->request, (int) $target['is_locked'] === 1 ? 'locked' : 'unlocked')) return \App\Saved::to('/adminmembers', 'changed_since');
         if ((int) $target['id'] === (int) $gate['id']) return new Response(\App\Lang::t('adminmembers.err_self_lock'), 422);
         if ($this->isLastAdmin($target)) return new Response(\App\Lang::t('adminmembers.err_last_admin'), 422);
         if ((int) $target['is_locked'] === 1) return \App\Saved::to('/adminmembers', 'locked'); // nothing changed, so nothing to undo
@@ -106,7 +107,7 @@ final class AdminmembersController
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         $this->purgeMember($target);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.lock', 'member ' . (int) $target['id']);
-        return \App\Saved::withUndo('/adminmembers', 'locked', '/adminmembers/unlock/' . (int) $target['id'], $this->session->csrfToken());
+        return \App\Saved::withUndo('/adminmembers', 'locked', '/adminmembers/unlock/' . (int) $target['id'] . '?from=locked', $this->session->csrfToken());
     }
 
     #[AuthAttr] #[Post]
@@ -116,12 +117,13 @@ final class AdminmembersController
         if ($gate instanceof Response) return $gate;
         $target = $this->target($id);
         if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if (\App\Saved::staleUndo($this->request, (int) $target['is_locked'] === 1 ? 'locked' : 'unlocked')) return \App\Saved::to('/adminmembers', 'changed_since');
         if ($this->isDeleted($target)) return new Response(\App\Lang::t('adminmembers.err_deleted'), 422);
         if ((int) $target['is_locked'] === 0) return \App\Saved::to('/adminmembers', 'unlocked');
         $this->db->query('UPDATE users SET is_locked = 0 WHERE id = ?', [(int) $target['id']]);
         $this->purgeMember($target);
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.unlock', 'member ' . (int) $target['id']);
-        return \App\Saved::withUndo('/adminmembers', 'unlocked', '/adminmembers/lock/' . (int) $target['id'], $this->session->csrfToken());
+        return \App\Saved::withUndo('/adminmembers', 'unlocked', '/adminmembers/lock/' . (int) $target['id'] . '?from=unlocked', $this->session->csrfToken());
     }
 
     /** The confirm step before a delete: asks what happens to their stories. */

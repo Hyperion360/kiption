@@ -16,12 +16,15 @@ final class Saved
         'sent' => 'admin.saved_sent', 'approved' => 'admin.saved_approved', 'rejected' => 'admin.saved_rejected', 'moved' => 'admin.saved_moved',
         'turned_on' => 'admin.saved_turned_on', 'turned_off' => 'admin.saved_turned_off',
         'locked' => 'admin.saved_locked', 'unlocked' => 'admin.saved_unlocked',
+        'changed_since' => 'admin.saved_changed_since',
     ];
 
     /** The only actions the line may offer to take back: a member lock or
      *  unlock, and a feature switch set to a named state (on or off), so
-     *  pressing Undo twice can never flip it back again. */
-    private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/set/[a-z0-9_]+/(on|off))$#D';
+     *  pressing Undo twice can never flip it back again. The address may end
+     *  in ?from=<state>: the state the Undo expects to find, signed with the
+     *  rest, so an Undo can tell that someone has changed the thing since. */
+    private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/set/[a-z0-9_]+/(on|off))(\?from=(locked|unlocked|on|off))?$#D';
 
     /** Redirect to $url with the code attached (before any #fragment). */
     public static function to(string $url, string $code = '1'): Response
@@ -48,6 +51,15 @@ final class Saved
         $key = $request?->get['undo_key'] ?? null;
         if (!is_string($undo) || !is_string($key) || $token === '' || preg_match(self::UNDOABLE, $undo) !== 1) return null;
         return hash_equals(self::sign($undo, $token), $key) ? $undo : null;
+    }
+
+    /** True when this request is an Undo that expected the thing to be in a
+     *  different state than $current (the state it is in now). A plain
+     *  request, with no ?from=, is never stale. */
+    public static function staleUndo(Request $request, string $current): bool
+    {
+        $from = $request->get['from'] ?? null;
+        return is_string($from) && $from !== $current;
     }
 
     private static function sign(string $undo, string $token): string

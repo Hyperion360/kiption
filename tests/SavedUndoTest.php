@@ -94,6 +94,15 @@ final class SavedUndoTest extends TestCase
         ];
     }
 
+    public function test_the_expected_state_rides_inside_the_signed_address(): void
+    {
+        $query = $this->landing('/adminmembers', 'locked', '/adminmembers/unlock/7?from=locked');
+        $this->assertSame('/adminmembers/unlock/7?from=locked', Saved::undo($this->request($query), self::TOKEN));
+        $query['undo'] = '/adminmembers/unlock/7?from=unlocked';
+        $this->assertNull(Saved::undo($this->request($query), self::TOKEN), 'changing the expected state breaks the signature');
+        $this->assertSame('/adminmembers?saved=locked', Saved::withUndo('/adminmembers', 'locked', '/adminmembers/unlock/7?from=sideways', self::TOKEN)->headers['Location']);
+    }
+
     public function test_the_undo_address_keeps_a_fragment_at_the_end(): void
     {
         $to = Saved::withUndo('/features#flags', 'turned_off', '/features/set/news/on', self::TOKEN)->headers['Location'];
