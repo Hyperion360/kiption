@@ -44,7 +44,7 @@
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <button type="submit"><?= \App\Lang::t((int) $m['is_locked'] === 1 ? 'adminmembers.unlock' : 'adminmembers.lock') ?></button>
         </form>
-        <a href="/adminmembers/remove/<?= (int) $m['id'] ?>"><?= \App\Lang::t('adminmembers.delete') ?></a>
+        <a href="/adminmembers/remove/<?= (int) $m['id'] ?>" class="btn"><?= \App\Lang::t('adminmembers.delete') ?></a>
         <?php endif; ?>
       </td>
     </tr>
