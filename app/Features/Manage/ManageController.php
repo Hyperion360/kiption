@@ -85,6 +85,9 @@ final class ManageController extends AdminScreen
         if (!is_int($uid) || !\App\SessionGuard::valid($this->db, $this->session)) {
             return $this->deny() ?? new Response(\App\Lang::t('error.forbidden'), 403);
         }
+        // valid() has just read the viewer's role, so a member or moderator is
+        // refused here, before the dashboard's count query runs at all.
+        if (\App\SessionGuard::role() !== 'admin') return new Response(\App\Lang::t('error.forbidden'), 403);
         $waiting = ['stories' => 0, 'chapters' => 0, 'members' => 0, 'reports' => 0, 'new' => 0];
         $recent = [];
         $admin = false;

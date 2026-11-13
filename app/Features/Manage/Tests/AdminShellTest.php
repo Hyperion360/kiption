@@ -140,6 +140,16 @@ final class AdminShellTest extends TestCase
         $this->assertStringContainsString('<a href="/activity">', $body);
     }
 
+    public function test_a_member_is_refused_before_any_dashboard_count_runs(): void
+    {
+        // The app's own request tap replaces any query listener, so prove it the
+        // other way: with the table the counts read gone, a member still gets a
+        // clean 403 (the counts would have thrown), while an admin cannot load it.
+        $this->db->exec('DROP TABLE reports');
+        $this->assertSame(403, $this->client($this->memberId)->get('/manage')->status);
+        $this->assertNotSame(200, $this->client($this->adminId)->get('/manage')->status, 'the counts read that table');
+    }
+
     public function test_the_home_screen_is_for_admins_only(): void
     {
         $this->assertSame(403, $this->client($this->memberId)->get('/manage')->status);
