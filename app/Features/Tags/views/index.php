@@ -3,29 +3,31 @@
 <section>
   <h1><?= \App\Lang::t('tagsadmin.heading') ?></h1>
   <p class="lede"><?= \App\Lang::t('tagsadmin.help') ?></p>
-  <p><a href="/wrangling"><?= \App\Lang::t('tagsadmin.wrangling_link') ?></a></p>
+  <p><a class="btn" href="/wrangling"><?= \App\Lang::t('tagsadmin.wrangling_link') ?></a></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <?php foreach ($types as $type): ?>
   <h2><?= $this->e($type['name']) ?></h2>
-  <p>
+  <div class="queue-actions">
     <form method="post" action="/tags/movetype/<?= (int) $type['id'] ?>/up" class="inline">
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('taxonomy.move_up') ?></button>
     </form>
     <form method="post" action="/tags/movetype/<?= (int) $type['id'] ?>/down" class="inline">
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('taxonomy.move_down') ?></button>
     </form>
-    <a href="/tags/edittype/<?= (int) $type['id'] ?>"><?= \App\Lang::t('tagsadmin.rename_type') ?></a>
-    <a href="/tags/deletetype/<?= (int) $type['id'] ?>"><?= \App\Lang::t('tagsadmin.delete_type') ?></a>
-  </p>
+    <a class="btn" href="/tags/edittype/<?= (int) $type['id'] ?>"><?= \App\Lang::t('tagsadmin.rename_type') ?></a>
+    <a class="btn" href="/tags/deletetype/<?= (int) $type['id'] ?>"><?= \App\Lang::t('tagsadmin.delete_type') ?></a>
+  </div>
   <?php if (empty($byType[(int) $type['id']])): ?><p class="chapter-meta"><?= \App\Lang::t('tagsadmin.no_tags') ?></p><?php else: ?>
-  <ul>
+  <ul class="admin-rows">
     <?php foreach ($byType[(int) $type['id']] as $t): ?>
     <li>
-      <?= $this->e($t['name']) ?>
+      <strong><?= $this->e($t['name']) ?></strong>
       <?php if ($t['canonical_name'] !== null): ?><span class="chapter-meta"><?= \App\Lang::t('tagsadmin.merged_into') ?> <?= $this->e($t['canonical_name']) ?></span><?php endif; ?>
       <span class="chapter-meta"><?= \App\Lang::t('tagsadmin.story_count', ['n' => (int) $t['story_count']]) ?></span>
-      <a href="/tags/edit/<?= (int) $t['id'] ?>"><?= \App\Lang::t('common.edit') ?></a>
-      <a href="/tags/delete/<?= (int) $t['id'] ?>"><?= \App\Lang::t('common.delete') ?></a>
+      <div class="queue-actions">
+      <a class="btn" href="/tags/edit/<?= (int) $t['id'] ?>"><?= \App\Lang::t('common.edit') ?></a>
+      <a class="btn" href="/tags/delete/<?= (int) $t['id'] ?>"><?= \App\Lang::t('common.delete') ?></a>
+      </div>
     </li>
     <?php endforeach; ?>
   </ul>

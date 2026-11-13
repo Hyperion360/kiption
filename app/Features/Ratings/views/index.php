@@ -4,20 +4,22 @@
   <h1><?= \App\Lang::t('ratings.heading') ?></h1>
   <p class="lede"><?= \App\Lang::t('ratings.help') ?></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-  <ul>
+  <ul class="admin-rows">
     <?php foreach ($rows as $r): ?>
     <li>
       <strong><?= $this->e($r['label']) ?></strong>
       <?= (int) $r['is_adult'] === 1 ? ' ' . \App\Lang::t('ratings.adult_tag') : '' ?>
       <span class="chapter-meta"><?= \App\Lang::t('ratings.story_count', ['n' => (int) $r['story_count']]) ?></span>
+      <div class="queue-actions">
       <form method="post" action="/ratings/move/<?= (int) $r['id'] ?>/up" class="inline">
         <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('taxonomy.move_up') ?></button>
       </form>
       <form method="post" action="/ratings/move/<?= (int) $r['id'] ?>/down" class="inline">
         <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('taxonomy.move_down') ?></button>
       </form>
-      <a href="/ratings/edit/<?= (int) $r['id'] ?>"><?= \App\Lang::t('common.edit') ?></a>
-      <a href="/ratings/delete/<?= (int) $r['id'] ?>"><?= \App\Lang::t('common.delete') ?></a>
+      <a class="btn" href="/ratings/edit/<?= (int) $r['id'] ?>"><?= \App\Lang::t('common.edit') ?></a>
+      <a class="btn" href="/ratings/delete/<?= (int) $r['id'] ?>"><?= \App\Lang::t('common.delete') ?></a>
+      </div>
     </li>
     <?php endforeach; ?>
   </ul>

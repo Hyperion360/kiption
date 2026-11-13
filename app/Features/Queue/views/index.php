@@ -2,13 +2,14 @@
 <?php $this->layout('layout'); ?>
 <section>
   <h1><?= \App\Lang::t('queue.heading') ?></h1>
+  <p class="lede"><?= \App\Lang::t('queue.intro') ?></p>
   <?php
   $groups = ['story' => [], 'chapter' => [], 'member' => [], 'report' => []];
   foreach ($rows as $r) { if ($r['k'] !== '0gate') $groups[$r['k']][] = $r; }
   ?>
   <h2><?= \App\Lang::t('queue.stories') ?></h2>
   <?php if ($groups['story'] === []): ?><p class="chapter-meta"><?= \App\Lang::t('queue.nothing_waiting') ?></p><?php else: ?>
-  <ul>
+  <ul class="admin-rows queue-rows">
     <?php foreach ($groups['story'] as $r): ?>
       <li>
         <strong><?= $this->e($r['b']) ?></strong> <?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?>
@@ -28,7 +29,7 @@
   <?php endif; ?>
   <h2><?= \App\Lang::t('queue.chapters') ?></h2>
   <?php if ($groups['chapter'] === []): ?><p class="chapter-meta"><?= \App\Lang::t('queue.nothing_waiting') ?></p><?php else: ?>
-  <ul>
+  <ul class="admin-rows queue-rows">
     <?php foreach ($groups['chapter'] as $r): ?>
       <li>
         <strong><?= $this->e($r['b'] !== '' ? $r['b'] : \App\Lang::t('story.untitled')) ?></strong> <?= \App\Lang::t('queue.in') ?> <a href="/story/edit/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a> <?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?>
@@ -46,7 +47,7 @@
   <?php endif; ?>
   <h2><?= \App\Lang::t('queue.members') ?></h2>
   <?php if ($groups['member'] === []): ?><p class="chapter-meta"><?= \App\Lang::t('queue.nobody') ?></p><?php else: ?>
-  <ul>
+  <ul class="admin-rows queue-rows">
     <?php foreach ($groups['member'] as $r): ?>
       <li>
         <strong><?= $this->e($r['b']) ?></strong> (<?= $this->e($r['c']) ?>)
@@ -66,7 +67,7 @@
   <?php endif; ?>
   <h2><?= \App\Lang::t('queue.reports') ?></h2>
   <?php if ($groups['report'] === []): ?><p class="chapter-meta"><?= \App\Lang::t('queue.nothing_reported') ?></p><?php else: ?>
-  <ul>
+  <ul class="admin-rows queue-rows">
     <?php foreach ($groups['report'] as $r): ?>
       <li>
         <strong><?= $this->e($r['b']) ?></strong>
