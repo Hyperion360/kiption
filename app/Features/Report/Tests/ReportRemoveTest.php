@@ -151,4 +151,46 @@ final class ReportRemoveTest extends TestCase
         $this->client($this->moderatorId)->postWithToken('/report/resolve/' . $rid . '/dismiss');
         $this->assertSame(404, $this->client($this->moderatorId)->postWithToken('/report/takedown/' . $rid)->status, 'a closed report cannot be reused');
     }
+
+    public function test_removing_a_guest_review_deletes_it_and_mails_nobody(): void
+    {
+        $sid = $this->story();
+        $this->db->query("INSERT INTO reviews (story_id, user_id, guest_name, body) VALUES (?, NULL, 'Visitor', 'Rude words')", [$sid]);
+        $review = (int) $this->db->lastInsertId();
+        $rid = $this->report(null, $review);
+        $this->assertSame(302, $this->client($this->moderatorId)->postWithToken('/report/takedown/' . $rid, ['reason' => 'Abuse'])->status);
+        $this->assertNull($this->db->one('SELECT id FROM reviews WHERE id = ?', [$review]));
+        $this->assertSame('', $this->mail());
+    }
+
+    public function test_every_open_report_on_a_removed_story_is_closed(): void
+    {
+        $sid = $this->story();
+        $first = $this->report($sid, null);
+        $this->db->query('INSERT INTO reports (reporter_id, story_id, reason) VALUES (?, ?, ?)', [$this->moderatorId, $sid, 'Also spam']);
+        $second = (int) $this->db->lastInsertId();
+        $this->client($this->moderatorId)->postWithToken('/report/takedown/' . $first, ['reason' => 'Plagiarised']);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM reports WHERE story_id = ? AND resolved_at IS NULL', [$sid])['c']);
+        $this->assertSame(404, $this->client($this->moderatorId)->postWithToken('/report/takedown/' . $second)->status, 'the sibling report cannot take it down twice');
+    }
+
+    public function test_a_reason_with_template_markers_is_sent_as_typed(): void
+    {
+        $rid = $this->report($this->story(), null);
+        $this->client($this->moderatorId)->postWithToken('/report/takedown/' . $rid, ['reason' => 'Copied. Ref {title} and {what}']);
+        $this->assertStringContainsString('Copied. Ref {title} and {what}', $this->mail());
+    }
+
+    public function test_the_confirm_page_shows_what_was_reported_and_refuses_closed_reports(): void
+    {
+        $sid = $this->story();
+        $this->db->query('INSERT INTO reviews (story_id, user_id, body) VALUES (?, ?, ?)', [$sid, $this->heirId, 'Quoted review text']);
+        $rid = $this->report(null, (int) $this->db->lastInsertId());
+        $page = $this->client($this->moderatorId)->get('/report/remove/' . $rid);
+        $this->assertSame(200, $page->status);
+        $this->assertStringContainsString('Quoted review text', $page->body);
+        $this->client($this->moderatorId)->postWithToken('/report/resolve/' . $rid . '/dismiss');
+        $this->assertSame(404, $this->client($this->moderatorId)->get('/report/remove/' . $rid)->status);
+        $this->assertSame(404, $this->client($this->moderatorId)->get('/report/remove/abc')->status);
+    }
 }
