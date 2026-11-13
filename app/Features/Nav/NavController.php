@@ -100,7 +100,7 @@ final class NavController
             return [$label, $url, \App\Lang::t('nav.err_label')];
         }
         if (!preg_match('#^/(?:[a-z0-9_-]+(?:/[a-z0-9_-]+)*)?$#', $url)) {
-            return [$label, $url, 'URL must be an internal path like /page/about.'];
+            return [$label, $url, \App\Lang::t('nav.err_url')];
         }
         return [$label, $url, null];
     }

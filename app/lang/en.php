@@ -1551,6 +1551,7 @@ return [
     'report.err_duplicate' => 'You already have an open report for this.',
     'report.err_reason' => 'Reason is required (max 500 characters).',
     'nav.err_label' => 'Label must be 1 to 40 characters.',
+    'nav.err_url' => 'The address must be a page on this site, such as /page/view/about.',
     'images.err_avatar' => 'Avatar rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.',
     'settings.err_support' => 'Support link must start with http:// or https:// (max 200 characters).',
     'invites.err_mint' => 'Could not create a unique code',
