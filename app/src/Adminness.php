@@ -28,18 +28,7 @@ final class Adminness
      *  discipline (the pentest variant-loop finding). */
     public static function requireModerator(Database $db, Session $session): array|Response
     {
-        $id = $session->get('user_id');
-        if (!is_int($id)) return new Response(\App\Lang::t('error.forbidden'), 403);
-        if (!SessionGuard::valid($db, $session)) return self::refused($session);
-        try {
-            $row = $db->one('SELECT id, penname, role, is_admin FROM users WHERE id = ?', [$id]);
-        } catch (\PDOException) {
-            return new Response(\App\Lang::t('error.forbidden'), 403);
-        }
-        if ($row === null || !in_array($row['role'], ['moderator', 'admin'], true)) {
-            return new Response(\App\Lang::t('error.forbidden'), 403);
-        }
-        return $row;
+        return self::requireRole($db, $session, ['moderator', 'admin']);
     }
 
     /** Fail-closed admin gate: an admin row with a live session epoch, or a
@@ -59,6 +48,13 @@ final class Adminness
      *  admin surfaces only). */
     public static function requireAdmin(Database $db, Session $session): array|Response
     {
+        return self::requireRole($db, $session, ['admin']);
+    }
+
+    /** The shared body of both gates: a live-session row whose role is in $roles, else a 403.
+     *  @param list<string> $roles */
+    private static function requireRole(Database $db, Session $session, array $roles): array|Response
+    {
         $id = $session->get('user_id');
         if (!is_int($id)) return new Response(\App\Lang::t('error.forbidden'), 403);
         if (!SessionGuard::valid($db, $session)) return self::refused($session);
@@ -67,7 +63,7 @@ final class Adminness
         } catch (\PDOException) {
             return new Response(\App\Lang::t('error.forbidden'), 403);
         }
-        if ($row === null || $row['role'] !== 'admin') {
+        if ($row === null || !in_array($row['role'], $roles, true)) {
             return new Response(\App\Lang::t('error.forbidden'), 403);
         }
         return $row;
