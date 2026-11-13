@@ -23,7 +23,7 @@
   <?php /* Shown by the listfilter module only. */ ?>
   <p class="live-filter" hidden data-js-module="listfilter" data-filter-rows=".tag-rows > li">
     <label><?= \App\Lang::t('admin.filter_label') ?> <input type="search" autocomplete="off"></label>
-    <span class="chapter-meta" data-filter-none hidden><?= \App\Lang::t('admin.filter_none') ?></span>
+    <span class="chapter-meta" data-filter-none role="status" hidden><?= \App\Lang::t('admin.filter_none') ?></span>
   </p>
   <?php foreach ($types as $type): ?>
   <h2><?= $this->e($type['name']) ?></h2>

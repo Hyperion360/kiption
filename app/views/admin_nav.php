@@ -17,5 +17,5 @@
     <?php endforeach; ?>
   </ul>
   <?php endforeach; ?>
-  <p class="admin-nav-none" hidden><?= \App\Lang::t('manage.find_none') ?></p>
+  <p class="admin-nav-none" role="status" hidden><?= \App\Lang::t('manage.find_none') ?></p>
 </nav>
