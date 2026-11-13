@@ -38,6 +38,7 @@ final class AdminNav
     {
         $path = '/' . trim($path, '/');
         if ($path === '/manage') return '/manage';
+        if ($path === '/admin') return self::$database ? '/admin' : null; // the raw database editor sits in Advanced, not ManageController::LINKS
         if (in_array($path, array_column(ManageController::LINKS, 1), true)) return $path;
         $trail = ManageController::trail($path);
         return $trail === [] ? null : (string) end($trail)['url'];
@@ -60,7 +61,7 @@ final class AdminNav
             if (!empty($byGroup[$id])) $groups[] = ['label' => $label, 'links' => $byGroup[$id]];
         }
         if (self::$database) {
-            $groups[] = ['label' => 'manage.group_advanced', 'links' => [['url' => '/admin', 'label' => 'manage.database', 'current' => false]]];
+            $groups[] = ['label' => 'manage.group_advanced', 'links' => [['url' => '/admin', 'label' => 'manage.database', 'current' => '/admin' === $current]]];
         }
         $tabs = [];
         foreach (self::TABS as [$url, $label, $icon]) {
