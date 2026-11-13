@@ -41,6 +41,7 @@ final class QueueController
     public function story(string $id, string $op): Response
     {
         if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if ($op !== 'approve' && $op !== 'remove') return new Response(\App\Lang::t('error.not_found'), 404);
         $repo = new AuthoringRepository($this->db);
         $info = $this->db->one(
             'SELECT s.title, u.email, u.penname FROM stories s JOIN users u ON u.id = s.author_id
@@ -66,6 +67,7 @@ final class QueueController
     public function chapter(string $id, string $op): Response
     {
         if (!$this->moderator()) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if ($op !== 'approve' && $op !== 'remove') return new Response(\App\Lang::t('error.not_found'), 404);
         $repo = new AuthoringRepository($this->db);
         $coords = $op === 'approve' ? $repo->approveChapter((int) $id) : $repo->removeChapter((int) $id);
         if ($coords !== null) {

@@ -166,4 +166,15 @@ final class QueueDecisionMailTest extends TestCase
         $this->assertSame(0, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$applicant])['is_locked']);
         $this->assertSame('', $this->mail());
     }
+    public function test_an_unknown_decision_is_refused_and_removes_nothing(): void
+    {
+        $sid = $this->pendingStory();
+        $this->db->query("INSERT INTO chapters (story_id, position, title, content, validated) VALUES (?, 1, 'One', 'Text.', 0)", [$sid]);
+        $cid = (int) $this->db->lastInsertId();
+        $this->assertSame(404, $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/bogus')->status);
+        $this->assertSame(404, $this->client($this->moderatorId)->postWithToken('/queue/chapter/' . $cid . '/bogus')->status);
+        $this->assertNull($this->db->one('SELECT deleted_at FROM stories WHERE id = ?', [$sid])['deleted_at']);
+        $this->assertNotNull($this->db->one('SELECT id FROM chapters WHERE id = ?', [$cid]));
+        $this->assertSame('', $this->mail());
+    }
 }
