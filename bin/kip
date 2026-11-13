@@ -64,12 +64,12 @@ match ($argv[1] ?? 'help') {
         // Mint a one-time sign-in link for a member, to paste into a support
         // reply. Prints only the URL on stdout; warnings go to stderr.
         $email = (string) ($argv[2] ?? '');
-        $hours = 24;
+        $hours = intdiv(\App\LoginLinks::OPERATOR_TTL, 3600);
         foreach (array_slice($argv, 3) as $arg) {
             if (preg_match('/^--hours=(\d+)$/', $arg, $m) === 1) { $hours = (int) $m[1]; continue; }
             $email = '';                                // unknown flag: show usage
         }
-        if ($email === '' || $hours < 1 || $hours > 168) {
+        if ($email === '' || $hours < 1 || $hours * 3600 > \App\LoginLinks::MAX_TTL) {
             fwrite(STDERR, "Usage: kip auth:link <email> [--hours=1..168]   (default 24)\n"
                 . "Example: kip auth:link member@example.com --hours=72\n");
             exit(1);
