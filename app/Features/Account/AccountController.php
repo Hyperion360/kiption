@@ -11,6 +11,8 @@ final class AccountController
     /** Values for the refusal line (already HTML-safe) and the answers a
      *  member typed, so a refused form comes back as they left it. */
     private array $errorParams = [];
+    private ?string $pennameError = null;
+    private ?string $pennameValue = null;
     private ?array $submittedFields = null;
 
     public function __construct(
@@ -169,6 +171,7 @@ final class AccountController
     {
         $done = (string) ($this->request->get['done'] ?? '');
         $notice = \in_array($done, self::DONE, true) ? 'account.done_' . $done : null;
+        if (\App\Saved::message($this->request) === 'saved.penname') $notice = 'saved.penname';
         return $this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'), $notice));
     }
 
@@ -328,6 +331,8 @@ final class AccountController
             'notice' => $notice,
             'error' => $error,
             'errorParams' => $this->errorParams,
+            'pennameError' => $this->pennameError,
+            'pennameValue' => $this->pennameValue,
             'profileFields' => $profileFields,
         ];
     }
@@ -356,6 +361,38 @@ final class AccountController
         \App\ActivityLog::by($this->db, $this->session, 'account.avatar', '');
         $this->purgeOwnProfile($userId);
         return Response::redirect('/account/settings');
+    }
+
+    /** The settings page again with the pen-name form's refusal beside the field. */
+    private function refusePenname(string $message, string $typed, int $status): Response
+    {
+        $this->pennameError = $message;
+        $this->pennameValue = $typed;
+        return new Response($this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'))), $status);
+    }
+
+    /** Change your own pen name. The profile address follows and the old one
+     *  redirects (profile_slug_history). Throttled for everyone, staff included. */
+    #[AuthAttr] #[Post]
+    public function penname(): Response
+    {
+        $me = (int) $this->session->get('user_id');
+        $name = trim($this->request->postStr('penname'));
+        if (!(new \App\AttemptLimiter($this->db))->claim('penname', (string) $me, $this->request->ip, 3, 10)) {
+            return $this->refusePenname(\App\Lang::t('account.too_many_changes'), $name, 429);
+        }
+        $users = new \App\Repositories\UserRepository($this->db);
+        $error = $users->pennameError($name, $me);
+        if ($error === null && \App\Features\Wordfilter\WordFilter::find($this->db, $name) !== null) {
+            $error = 'account.penname_not_allowed'; // never echo the matched word
+        }
+        if ($error !== null) return $this->refusePenname(\App\Lang::t($error), $name, 422);
+        $old = $users->rename($me, $name);
+        if ($old === null) return $this->refusePenname(\App\Lang::t('auth.err_penname_taken'), $name, 422);
+        \App\ActivityLog::by($this->db, $this->session, 'account.penname', $old[0] . ' -> ' . $name);
+        // Story pages and lists show the author's name; the local prune also covers the old profile URL.
+        \App\CachePurge::run($this->app, $this->db);
+        return \App\Saved::to('/account/settings', 'penname');
     }
 
     #[AuthAttr] #[Post]

@@ -416,6 +416,8 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .settings-jump { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 20px; padding: 10px 0; background: var(--bg); border-block-end: 1px solid var(--line); }
 .settings-jump a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; font: 500 14px var(--sans); color: var(--ink-2); text-decoration: none; }
 .settings-jump a:hover { background: var(--hover); color: var(--ink); }
+.field-error { color: var(--danger, #b00020); margin: 4px 0; }
+#penname { scroll-margin-top: 76px; }
 .settings-section { scroll-margin-top: 76px; margin-block-end: 24px; }
 /* Saving one section lands the owner back on that section, far below the top
    of the page. The Saved note follows them there and the section links sit

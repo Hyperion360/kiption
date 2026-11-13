@@ -22,6 +22,7 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <h2><?= \App\Lang::t('settings.group_basics') ?></h2>
   <p class="chapter-meta"><?= \App\Lang::t('settings.about_basics') ?></p>
   <?php if (($errorSection ?? '') === 'basics'): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
+  <p class="chapter-meta"><?= \App\Lang::t('settings.penname_pointer') ?> <a href="/account/settings#penname"><?= \App\Lang::t('settings.penname_pointer_link') ?></a></p>
   <label><?= \App\Lang::t('settings.site_name') ?>
     <input name="site_name" required maxlength="60" value="<?= $this->e($current['site_name']) ?>">
   </label>

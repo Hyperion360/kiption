@@ -9,10 +9,18 @@
     <h1><?= \App\Lang::t('account.settings') ?></h1>
     <p class="lede"><?= $this->e($me['a']) ?> · <?= $this->e($me['b']) ?> · <span class="badge"><?= $this->e($me['c']) ?></span></p>
   </header>
-  <?php if (!empty($notice)): ?><p class="notice" role="status"><?= \App\Lang::t($notice) ?></p><?php endif; ?>
+  <?php if (!empty($notice)): ?><p class="notice" role="status"><?= \App\Lang::t($notice, $notice === 'saved.penname' ? ['name' => $this->e($me['a'])] : []) ?></p><?php endif; ?>
   <?php if (!empty($error)): ?><p class="error" role="alert"><?= \App\Lang::t($error, $errorParams ?? []) ?></p><?php endif; ?>
   <div class="settings-group">
   <h2 class="section-label"><?= \App\Lang::t('account.section_profile') ?></h2>
+  <form method="post" action="/account/penname">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <label for="penname"><?= \App\Lang::t('account.penname_label') ?></label>
+    <input id="penname" name="penname" value="<?= $this->e($pennameValue ?? $me['a'] ?? '') ?>" minlength="2" maxlength="40" required aria-describedby="penname-help<?= !empty($pennameError) ? ' penname-error' : '' ?>"<?= !empty($pennameError) ? ' aria-invalid="true"' : '' ?> autocomplete="nickname">
+    <?php if (!empty($pennameError)): ?><p id="penname-error" class="field-error" role="alert"><?= $this->e($pennameError) ?></p><?php endif; ?>
+    <p id="penname-help" class="hint"><?= \App\Lang::t('account.penname_help') ?></p>
+    <button type="submit" class="btn-secondary"><?= \App\Lang::t('account.penname_save') ?></button>
+  </form>
 
   <?php if (!empty($me['d'])): ?>
     <img class="avatar" src="<?= $this->e($me['d']) ?>" alt="<?= $this->e(\App\Lang::t('account.avatar_alt')) ?>" width="80" height="80">

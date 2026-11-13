@@ -153,6 +153,47 @@ final class UserRepository
         return $slug;
     }
 
+    /** Rename a member and move their profile URL to match. Returns the old
+     *  [penname, profile_slug] so the caller can log, or null when slug
+     *  de-duplication gave up (the "collision storm" RuntimeException from
+     *  Slug::unique): the caller shows the taken-name error, never a 500.
+     *  The caller validates with pennameError() first. */
+    public function rename(int $userId, string $penname): ?array
+    {
+        $penname = (string) self::normalizePenname($penname);
+        $old = $this->db->one('SELECT penname, profile_slug FROM users WHERE id = ?', [$userId]) ?? [];
+        $oldSlug = (string) ($old['profile_slug'] ?? '');
+        $this->db->begin();
+        try {
+            $this->db->query('UPDATE users SET penname = ?, profile_slug = NULL WHERE id = ?', [$penname, $userId]);
+            $newSlug = $this->backfillProfileSlug($userId);
+            if ($oldSlug !== '' && $oldSlug !== $newSlug) { // a re-case writes no history
+                $this->db->query('INSERT INTO profile_slug_history (old_slug, user_id, changed_at) VALUES (?, ?, ?)
+                                  ON CONFLICT(old_slug) DO UPDATE SET user_id = excluded.user_id, changed_at = excluded.changed_at',
+                    [$oldSlug, $userId, time()]);
+            }
+            $this->db->commit();
+        } catch (\RuntimeException $e) {
+            $this->db->rollBack();
+            if ($e->getMessage() === 'slug collision storm') return null;
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+        return [(string) ($old['penname'] ?? ''), $oldSlug];
+    }
+
+    /** The current profile slug of whoever last left $slug behind, or null.
+     *  Used only after no live profile matched. */
+    public function movedProfileSlug(string $slug): ?string
+    {
+        if (!preg_match('#^[a-z0-9_-]+$#', $slug)) return null;
+        $row = $this->db->one('SELECT u.profile_slug FROM profile_slug_history h JOIN users u ON u.id = h.user_id WHERE h.old_slug = ?', [$slug]);
+        $to = (string) ($row['profile_slug'] ?? '');
+        return $to === '' ? null : $to;
+    }
+
     /** The profile card: any unlocked member with a penname is linkable by
      *  direct URL; the directory (Task 6) lists only approved+verified members
      *  and counts authored works only. The gating difference is intentional

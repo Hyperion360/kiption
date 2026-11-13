@@ -21,7 +21,7 @@ final class UserController
         if ($this->profilesHidden()) return Response::redirect('/auth/login');
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         $profile = $this->users->findByProfileSlug($slug);
-        if ($profile === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($profile === null) return $this->movedOrMissing($slug, '/user/view/');
         // The recommendation fold arrives as '~~'-joined id|title|slug|note
         // rows (the same statement as the profile row; zero extra queries).
         // The slug is the regex anchor (pipe-free, [a-z0-9-]); id anchors the
@@ -73,6 +73,16 @@ final class UserController
         ]);
     }
 
+    /** No live profile has this address. If a member left it behind when they
+     *  changed their pen name, send the reader to where that member lives now
+     *  (a live slug always wins: this runs only after the live lookup missed). */
+    private function movedOrMissing(string $slug, string $prefix): Response
+    {
+        $to = $this->users->movedProfileSlug($slug);
+        if ($to !== null) return Response::redirect($prefix . $to, 301);
+        return new Response(\App\Lang::t('error.not_found'), 404);
+    }
+
     public function stories(string $slug): Response|string
     {
         if ($this->profilesHidden()) return Response::redirect('/auth/login');
@@ -82,7 +92,7 @@ final class UserController
         $asked = (string) ($this->request->get['sort'] ?? '');
         $sort = ($asked === '' ? \App\Settings::get('default_sort') : $asked) === 'alpha' ? 'alpha' : 'recent';
         $tab = $this->users->storiesTab($slug, $sort, $perPage, $offset);
-        if ($tab === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($tab === null) return $this->movedOrMissing($slug, '/user/stories/');
         return $this->renderTab($slug, $tab, \App\Lang::t('user.stories_by'), '/user/stories/' . $slug);
     }
 
@@ -91,7 +101,7 @@ final class UserController
         if ($this->profilesHidden()) return Response::redirect('/auth/login');
         [$perPage, $offset] = $this->paginate();
         $tab = $this->users->favoritesTab($slug, $perPage, $offset);
-        if ($tab === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($tab === null) return $this->movedOrMissing($slug, '/user/favorites/');
         return $this->renderTab($slug, $tab, \App\Lang::t('user.favorites_of'), '/user/favorites/' . $slug);
     }
 
