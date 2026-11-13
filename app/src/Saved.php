@@ -18,8 +18,9 @@ final class Saved
         'locked' => 'admin.saved_locked', 'unlocked' => 'admin.saved_unlocked',
     ];
 
-    /** The only actions the line may offer to take back: each is its own
-     *  opposite (lock and unlock, a feature switch pressed again). */
+    /** The only actions the line may offer to take back: a member lock or
+     *  unlock, and a feature switch set to a named state (on or off), so
+     *  pressing Undo twice can never flip it back again. */
     private const UNDOABLE = '#^/(adminmembers/(lock|unlock)/[0-9]+|features/set/[a-z0-9_]+/(on|off))$#';
 
     /** Redirect to $url with the code attached (before any #fragment). */
