@@ -113,6 +113,8 @@ Layouts and ordinary page views (`browse/index`, `browse/recent`,
 `story/view`, `home/index`, `series/*`, `news/*`, `page/*`) carry no such
 contracts: copy, edit, and the worst case is your own markup.
 
+A skin that overrides `layout.php` must render `admin_main` with `content`, `isAdmin`, `staff`, `request` and `csrf`, and include `menu_post` and `menu_staff` in its menu. Without them, admin screens lose their side menu, the Saved line and Undo, and the site menu loses Post a story and the staff links.
+
 Two rules from the app's hard constraints apply to skins verbatim: no
 inline `<script>` and no JavaScript dependency for anything the skin's
 pages show, and never let a personalized or error response land in a cache

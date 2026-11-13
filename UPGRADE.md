@@ -97,3 +97,6 @@ Doctor validates the environment (PHP, `pdo_sqlite`, FTS5, writables,
 migrations) with a fix per failure; `version` prints what you are now
 running. CHANGELOG.md is the narrative of what changed between what you
 had and what you have.
+
+If you forked `layout.php` in a skin, check it against the current one.
+A skin that overrides `layout.php` must render `admin_main` with `content`, `isAdmin`, `staff`, `request` and `csrf`, and include `menu_post` and `menu_staff` in its menu. Without them, admin screens lose their side menu, the Saved line and Undo, and the site menu loses Post a story and the staff links.

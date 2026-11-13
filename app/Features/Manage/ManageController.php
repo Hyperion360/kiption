@@ -107,7 +107,6 @@ final class ManageController extends AdminScreen
             'groups' => $groups,
             'groupNames' => self::GROUPS,
             'database' => $database,
-            'adminDatabase' => $database, // the sidebar offers the editor on the same terms
         ]);
     }
 

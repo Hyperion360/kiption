@@ -52,13 +52,12 @@ final class AdminNavTest extends TestCase
         $this->assertSame('/manage', AdminNav::current('/manage/'));
     }
 
-    public function test_the_database_group_follows_the_config_switch_and_the_argument(): void
+    public function test_the_database_group_follows_the_config_switch(): void
     {
         $urls = static fn (array $shell): array => array_merge(...array_map(static fn (array $g): array => array_column($g['links'], 'url'), $shell['groups']));
         $this->assertContains('/admin', $urls(AdminNav::shell('/queue')));
         AdminNav::init(['admin' => ['enabled' => false]]);
         $this->assertNotContains('/admin', $urls(AdminNav::shell('/queue')));
-        $this->assertContains('/admin', $urls(AdminNav::shell('/queue', true)), 'an explicit argument wins over the config');
         AdminNav::init([]);
         $this->assertContains('/admin', $urls(AdminNav::shell('/queue')), 'on when the config is silent');
     }

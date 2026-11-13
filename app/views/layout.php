@@ -86,7 +86,7 @@
     <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
   <?= $this->render('admin_main', ['content' => $content, 'isAdmin' => $isAdmin ?? false, 'staff' => $staff ?? false,
-      'request' => $request ?? null, 'adminDatabase' => $adminDatabase ?? null, 'csrf' => $csrf ?? '']) ?>
+      'request' => $request ?? null, 'csrf' => $csrf ?? '']) ?>
   <?php /* The site footer (owner decision, 2026-10-02): the conventional
      home for secondary destinations the header has no room for (news, top
      lists, reading lists, challenges, the feed, operator pages), and the

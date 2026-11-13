@@ -211,7 +211,9 @@ final class MessagesMenuTest extends TestCase
             $this->assertStringContainsString('href="' . $url . '"', $res->body, $url);
         }
         $this->assertStringContainsString('href="/admin"', $res->body);
+        \App\AdminNav::init(['admin' => ['enabled' => false]]);
         $off = $this->client($this->adminId, ['admin' => ['enabled' => false]])->get('/manage');
+        \App\AdminNav::reset();
         $this->assertStringNotContainsString('href="/admin"', $off->body);
     }
 

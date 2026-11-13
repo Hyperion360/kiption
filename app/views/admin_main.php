@@ -1,11 +1,11 @@
 <?php /* The page body every layout wraps the same way, so a skin never
    drifts from the default: on owner screens the admin shell (sidebar, trail,
    phone tab bar), on staff screens the Saved line with its Undo. Takes
-   content, isAdmin, staff, request, adminDatabase and csrf. */ ?>
+   content, isAdmin, staff, request and csrf. */ ?>
   <?php /* Owner screens only: the list of every admin screen (a sidebar on
      wide screens, a tab bar and sheet on phones) and the way back to the
      list a sub-screen belongs to. Members and guests never get these bytes. */
-     $admin = ($isAdmin ?? false) ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? ''), $adminDatabase ?? null) : null;
+     $admin = ($isAdmin ?? false) ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? '')) : null;
      if ($admin !== null): ?>
   <div class="admin-shell" data-js-module="adminforms" data-count-text="<?= $this->e(\App\Lang::t('admin.count')) ?>">
   <?= $this->render('admin_nav', ['admin' => $admin]) ?>

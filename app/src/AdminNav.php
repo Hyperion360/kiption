@@ -46,7 +46,7 @@ final class AdminNav
     /** Everything the layout prints around an owner screen, or null when
      *  $path is not one.
      *  @return array{current:string,trail:list<array{url:string,label:string}>,groups:list<array{label:string,links:list<array{url:string,label:string,current:bool}>}>,tabs:list<array{url:string,label:string,icon:string,current:bool}>}|null */
-    public static function shell(string $path, ?bool $database = null): ?array
+    public static function shell(string $path): ?array
     {
         $current = self::current($path);
         if ($current === null) return null;
@@ -59,7 +59,7 @@ final class AdminNav
         foreach (ManageController::GROUPS as $id => $label) {
             if (!empty($byGroup[$id])) $groups[] = ['label' => $label, 'links' => $byGroup[$id]];
         }
-        if ($database ?? self::$database) {
+        if (self::$database) {
             $groups[] = ['label' => 'manage.group_advanced', 'links' => [['url' => '/admin', 'label' => 'manage.database', 'current' => false]]];
         }
         $tabs = [];

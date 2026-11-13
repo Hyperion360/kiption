@@ -63,7 +63,7 @@
     <a class="nav-menu-link<?= ($loggedIn ?? false) ? ' is-member' : '' ?>" href="#menu"><?= \App\Lang::t('nav.menu') ?></a>
   </header>
   <?= $this->render('admin_main', ['content' => $content, 'isAdmin' => $isAdmin ?? false, 'staff' => $staff ?? false,
-      'request' => $request ?? null, 'adminDatabase' => $adminDatabase ?? null, 'csrf' => $csrf ?? '']) ?>
+      'request' => $request ?? null, 'csrf' => $csrf ?? '']) ?>
   <?php $footSeen = ['/' => 1, '/browse' => 1, '/browse/recent' => 1, '/browse/authors' => 1, '/series' => 1, '/search' => 1,
                      '/account' => 1, '/auth/login' => 1, '/news' => 1, '/top' => 1, '/lists' => 1, '/challenges' => 1, '/feed' => 1]; ?>
   <footer class="site-foot">

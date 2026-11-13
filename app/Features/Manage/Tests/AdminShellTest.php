@@ -117,8 +117,8 @@ final class AdminShellTest extends TestCase
     public function test_the_list_follows_feature_switches_and_the_database_switch(): void
     {
         $this->assertStringContainsString('<li><a href="/admin"', $this->client($this->adminId)->get('/manage')->body);
-        $this->assertStringNotContainsString('href="/admin"', $this->client($this->adminId, ['admin' => ['enabled' => false]])->get('/manage')->body);
         \App\AdminNav::init(['admin' => ['enabled' => false]]);
+        $this->assertStringNotContainsString('href="/admin"', $this->client($this->adminId, ['admin' => ['enabled' => false]])->get('/manage')->body);
         $this->assertStringNotContainsString('href="/admin"', $this->client($this->adminId)->get('/tags')->body);
         \App\AdminNav::reset();
         $c = $this->client($this->adminId);
