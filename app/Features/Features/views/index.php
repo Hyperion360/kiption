@@ -7,7 +7,7 @@
   <tbody>
 <?php foreach ($features as $key => $f): ?>
     <tr>
-      <th scope="row"><?= $this->e($key) ?></th>
+      <th scope="row"><?= \App\Lang::t('features.' . $key . '.name') ?></th>
       <td><?= \App\Lang::t($f['desc']) ?></td>
       <td><?php if ($f['on']): ?><span class="badge"><?= \App\Lang::t('features.on') ?></span><?php else: ?><span class="badge"><?= \App\Lang::t('features.off') ?></span><?php endif; ?></td>
       <td>
