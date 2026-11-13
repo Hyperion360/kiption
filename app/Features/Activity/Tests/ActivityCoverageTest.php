@@ -261,6 +261,94 @@ final class ActivityCoverageTest extends TestCase
         $this->assertStringNotContainsString('private', $row['detail']);
     }
 
+    // ---- everything else: member-owned features, preferences, forms ----
+
+    public function test_deleting_a_member_is_logged_with_the_story_choice(): void
+    {
+        $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->otherId, ['stories' => 'remove']);
+        $row = $this->last();
+        $this->assertSame('members.delete', $row['action']);
+        $this->assertSame('log-admin', $row['actor_name']);
+        $this->assertSame('member ' . $this->otherId . ', stories removed', $row['detail']);
+        $this->assertStringNotContainsString('@', $row['detail']);
+    }
+
+    public function test_series_lists_and_challenges_are_logged(): void
+    {
+        $me = $this->client($this->memberId);
+        $me->postWithToken('/series/create', ['title' => 'Logged Series', 'summary' => '', 'membership' => 'open']);
+        $this->assertSame('series.create', $this->last()['action']);
+        $slug = (string) $this->db->one("SELECT slug FROM series WHERE title = 'Logged Series'")['slug'];
+        $me->postWithToken('/series/add/' . $slug, ['story_slug' => 'the-rabbit-hole']);
+        $this->assertSame('series.add', $this->last()['action']);
+        $me->postWithToken('/series/remove/' . $slug . '/the-rabbit-hole');
+        $this->assertSame('series.remove', $this->last()['action']);
+        $me->postWithToken('/lists/create', ['title' => 'Logged List', 'summary' => '', 'is_public' => '']);
+        $this->assertSame('lists.create', $this->last()['action']);
+        $me->postWithToken('/challenges/create', ['title' => 'Logged Challenge', 'summary' => '', 'membership' => 'open']);
+        $this->assertSame('challenges.create', $this->last()['action']);
+        $this->assertSame(['series.create', 'series.add', 'series.remove', 'lists.create', 'challenges.create'], $this->actions());
+    }
+
+    public function test_follow_kudos_favorite_mute_recommend_and_bookmark_are_logged_as_ids_only(): void
+    {
+        $fan = $this->client($this->otherId);
+        $fan->postWithToken('/follow/author/' . $this->memberId);
+        $fan->postWithToken('/kudos/add/the-rabbit-hole');
+        $fan->postWithToken('/favorites/toggle/the-rabbit-hole');
+        $fan->postWithToken('/favorites/toggle/the-rabbit-hole');
+        $fan->postWithToken('/mute/add/demo-author');
+        $fan->postWithToken('/recommend/add/the-rabbit-hole', ['note' => 'A private opinion.']);
+        $fan->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'my secret note']);
+        $fan->postWithToken('/reader/bookmarkremove/the-rabbit-hole/1');
+        $fan->postWithToken('/follow/stop/' . $this->memberId);
+        $this->assertSame(['follows.add', 'kudos.add', 'favorites.add', 'favorites.remove', 'mutes.add', 'recommendations.add',
+            'bookmarks.add', 'bookmarks.remove', 'follows.remove'], $this->actions());
+        foreach ($this->rows() as $row) {
+            $this->assertStringNotContainsString('private opinion', $row['detail']);
+            $this->assertStringNotContainsString('secret note', $row['detail']);
+            $this->assertSame('log-other', $row['actor_name']);
+        }
+    }
+
+    public function test_preferences_profile_fields_and_notifications_are_logged_without_values(): void
+    {
+        $me = $this->client($this->otherId);
+        $me->postWithToken('/account/prefs', ['bio' => 'Secret bio words', 'default_sort' => 'recent']);
+        $this->assertSame(['account.prefs', ''], [$this->last()['action'], $this->last()['detail']]);
+        $me->postWithToken('/account/support', ['support_url' => 'https://ko-fi.example/me']);
+        $this->assertSame(['account.support', ''], [$this->last()['action'], $this->last()['detail']]);
+        $me->postWithToken('/notifications/read');
+        $this->assertSame('notifications.read_all', $this->last()['action']);
+        $me->post('/reader/settings', ['theme' => 'dark', 'return_to' => '/']);
+        $this->assertSame('reader.settings', $this->last()['action']);
+    }
+
+    public function test_contact_form_age_gate_and_reports_are_logged_without_the_text_or_address(): void
+    {
+        $guest = $this->client();
+        $guest->postWithToken('/contact/send', ['name' => 'Visitor', 'email' => 'visitor@e.test', 'message' => 'Hello there friend', 'website' => '']);
+        $row = $this->last();
+        $this->assertSame(['contact.send', null], [$row['action'], $row['actor_id']]);
+        $this->assertStringNotContainsString('visitor', $row['detail']);
+        $this->assertStringNotContainsString('Hello', $row['detail']);
+        $guest->post('/warning/accept', ['return_to' => '/']);
+        $this->assertSame('agegate.accept', $this->last()['action']);
+        $this->client($this->otherId)->postWithToken('/report/story/the-rabbit-hole', ['reason' => 'Private grievance text']);
+        $this->assertSame(['reports.file_story', 'the-rabbit-hole'], [$this->last()['action'], $this->last()['detail']]);
+    }
+
+    public function test_a_throttled_sign_in_is_logged_with_the_reason_only(): void
+    {
+        $c = $this->client();
+        for ($i = 0; $i < 6; $i++) $c->postWithToken('/auth/attempt', ['email' => 'target@e.test', 'password' => 'wrong']);
+        $rows = array_values(array_filter($this->rows(), fn ($r) => $r['action'] === 'auth.signin_throttled'));
+        $this->assertNotSame([], $rows);
+        $this->assertNull($rows[0]['actor_id']);
+        $this->assertSame('too many attempts', $rows[0]['detail']);
+        $this->assertStringNotContainsString('target', json_encode($this->rows()));
+    }
+
     // ---- the viewer ----
 
     public function test_every_logged_action_has_a_readable_label_and_the_page_pages(): void
@@ -280,12 +368,14 @@ final class ActivityCoverageTest extends TestCase
         $found = [];
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)) as $f) {
             if (!str_ends_with((string) $f, '.php') || str_contains((string) $f, '/Tests/')) continue;
-            if (preg_match_all("/(?:ActivityLog::(?:by|record)|logFor)\\([^;]*?'([a-z_]+\\.[a-z_]+)'\\s*[,)]/", (string) file_get_contents((string) $f), $m)) {
-                array_push($found, ...$m[1]);
+            foreach (file((string) $f) as $line) {
+                if (!str_contains($line, 'ActivityLog::') && !str_contains($line, 'logFor(')) continue;
+                if (preg_match_all("/'([a-z_]+\\.[a-z_]+)'/", $line, $m)) array_push($found, ...$m[1]);
             }
         }
         $this->assertNotSame([], $found);
         foreach (array_unique($found) as $code) {
+            if (str_ends_with($code, '_')) continue; // built at run time, e.g. queue.story_ + approve; labelled by hand
             $this->assertArrayHasKey('activity.a.' . $code, $en, "no label for {$code}");
         }
     }
