@@ -103,4 +103,32 @@ final class ActivityTest extends TestCase
         \App\ActivityLog::record($this->db, $this->adminId, 'invites.create');
         $this->assertSame(302, $this->client($this->adminId)->postWithToken('/invites/create')->status);
     }
+
+    public function test_long_actions_and_details_are_cut_to_their_limits_without_splitting_a_character(): void
+    {
+        \App\ActivityLog::record($this->db, $this->adminId, str_repeat('a', 80), str_repeat('é', 400));
+        $row = $this->db->one('SELECT action, detail FROM activity_log');
+        $this->assertSame(60, mb_strlen($row['action']));
+        $this->assertSame(300, mb_strlen($row['detail']));
+        $this->assertTrue(mb_check_encoding($row['detail'], 'UTF-8'));
+    }
+
+    public function test_a_system_action_with_no_actor_is_recorded_and_shown(): void
+    {
+        \App\ActivityLog::record($this->db, null, 'invites.create', 'by the console');
+        $row = $this->db->one('SELECT actor_id, actor_name FROM activity_log');
+        $this->assertNull($row['actor_id']);
+        $this->assertSame('', $row['actor_name']);
+        $this->assertStringContainsString('by the console', $this->client($this->adminId)->get('/activity')->body);
+    }
+
+    public function test_odd_page_numbers_fall_back_to_a_real_page(): void
+    {
+        for ($i = 0; $i < 3; $i++) \App\ActivityLog::record($this->db, $this->adminId, 'invites.create', 'line ' . $i);
+        $admin = $this->client($this->adminId);
+        foreach (['0', '-5', 'abc', '99999999999999999999'] as $page) {
+            $this->assertSame(200, $admin->get('/activity', ['page' => $page])->status, $page);
+        }
+        $this->assertStringContainsString('line 2', $admin->get('/activity', ['page' => '0'])->body, 'page 0 is the first page');
+    }
 }
