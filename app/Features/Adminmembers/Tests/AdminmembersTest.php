@@ -78,6 +78,15 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->targetId . '"', $this->client($this->adminId)->get('/adminmembers')->body);
     }
 
+    public function test_roster_shows_role_names_people_can_read(): void
+    {
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        $this->assertStringContainsString('>Make trusted author</button>', $body);
+        $this->assertStringContainsString('>Moderator</span>', $body);
+        $this->assertStringNotContainsString('>validated_author<', $body, 'role codes never reach the page');
+        $this->assertStringNotContainsString('>moderator<', $body);
+    }
+
     public function test_locking_signs_out_a_member_who_is_already_in(): void
     {
         $other = $this->user('second-admin', 'admin');

@@ -22,13 +22,13 @@
       </td>
       <td><?= $this->e($m['email']) ?></td>
       <td>
-        <span class="badge"><?= $this->e($m['role']) ?></span>
+        <span class="badge"><?= \App\Lang::t('adminmembers.role.' . $m['role']) ?></span>
         <?php foreach ($roles as $r): if ($r !== $m['role']): ?>
         <form method="post" action="/adminmembers/role/<?= (int) $m['id'] ?>/<?= $this->e($r) ?>" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
           <button type="submit"<?php if ($isSelf): ?>
             onclick="return confirm(<?= $this->e(json_encode(\App\Lang::t('adminmembers.demote_confirm'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP)) ?>)"
-          <?php endif; ?>><?= $this->e($r) ?></button>
+          <?php endif; ?>><?= \App\Lang::t('adminmembers.make.' . $r) ?></button>
         </form>
         <?php endif; endforeach; ?>
       </td>

@@ -551,6 +551,14 @@ return [
     'adminmembers.remove_remove' => 'Remove the stories too',
     'adminmembers.remove_submit' => 'Delete this member',
     'adminmembers.no_match' => 'No members match.',
+    'adminmembers.role.member' => 'Member',
+    'adminmembers.role.validated_author' => 'Trusted author',
+    'adminmembers.role.moderator' => 'Moderator',
+    'adminmembers.role.admin' => 'Admin',
+    'adminmembers.make.member' => 'Make member',
+    'adminmembers.make.validated_author' => 'Make trusted author',
+    'adminmembers.make.moderator' => 'Make moderator',
+    'adminmembers.make.admin' => 'Make admin',
 
     // The favorites page.
     'favorites.heading' => 'Your favorites',
