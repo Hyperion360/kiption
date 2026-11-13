@@ -52,22 +52,30 @@ final class AuthController
             if ($user !== null) {
                 if ((int) $user['is_locked'] === 1) {
                     $this->auth->logout();
+                    \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'account locked');
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'error' => \App\Lang::t('auth.err_locked')]);
                 }
                 if ($user['email_verified_at'] === null) {
                     $this->auth->logout();
+                    \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'email not confirmed');
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'error' => \App\Lang::t('auth.err_unverified')]);
                 }
                 if ($user['approved_at'] === null) {
                     $this->auth->logout();
+                    \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'not approved yet');
                     return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'error' => \App\Lang::t('auth.err_unapproved')]);
                 }
             }
+            \App\ActivityLog::record($this->db, (int) ($user['id'] ?? 0) ?: null, 'auth.signin');
             return $this->redirectWithPrefCookies((int) ($user['id'] ?? 0));
         }
+        // No actor and no typed address: a failed attempt may be a stranger, and the
+        // address could be someone else's. (Throttled attempts return above, so a
+        // flood cannot grow this log without bound.)
+        \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'wrong email or password');
         return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'error' => \App\Lang::t('auth.err_wrong')]);
     }
 
@@ -189,6 +197,7 @@ final class AuthController
         // approved at insert); verify/approval modes complete later, where those
         // paths purge too. A purge with no directory change is a no-op.
         (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
+        $this->logFor($email, 'auth.register', $mode);
         if ($mode === 'verify') {
             $raw = $this->users->createVerification($email);
             $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/auth/verify/' . $raw;
@@ -229,6 +238,7 @@ final class AuthController
     #[AuthAttr] #[Post]
     public function logout(): Response
     {
+        if ((int) $this->session->get('user_id', 0) > 0) \App\ActivityLog::by($this->db, $this->session, 'auth.signout');
         $this->auth->logout();
         // The cookie-sync mirror: the session dies, so the runtime cache dies
         // with it; the next render on this browser is the archive default,
@@ -258,6 +268,7 @@ final class AuthController
             // Deferred past the response: this send happens only for existing
             // accounts, so its duration must not show in the response time.
             $this->app->defer(function () use ($email, $subject, $body, $url): void {
+                $this->logFor($email, 'auth.reset_requested');
                 try {
                     $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
                 } catch (\Throwable $e) {
@@ -292,7 +303,10 @@ final class AuthController
         // Opening a link mailed to the address proves the member owns it, so a
         // completed reset also verifies the email. Without this a member who
         // never got the verification mail resets, then still cannot sign in.
-        if ($email !== null) $this->markVerified('email = ?', (string) $email);
+        if ($email !== null) {
+            $this->markVerified('email = ?', (string) $email);
+            $this->logFor((string) $email, 'auth.reset_done');
+        }
         return Response::redirect('/auth/login');
     }
 
@@ -319,6 +333,7 @@ final class AuthController
             // Deferred past the response, like remind(): this send happens only
             // for real accounts, so its duration must not show in the timing.
             $this->app->defer(function () use ($email, $subject, $body, $url): void {
+                $this->logFor($email, 'auth.link_requested');
                 try {
                     $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
                 } catch (\Throwable $e) {
@@ -378,7 +393,16 @@ final class AuthController
         $this->session->rotateCsrf();
         $this->session->set('user_id', (int) $user['id']);
         $this->session->set('pwd_epoch', substr((string) $user['password_hash'], 0, Auth::EPOCH_LEN));
+        \App\ActivityLog::record($this->db, (int) $user['id'], 'auth.link_used');
         return $this->redirectWithPrefCookies((int) $user['id']);
+    }
+
+    /** Log an account event for the member who owns $email. The address itself is
+     *  never stored; an address with no account logs nothing. */
+    private function logFor(string $email, string $action, string $detail = ''): void
+    {
+        $id = (int) ($this->users->findByEmail($email)['id'] ?? 0);
+        if ($id > 0) \App\ActivityLog::record($this->db, $id, $action, $detail);
     }
 
     /** Stamp email_verified_at once (never move an existing stamp). A newly

@@ -63,6 +63,7 @@ final class AccountController
             error_log("Email change mail failed: {$e->getMessage()}");
             return $this->refuse('account.err_email_mail');
         }
+        \App\ActivityLog::record($this->db, $me, 'account.email_requested');
         return Response::redirect('/account/settings?done=emailsent');
     }
 
@@ -80,6 +81,8 @@ final class AccountController
     {
         $res = $this->security()->applyEmailChange($this->request->postStr('t'));
         if (\is_string($res)) return $this->emailView(null, 410, $res);
+        // The address stays out of the log; the member is found by the new address.
+        \App\ActivityLog::record($this->db, (int) ($this->db->one('SELECT id FROM users WHERE email = ?', [$res['new']])['id'] ?? 0) ?: null, 'account.email_changed');
         [$subject, $body] = \App\Templates::get($this->db, 'email_changed_notice', ...\App\Templates::pair('email_changed_notice'));
         try {
             $this->mailer()->send($res['old'], $subject, strtr($body, ['{new_email}' => $res['new']]), \App\MailGuard::CRITICAL);
@@ -118,7 +121,8 @@ final class AccountController
     {
         $me = (int) $this->session->get('user_id');
         $stories = $this->request->postStr('stories');
-        $avatar = $this->db->one('SELECT avatar_path FROM users WHERE id = ?', [$me])['avatar_path'] ?? null;
+        $mine = $this->db->one('SELECT avatar_path, penname FROM users WHERE id = ?', [$me]);
+        $avatar = $mine['avatar_path'] ?? null;
         $title = \App\Lang::t('account.delete_heading');
         $err = !\in_array($stories, ['keep', 'remove'], true) ? 'account.err_delete_choice'
             : $this->security()->deleteAccount($me, $this->request->postStr('current_password'), $stories === 'keep', $this->request->ip);
@@ -129,6 +133,8 @@ final class AccountController
                 'lastAdmin' => $this->security()->isLastAdmin($me)]);
             return new Response($html, $err === \App\AccountSecurity::THROTTLED ? 429 : 422);
         }
+        // The account is scrubbed, so the log keeps who it was in the detail.
+        \App\ActivityLog::record($this->db, null, 'account.delete', 'member ' . $me . ' (' . (string) ($mine['penname'] ?? '') . ')');
         $this->afterDelete($avatar === null ? null : (string) $avatar);
         return Response::redirect('/')
             ->withAddedHeader('Set-Cookie', \App\Cookie::long('lang', ''))
@@ -187,6 +193,7 @@ final class AccountController
         $err = $this->security()->changePassword($me, $this->request->postStr('current_password'),
             $this->request->postStr('new_password'), $this->request->postStr('confirm_password'), $this->request->ip);
         if ($err !== null) return $this->refuse($err);
+        \App\ActivityLog::record($this->db, $me, 'account.password');
         // The hash changed, so every older session is already void. This one
         // gets a fresh id (fixation defense) and the new epoch so it stays in.
         $hash = (string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$me])['password_hash'];
