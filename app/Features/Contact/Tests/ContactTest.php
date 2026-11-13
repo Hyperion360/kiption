@@ -65,6 +65,17 @@ final class ContactTest extends TestCase
         $this->assertMatchesRegularExpression('/<div hidden[^>]*>.*name="website"/s', $res->body);
     }
 
+    public function test_a_signed_in_member_is_not_offered_a_log_in_link(): void
+    {
+        $this->assertStringContainsString('<a class="nav-account" href="/auth/login">', $this->client()->get('/contact')->body);
+        $id = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $body = $this->client()->actingAs($id)->get('/contact')->body;
+        $this->assertStringContainsString('<a class="nav-account" href="/account">', $body);
+        $this->assertStringNotContainsString('href="/auth/login"', $body);
+        $link = $this->client()->actingAs($id)->get('/auth/link')->body;
+        $this->assertStringContainsString('<a class="nav-account" href="/account">', $link);
+    }
+
     public function test_a_message_goes_to_every_admin(): void
     {
         $c = $this->client();

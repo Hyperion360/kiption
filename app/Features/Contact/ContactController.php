@@ -76,7 +76,8 @@ final class ContactController
                 ogImage: (string) $this->app->config('og_image', ''),
                 baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
             )->withTitle($title)->withCanonical('/contact'),
-            'csrf' => $this->session->csrfToken(), 'error' => $error, 'old' => $old, 'sent' => $sent]);
+            'csrf' => $this->session->csrfToken(), 'error' => $error, 'old' => $old, 'sent' => $sent,
+            'loggedIn' => \App\Viewer::id($this->request, $this->session, $this->db) !== 0]);
         return new Response($html, $status);
     }
 }

@@ -12,7 +12,7 @@
 <ul class="story-list">
 <?php foreach ($items as $n): ?>
   <li class="story-card">
-    <a class="story-title" href="/news/view/<?= (int) $n['id'] ?>"><?= $this->e($n['title']) ?></a>
+    <a class="story-title news-title" href="/news/view/<?= (int) $n['id'] ?>"><?= $this->e($n['title']) ?></a>
     <p class="meta"><?= \App\Lang::t('news.posted', ['date' => $this->e(\App\Dates::format($n['published_at']))]) ?> · <?= number_format((int) $n['comment_count']) ?> <?= \App\Lang::t((int) $n['comment_count'] === 1 ? 'news.comment' : 'news.comments') ?></p>
   </li>
 <?php endforeach; ?>

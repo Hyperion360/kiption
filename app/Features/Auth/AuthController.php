@@ -421,7 +421,7 @@ final class AuthController
         $title = \App\Lang::t('auth.link.title');
         return new Response($this->view->render('auth/link', ['title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical('/auth/link')->withNoindex(),
-            'state' => $state]), $status);
+            'state' => $state, 'loggedIn' => \App\Viewer::id($this->request, $this->session, $this->db) !== 0]), $status);
     }
 
 }

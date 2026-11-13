@@ -83,7 +83,7 @@
 <?php else: ?>
   <ol>
 <?php foreach ($top as $t): ?>
-    <li><a href="/story/view/<?= $this->e($t['slug']) ?>"><?= $this->e($t['title']) ?></a> <span class="meta"><?= \App\Lang::t('analytics.top_count', ['n' => $t['count']]) ?></span></li>
+    <li><a class="tap-link" href="/story/view/<?= $this->e($t['slug']) ?>"><?= $this->e($t['title']) ?></a> <span class="meta"><?= \App\Lang::t('analytics.top_count', ['n' => $t['count']]) ?></span></li>
 <?php endforeach; ?>
   </ol>
 <?php endif; ?>

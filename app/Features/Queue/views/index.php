@@ -32,7 +32,7 @@
   <ul class="admin-rows queue-rows">
     <?php foreach ($groups['chapter'] as $r): ?>
       <li>
-        <strong><?= $this->e($r['b'] !== '' ? $r['b'] : \App\Lang::t('story.untitled')) ?></strong> <?= \App\Lang::t('queue.in') ?> <a href="/story/edit/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a> <?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?>
+        <strong><?= $this->e($r['b'] !== '' ? $r['b'] : \App\Lang::t('story.untitled')) ?></strong> <?= \App\Lang::t('queue.in') ?> <a class="tap-link" href="/story/edit/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a> <?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?>
         <div class="queue-actions">
         <form method="post" action="/queue/chapter/<?= (int) $r['a'] ?>/approve" class="inline">
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit"><?= \App\Lang::t('queue.approve') ?></button>
@@ -72,7 +72,7 @@
       <li>
         <strong><?= $this->e($r['b']) ?></strong>
         <?php if ($r['d'] !== null): ?><blockquote class="chapter-meta"><?= $this->e($r['d']) ?></blockquote><?php endif; ?>
-        <?php if ($r['c'] !== ''): ?><?= \App\Lang::t('queue.on') ?> <a href="/story/view/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a><?php endif; ?>
+        <?php if ($r['c'] !== ''): ?><?= \App\Lang::t('queue.on') ?> <a class="tap-link" href="/story/view/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a><?php endif; ?>
         <div class="queue-actions">
         <a class="btn" href="/report/remove/<?= (int) $r['a'] ?>"><?= \App\Lang::t('queue.remove_content') ?></a>
         <form method="post" action="/report/resolve/<?= (int) $r['a'] ?>/dismiss" class="inline">

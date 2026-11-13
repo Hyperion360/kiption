@@ -6,7 +6,7 @@
 <section class="page">
   <header class="page-head">
     <h1><?= \App\Lang::t('account.library_heading') ?></h1>
-    <p class="lede"><?= $this->e($me['a']) ?> · <?= $this->e($me['b']) ?></p>
+    <p class="lede"><?= $this->e($me['a']) ?> <span class="lede-sub"><?= $this->e($me['b']) ?></span></p>
     <div class="page-actions"><a href="/account/settings"><?= \App\Lang::t('account.settings') ?></a><?php if (\App\Features::on('stats')): ?><a href="/stats"><?= \App\Lang::t('stats.link') ?></a><?php endif; ?>
       <form method="post" action="/auth/logout" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="link-btn"><?= \App\Lang::t('nav.logout') ?></button></form></div>
   </header>

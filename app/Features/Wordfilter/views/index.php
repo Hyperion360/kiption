@@ -6,7 +6,7 @@
 <form method="post" action="/wordfilter/save" class="form-card">
   <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
   <label><?= \App\Lang::t('wordfilter.label') ?>
-    <textarea name="words" rows="20"><?= $this->e(implode("\n", $words)) ?></textarea>
+    <textarea name="words" rows="20" class="plain-list" spellcheck="false"><?= $this->e(implode("\n", $words)) ?></textarea>
   </label>
   <p class="chapter-meta"><?= $this->e(\App\Lang::t('wordfilter.count', ['count' => count($words)])) ?></p>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('wordfilter.save') ?></button>

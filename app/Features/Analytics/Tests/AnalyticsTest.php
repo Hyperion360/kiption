@@ -159,9 +159,9 @@ final class AnalyticsTest extends TestCase
         // yesterday, 1 two days ago; Demo Author's January date is outside.
         // The top-10 list: the seeded velocity order with the guest-gated
         // restricted story absent.
-        $this->assertStringContainsString('<a href="/story/view/the-rabbit-hole">The Rabbit Hole</a>', $res->body);
+        $this->assertStringContainsString('<a class="tap-link" href="/story/view/the-rabbit-hole">The Rabbit Hole</a>', $res->body);
         $this->assertStringContainsString('17 reads + kudos', $res->body);
-        $this->assertStringContainsString('<a href="/story/view/after-hours">After Hours</a>', $res->body);
+        $this->assertStringContainsString('<a class="tap-link" href="/story/view/after-hours">After Hours</a>', $res->body);
         $this->assertStringContainsString('3 reads + kudos', $res->body);
         $this->assertStringNotContainsString('Off Camera', $res->body);
         // The totals block: stories 3, validated chapters 4, members 7,

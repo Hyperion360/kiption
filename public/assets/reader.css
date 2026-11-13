@@ -374,6 +374,9 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   color: var(--danger); font: 500 14px/1.5 var(--sans);
 }
 .notice { display: block; margin: 0 0 18px; padding: 12px 14px; background: var(--pill-bg); color: var(--accent); font: 500 14px/1.5 var(--sans); }
+/* A list of words is not prose: plain type, one per line. */
+.site-main form textarea.plain-list { font: 400 16px/1.5 var(--sans); }
+.lede-sub { display: block; font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
 /* Admin home: what is waiting, then what happened, then every screen. */
 .site-main .home-cards { list-style: none; margin: 12px 0 28px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 @media (min-width: 900px) { .site-main .home-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -1512,6 +1515,7 @@ body.focus .site-head { display: none; }
     display: inline-flex; align-items: center; min-height: 44px;
   }
   .site-main form:not(.text-settings) label:has(> input:is([type="checkbox"], [type="radio"])) { min-height: 44px; margin-block-end: 0; }
+  .tap-link, .empty-state a, .story-card .news-title { display: inline-flex; align-items: center; min-height: 44px; }
   .series-item form.inline button, .letter-nav a { min-height: 44px; min-width: 44px; }
   .report-disclosure input, .report-disclosure button, .story-reviews .review form.inline :is(input, button) { min-height: 44px; }
   .chip { min-height: 44px; }
