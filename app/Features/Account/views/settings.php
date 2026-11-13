@@ -7,7 +7,7 @@
   <header class="page-head">
     <p class="eyebrow"><a href="/account"><?= \App\Lang::t('account.library_heading') ?></a></p>
     <h1><?= \App\Lang::t('account.settings') ?></h1>
-    <p class="lede"><?= $this->e($me['a']) ?> · <?= $this->e($me['b']) ?> · <span class="badge"><?= $this->e($me['c']) ?></span></p>
+    <p class="lede"><?php if ((string) ($me['a'] ?? '') !== ''): ?><?= $this->e($me['a']) ?> · <?php endif; ?><?= $this->e($me['b']) ?> · <span class="badge"><?= $this->e($me['c']) ?></span></p>
   </header>
   <?php if (!empty($notice)): ?><p class="notice" role="status"><?= \App\Lang::t($notice, $notice === 'saved.penname' ? ['name' => $this->e($me['a'])] : []) ?><?= $notice === 'saved.penname' && !empty($liveSoon) ? ' ' . \App\Lang::t('saved.live_soon_note') : '' ?></p><?php endif; ?>
   <?php if (!empty($error)): ?><p class="error" role="alert"><?= \App\Lang::t($error, $errorParams ?? []) ?></p><?php endif; ?>
