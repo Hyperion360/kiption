@@ -12,7 +12,7 @@ final class WordfilterController extends AdminScreen
     public function index(): Response|string
     {
         if ($r = $this->deny()) return $r;
-        return $this->form(null, null);
+        return $this->form(null);
     }
 
     #[AuthAttr] #[Post]
@@ -20,18 +20,18 @@ final class WordfilterController extends AdminScreen
     {
         if ($r = $this->deny()) return $r;
         $raw = $this->request->postStr('words');
-        if (!mb_check_encoding($raw, 'UTF-8')) return new Response($this->form(Lang::t('wordfilter.err_utf8'), null), 422);
+        if (!mb_check_encoding($raw, 'UTF-8')) return new Response($this->form(Lang::t('wordfilter.err_utf8')), 422);
         $words = WordFilter::parse($raw);
         foreach ($words as $w) {
             if (mb_strlen($w) > WordFilter::MAX_WORD_LENGTH) {
-                return new Response($this->form(Lang::t('wordfilter.err_too_long', ['max' => WordFilter::MAX_WORD_LENGTH]), null), 422);
+                return new Response($this->form(Lang::t('wordfilter.err_too_long', ['max' => WordFilter::MAX_WORD_LENGTH])), 422);
             }
             if (preg_match('/[<>"]/', $w) === 1) {
-                return new Response($this->form(Lang::t('wordfilter.err_chars'), null), 422);
+                return new Response($this->form(Lang::t('wordfilter.err_chars')), 422);
             }
         }
         if (count($words) > WordFilter::MAX_ENTRIES) {
-            return new Response($this->form(Lang::t('wordfilter.err_too_many', ['max' => WordFilter::MAX_ENTRIES]), null), 422);
+            return new Response($this->form(Lang::t('wordfilter.err_too_many', ['max' => WordFilter::MAX_ENTRIES])), 422);
         }
         $this->atomically(function () use ($words): void {
             $this->db->query('DELETE FROM word_filter');
@@ -51,14 +51,14 @@ final class WordfilterController extends AdminScreen
         if ($r = $this->deny()) return $r;
         $sentence = mb_substr($this->request->postStr('sentence'), 0, 500);
         if (!mb_check_encoding($sentence, 'UTF-8')) $sentence = '';
-        return $this->form(null, null, $sentence);
+        return $this->form(null, $sentence);
     }
 
-    private function form(?string $error, ?string $saved, ?string $sentence = null): string
+    private function form(?string $error, ?string $sentence = null): string
     {
         $tried = $sentence === null || trim($sentence) === '' ? null
             : ['sentence' => $sentence, 'word' => WordFilter::find($this->db, $sentence)];
         return $this->page('wordfilter/index', 'wordfilter.heading', '/wordfilter',
-            ['words' => WordFilter::words($this->db), 'error' => $error, 'saved' => $saved, 'tried' => $tried]);
+            ['words' => WordFilter::words($this->db), 'error' => $error, 'tried' => $tried]);
     }
 }

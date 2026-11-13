@@ -12,7 +12,7 @@ final class SignupcheckController extends AdminScreen
     public function index(): Response|string
     {
         if ($r = $this->deny()) return $r;
-        return $this->form(null, !empty($this->request->get['saved']));
+        return $this->form(null);
     }
 
     #[AuthAttr] #[Post]
@@ -22,7 +22,7 @@ final class SignupcheckController extends AdminScreen
         $q = $this->request->postStr('question');
         $a = $this->request->postStr('answer');
         $err = $this->check()->save($this->request->postStr('enabled') === '1', $q, $a);
-        if ($err !== null) return new Response($this->form($err, false, ['enabled' => (int) ($this->request->postStr('enabled') === '1'), 'question' => $q, 'answer' => $a]), 422);
+        if ($err !== null) return new Response($this->form($err, ['enabled' => (int) ($this->request->postStr('enabled') === '1'), 'question' => $q, 'answer' => $a]), 422);
         \App\ActivityLog::record($this->db, (int) $this->session->get('user_id'), 'signupcheck.save', $this->request->postStr('enabled') === '1' ? 'on' : 'off');
         return \App\Saved::to('/signupcheck');
     }
@@ -32,9 +32,9 @@ final class SignupcheckController extends AdminScreen
         return new \App\SignupCheck($this->db, $this->session, 0);
     }
 
-    private function form(?string $error, bool $saved, ?array $values = null): string
+    private function form(?string $error, ?array $values = null): string
     {
         return $this->page('signupcheck/index', 'signupcheck.heading', '/signupcheck',
-            ['error' => $error, 'saved' => $saved, 'values' => $values ?? $this->check()->settings()]);
+            ['error' => $error, 'values' => $values ?? $this->check()->settings()]);
     }
 }

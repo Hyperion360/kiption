@@ -72,7 +72,6 @@ final class TextController
         $label = self::groupLabel($prefix);
         return $this->page('text/group', Lang::t('text.heading') . ': ' . $label, '/text/group/' . $prefix, [
             'entries' => $entries, 'lang' => $lang, 'languages' => $store->languages(), 'prefix' => $prefix, 'label' => $label, 'q' => '',
-            'saved' => !empty($this->request->get['saved']),
         ]);
     }
 
@@ -96,7 +95,7 @@ final class TextController
         });
         return $this->page('text/group', Lang::t('text.heading'), '/text/search', [
             'entries' => array_slice($entries, 0, self::SEARCH_LIMIT), 'lang' => $lang,
-            'languages' => $store->languages(), 'prefix' => '', 'q' => $q, 'saved' => false,
+            'languages' => $store->languages(), 'prefix' => '', 'q' => $q,
         ]);
     }
 
