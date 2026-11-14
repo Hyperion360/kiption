@@ -91,6 +91,15 @@ final class AuthoringTest extends TestCase
             'SELECT COUNT(*) c FROM story_categories WHERE story_id = ?', [$row['id']])['c']);
     }
 
+    public function test_create_keeps_the_completed_box(): void
+    {
+        $res = $this->clientAs(1)->postWithToken('/story/create',
+            ['title' => 'Done Already', 'summary' => 'Finished before posting.', 'rating_id' => (string) $this->ratingId(),
+             'categories' => [(string) $this->categoryId()], 'completed' => '1']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(1, (int) $this->db->one("SELECT completed FROM stories WHERE title = 'Done Already'")['completed']);
+    }
+
     /** Purge-pinning tests plant cache files here, never in the repo's real
      *  public/cache: a failed run must leave nothing the preview server
      *  could serve as a stale hit. */

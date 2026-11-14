@@ -617,7 +617,7 @@ final class StoryController
         }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds,
-            $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds);
+            $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds, $completed);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
         \App\ActivityLog::record($this->db, $this->uid(), 'story.create', $title);
@@ -690,7 +690,7 @@ final class StoryController
             });
         }
         \App\ActivityLog::record($this->db, $this->uid(), 'story.update', $newSlug);
-        return Response::redirect('/story/edit/' . $newSlug);
+        return \App\Saved::to('/story/edit/' . $newSlug); // the edit page answers "Saved." so the owner knows it took
     }
 
     #[AuthAttr] #[Post]

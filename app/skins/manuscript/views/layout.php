@@ -49,9 +49,10 @@
     <?php if (($tagline = \App\Settings::get('slogan')) !== ''): ?><span class="tagline"><?= $this->e($tagline) ?></span><?php endif; ?>
     <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <a href="/browse"><?= \App\Lang::t('nav.browse') ?></a>
-      <a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a>
-      <a class="nav-wide" href="/browse/authors"><?= \App\Lang::t('nav.authors') ?></a>
-      <?php if (\App\Settings::on('series_on')): ?><a class="nav-wide" href="/series"><?= \App\Lang::t('nav.series') ?></a><?php endif; ?>
+      <?php $navOn = \App\NavLinks::builtIns($navFile ?? ''); ?>
+      <?php if ($navOn['/browse/recent']): ?><a href="/browse/recent"><?= \App\Lang::t('nav.recent') ?></a><?php endif; ?>
+      <?php if ($navOn['/browse/authors']): ?><a class="nav-wide" href="/browse/authors"><?= \App\Lang::t('nav.authors') ?></a><?php endif; ?>
+      <?php if ($navOn['/series'] && \App\Settings::on('series_on')): ?><a class="nav-wide" href="/series"><?= \App\Lang::t('nav.series') ?></a><?php endif; ?>
       <a class="nav-inline-search" href="/search"><?= \App\Lang::t('nav.search') ?></a>
     </nav>
     <form class="nav-search" role="search" action="/search" method="get">
@@ -99,7 +100,11 @@
     <?php $menuRead = ['/browse' => \App\Lang::t('nav.browse'), '/browse/recent' => \App\Lang::t('nav.recent'),
                        '/browse/authors' => \App\Lang::t('nav.authors'), '/series' => \App\Lang::t('nav.series'),
                        '/search' => \App\Lang::t('nav.search')];
-       $menuSeen = $menuRead + ['/story/new' => '', '/account' => '', '/messages' => '', '/notifications' => '', '/auth/login' => '']; ?>
+       $menuSeen = $menuRead + ['/series' => '']; // keep a Series row from reappearing below
+       foreach (['/browse/recent', '/browse/authors', '/series'] as $u) {
+           if (!$navOn[$u] || ($u === '/series' && !\App\Settings::on('series_on'))) unset($menuRead[$u]);
+       }
+       $menuSeen = $menuSeen + ['/story/new' => '', '/account' => '', '/messages' => '', '/notifications' => '', '/auth/login' => '']; ?>
     <nav aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <?php if ($loggedIn ?? false): ?>
       <span class="sheet-group"><?= \App\Lang::t('nav.you') ?></span>

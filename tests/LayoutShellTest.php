@@ -209,6 +209,23 @@ final class LayoutShellTest extends TestCase
         $this->assertStringContainsString('href="/account"', $member, 'a member sees the account link');
     }
 
+    /** The menu-links page controls Recent, Authors and Series: a removed row
+     *  drops the link from the header and the Menu sheet. Browse and Search stay. */
+    public function test_removed_menu_links_leave_the_header_and_menu_sheet(): void
+    {
+        $navFile = tempnam(sys_get_temp_dir(), 'kiption-shell-nav-') . '.json';
+        $this->db->query('DELETE FROM nav_links');
+        $this->db->query('INSERT INTO nav_links (label, url, position) VALUES (?,?,?)', ['Recent', '/browse/recent', 1]);
+        \App\NavLinks::rebuild($this->db, $navFile);
+        $body = $this->client(null, ['nav_file' => $navFile])->get('/')->body;
+        $this->assertStringContainsString('href="/browse/recent"', $body);
+        $this->assertStringNotContainsString('href="/series"', $body);
+        $this->assertStringNotContainsString('href="/browse/authors"', $body);
+        $this->assertStringContainsString('href="/browse"', $body);
+        $this->assertStringContainsString('href="/search"', $body);
+        @unlink($navFile);
+    }
+
     public function test_menu_sheet_carries_admin_links_and_custom_nav_links(): void
     {
         $demoId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];

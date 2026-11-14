@@ -70,7 +70,7 @@
     <label><?= \App\Lang::t('story.crosspost_label') ?> <input name="crosspost_url" maxlength="200" value="<?= $this->e($story['crosspost_url'] ?? '') ?>"></label>
     <p class="chapter-meta"><?= \App\Lang::t('story.syndication_help') ?></p>
     <?php endif; ?>
-    <button type="submit"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
+    <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
   <?php if ($story !== null): ?>
     <form class="form-aside" method="post" action="/story/cover/<?= $this->e($story['slug']) ?>" enctype="multipart/form-data">
