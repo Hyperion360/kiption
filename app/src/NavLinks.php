@@ -45,7 +45,9 @@ final class NavLinks
     public static function builtIns(string $file): array
     {
         $urls = ['/browse/recent', '/browse/authors', '/series'];
-        if ($file === '' || !is_file($file)) return array_fill_keys($urls, true);
+        $raw = ($file === '' || !is_file($file)) ? false : @file_get_contents($file);
+        // missing, unreadable or corrupt: show everything rather than hide it by accident
+        if ($raw === false || !is_array(json_decode($raw, true))) return array_fill_keys($urls, true);
         $listed = array_column(self::all($file), 'url');
         $out = [];
         foreach ($urls as $u) $out[$u] = in_array($u, $listed, true);

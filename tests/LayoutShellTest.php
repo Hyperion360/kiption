@@ -226,6 +226,17 @@ final class LayoutShellTest extends TestCase
         @unlink($navFile);
     }
 
+    public function test_a_corrupt_nav_file_hides_nothing(): void
+    {
+        $navFile = tempnam(sys_get_temp_dir(), 'kiption-shell-nav-') . '.json';
+        file_put_contents($navFile, '{not json');
+        $shown = \App\NavLinks::builtIns($navFile);
+        $this->assertSame(['/browse/recent' => true, '/browse/authors' => true, '/series' => true], $shown);
+        file_put_contents($navFile, '[]'); // a valid empty list means the operator removed them all
+        $this->assertSame(['/browse/recent' => false, '/browse/authors' => false, '/series' => false], \App\NavLinks::builtIns($navFile));
+        @unlink($navFile);
+    }
+
     public function test_menu_sheet_carries_admin_links_and_custom_nav_links(): void
     {
         $demoId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];

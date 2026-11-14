@@ -168,6 +168,19 @@ final class AuthoringTest extends TestCase
                           SELECT id, ? FROM stories WHERE slug = \'the-rabbit-hole\'', [$this->categoryId()]);
     }
 
+    public function test_saving_an_edit_says_saved_to_the_author(): void
+    {
+        $c = $this->clientAs(1);
+        $res = $c->postWithToken('/story/update/the-rabbit-hole',
+            ['title' => 'The Rabbit Hole', 'summary' => 'A slow fall into a stranger world.',
+             'rating_id' => (string) $this->ratingId(), 'categories' => [(string) $this->categoryId()]]);
+        $this->assertSame(302, $res->status);
+        $this->assertStringContainsString('saved=1', (string) ($res->headers['Location'] ?? ''));
+        $page = $c->get('/story/edit/the-rabbit-hole', ['saved' => '1']);
+        $this->assertStringContainsString('Saved.', $page->body);
+        $this->assertStringNotContainsString('Saved.', $c->get('/story/edit/the-rabbit-hole')->body);
+    }
+
     public function test_delete_is_soft_and_purges(): void
     {
         // the purge pins plant their cache files in a configured temp
