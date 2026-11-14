@@ -81,6 +81,7 @@ final class ContactController
                 baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
             )->withTitle($title)->withCanonical('/contact'),
             'csrf' => $this->session->csrfToken(), 'error' => $error, 'old' => $old, 'sent' => $sent,
+            'navFile' => (string) $this->app->config('nav_file', ''),
             'loggedIn' => \App\Viewer::id($this->request, $this->session, $this->db) !== 0]);
         return new Response($html, $status);
     }
