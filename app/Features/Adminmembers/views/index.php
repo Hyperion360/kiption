@@ -42,7 +42,7 @@
         <?php endif; ?>
       </td>
       <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_status')) ?>">
-        <?php $deleted = str_ends_with((string) $m['email'], '@deleted.invalid'); ?>
+        <?php $deleted = \App\AccountSecurity::isDeletedEmail((string) $m['email']); ?>
         <?php if ($deleted): ?><span class="badge"><?= \App\Lang::t('adminmembers.deleted') ?></span><?php endif; ?>
         <?php if ((int) $m['is_locked'] === 1 && !$deleted): ?><span class="badge"><?= \App\Lang::t('adminmembers.locked') ?></span><?php endif; ?>
         <?php if ($m['email_verified_at'] === null): ?><span class="badge"><?= \App\Lang::t('adminmembers.unverified') ?></span><?php endif; ?>

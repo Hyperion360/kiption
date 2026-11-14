@@ -192,7 +192,7 @@ final class AdminmembersController
                 "UPDATE users SET email = ?, password_hash = ?, penname = NULL, profile_slug = NULL, bio = '', avatar_path = NULL,
                         support_url = NULL, legacy_md5 = NULL, legacy_bcrypt = NULL, role = 'member', is_admin = 0, is_locked = 1
                  WHERE id = ?",
-                ['deleted-' . $uid . '@deleted.invalid', password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $uid]);
+                ['deleted-' . $uid . \App\AccountSecurity::DELETED_EMAIL_SUFFIX, password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $uid]);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.delete', 'member ' . $uid . ($heir !== null ? ', stories moved' : ', stories removed'));
@@ -209,7 +209,7 @@ final class AdminmembersController
 
     private function isDeleted(array $target): bool
     {
-        return str_ends_with((string) $target['email'], '@deleted.invalid');
+        return \App\AccountSecurity::isDeletedEmail((string) $target['email']);
     }
 
     /** True when the target is an admin who can sign in and no other

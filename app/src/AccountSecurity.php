@@ -80,11 +80,21 @@ final class AccountSecurity
         return substr($hash, 0, \Kip\Auth::EPOCH_LEN);
     }
 
+    /** The marker a member delete scrubs the address to; one definition so
+     *  the write site, the checks and the roster badge cannot drift apart. */
+    public const DELETED_EMAIL_SUFFIX = '@deleted.invalid';
+
     /** Addresses under the reserved .invalid top-level domain belong to the
      *  placeholder and scrubbed accounts; no member may claim one. */
     public static function isReservedEmail(string $email): bool
     {
         return str_ends_with(strtolower(trim($email)), '.invalid');
+    }
+
+    /** True for an address a member delete scrubbed. */
+    public static function isDeletedEmail(string $email): bool
+    {
+        return str_ends_with(strtolower(trim($email)), self::DELETED_EMAIL_SUFFIX);
     }
 
     /** Use the link: burns the token (the deleted row is the single-use

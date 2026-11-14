@@ -14,7 +14,7 @@ final class ReviewRepository
         if ($story === null) return [false, 0, '', null];
         $body = trim($body);
         // rating_only: a score on its own is a review; otherwise words are required.
-        if (($body === '' && !($ratingOnly && $rating !== null)) || strlen($body) > 5000) return [false, 0, '', 'Review text is required (max 5000 characters).'];
+        if (($body === '' && !($ratingOnly && $rating !== null)) || strlen($body) > 5000) return [false, 0, '', \App\Lang::t('review.err_text')];
         if ($rating !== null && $rating > 10) $rating = 10; // clamp high; negatives clamp to 0
         if ($rating !== null && $rating < 0) $rating = 0;
         if ($userId === null) {
@@ -22,7 +22,7 @@ final class ReviewRepository
             // the same 404 as the story page, never a 302 existence oracle.
             if ((int) $story['is_restricted'] === 1) return [false, 0, '', null];
             $guestName = trim((string) $guestName);
-            if ($guestName === '' || strlen($guestName) > 40) return [false, 0, '', 'Guest name is required (max 40 characters).'];
+            if ($guestName === '' || strlen($guestName) > 40) return [false, 0, '', \App\Lang::t('review.err_guest_name')];
             // One statement, the report-intake pattern: a count-check followed by a
             // separate INSERT is check-then-act (two concurrent guests both counted 0
             // and both stored, probe-verified); INSERT..SELECT WHERE NOT EXISTS is
@@ -54,7 +54,7 @@ final class ReviewRepository
         if ($body === '' || strlen($body) > 5000) return [false, 0, \App\Lang::t('news.err_comment_text')];
         if ($userId === null) {
             $guestName = trim((string) $guestName);
-            if ($guestName === '' || strlen($guestName) > 40) return [false, 0, 'Guest name is required (max 40 characters).'];
+            if ($guestName === '' || strlen($guestName) > 40) return [false, 0, \App\Lang::t('review.err_guest_name')];
             $today = date('Y-m-d');
             $stmt = $this->db->query(
                 "INSERT INTO reviews (story_id, chapter_id, user_id, guest_name, body, ip)

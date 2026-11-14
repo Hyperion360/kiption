@@ -1703,5 +1703,7 @@ return [
     'contact.err_send' => 'The message could not be sent, try again later.',
     'auth.err_wrong' => 'Wrong email or password',
     'review.err_daily' => 'You already reviewed this story today.',
+    'review.err_text' => 'Review text is required (max 5000 characters).',
+    'review.err_guest_name' => 'Guest name is required (max 40 characters).',
     'settings.err_invalid' => 'Invalid settings:',
 ];
