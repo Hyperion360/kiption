@@ -94,7 +94,7 @@ final class InvitesTest extends TestCase
     {
         $admin = $this->client($this->adminId());
         $html = $admin->get('/invites')->body;
-        $this->assertStringContainsString('Invite codes', $html);
+        $this->assertStringContainsString('Invite Codes', $html);
         $this->assertStringContainsString('No invite codes yet.', $html);
         $this->assertSame(302, $admin->postWithToken('/invites/create')->status);
         $row = $this->db()->one('SELECT code, used_by FROM invites');

@@ -159,7 +159,7 @@ final class SiteSettingsTest extends TestCase
         $before = $this->rows('stories');
         $page = $member->get('/story/new');
         $this->assertSame(403, $page->status);
-        $this->assertStringContainsString('Posting is paused', (string) $page->body);
+        $this->assertStringContainsString('Posting Is Paused', (string) $page->body);
         $this->assertSame(403, $member->postWithToken('/story/create', ['title' => 'Nope', 'rating_id' => '1'])->status);
         $this->assertSame($before, $this->rows('stories'));
         $chapters = $this->rows('chapters');

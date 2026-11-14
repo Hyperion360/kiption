@@ -85,7 +85,7 @@ final class SkinsTest extends TestCase
         // A template the skin does NOT carry resolves from the app default:
         // maintenance.php exists only in app/views and renders standalone.
         $maintenance = $view->render('maintenance');
-        $this->assertStringContainsString('Scheduled maintenance', $maintenance);
+        $this->assertStringContainsString('Scheduled Maintenance', $maintenance);
         $this->assertStringNotContainsString('skin-classic', $maintenance, 'the miss is served unskinned');
         // With no skin wired, the app's own layout serves and carries no skin markers.
         $plain = (new View($appDir . '/views', $appDir . '/Features', ''))
