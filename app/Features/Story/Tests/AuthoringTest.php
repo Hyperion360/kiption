@@ -181,6 +181,16 @@ final class AuthoringTest extends TestCase
         $this->assertStringNotContainsString('Saved.', $c->get('/story/edit/the-rabbit-hole')->body);
     }
 
+    public function test_the_edit_page_prints_saved_only_for_the_plain_saved_code(): void
+    {
+        $c = $this->clientAs(1);
+        foreach (['removed', 'bogus', '<b>x</b>'] as $code) {
+            $body = $c->get('/story/edit/the-rabbit-hole', ['saved' => $code])->body;
+            $this->assertStringNotContainsString('Saved.', $body, "?saved={$code} says nothing");
+            $this->assertStringNotContainsString('<b>x</b>', $body);
+        }
+    }
+
     public function test_delete_is_soft_and_purges(): void
     {
         // the purge pins plant their cache files in a configured temp

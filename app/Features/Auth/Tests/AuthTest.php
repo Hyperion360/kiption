@@ -77,6 +77,27 @@ final class AuthTest extends TestCase
         @unlink($navFile);
     }
 
+    public function test_a_failed_sign_in_keeps_removed_menu_links_hidden(): void
+    {
+        $navFile = tempnam(sys_get_temp_dir(), 'kiption-auth-nav-') . '.json';
+        $this->db->query('DELETE FROM nav_links');
+        $this->db->query('INSERT INTO nav_links (label, url, position) VALUES (?,?,?)', ['Recent', '/browse/recent', 1]);
+        \App\NavLinks::rebuild($this->db, $navFile);
+        $app = new App([
+            'app_dir' => dirname(__DIR__, 4) . '/app', 'env' => 'prod', 'views' => dirname(__DIR__, 4) . '/app/views',
+            'db' => ['dsn' => 'sqlite::memory:'], 'log_db' => ['dsn' => 'sqlite::memory:'],
+            'base_url' => 'http://kiption.test', 'nav_file' => $navFile,
+            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-auth-test.log', 'from' => 'noreply@kiption.test'],
+        ]);
+        (new Migrator($app->container->make(Database::class), \App\Tests\Support\AppLayout::migrations()))->migrate();
+        $res = $app->handle(new Request('POST', '/auth/attempt', [], ['email' => 'nobody@kiption.test', 'password' => 'whatever123', '_token' => $app->session->csrfToken()], [], '127.0.0.1'));
+        $this->assertStringContainsString('Wrong email or password', $res->body);
+        $this->assertStringContainsString('href="/browse/recent"', $res->body);
+        $this->assertStringNotContainsString('href="/browse/authors"', $res->body);
+        $this->assertStringNotContainsString('href="/series"', $res->body);
+        @unlink($navFile);
+    }
+
     public function test_login_page_says_the_account_is_locked_after_a_forced_sign_out(): void
     {
         $this->assertStringNotContainsString('This account is locked.', $this->app->handle(new Request('GET', '/auth/login', [], [], []))->body);
