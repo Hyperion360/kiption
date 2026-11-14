@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { convertNodeTree, unwrapGoogleUrl, normalizeMarkdown } = require('../../public/assets/paste.js');
+const { convertNodeTree, unwrapGoogleUrl, normalizeMarkdown, attach } = require('../../public/assets/paste.js');
 
 const el = (tag, attrs = {}, kids = []) => ({ nodeType: 1, tagName: tag.toUpperCase(), childNodes: kids,
   style: attrs.style || {}, getAttribute: (k) => attrs[k] ?? null });
@@ -121,3 +121,34 @@ for (const [name, build] of [['docs-basic', docsBasic], ['word-basic', wordBasic
     assert.equal(convertNodeTree(build()), fixture(name + '.md'));
   });
 }
+
+function fakeBox() {
+  const on = {};
+  return { on, addEventListener: (t, f) => { on[t] = f; } };
+}
+function pasteEvent(data, box) {
+  const ev = { clipboardData: { getData: (t) => data[t] || '' }, prevented: false, preventDefault() { this.prevented = true; } };
+  box.on.paste(ev);
+  return ev;
+}
+
+test('attach inserts the converted text and takes over the paste', () => {
+  const box = fakeBox(); const got = [];
+  attach(box, (h) => 'MD:' + h, (b, t) => got.push(t));
+  const ev = pasteEvent({ 'text/html': '<p>x</p>', 'text/plain': 'x' }, box);
+  assert.deepEqual(got, ['MD:<p>x</p>']);
+  assert.equal(ev.prevented, true);
+});
+
+test('attach leaves plain pastes, shift pastes and failed conversions to the browser or the plain text', () => {
+  let box = fakeBox(); let got = [];
+  attach(box, () => 'md', (b, t) => got.push(t));
+  assert.equal(pasteEvent({ 'text/plain': 'just text' }, box).prevented, false);
+  box.on.keydown({ shiftKey: true, metaKey: true, key: 'V' });
+  assert.equal(pasteEvent({ 'text/html': '<p>x</p>' }, box).prevented, false);
+  assert.equal(pasteEvent({ 'text/html': '<p>x</p>' }, box).prevented, true, 'the shift flag clears after one paste');
+  box = fakeBox(); got = [];
+  attach(box, () => '', (b, t) => got.push(t));
+  pasteEvent({ 'text/html': '<p>x</p>', 'text/plain': 'fallback' }, box);
+  assert.deepEqual(got, ['fallback']);
+});

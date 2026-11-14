@@ -102,16 +102,21 @@
     return /^(?:\*\s*){3,}$/.test(s) || /^(?:[-\u2013\u2014_=]\s*){3,}$/.test(s) || /^~+$/.test(s) || /^#$/.test(s);
   }
 
+  /* One tidy paragraph of text as a markdown block ('' when empty); the one
+     place a scene-break paragraph turns into ---. */
+  function paragraph(t) {
+    if (t === '') { return []; }
+    return [isSceneBreak(t) ? '---' : t];
+  }
+
   /* A list of sibling nodes to markdown blocks. Consecutive inline siblings
      form one paragraph; block siblings recurse. */
   function blocksOf(nodes, ctx) {
     var out = [], run = [];
     function flush() {
       if (!run.length) { return; }
-      var t = tidy(inlineRun(run, { b: ctx.b, i: false }));
+      out = out.concat(paragraph(tidy(inlineRun(run, { b: ctx.b, i: false }))));
       run = [];
-      if (t === '') { return; }
-      out.push(isSceneBreak(t) ? '---' : t);
     }
     for (var k = 0; k < nodes.length; k++) {
       var n = nodes[k];
@@ -154,8 +159,7 @@
     }
     if (!hasBlock(n)) {
       /* A leaf paragraph: its own bold or italic styling wraps its text. */
-      var t = tidy(inline(n, { b: ctx.b, i: false }));
-      return t === '' ? [] : [isSceneBreak(t) ? '---' : t];
+      return paragraph(tidy(inline(n, { b: ctx.b, i: false })));
     }
     /* A wrapper of blocks. A Docs wrapper says font-weight:normal, which
        must not leak bold into its children; a bold-looking wrapper emits no
@@ -185,34 +189,42 @@
     }
   }
 
+  /* Reading the clipboard's html: parse it in an inert document (scripts
+     never run) and convert. Any failure yields '' so the caller falls back. */
+  function htmlToMarkdown(html) {
+    try {
+      return convertNodeTree(new DOMParser().parseFromString(html, 'text/html').body);
+    } catch (err) { return ''; }
+  }
+
+  /* Listener wiring for one text box. It knows nothing about markdown or
+     undo; the two collaborators arrive as arguments, so a later editor can
+     reuse it with its own converter or inserter. */
+  function attach(box, toMarkdown, insert) {
+    var plainNext = false;
+    box.addEventListener('keydown', function (e) {
+      plainNext = e.shiftKey && (e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'v';
+    });
+    box.addEventListener('paste', function (e) {
+      var cd = e.clipboardData;
+      if (!cd) { return; }
+      var html = cd.getData('text/html');
+      var plain = plainNext;
+      plainNext = false;
+      if (plain || !html) { return; } /* the browser's own paste does the right thing */
+      var md = toMarkdown(html) || cd.getData('text/plain');
+      if (md === '') { return; }
+      e.preventDefault();
+      insert(box, md);
+    });
+  }
+
   function init() {
-    var boxes = document.querySelectorAll('textarea[data-js-module="paste"]');
-    Array.prototype.forEach.call(boxes, function (box) {
-      var plainNext = false;
-      box.addEventListener('keydown', function (e) {
-        plainNext = e.shiftKey && (e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'v';
-      });
-      box.addEventListener('paste', function (e) {
-        var cd = e.clipboardData;
-        if (!cd) { return; }
-        var html = cd.getData('text/html');
-        var text = cd.getData('text/plain');
-        var plain = plainNext;
-        plainNext = false;
-        if (plain || !html) { return; } /* the browser's own paste does the right thing */
-        var md = '';
-        try {
-          var doc = new DOMParser().parseFromString(html, 'text/html'); /* inert: scripts never run */
-          md = normalizeMarkdown(convertNodeTree(doc.body));
-        } catch (err) { md = ''; }
-        if (md === '') { md = text; }
-        if (md === '') { return; }
-        e.preventDefault();
-        insertText(box, md);
-      });
+    Array.prototype.forEach.call(document.querySelectorAll('textarea[data-js-module="paste"]'), function (box) {
+      attach(box, htmlToMarkdown, insertText);
     });
   }
   if (typeof Kip !== 'undefined' && Kip.init) { Kip.init(init); }
 
-  return { convertNodeTree: convertNodeTree, unwrapGoogleUrl: unwrapGoogleUrl, normalizeMarkdown: normalizeMarkdown, init: init };
+  return { convertNodeTree: convertNodeTree, unwrapGoogleUrl: unwrapGoogleUrl, normalizeMarkdown: normalizeMarkdown, attach: attach, init: init };
 });
