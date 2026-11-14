@@ -175,6 +175,13 @@ final class AdminmembersController
                 $this->db->query('UPDATE stories SET deleted_at = ? WHERE author_id = ? AND deleted_at IS NULL', [date('c'), $uid]);
             }
             $this->db->query('DELETE FROM coauthors WHERE user_id = ?', [$uid]);
+            // The picture is scrubbed with the account, not left serving from
+            // /uploads (the self-delete path unlinks it too). basename() keeps
+            // the delete inside the configured uploads dir.
+            if ((string) ($target['avatar_path'] ?? '') !== '') {
+                $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
+                @unlink($dir . '/' . basename((string) $target['avatar_path']));
+            }
             // Pending tokens die with the account; the email-keyed ones need
             // the address from before the scrub.
             $this->db->query('DELETE FROM email_changes WHERE user_id = ?', [$uid]);
@@ -197,7 +204,7 @@ final class AdminmembersController
     private function target(string $id): ?array
     {
         if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return null;
-        return $this->db->one('SELECT id, penname, email, role, is_locked, profile_slug FROM users WHERE id = ?', [(int) $id]);
+        return $this->db->one('SELECT id, penname, email, role, is_locked, profile_slug, avatar_path FROM users WHERE id = ?', [(int) $id]);
     }
 
     private function isDeleted(array $target): bool

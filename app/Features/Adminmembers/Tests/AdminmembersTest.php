@@ -363,4 +363,15 @@ final class AdminmembersTest extends TestCase
         $this->assertSame(403, $res->status);
         $this->assertSame('leaving-member', $this->db->one('SELECT penname FROM users WHERE id = ?', [$this->targetId])['penname']);
     }
+
+    public function test_delete_removes_the_members_avatar_file_too(): void
+    {
+        $dir = $this->root . '/upl';
+        @mkdir($dir, 0775, true);
+        file_put_contents($dir . '/ghost.png', 'x');
+        $this->db->query("UPDATE users SET avatar_path = 'ghost.png' WHERE id = ?", [$this->heirId]);
+        $this->assertFileExists($dir . '/ghost.png');
+        $this->assertSame(302, $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->heirId, ['stories' => 'remove'])->status);
+        $this->assertFileDoesNotExist($dir . '/ghost.png', 'the picture is scrubbed with the account');
+    }
 }
