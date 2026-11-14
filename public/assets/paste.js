@@ -99,7 +99,7 @@
     return s.replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/^\s+|\s+$/g, '');
   }
   function isSceneBreak(s) {
-    return /^(?:\*\s*){3,}$/.test(s) || /^(?:[-–—_=]\s*){3,}$/.test(s) || /^~+$/.test(s) || /^#$/.test(s);
+    return /^(?:\*\s*){3,}$/.test(s) || /^(?:[-\u2013\u2014_=]\s*){3,}$/.test(s) || /^~+$/.test(s) || /^#$/.test(s);
   }
 
   /* A list of sibling nodes to markdown blocks. Consecutive inline siblings
@@ -169,6 +169,22 @@
     return normalizeMarkdown(blocksOf([root], { b: false }).join('\n\n'));
   }
 
+  /* Insert text at the caret. execCommand('insertText') goes through the
+     browser's editing pipeline, so Ctrl/Cmd+Z undoes the paste; setRangeText
+     edits the value directly and wipes the undo history (Firefox bug 1220696,
+     and see MDN on HTMLInputElement.setRangeText and Document.execCommand).
+     execCommand is deprecated but still the only undo-safe route, so it is
+     tried first and setRangeText is the fallback when it is missing or
+     refuses. Either way an input event tells listeners the value changed. */
+  function insertText(box, text) {
+    var done = false;
+    try { done = document.execCommand('insertText', false, text); } catch (err) { done = false; }
+    if (!done) {
+      box.setRangeText(text, box.selectionStart, box.selectionEnd, 'end');
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
   function init() {
     var boxes = document.querySelectorAll('textarea[data-js-module="paste"]');
     Array.prototype.forEach.call(boxes, function (box) {
@@ -192,8 +208,7 @@
         if (md === '') { md = text; }
         if (md === '') { return; }
         e.preventDefault();
-        box.setRangeText(md, box.selectionStart, box.selectionEnd, 'end');
-        box.dispatchEvent(new Event('input', { bubbles: true }));
+        insertText(box, md);
       });
     });
   }
