@@ -202,4 +202,27 @@ final class SavedMessageTest extends TestCase
         $signed = \App\Saved::withUndo('/adminmembers', 'removed', '/adminmembers/delete/' . $this->memberId, $c->csrfToken())->headers['Location'] ?? '';
         $this->assertSame('/adminmembers?saved=removed', $signed, 'only lock, unlock and feature switches can be offered');
     }
+
+    public function test_an_off_switch_asked_off_again_changes_nothing(): void
+    {
+        $c = $this->client($this->adminId);
+        $c->postWithToken('/features/toggle/news', []); // off
+        $again = $c->postWithToken('/features/set/news/off', []);
+        parse_str((string) parse_url($again->headers['Location'] ?? '', PHP_URL_QUERY), $q);
+        $this->assertSame('turned_off', $q['saved'] ?? '');
+        \App\Features::init(new \Kip\Database('sqlite:' . $this->path), []);
+        $this->assertFalse(\App\Features::on('news'));
+    }
+
+    public function test_a_stale_on_undo_leaves_a_relit_switch_on(): void
+    {
+        $c = $this->client($this->adminId);
+        $c->postWithToken('/features/toggle/news', []); // off; its Undo is set/news/on?from=off
+        $c->postWithToken('/features/set/news/on', []); // someone turns it back on by hand
+        $res = $c->request('POST', '/features/set/news/on', ['from' => 'off'], ['_token' => $c->csrfToken()]);
+        parse_str((string) parse_url($res->headers['Location'] ?? '', PHP_URL_QUERY), $q);
+        $this->assertSame('changed_since', $q['saved'] ?? '', 'the stale undo refuses');
+        \App\Features::init(new \Kip\Database('sqlite:' . $this->path), []);
+        $this->assertTrue(\App\Features::on('news'));
+    }
 }

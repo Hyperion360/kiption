@@ -241,4 +241,35 @@ final class MessagesMenuTest extends TestCase
             $this->assertSame([], $urls($public), $public . ' is not an owner screen');
         }
     }
+
+    public function test_turning_maintenance_off_reopens_the_site(): void
+    {
+        $admin = $this->client($this->adminId);
+        $admin->postWithToken('/settings/save', ['site_name' => 'Kiption', 'registration_mode' => 'verify', 'validation_required' => '0', 'items_per_page' => '20', 'footer_present' => '1', 'maintenance_on' => '1']);
+        $this->assertTrue($this->config()['maintenance_on']);
+        // The absent checkbox means off: save the maintenance section without it.
+        $res = $admin->postWithToken('/settings/save', ['section' => 'maintenance']);
+        $this->assertSame(302, $res->status, $res->body);
+        $cfg = $this->config();
+        $this->assertFalse($cfg['maintenance_on']);
+        $none = [];
+        $this->assertNull(\App\Maintenance::gate($cfg, new Request('GET', '/', [], [], []), new \Kip\Session($none)), 'visitors browse again');
+    }
+
+    public function test_the_gate_lets_a_signed_in_admin_through_but_not_a_member(): void
+    {
+        $this->client($this->adminId)->postWithToken('/settings/save', ['site_name' => 'Kiption', 'registration_mode' => 'verify', 'validation_required' => '0', 'items_per_page' => '20', 'footer_present' => '1', 'maintenance_on' => '1']);
+        $cfg = $this->config();
+        $epoch = fn(int $id): string => substr((string) $this->db->one('SELECT password_hash FROM users WHERE id = ?', [$id])['password_hash'], 0, \Kip\Auth::EPOCH_LEN);
+        $req = new Request('GET', '/', [], [], ['kip_session' => '1']); // cookies present, so the admin branch runs
+        $empty = [];
+        $admin = new \Kip\Session($empty);
+        $admin->set('user_id', $this->adminId);
+        $admin->set('pwd_epoch', $epoch($this->adminId));
+        $this->assertNull(\App\Maintenance::gate($cfg, $req, $admin), 'a live admin session browses through maintenance');
+        $member = new \Kip\Session($empty);
+        $member->set('user_id', $this->memberId);
+        $member->set('pwd_epoch', $epoch($this->memberId));
+        $this->assertSame(503, \App\Maintenance::gate($cfg, $req, $member)->status, 'a signed-in member is still a visitor here');
+    }
 }

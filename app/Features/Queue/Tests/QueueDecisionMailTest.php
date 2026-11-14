@@ -214,4 +214,39 @@ final class QueueDecisionMailTest extends TestCase
         $c->postWithToken('/queue/chapter/' . $mid . '/remove', ['confirmed' => '1', 'reason' => '']);
         $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'queue.chapter_remove'")['c'], 'one log line, repeat clicks add none');
     }
+
+    public function test_rejecting_a_pending_staff_member_changes_nothing(): void
+    {
+        // Staff rows can appear in the member queue with approved_at NULL;
+        // reject only ever settles members.
+        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at) VALUES ('mod@e.test', ?, 'modhopeful', 'moderator', 0, ?, NULL)",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c')]);
+        $id = (int) $this->db->lastInsertId();
+        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject', ['confirmed' => '1', 'reason' => 'x']);
+        $row = $this->db->one('SELECT is_locked, approved_at, role FROM users WHERE id = ?', [$id]);
+        $this->assertSame(0, (int) $row['is_locked']);
+        $this->assertNull($row['approved_at']);
+        $this->assertSame('moderator', $row['role']);
+        $this->assertSame('', $this->mail());
+    }
+
+    public function test_approving_a_pending_staff_member_dates_them_and_keeps_the_role(): void
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at) VALUES ('mod2@e.test', ?, 'modhopeful2', 'moderator', 0, ?, NULL)",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c')]);
+        $id = (int) $this->db->lastInsertId();
+        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/approve');
+        $row = $this->db->one('SELECT approved_at, role FROM users WHERE id = ?', [$id]);
+        $this->assertNotNull($row['approved_at']);
+        $this->assertSame('moderator', $row['role']);
+    }
+
+    public function test_approving_an_already_approved_member_is_a_no_op(): void
+    {
+        $id = $this->applicant();
+        $this->db->query('UPDATE users SET approved_at = ? WHERE id = ?', ['2020-01-01T00:00:00Z', $id]);
+        $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/approve');
+        $this->assertSame('2020-01-01T00:00:00Z', $this->db->one('SELECT approved_at FROM users WHERE id = ?', [$id])['approved_at']);
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'queue.member_approve'")['c'], 'a no-op approve logs nothing');
+    }
 }

@@ -522,4 +522,21 @@ final class CliTest extends TestCase
         $this->assertMatchesRegularExpression('/^Imported: EvilTitleSecond Line \(3 chapters, \d+ words\)$/m', $out,
             'characters strip, nothing replaces them, and the line count never grows');
     }
+
+    public function test_auth_link_mints_a_working_link_and_refuses_bad_input(): void
+    {
+        $this->kip('migrate');
+        $db = new Database('sqlite:' . $this->path);
+        $db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('cli@e.test', ?, 'climember', ?, ?)",
+            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+        [$code, $out] = $this->kip('auth:link cli@e.test');
+        $this->assertSame(0, $code, $out);
+        $url = strtok($out, "\n");
+        $this->assertMatchesRegularExpression('#^https?://[^/]+/auth/magic\?t=[0-9a-f]{64}$#', $url, $out);
+        $this->assertNotSame([], $db->all('SELECT * FROM login_links'), 'the link is stored');
+        [$code] = $this->kip('auth:link nobody@e.test');
+        $this->assertSame(1, $code, 'an unknown address exits 1');
+        [$code] = $this->kip('auth:link cli@e.test --hours=169');
+        $this->assertSame(1, $code, 'an out-of-range ttl exits 1');
+    }
 }

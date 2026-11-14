@@ -143,4 +143,16 @@ final class PasswordChangeTest extends TestCase
         $this->member()->postWithToken('/account/password', $this->form());
         $this->assertFalse($links->peek($token));
     }
+
+    public function test_a_right_password_after_wrong_ones_still_works(): void
+    {
+        // checkPassword's contract: a wrong try spends a slot, a right one
+        // clears them. 4 wrong + 2 right exceeds the cap unless success cleared it.
+        $me = $this->member();
+        for ($i = 0; $i < 4; $i++) {
+            $this->assertSame(422, $me->postWithToken('/account/password', $this->form(['current_password' => 'wrong' . $i]))->status);
+        }
+        $this->assertSame(302, $me->postWithToken('/account/password', $this->form())->status, 'the right password clears the spent slots');
+        $this->assertSame(302, $me->postWithToken('/account/password', $this->form(['current_password' => 'brand-new-pass', 'new_password' => 'brand-new-pass-2', 'confirm_password' => 'brand-new-pass-2']))->status, 'a second change in the same window succeeds');
+    }
 }
