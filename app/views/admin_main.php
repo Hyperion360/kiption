@@ -5,8 +5,7 @@
   <?php /* Owner screens only: the list of every admin screen (a sidebar on
      wide screens, a tab bar and sheet on phones) and the way back to the
      list a sub-screen belongs to. Members and guests never get these bytes. */
-     $isAdminScreen = array_key_exists('isAdmin', get_defined_vars()) ? $isAdmin : \App\SessionGuard::role() === 'admin';
-     $admin = $isAdminScreen ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? '')) : null;
+     $admin = ($isAdmin ?? false) ? \App\AdminNav::shell((string) (($request ?? null)?->path ?? '')) : null;
      if ($admin !== null): ?>
   <div class="admin-shell" data-js-module="adminforms" data-count-text="<?= $this->e(\App\Lang::t('admin.count')) ?>">
   <?= $this->render('admin_nav', ['admin' => $admin]) ?>
