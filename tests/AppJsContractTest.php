@@ -42,6 +42,7 @@ final class AppJsContractTest extends TestCase
             'views' => dirname(__DIR__) . '/app/views',
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
+            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-appjs-mail.log', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-appjs-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ]));
@@ -349,5 +350,28 @@ final class AppJsContractTest extends TestCase
         $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/infinite.js');
         $this->assertStringContainsString("Kip.\$('[role=\"status\"]', shell)", $js);
         $this->assertStringContainsString('statusEl.textContent = say', $js);
+    }
+
+    /** Paste from Docs and Word: the chapter text box carries the paste marker,
+     *  the form is otherwise the plain form (required, no inline script), and
+     *  the hint sits beside the markdown help. */
+    public function test_chapter_text_box_carries_the_paste_marker_and_still_works_without_scripting(): void
+    {
+        $authorId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
+        $html = $this->client()->actingAs($authorId)->get('/chapter/new/the-rabbit-hole')->body;
+        $this->assertMatchesRegularExpression('/<textarea[^>]*name="content"[^>]*data-js-module="paste"/', $html);
+        $this->assertMatchesRegularExpression('/<textarea[^>]*name="content"[^>]*\brequired\b/', $html, 'the plain form is unchanged');
+        $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $html, 'no inline script is added');
+        $this->assertStringContainsString(\App\Lang::t('chapter.paste_hint'), $html);
+        $this->assertStringContainsString('Hold Shift', \App\Lang::t('chapter.paste_hint'));
+    }
+
+    public function test_app_js_loads_the_paste_module_only_when_the_marker_exists(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("'paste'", $js);
+        $this->assertFileExists(dirname(__DIR__) . '/public/assets/paste.js');
+        $plain = $this->client()->get('/story/read/the-rabbit-hole/1')->body;
+        $this->assertStringNotContainsString('data-js-module="paste"', $plain, 'the marker lives only on the chapter text box');
     }
 }

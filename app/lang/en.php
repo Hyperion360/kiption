@@ -445,6 +445,7 @@ return [
     'chapter.access_password_label' => 'Post password (readers must enter it to read this chapter)',
     'chapter.access_clear_label' => 'Remove password',
     'chapter.markdown_help' => 'Markdown: *italic*, **bold**, a line of --- for a scene break, > for quotes, [text](https://...). HTML is not available.',
+    'chapter.paste_hint' => 'Pasting from Google Docs or Word keeps italics, bold, links, and scene breaks. Hold Shift to paste plain text.',
     'chapter.save' => 'Save chapter',
     'chapter.delete' => 'Delete chapter',
 
