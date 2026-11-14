@@ -386,6 +386,18 @@ final class AuthController
     {
         $user = (new \App\LoginLinks($this->db))->consume($this->request->postStr('t'));
         if ($user === null) return $this->linkView('expired', 410);
+        // Refuse first: a locked or unapproved member must not burn their
+        // password on a valid link only to be refused anyway (after a later
+        // unlock they could then never sign in without a reset).
+        $refusal = match (true) {
+            (int) $user['is_locked'] === 1 => \App\Lang::t('auth.err_locked'),
+            $user['approved_at'] === null => \App\Lang::t('auth.err_unapproved'),
+            default => null,
+        };
+        if ($refusal !== null) {
+            return new Response($this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'),
+                'csrf' => $this->session->csrfToken(), 'error' => $refusal]), 403);
+        }
         // The link went to the account's address, so using it verifies the
         // email, the same as the verification link would.
         if ($user['email_verified_at'] === null) {
@@ -396,12 +408,6 @@ final class AuthController
             if ($changed > 0) (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
             $user = $this->db->one('SELECT * FROM users WHERE id = ?', [$user['id']]) ?? $user;
         }
-        $refusal = match (true) {
-            (int) $user['is_locked'] === 1 => \App\Lang::t('auth.err_locked'),
-            $user['email_verified_at'] === null => \App\Lang::t('auth.err_unverified'),
-            $user['approved_at'] === null => \App\Lang::t('auth.err_unapproved'),
-            default => null,
-        };
         if ($refusal !== null) {
             return new Response($this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'),
                 'csrf' => $this->session->csrfToken(), 'error' => $refusal]), 403);
