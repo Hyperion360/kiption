@@ -82,7 +82,7 @@ final class Install
         $db->query("INSERT INTO nav_links (label, url, position) VALUES
             ('Browse', '/browse', 1), ('Recent', '/browse/recent', 2),
             ('Authors', '/browse/authors', 3), ('Series', '/series', 4),
-            ('Reading lists', '/lists', 5)");
+            ('Reading Lists', '/lists', 5)");
         \App\NavLinks::rebuild($db, (string) ($config['nav_file'] ?? ''));
     }
 
