@@ -27,9 +27,14 @@ final class ContactController
     public function send(): Response
     {
         if (($off = \App\Features::guard('contact')) !== null) return $off;
+        $ip = $this->request->ip;
         // The hidden field is empty for people. A bot that fills it gets the
-        // same thank-you page and nothing is sent or counted.
-        if ($this->request->postStr('website') !== '') return Response::redirect('/contact?sent=1');
+        // same thank-you page and nothing is sent; the probe still spends a
+        // throttle slot so the cheap branch is not free spam.
+        if ($this->request->postStr('website') !== '') {
+            (new \App\AttemptLimiter($this->db))->claim('contact', $ip, $ip, self::PER_IP, self::PER_IP);
+            return Response::redirect('/contact?sent=1');
+        }
         $name = $this->oneLine($this->request->postStr('name'), 100);
         $email = $this->oneLine($this->request->postStr('email'), 254);
         $message = trim($this->request->postStr('message'));
@@ -39,7 +44,6 @@ final class ContactController
         }
         if (mb_strlen($message) > self::MAX_MESSAGE) return $this->form('contact.err_long', 422, $old);
         if (\App\Features\Wordfilter\WordFilter::find($this->db, $name, $message) !== null) return $this->form('contact.err_blocked', 422, $old);
-        $ip = $this->request->ip;
         if (!(new \App\AttemptLimiter($this->db))->claim('contact', $ip, $ip, self::PER_IP, self::PER_IP)) {
             return $this->form('contact.err_throttled', 429, $old);
         }

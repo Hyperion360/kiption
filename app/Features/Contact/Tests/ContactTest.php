@@ -104,7 +104,9 @@ final class ContactTest extends TestCase
         $this->assertSame(302, $res->status);
         $this->assertSame('/contact?sent=1', $res->headers['Location'] ?? '', 'looks like success to a bot');
         $this->assertSame('', $this->mail());
-        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM login_attempts WHERE kind = 'contact'")['c']);
+        // The cheap branch is not free: a honeypot hit spends a throttle slot
+        // like a real send would, so a bot cannot probe at unlimited rate.
+        $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) c FROM login_attempts WHERE kind = 'contact'")['c']);
     }
 
     public function test_the_fourth_message_in_a_window_is_rate_limited(): void
