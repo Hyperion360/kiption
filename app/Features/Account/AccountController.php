@@ -47,6 +47,12 @@ final class AccountController
         $given = $this->request->post['field'] ?? [];
         $input = [];
         foreach (\is_array($given) ? $given : [] as $id => $v) if (\is_scalar($v)) $input[(int) $id] = (string) $v;
+        // Profile answers render on public profile pages like bio does, so
+        // they ride the same word filter (the refusal never echoes the word).
+        if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, ...array_values($input))) !== null) {
+            $this->submittedFields = $input;
+            return new Response($blocked, 422);
+        }
         $err = (new \App\ProfileFields($this->db))->save($me, $input);
         if ($err !== null) {
             $this->submittedFields = $input;

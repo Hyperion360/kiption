@@ -246,4 +246,14 @@ final class ProfilefieldsTest extends TestCase
         $stored = (string) $this->db->one('SELECT value FROM profile_field_values WHERE field_id = ?', [$id])['value'];
         $this->assertSame(\App\ProfileFields::MAX_TEXT, mb_strlen($stored));
     }
+
+    public function test_a_filtered_word_in_an_answer_is_refused_without_echoing_it(): void
+    {
+        $this->db->query("INSERT OR IGNORE INTO word_filter (word) VALUES ('casino')");
+        $id = $this->addField('Pronouns', 'text');
+        $r = $this->member()->postWithToken('/account/fields', ['field' => [$id => 'casino nights']]);
+        $this->assertSame(422, $r->status);
+        $this->assertStringNotContainsString('casino nights', $this->profile(), 'nothing was saved');
+        $this->assertNull($this->db->one('SELECT 1 AS x FROM profile_field_values WHERE field_id = ?', [$id]));
+    }
 }
