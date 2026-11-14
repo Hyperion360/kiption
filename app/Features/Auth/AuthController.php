@@ -26,9 +26,15 @@ final class AuthController
         );
     }
 
+    /** Every auth page carries the nav artifact, so links the operator hid stay hidden here too. */
+    private function render(string $template, array $data): string
+    {
+        return $this->view->render($template, $data + ['navFile' => (string) $this->app->config('nav_file', '')]);
+    }
+
     public function login(): string
     {
-        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'head' => $this->head()->withTitle(\App\Lang::t('auth.login.heading'))->withCanonical('/auth/login')->withNoindex(),
+        return $this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'head' => $this->head()->withTitle(\App\Lang::t('auth.login.heading'))->withCanonical('/auth/login')->withNoindex(),
             'csrf' => $this->session->csrfToken(), 'error' => isset($this->request->get['locked']) ? \App\Lang::t('auth.err_locked') : null,
             'verified' => isset($this->request->get['verified']),
             'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify')]);
@@ -50,7 +56,7 @@ final class AuthController
         if ($this->auth->throttled($email, $this->request->ip)) {
             \App\ActivityLog::recordOnce($this->db, null, 'auth.signin_throttled', 'too many attempts');
             return new Response(
-                $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                $this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                     'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                     'error' => \App\Lang::t('auth.err_throttle')]),
                 429
@@ -64,21 +70,21 @@ final class AuthController
                 if ((int) $user['is_locked'] === 1) {
                     $this->auth->logout();
                     \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'account locked');
-                    return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                    return $this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                         'error' => \App\Lang::t('auth.err_locked')]);
                 }
                 if ($user['email_verified_at'] === null) {
                     $this->auth->logout();
                     \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'email not confirmed');
-                    return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                    return $this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                         'error' => \App\Lang::t('auth.err_unverified')]);
                 }
                 if ($user['approved_at'] === null) {
                     $this->auth->logout();
                     \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'not approved yet');
-                    return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
+                    return $this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(),
                         'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'),
                         'error' => \App\Lang::t('auth.err_unapproved')]);
                 }
@@ -90,7 +96,7 @@ final class AuthController
         // address could be someone else's. (Throttled attempts return above, so a
         // flood cannot grow this log without bound.)
         \App\ActivityLog::record($this->db, null, 'auth.signin_failed', 'wrong email or password');
-        return $this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'), 'error' => \App\Lang::t('auth.err_wrong')]);
+        return $this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'), 'csrf' => $this->session->csrfToken(), 'toPost' => $this->toPost(), 'registration' => (string) $this->app->config('registration_mode', 'verify'), 'error' => \App\Lang::t('auth.err_wrong')]);
     }
 
     /** The cookie-sync seam (phase 12d ruling 1): the prefs row is the source
@@ -167,7 +173,7 @@ final class AuthController
 
     public function register(): string
     {
-        return $this->view->render('auth/register', [
+        return $this->render('auth/register', [
             'title' => \App\Lang::t('auth.register.title'),
             'head' => $this->head()->withTitle(\App\Lang::t('auth.register.title'))->withCanonical('/auth/register')->withNoindex(),
             'csrf' => $this->session->csrfToken(),
@@ -243,7 +249,7 @@ final class AuthController
 
     private function registerError(string $mode, string $error, string $penname, string $email): Response
     {
-        return new Response($this->view->render('auth/register', [
+        return new Response($this->render('auth/register', [
             'title' => \App\Lang::t('auth.register.title'),
             'head' => $this->head()->withTitle(\App\Lang::t('auth.register.title'))->withCanonical('/auth/register')->withNoindex(),
             'csrf' => $this->session->csrfToken(),
@@ -270,7 +276,7 @@ final class AuthController
 
     public function forgot(): string
     {
-        return $this->view->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'),
+        return $this->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'),
             'head' => $this->head()->withTitle(\App\Lang::t('auth.forgot.title'))->withCanonical('/auth/forgot')->withNoindex(), 'sent' => false]);
     }
 
@@ -298,7 +304,7 @@ final class AuthController
             });
         }
         // Same page whether the account exists or not, no enumeration.
-        return $this->view->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'), 'sent' => true]);
+        return $this->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'), 'sent' => true]);
     }
 
     public function reset(string $token): string
@@ -331,7 +337,7 @@ final class AuthController
 
     private function resetView(string $token, ?string $error): string
     {
-        return $this->view->render('auth/reset', ['title' => \App\Lang::t('auth.reset.heading'),
+        return $this->render('auth/reset', ['title' => \App\Lang::t('auth.reset.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('auth.reset.heading'))->withCanonical($this->request->path)->withNoindex(),
             'token' => $token, 'error' => $error]);
     }
@@ -371,7 +377,7 @@ final class AuthController
         $token = (string) ($this->request->get['t'] ?? '');
         if (!(new \App\LoginLinks($this->db))->peek($token)) return $this->linkView('expired', 410);
         $heading = \App\Lang::t('auth.link.magic_heading');
-        $html = $this->view->render('auth/magic', ['title' => $heading,
+        $html = $this->render('auth/magic', ['title' => $heading,
             'head' => $this->head()->withTitle($heading)->withCanonical('/auth/magic')->withNoindex(),
             'csrf' => $this->session->csrfToken(), 'token' => $token]);
         // The page carries a live credential: never let it leave as a
@@ -395,7 +401,7 @@ final class AuthController
             default => null,
         };
         if ($refusal !== null) {
-            return new Response($this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'),
+            return new Response($this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'),
                 'csrf' => $this->session->csrfToken(), 'error' => $refusal]), 403);
         }
         // The link went to the account's address, so using it verifies the
@@ -409,7 +415,7 @@ final class AuthController
             $user = $this->db->one('SELECT * FROM users WHERE id = ?', [$user['id']]) ?? $user;
         }
         if ($refusal !== null) {
-            return new Response($this->view->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'),
+            return new Response($this->render('auth/login', ['title' => \App\Lang::t('auth.login.heading'),
                 'csrf' => $this->session->csrfToken(), 'error' => $refusal]), 403);
         }
         // Kip\Auth::establishSession's order (private upstream): a new session
@@ -443,7 +449,7 @@ final class AuthController
     private function linkView(?string $state, int $status): Response
     {
         $title = \App\Lang::t('auth.link.title');
-        return new Response($this->view->render('auth/link', ['title' => $title,
+        return new Response($this->render('auth/link', ['title' => $title,
             'head' => $this->head()->withTitle($title)->withCanonical('/auth/link')->withNoindex(),
             'state' => $state, 'loggedIn' => \App\Viewer::id($this->request, $this->session, $this->db) !== 0]), $status);
     }
