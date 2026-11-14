@@ -1,0 +1,203 @@
+/* Kiption enhancement layer, paste module. Pasting rich text from Google
+ * Docs or Word into a marked text box converts it to this site's markdown
+ * and inserts it as text. Anything unexpected falls back to the browser's
+ * own plain-text paste. Shift held means paste as plain text. The converter
+ * walks a parsed tree and only ever builds a string; it never writes markup
+ * back into the page. */
+'use strict';
+(function (root, factory) {
+  var api = factory();
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
+  if (root.Kip) { root.Kip.pasteToMarkdown = api.convertNodeTree; root.Kip.pasteInit = api.init; }
+})(typeof window !== 'undefined' ? window : globalThis, function () {
+  var SKIP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, IMG: 1, HEAD: 1, META: 1, LINK: 1, NOSCRIPT: 1, TEMPLATE: 1, SVG: 1, TITLE: 1 };
+  var BLOCK = { P: 1, DIV: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, UL: 1, OL: 1, LI: 1, BLOCKQUOTE: 1, TABLE: 1, TR: 1, TD: 1, TH: 1, BODY: 1, HR: 1, PRE: 1, SECTION: 1, ARTICLE: 1 };
+  var HEADING = { H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1 };
+
+  function tagOf(n) { return n.nodeType === 1 ? String(n.tagName || '').toUpperCase() : ''; }
+  function styleOf(n, prop) { return String((n.style && n.style[prop]) || '').toLowerCase(); }
+
+  /* Bold: an explicit font-weight wins (Docs wraps everything in a b tag that
+     says font-weight:normal), else a bare b or strong means bold (Word), else
+     the parent's state carries down. */
+  function boldOf(n, inherited) {
+    var w = styleOf(n, 'fontWeight');
+    if (w !== '') { return w === 'bold' || w === 'bolder' || parseInt(w, 10) >= 600; }
+    var t = tagOf(n);
+    return (t === 'STRONG' || t === 'B') ? true : inherited;
+  }
+  function italicOf(n, inherited) {
+    var s = styleOf(n, 'fontStyle');
+    if (s !== '') { return s === 'italic' || s === 'oblique'; }
+    var t = tagOf(n);
+    return (t === 'EM' || t === 'I' || t === 'CITE') ? true : inherited;
+  }
+
+  /* A link target we are willing to keep: https only, with a Google redirect
+     unwrapped to its real destination. Anything else yields ''. */
+  function unwrapGoogleUrl(href) {
+    var raw = String(href || '').trim();
+    var u;
+    try { u = new URL(raw); } catch (e) { return ''; }
+    var target = raw;
+    if (/(^|\.)google\.com$/i.test(u.hostname) && u.pathname === '/url') {
+      target = u.searchParams.get('q') || '';
+    }
+    target = String(target).trim();
+    if (!/^https:\/\//i.test(target) || /[\u0000-\u001f\u007f]/.test(target)) { return ''; }
+    return target;
+  }
+
+  function normalizeMarkdown(s) { return String(s).replace(/\n{3,}/g, '\n\n').replace(/^\s+|\s+$/g, ''); }
+
+  function wrap(text, mark) {
+    var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(text);
+    if (m[2] === '') { return text; }
+    return m[1] + mark + m[2] + mark + m[3];
+  }
+
+  function hasBlock(n) {
+    var kids = n.childNodes || [];
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i];
+      if (k.nodeType === 1 && !SKIP[tagOf(k)] && (BLOCK[tagOf(k)] || hasBlock(k))) { return true; }
+    }
+    return false;
+  }
+  function isBlockish(n) { return n.nodeType === 1 && !SKIP[tagOf(n)] && (BLOCK[tagOf(n)] || hasBlock(n)); }
+
+  /* One inline node to a string of markdown. st carries inherited b and i. */
+  function inline(n, st) {
+    if (n.nodeType === 3) { return String(n.nodeValue || '').replace(/[\s ]+/g, ' '); }
+    if (n.nodeType !== 1) { return ''; }
+    var tag = tagOf(n);
+    if (SKIP[tag]) { return ''; }
+    if (tag === 'BR') { return '\n'; }
+    var b = boldOf(n, st.b), i = italicOf(n, st.i);
+    var inner = inlineRun(n.childNodes || [], { b: b, i: i });
+    if (tag === 'A') {
+      var url = unwrapGoogleUrl(n.getAttribute && n.getAttribute('href'));
+      var label = inner.replace(/[\[\]]/g, '');
+      if (url === '' || label.trim() === '') { return inner; }
+      url = url.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
+      return '[' + label + '](' + url + ')';
+    }
+    var out = inner;
+    var newB = b && !st.b, newI = i && !st.i;
+    if (newB && newI) { out = wrap(out, '***'); }
+    else if (newB) { out = wrap(out, '**'); }
+    else if (newI) { out = wrap(out, '*'); }
+    return out;
+  }
+  function inlineRun(nodes, st) {
+    var s = '';
+    for (var k = 0; k < nodes.length; k++) { s += inline(nodes[k], st); }
+    return s;
+  }
+
+  function tidy(s) {
+    return s.replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/^\s+|\s+$/g, '');
+  }
+  function isSceneBreak(s) {
+    return /^(?:\*\s*){3,}$/.test(s) || /^(?:[-–—_=]\s*){3,}$/.test(s) || /^~+$/.test(s) || /^#$/.test(s);
+  }
+
+  /* A list of sibling nodes to markdown blocks. Consecutive inline siblings
+     form one paragraph; block siblings recurse. */
+  function blocksOf(nodes, ctx) {
+    var out = [], run = [];
+    function flush() {
+      if (!run.length) { return; }
+      var t = tidy(inlineRun(run, { b: ctx.b, i: false }));
+      run = [];
+      if (t === '') { return; }
+      out.push(isSceneBreak(t) ? '---' : t);
+    }
+    for (var k = 0; k < nodes.length; k++) {
+      var n = nodes[k];
+      if (n.nodeType === 3) { run.push(n); continue; }
+      if (n.nodeType !== 1 || SKIP[tagOf(n)]) { continue; }
+      if (!isBlockish(n)) { run.push(n); continue; }
+      flush();
+      out = out.concat(blockOf(n, ctx));
+    }
+    flush();
+    return out;
+  }
+
+  function blockOf(n, ctx) {
+    var tag = tagOf(n);
+    if (tag === 'HR') { return ['---']; }
+    if (HEADING[tag]) {
+      var h = tidy(inlineRun(n.childNodes || [], { b: true, i: false }));
+      return h === '' ? [] : [wrap(h, '**')];
+    }
+    if (tag === 'UL' || tag === 'OL') {
+      var items = [], num = 0, kids = n.childNodes || [];
+      for (var k = 0; k < kids.length; k++) {
+        var li = kids[k];
+        if (tagOf(li) !== 'LI') { continue; }
+        var own = [], nested = [], lk = li.childNodes || [];
+        for (var j = 0; j < lk.length; j++) {
+          (tagOf(lk[j]) === 'UL' || tagOf(lk[j]) === 'OL' ? nested : own).push(lk[j]);
+        }
+        var text = blocksOf(own, ctx).join(' ');
+        num++;
+        if (text !== '') { items.push((tag === 'OL' ? num + '. ' : '- ') + text); }
+        items = items.concat(blocksOf(nested, ctx));
+      }
+      return items;
+    }
+    if (tag === 'BLOCKQUOTE') {
+      var q = blocksOf(n.childNodes || [], ctx);
+      return q.length ? [q.map(function (l) { return '> ' + l.replace(/\n/g, ' '); }).join('\n')] : [];
+    }
+    if (!hasBlock(n)) {
+      /* A leaf paragraph: its own bold or italic styling wraps its text. */
+      var t = tidy(inline(n, { b: ctx.b, i: false }));
+      return t === '' ? [] : [isSceneBreak(t) ? '---' : t];
+    }
+    /* A wrapper of blocks. A Docs wrapper says font-weight:normal, which
+       must not leak bold into its children; a bold-looking wrapper emits no
+       markers of its own. */
+    return blocksOf(n.childNodes || [], { b: boldOf(n, ctx.b) });
+  }
+
+  /* The converter: a parsed tree to a markdown string for this site. */
+  function convertNodeTree(root) {
+    if (!root) { return ''; }
+    return normalizeMarkdown(blocksOf([root], { b: false }).join('\n\n'));
+  }
+
+  function init() {
+    var boxes = document.querySelectorAll('textarea[data-js-module="paste"]');
+    Array.prototype.forEach.call(boxes, function (box) {
+      var plainNext = false;
+      box.addEventListener('keydown', function (e) {
+        plainNext = e.shiftKey && (e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 'v';
+      });
+      box.addEventListener('paste', function (e) {
+        var cd = e.clipboardData;
+        if (!cd) { return; }
+        var html = cd.getData('text/html');
+        var text = cd.getData('text/plain');
+        var plain = plainNext;
+        plainNext = false;
+        if (plain || !html) { return; } /* the browser's own paste does the right thing */
+        var md = '';
+        try {
+          var doc = new DOMParser().parseFromString(html, 'text/html'); /* inert: scripts never run */
+          md = normalizeMarkdown(convertNodeTree(doc.body));
+        } catch (err) { md = ''; }
+        if (md === '') { md = text; }
+        if (md === '') { return; }
+        e.preventDefault();
+        box.setRangeText(md, box.selectionStart, box.selectionEnd, 'end');
+        box.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    });
+  }
+  if (typeof Kip !== 'undefined' && Kip.init) { Kip.init(init); }
+
+  return { convertNodeTree: convertNodeTree, unwrapGoogleUrl: unwrapGoogleUrl, normalizeMarkdown: normalizeMarkdown, init: init };
+});
