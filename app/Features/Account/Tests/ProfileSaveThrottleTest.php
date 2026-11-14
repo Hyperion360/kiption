@@ -71,5 +71,8 @@ final class ProfileSaveThrottleTest extends TestCase
         for ($i = 0; $i < 10; $i++) $c->postWithToken('/account/support', ['support_url' => 'https://ko-fi.com/x' . $i]);
         $this->assertSame(429, $c->postWithToken('/account/prefs', ['bio' => 'x', 'default_sort' => 'recent'])->status);
         $this->assertSame(429, $c->postWithToken('/account/fields', [])->status);
+        // The avatar upload rides the same cap: with the cap spent it answers
+        // 429 (uploads are on by default here) before any file is examined.
+        $this->assertSame(429, $c->postWithToken('/account/avatar', [])->status);
     }
 }

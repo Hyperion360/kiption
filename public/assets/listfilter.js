@@ -33,7 +33,6 @@
         if (note) { note.hidden = q === ''; }
       }
       box.addEventListener('input', narrow);
-      if (box.value !== '' && wrap.hasAttribute('data-filter-fresh')) { narrow(); }
     });
   });
 })(window.Kip);

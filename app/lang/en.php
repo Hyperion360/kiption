@@ -1405,7 +1405,6 @@ return [
     'admin.saved_saved' => 'Saved.',
     'admin.saved_added' => 'Added.',
     'admin.saved_removed' => 'Removed.',
-    'admin.saved_sent' => 'Sent.',
     'admin.saved_approved' => 'Approved.',
     'admin.saved_rejected' => 'Rejected.',
     'admin.saved_moved' => 'Moved.',

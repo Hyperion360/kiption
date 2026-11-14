@@ -172,4 +172,13 @@ final class MailusersTest extends TestCase
         $this->assertStringContainsString('Autumn &lt;news&gt;', $body);
         $this->assertStringNotContainsString(\App\Lang::t('mailusers.last_never'), $body);
     }
+
+    public function test_a_screen_with_nobody_to_reach_says_so(): void
+    {
+        // The zero-recipient edge of MassMail::summary: the compose screen
+        // explains itself instead of offering a send to nobody.
+        $this->db->query('UPDATE users SET approved_at = NULL');
+        $body = $this->client($this->adminId)->get('/mailusers')->body;
+        $this->assertStringContainsString(\App\Lang::t('mailusers.reach_none'), $body);
+    }
 }
