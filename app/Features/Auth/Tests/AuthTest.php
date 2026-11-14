@@ -55,6 +55,28 @@ final class AuthTest extends TestCase
         $this->assertStringContainsString('autocomplete="current-password"', $res->body);
     }
 
+    public function test_removed_menu_links_stay_hidden_on_the_sign_in_pages(): void
+    {
+        $navFile = tempnam(sys_get_temp_dir(), 'kiption-auth-nav-') . '.json';
+        $this->db->query('DELETE FROM nav_links');
+        $this->db->query('INSERT INTO nav_links (label, url, position) VALUES (?,?,?)', ['Recent', '/browse/recent', 1]);
+        \App\NavLinks::rebuild($this->db, $navFile);
+        $app = new App([
+            'app_dir' => dirname(__DIR__, 4) . '/app', 'env' => 'prod', 'views' => dirname(__DIR__, 4) . '/app/views',
+            'db' => ['dsn' => 'sqlite::memory:'], 'log_db' => ['dsn' => 'sqlite::memory:'],
+            'base_url' => 'http://kiption.test', 'nav_file' => $navFile,
+            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-auth-test.log', 'from' => 'noreply@kiption.test'],
+        ]);
+        (new Migrator($app->container->make(Database::class), \App\Tests\Support\AppLayout::migrations()))->migrate();
+        foreach (['/auth/login', '/auth/register', '/auth/forgot'] as $path) {
+            $body = $app->handle(new Request('GET', $path, [], [], []))->body;
+            $this->assertStringContainsString('href="/browse/recent"', $body, $path);
+            $this->assertStringNotContainsString('href="/browse/authors"', $body, $path);
+            $this->assertStringNotContainsString('href="/series"', $body, $path);
+        }
+        @unlink($navFile);
+    }
+
     public function test_login_page_says_the_account_is_locked_after_a_forced_sign_out(): void
     {
         $this->assertStringNotContainsString('This account is locked.', $this->app->handle(new Request('GET', '/auth/login', [], [], []))->body);
