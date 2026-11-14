@@ -100,11 +100,10 @@
     <?php $menuRead = ['/browse' => \App\Lang::t('nav.browse'), '/browse/recent' => \App\Lang::t('nav.recent'),
                        '/browse/authors' => \App\Lang::t('nav.authors'), '/series' => \App\Lang::t('nav.series'),
                        '/search' => \App\Lang::t('nav.search')];
-       $menuSeen = $menuRead + ['/series' => '']; // keep a Series row from reappearing below
-       foreach (['/browse/recent', '/browse/authors', '/series'] as $u) {
+       $menuSeen = $menuRead + ['/story/new' => '', '/account' => '', '/messages' => '', '/notifications' => '', '/auth/login' => ''];
+       foreach (['/browse/recent', '/browse/authors', '/series'] as $u) { // hidden built-ins stay in $menuSeen so a nav row cannot bring them back
            if (!$navOn[$u] || ($u === '/series' && !\App\Settings::on('series_on'))) unset($menuRead[$u]);
-       }
-       $menuSeen = $menuSeen + ['/story/new' => '', '/account' => '', '/messages' => '', '/notifications' => '', '/auth/login' => '']; ?>
+       } ?>
     <nav aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <?php if ($loggedIn ?? false): ?>
       <span class="sheet-group"><?= \App\Lang::t('nav.you') ?></span>
