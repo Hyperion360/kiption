@@ -24,6 +24,7 @@ final class ManageController extends AdminScreen
         ['stories', '/categories', 'manage.categories'],
         ['stories', '/ratings', 'manage.ratings'],
         ['stories', '/tags', 'manage.tags'],
+        ['stories', '/tagqueue', 'manage.tagqueue'],
         ['stories', '/characters', 'manage.characters'],
         ['stories', '/wrangling', 'manage.wrangling', 'wrangling'],
         ['pages', '/news', 'manage.news', 'news'],
