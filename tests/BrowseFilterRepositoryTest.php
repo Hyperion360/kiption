@@ -205,6 +205,44 @@ final class BrowseFilterRepositoryTest extends TaxonomyCase
         $this->assertSame(['en', 'fr'], $this->repo->page(BrowseQuery::fromQuery([]))['languages']);
     }
 
+    public function test_languages_leave_out_those_only_restricted_or_deleted_stories_use(): void
+    {
+        $this->story('A', ['language' => 'en']);
+        $this->story('B', ['language' => 'fr', 'restricted' => 1]);
+        $gone = $this->story('C', ['language' => 'de']);
+        $this->db->query("UPDATE stories SET deleted_at = '2026-02-01T00:00:00Z' WHERE id = ?", [$gone]);
+        $this->story('D', ['language' => 'es']);
+        $this->story('E', ['language' => 'es', 'restricted' => 1]);
+        $this->assertSame(['en', 'es'], $this->repo->page(BrowseQuery::fromQuery([]))['languages']);
+    }
+
+    public function test_picker_tags_come_back_alphabetical_within_each_type(): void
+    {
+        $typeId = (int) $this->row('SELECT id FROM tag_types ORDER BY id LIMIT 1')['id'];
+        foreach (['mango', 'Apple', 'zebra', 'banana'] as $n) {
+            $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$typeId, $n]);
+        }
+        $tags = $this->repo->page(BrowseQuery::fromQuery([]))['tags'];
+        $prev = null;
+        foreach ($tags as $t) {
+            $key = [$t['type'], strtolower($t['name'])];
+            if ($prev !== null) {
+                $this->assertLessThanOrEqual(0, $prev <=> $key, 'out of order at ' . $t['name']);
+            }
+            $prev = $key;
+        }
+        $mine = array_values(array_filter(array_column(array_filter($tags, fn ($t) => $t['type'] === $typeId), 'name'), fn ($n) => in_array($n, ['mango', 'Apple', 'zebra', 'banana'], true)));
+        $this->assertSame(['Apple', 'banana', 'mango', 'zebra'], $mine);
+    }
+
+    public function test_the_picker_stops_at_the_cap_per_type_without_walking_the_tags_table(): void
+    {
+        [$sql, $binds] = $this->repo->statement(BrowseQuery::fromQuery([]));
+        $plan = implode("\n", array_column($this->db->all('EXPLAIN QUERY PLAN ' . $sql, $binds), 'detail'));
+        $this->assertStringContainsString('idx_tags_type_name', $plan, $plan);
+        $this->assertStringNotContainsString('SCAN tags', $plan, $plan);
+    }
+
     public function test_one_statement_runs_the_whole_page(): void
     {
         $this->story('A');

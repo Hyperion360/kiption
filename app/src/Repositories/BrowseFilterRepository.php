@@ -55,6 +55,7 @@ final class BrowseFilterRepository
             }
         }
         // The taxonomy arms are tiny, so their order is settled here, not in SQL.
+        usort($tags, static fn (array $a, array $b): int => [$a['type'], strtolower($a['name']), $a['id']] <=> [$b['type'], strtolower($b['name']), $b['id']]);
         usort($types, static fn (array $a, array $b): int => [$a['position'], $a['id']] <=> [$b['position'], $b['id']]);
         usort($cats, static fn (array $a, array $b): int => [$a['position'], $a['name']] <=> [$b['position'], $b['name']]);
         sort($langs);
@@ -77,17 +78,16 @@ final class BrowseFilterRepository
         $per = self::TAGS_PER_TYPE;
         // Languages in use, found by hopping the (validated, language) index one value at a time.
         $sql = "WITH RECURSIVE lang(l) AS (
-                SELECT MIN(language) FROM stories WHERE validated = 1 AND language <> ''
+                SELECT MIN(language) FROM stories WHERE validated = 1 AND language <> '' AND deleted_at IS NULL AND is_restricted = 0
                 UNION ALL
-                SELECT (SELECT MIN(language) FROM stories WHERE validated = 1 AND language > lang.l) FROM lang WHERE l IS NOT NULL
+                SELECT (SELECT MIN(language) FROM stories WHERE validated = 1 AND language > lang.l AND deleted_at IS NULL AND is_restricted = 0) FROM lang WHERE l IS NOT NULL
             )
             SELECT 'g' k, id a, name b, position c, NULL d, NULL e, NULL f, NULL g, NULL h, NULL i FROM tag_types
             UNION ALL
             SELECT 't', t.id, t.name, t.tag_type_id, {$nulls(6)}
-              FROM (SELECT id, name, tag_type_id FROM (
-                      SELECT id, name, tag_type_id,
-                             ROW_NUMBER() OVER (PARTITION BY tag_type_id ORDER BY name COLLATE NOCASE) rn
-                        FROM tags WHERE +canonical_id IS NULL) WHERE rn <= {$per}) t";
+              FROM tag_types g JOIN tags t ON t.id IN (
+                   SELECT id FROM tags WHERE tag_type_id = g.id AND +canonical_id IS NULL
+                    ORDER BY name COLLATE NOCASE LIMIT {$per})";
         $ids = array_merge($q->tags->include, $q->tags->exclude);
         if ($ids !== []) {
             $sql .= "
