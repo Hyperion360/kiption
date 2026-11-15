@@ -41,6 +41,23 @@ final class SearchFtsSchemaTest extends TestCase
         $this->assertNull($db->one("SELECT rowid FROM stories_fts WHERE stories_fts MATCH 'zephyr'"));
     }
 
+    /** Migration 067: the stories table index carries the tags column and the
+     *  full trigger set that keeps it in step with every tag writer. */
+    public function test_stories_fts_carries_the_tags_column_and_the_tag_triggers(): void
+    {
+        $db = new Database('sqlite:' . $this->path);
+        $cols = array_column($db->all("PRAGMA table_info('stories_fts')"), 'name');
+        $this->assertSame(['title', 'summary', 'tags'], $cols);
+        $sql = ($db->one("SELECT sql FROM sqlite_master WHERE name = 'stories_fts'"))['sql'] ?? '';
+        $this->assertStringContainsString('prefix', $sql, '067 adds the prefix index for word starts');
+        $triggers = array_column($db->all("SELECT name FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'stories_fts%'"), 'name');
+        sort($triggers);
+        $this->assertSame([
+            'stories_fts_del', 'stories_fts_ins', 'stories_fts_tag_del', 'stories_fts_tag_ins',
+            'stories_fts_tags_del', 'stories_fts_tags_ins', 'stories_fts_tags_upd', 'stories_fts_upd',
+        ], $triggers);
+    }
+
     public function test_fts_feature_detection_probe(): void
     {
         $db = new Database('sqlite:' . $this->path);
