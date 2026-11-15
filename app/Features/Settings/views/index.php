@@ -105,6 +105,14 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <p class="consequence"><?= \App\Lang::t($waiting['members'] === 0 ? 'settings.waiting_members_none' : ($waiting['members'] === 1 ? 'settings.waiting_members_one' : 'settings.waiting_members'), ['n' => $waiting['members']]) ?>
     <?php if ($waiting['members'] !== 0): ?><a href="/queue"><?= \App\Lang::t('settings.waiting_link') ?></a><?php endif; ?></p>
   <?= $check('profiles_public', \App\Lang::t('settings.profiles_public'), \App\Lang::t('settings.profiles_public_note')) ?>
+  <label><?= \App\Lang::t('settings.tag_policy') ?>
+    <select name="tag_policy">
+      <?php foreach (['off', 'suggest', 'free'] as $policy): ?>
+      <option value="<?= $policy ?>"<?= $current['tag_policy'] === $policy ? ' selected' : '' ?>><?= \App\Lang::t('settings.tag_policy_' . $policy) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </label>
+  <p class="consequence"><?= \App\Lang::t('settings.tag_policy_note') ?></p>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_members')]) ?></button>
 </form>
 </section>

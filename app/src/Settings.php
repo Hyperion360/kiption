@@ -18,6 +18,7 @@ final class Settings
         'date_format' => 'oneof:short,long,dmy,iso', 'time_format' => 'oneof:12h,24h',
         'reviews_on' => 'bool', 'guest_reviews' => 'bool', 'rating_only' => 'bool',
         'coauthors_on' => 'bool', 'series_on' => 'bool',
+        'tag_policy' => 'oneof:off,suggest,free',
         'default_sort' => 'oneof:recent,alpha', 'profiles_public' => 'bool', 'uploads_on' => 'bool',
         'footer_copyright' => 'label', 'footer_copyright_url' => 'link', 'footer_links' => 'links', 'og_image' => 'link', 'maintenance_on' => 'bool'];
 
@@ -28,6 +29,7 @@ final class Settings
         'date_format' => 'short', 'time_format' => '12h',
         'reviews_on' => '1', 'guest_reviews' => '1', 'rating_only' => '0',
         'coauthors_on' => '1', 'series_on' => '1',
+        'tag_policy' => 'off',
         'default_sort' => 'recent', 'profiles_public' => '1', 'uploads_on' => '1',
     ];
 
