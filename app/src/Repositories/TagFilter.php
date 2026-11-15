@@ -10,11 +10,12 @@ final class TagFilter
     public const MAX = 8;
     private const NAME_LEN = 64;
 
-    /** @param list<int> $include @param list<int> $exclude @param list<string> $names */
+    /** @param list<int> $include @param list<int> $exclude @param list<string> $names @param list<string> $excludeNames */
     private function __construct(
         public readonly array $include,
         public readonly array $exclude,
         public readonly array $names,
+        public readonly array $excludeNames = [],
     ) {}
 
     public static function fromQuery(array $q): self
@@ -22,12 +23,18 @@ final class TagFilter
         $inc = self::ids($q['tag'] ?? []);
         // Read enough excluded ids that dropping the included ones still leaves MAX.
         $exc = array_values(array_diff(self::ids($q['xtag'] ?? [], self::MAX + count($inc)), $inc));
-        return new self($inc, array_slice($exc, 0, self::MAX), self::names($q['tags'] ?? ''));
+        $names = self::names($q['tags'] ?? '');
+        $kept = array_map('mb_strtolower', $names);
+        $xnames = array_values(array_filter(
+            self::names($q['xtags'] ?? ''),
+            fn (string $n): bool => !in_array(mb_strtolower($n), $kept, true)
+        ));
+        return new self($inc, array_slice($exc, 0, self::MAX), $names, $xnames);
     }
 
     public function isEmpty(): bool
     {
-        return !$this->include && !$this->exclude && !$this->names;
+        return !$this->include && !$this->exclude && !$this->names && !$this->excludeNames;
     }
 
     /** " AND EXISTS(...) ..." (leading space, or '' when empty). Appends binds in SQL order. */
@@ -44,10 +51,15 @@ final class TagFilter
             $sql .= $same('NOT EXISTS');
             $binds[] = $id;
         }
+        $named = fn(string $m) => " AND {$m}(SELECT 1 FROM story_tags x JOIN tags tf ON tf.id = x.tag_id"
+            . " WHERE x.story_id = {$s}.id AND COALESCE(tf.canonical_id, tf.id) IN"
+            . " (SELECT COALESCE(canonical_id, id) FROM tags WHERE name = ? COLLATE NOCASE))";
         foreach ($this->names as $n) {
-            $sql .= " AND EXISTS(SELECT 1 FROM story_tags x JOIN tags tf ON tf.id = x.tag_id"
-                . " WHERE x.story_id = {$s}.id AND COALESCE(tf.canonical_id, tf.id) IN"
-                . " (SELECT COALESCE(canonical_id, id) FROM tags WHERE name = ? COLLATE NOCASE))";
+            $sql .= $named('EXISTS');
+            $binds[] = $n;
+        }
+        foreach ($this->excludeNames as $n) {
+            $sql .= $named('NOT EXISTS');
             $binds[] = $n;
         }
         return $sql;

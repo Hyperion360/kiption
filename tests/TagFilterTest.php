@@ -51,4 +51,21 @@ final class TagFilterTest extends TestCase
         $this->assertSame('', TagFilter::fromQuery([])->sql($b, 's'));
         $this->assertSame([], $b);
     }
+
+    public function test_xtags_names_are_parsed_and_emit_not_exists_with_a_bound_name(): void
+    {
+        $f = TagFilter::fromQuery(['xtags' => 'gore, angst']);
+        $this->assertSame(['gore', 'angst'], $f->excludeNames);
+        $b = [];
+        $sql = $f->sql($b, 's');
+        $this->assertSame(['gore', 'angst'], $b);
+        $this->assertSame(2, substr_count($sql, 'NOT EXISTS'));
+        $this->assertFalse($f->isEmpty());
+    }
+
+    public function test_a_name_cannot_be_both_included_and_left_out(): void
+    {
+        $f = TagFilter::fromQuery(['tags' => 'Angst', 'xtags' => 'angst, gore']);
+        $this->assertSame(['gore'], $f->excludeNames, 'case-insensitive; include wins');
+    }
 }
