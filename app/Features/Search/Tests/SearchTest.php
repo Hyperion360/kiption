@@ -423,6 +423,48 @@ final class SearchTest extends TestCase
         $this->assertSame(200, $this->client()->get('/search', ['q' => '"AND OR NEAR('])->status);
     }
 
+    // ---- Slice 3, Task 3.4: the form, the controller coercion, the browse link ----
+
+    public function test_search_form_carries_tag_fields_sort_and_the_browse_link(): void
+    {
+        $c = $this->client();
+        $res = $c->get('/search', ['q' => 'slow', 'tags' => 'Slow Burn', 'xtags' => 'gore', 'sort' => 'updated']);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('name="tags"', $res->body);
+        $this->assertStringContainsString('value="Slow Burn"', $res->body, 'the tags field is pre-filled');
+        $this->assertStringContainsString('name="xtags"', $res->body);
+        $this->assertStringContainsString('value="gore"', $res->body, 'the leave-out field is pre-filled');
+        $this->assertStringContainsString('name="sort"', $res->body);
+        $this->assertStringContainsString('selected', $res->body, 'the chosen sort is selected');
+        $this->assertStringContainsString('/browse/filter', $res->body, 'the browse link is on the page');
+        // No inline script: every script tag on the page loads an external file
+        $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $res->body, 'no inline script');
+        $this->assertSame('noindex', $res->headers['X-Robots-Tag'] ?? '');
+        // the fields echo escaped
+        $escaped = $c->get('/search', ['tags' => '<b>'])->body;
+        $this->assertStringContainsString('&lt;b&gt;', $escaped);
+        $this->assertStringNotContainsString('value="<b>"', $escaped);
+        // junk sort coerces to relevance; arrays where strings are expected ignore
+        $this->assertSame(200, $c->get('/search', ['sort' => 'hax'])->status);
+        $this->assertSame(200, $c->get('/search', ['tags' => ['x'], 'xtags' => ['y']])->status);
+        $this->assertSame(200, $c->get('/search', ['tag' => ['x', ['nested']]])->status);
+    }
+
+    public function test_old_tag_id_links_keep_working_through_the_form(): void
+    {
+        $tag = (int) $this->db()->one('SELECT id FROM tags LIMIT 1')['id'];
+        $this->storyRow('Embers', 'embers', 'A quiet night in the north.');
+        $this->attachTag((int) $this->db()->one("SELECT id FROM stories WHERE slug = 'embers'")['id'], $tag);
+        $c = $this->client();
+        $this->assertSame(200, $c->get('/search', ['tag' => (string) $tag])->status);
+        $this->assertStringContainsString('href="/story/view/embers"', $c->get('/search', ['tag' => (string) $tag])->body);
+        // several ids, the slice-3 shape, including a junk id that coerces away
+        $this->assertSame(200, $c->get('/search', ['tag' => [(string) $tag, 'abc', '0']])->status);
+        $this->assertStringContainsString('href="/story/view/embers"', $c->get('/search', ['tag' => [(string) $tag, 'abc', '0']])->body);
+        // the browse link carries the ids
+        $this->assertStringContainsString('/browse/filter', $c->get('/search', ['tag' => (string) $tag])->body);
+    }
+
     public function test_the_tag_name_constraint_never_scans_story_tags(): void
     {
         $db = $this->db();

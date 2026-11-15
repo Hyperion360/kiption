@@ -23,30 +23,37 @@ final class SearchController
     {
         if (($r = \App\Features::guard('search')) !== null) return $r;
         $q = trim((string) ($this->request->get['q'] ?? ''));
+        // Tag ids, leave-out ids and tag names ride TagFilter::fromQuery, which
+        // owns every coercion (scalar or array ids, junk dropped, names
+        // trimmed and capped). A string where a string is expected stays a
+        // string; anything else becomes null and filters nothing.
+        $onlyString = fn (mixed $v): ?string => is_string($v) && $v !== '' ? $v : null;
         $filters = [
             'category' => preg_match('#^[a-z0-9-]+$#', (string) ($this->request->get['category'] ?? '')) ? (string) $this->request->get['category'] : null,
             'rating_id' => ctype_digit((string) ($this->request->get['rating'] ?? '')) ? (int) $this->request->get['rating'] : null,
             'completed' => ($this->request->get['completed'] ?? '') === '1' ? true : null,
             'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($this->request->get['language'] ?? '')) ? (string) $this->request->get['language'] : null,
             // Tag and character ids from the story page links; junk and 0 coerce to no filter.
-            'tag' => $this->positiveId('tag'),
+            'tag' => is_array($this->request->get['tag'] ?? null) ? $this->request->get['tag'] : $this->positiveId('tag'),
             // Leave-out ids and tag names ride the same TagFilter, which validates them.
             'xtag' => ($this->request->get['xtag'] ?? []) ?: null,
-            'tags' => ($this->request->get['tags'] ?? '') ?: null,
+            'tags' => $onlyString($this->request->get['tags'] ?? null),
+            'xtags' => $onlyString($this->request->get['xtags'] ?? null),
             'character' => $this->positiveId('character'),
         ];
+        $sort = ($this->request->get['sort'] ?? '') === 'updated' ? 'updated' : 'relevance';
         [$perPage, $offset] = $this->paginate();
         // the gate binds the member id: a revoked session filters as a guest
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // Finding 9: the mute gate rides here in the controller, so flag off
         // disables the filtering everywhere, not just the buttons.
-        $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0);
+        $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0, $sort);
         $head = $this->head()->withTitle(\App\Lang::t('search.heading'))->withCanonical('/search')->withNoindex();
         $out = $this->view->render('search/index', [
             'title' => \App\Lang::t('search.heading'), 'head' => $head, 'theme' => \App\Theme::current($this->request),
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
-            'q' => $q, 'filters' => $filters, 'result' => $result,
+            'q' => $q, 'filters' => $filters, 'result' => $result, 'sort' => $sort,
             'ratings' => $result['ratings'], 'categories' => $result['categories'],
             'page' => $this->page(), 'perPage' => $perPage, 'loggedIn' => $me !== 0,
         ]);

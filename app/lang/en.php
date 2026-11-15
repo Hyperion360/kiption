@@ -824,7 +824,7 @@ return [
     'ratings.err_target' => 'Choose a different rating to move the stories to.',
     'ratings.err_in_use' => '{n} stories still use this rating. Move its stories to another rating, then delete it.',
     'search.completed_only' => 'completed only',
-    'search.filtered_tag' => 'Showing stories with one chosen tag.',
+    'search.filtered_tag' => 'Showing stories with the chosen tags.',
     'search.filtered_character' => 'Showing stories with one chosen character.',
     'search.clear_filter' => 'Clear',
     'search.submit' => 'Search',
@@ -836,6 +836,13 @@ return [
     'search.hint' => 'Type a title, a phrase you remember, or a single word. Quotes match an exact phrase.',
     'search.results_for' => 'Results for “{q}”',
     'search.results' => 'Results',
+    'search.tags' => 'Tags',
+    'search.tags_hint' => 'Separate tags with commas. Every tag must match.',
+    'search.xtags' => 'Leave Out Tags',
+    'search.sort' => 'Sort By',
+    'search.sort_relevance' => 'Best Match',
+    'search.sort_updated' => 'Recently Updated',
+    'search.try_browse' => 'Browse with tag filters',
 
     // Series view and form.
     'series.new' => 'New series',
