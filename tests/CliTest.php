@@ -47,6 +47,31 @@ final class CliTest extends TestCase
         return [$code, implode("\n", $out)];
     }
 
+    public function test_words_recount_fixes_stale_chapter_and_story_totals_and_is_idempotent(): void
+    {
+        $this->kip('migrate');
+        $db = new Database('sqlite:' . $this->path);
+        $this->kip('user:create w@e.test password123');
+        $uid = (int) $db->one("SELECT id FROM users WHERE email = 'w@e.test'")['id'];
+        $db->query("INSERT INTO ratings (label) VALUES ('G')");
+        $rating = (int) $db->one('SELECT id FROM ratings LIMIT 1')['id'];
+        $db->query("INSERT INTO stories (title, slug, author_id, rating_id, validated, word_count, updated_at) VALUES ('W', 'w', ?, ?, 1, 999, '2020-01-01T00:00:00+00:00')", [$uid, $rating]);
+        $sid = (int) $db->one("SELECT id FROM stories WHERE slug = 'w'")['id'];
+        // Cyrillic and digits count under the current rule; the stored numbers are stale
+        $db->query("INSERT INTO chapters (story_id, position, title, content, word_count, validated) VALUES (?, 1, 'One', 'Привет мир again 42', 1, 1)", [$sid]);
+        $db->query("INSERT INTO chapters (story_id, position, title, content, word_count, validated) VALUES (?, 2, 'Two', 'three small words', 3, 1)", [$sid]);
+
+        [$code, $out] = $this->kip('words:recount');
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('1 chapters and 1 stories changed', $out);
+        $this->assertSame(4, (int) $db->one('SELECT word_count FROM chapters WHERE position = 1')['word_count']);
+        $this->assertSame(7, (int) $db->one('SELECT word_count FROM stories WHERE id = ?', [$sid])['word_count']);
+        $this->assertSame('2020-01-01T00:00:00+00:00', $db->one('SELECT updated_at FROM stories WHERE id = ?', [$sid])['updated_at'], 'a recount is not an edit');
+
+        [, $again] = $this->kip('words:recount');
+        $this->assertStringContainsString('0 chapters and 0 stories changed', $again);
+    }
+
     public function test_user_create_makes_an_active_admin_who_can_log_in(): void
     {
         $this->kip('migrate');

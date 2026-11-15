@@ -255,6 +255,12 @@ match ($argv[1] ?? 'help') {
             echo "  {$local}@" . \App\Demo::DOMAIN . "  {$what}\n";
         }
     })(),
+    'words:recount' => (function () use ($config) {
+        // One-time catch-up after the word-count rule changed (Unicode letters
+        // and digits count): chapter totals from the text, story totals from chapters.
+        $r = (new \App\WordRecount(new Kip\Database($config['db']['dsn'])))->run();
+        echo "Recounted words: {$r['chapters']} chapters and {$r['stories']} stories changed.\n";
+    })(),
     'pages:build' => (function () use ($config) {
         $dir = $config['static_cache']['dir'] ?? null;
         if ($dir === null) { fwrite(STDERR, "static_cache not configured.\n"); exit(1); }
@@ -629,5 +635,5 @@ match ($argv[1] ?? 'help') {
         $mailed = \App\MassMail::send($mailer, $recipients, $subject, $body);
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|text:compile|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]|auth:link <email> [--hours=1..168]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|words:recount|pages:build|pages:prune|text:compile|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]|auth:link <email> [--hours=1..168]]\n"),
 };
