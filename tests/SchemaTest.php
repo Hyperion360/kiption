@@ -55,6 +55,84 @@ final class SchemaTest extends TestCase
         }
     }
 
+    /** Migration 068: the pending tag suggestions live in their own table, so
+     *  no existing reader of tags can leak one. */
+    public function test_tag_suggestions_table_and_constraints(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $cols = array_column($db->all('PRAGMA table_info(tag_suggestions)'), 'name');
+        foreach (['id', 'tag_type_id', 'name', 'suggested_by', 'story_id', 'status', 'created_at', 'resolved_at', 'resolved_by'] as $c) {
+            $this->assertContains($c, $cols, $c);
+        }
+        $names = array_column($db->all("SELECT name FROM sqlite_master WHERE type='index'"), 'name');
+        $this->assertContains('idx_tag_sugg_queue', $names);
+        $this->assertContains('idx_tag_sugg_user', $names);
+    }
+
+    /** A case-variant duplicate on the same story and type is refused, so an
+     *  edit resubmitting the same name cannot pile up rows. */
+    public function test_case_variant_suggestion_duplicates_on_one_story_are_refused(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $db->query("INSERT INTO users (email, password_hash, penname) VALUES ('s@x.test', 'h', 'Suggester')");
+        $db->query("INSERT INTO ratings (label, position) VALUES ('G', 1)");
+        $db->query("INSERT INTO tag_types (name) VALUES ('genre')");
+        $db->query("INSERT INTO stories (title, slug, author_id, rating_id) VALUES ('T', 'sugg-t', 1, 1)");
+        $type = (int) $db->one("SELECT id FROM tag_types LIMIT 1")['id'];
+        $db->query('INSERT INTO tag_suggestions (tag_type_id, name, suggested_by, story_id, status, created_at) VALUES (?, ?, 1, 1, ?, ?)',
+            [$type, 'Slow Burn', 'pending', date('c')]);
+        $this->expectException(\PDOException::class);
+        $db->query('INSERT INTO tag_suggestions (tag_type_id, name, suggested_by, story_id, status, created_at) VALUES (?, ?, 1, 1, ?, ?)',
+            [$type, 'slow burn', 'pending', date('c')]);
+    }
+
+    public function test_suggestion_status_check_rejects_unknown_values(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $db->query("INSERT INTO users (email, password_hash, penname) VALUES ('s@x.test', 'h', 'Suggester')");
+        $db->query("INSERT INTO ratings (label, position) VALUES ('G', 1)");
+        $db->query("INSERT INTO tag_types (name) VALUES ('genre')");
+        $db->query("INSERT INTO stories (title, slug, author_id, rating_id) VALUES ('T', 'sugg-u', 1, 1)");
+        $type = (int) $db->one("SELECT id FROM tag_types LIMIT 1")['id'];
+        $this->expectException(\PDOException::class);
+        $db->query('INSERT INTO tag_suggestions (tag_type_id, name, suggested_by, story_id, status, created_at) VALUES (?, ?, 1, 1, ?, ?)',
+            [$type, 'Slow Burn', 'approved', date('c')]);
+    }
+
+    public function test_deleting_a_story_or_member_removes_their_suggestions(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $db->query("INSERT INTO users (email, password_hash, penname) VALUES ('s@x.test', 'h', 'Suggester')");
+        $db->query("INSERT INTO ratings (label, position) VALUES ('G', 1)");
+        $db->query("INSERT INTO tag_types (name) VALUES ('genre')");
+        $db->query("INSERT INTO stories (title, slug, author_id, rating_id) VALUES ('T', 'sugg-c', 1, 1)");
+        $type = (int) $db->one("SELECT id FROM tag_types LIMIT 1")['id'];
+        $db->query('INSERT INTO tag_suggestions (tag_type_id, name, suggested_by, story_id, status, created_at) VALUES (?, ?, 1, 1, ?, ?)',
+            [$type, 'Slow Burn', 'pending', date('c')]);
+        $this->assertSame(1, (int) $db->one('SELECT COUNT(*) c FROM tag_suggestions')['c']);
+        $db->query("DELETE FROM stories WHERE slug = 'sugg-c'");
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM tag_suggestions')['c'], 'the story cascade removed the suggestion');
+        $db->query("INSERT INTO stories (title, slug, author_id, rating_id) VALUES ('T2', 'sugg-c2', 1, 1)");
+        $db->query('INSERT INTO tag_suggestions (tag_type_id, name, suggested_by, story_id, status, created_at) VALUES (?, ?, 1, 2, ?, ?)',
+            [$type, 'Slow Burn', 'pending', date('c')]);
+        $db->query("DELETE FROM users WHERE penname = 'Suggester'");
+        $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM tag_suggestions')['c'], 'the member cascade removed the suggestion');
+    }
+
+    public function test_suggestion_migration_down_drops_the_table(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $file = dirname(__DIR__, 1) . '/app/Features/Tags/migrations/068_tag_suggestions.php';
+        (require $file)->down($db);
+        $n = $db->one("SELECT COUNT(*) c FROM sqlite_master WHERE type='table' AND name = 'tag_suggestions'");
+        $this->assertSame(0, (int) $n['c']);
+    }
+
     /** Migration 023: the muted PK pair IS the toggle idempotence contract
      *  (INSERT OR IGNORE lands at most one row per pair), and tags grows
      *  the wrangling column the M4 batch 2 merge surface writes. */
