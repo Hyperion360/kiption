@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { convertNodeTree, unwrapGoogleUrl, normalizeMarkdown, attach } = require('../../public/assets/paste.js');
+const { convertNodeTree, unwrapGoogleUrl, normalizeMarkdown, attach, htmlToMarkdown, MAX_HTML_LENGTH, MAX_DEPTH } = require('../../public/assets/paste.js');
+import { readdirSync } from 'node:fs';
+import { parseBody, MiniDOMParser } from './minidom.mjs';
 
 const el = (tag, attrs = {}, kids = []) => ({ nodeType: 1, tagName: tag.toUpperCase(), childNodes: kids,
   style: attrs.style || {}, getAttribute: (k) => attrs[k] ?? null });
@@ -151,4 +153,50 @@ test('attach leaves plain pastes, shift pastes and failed conversions to the bro
   attach(box, () => '', (b, t) => got.push(t));
   pasteEvent({ 'text/html': '<p>x</p>', 'text/plain': 'fallback' }, box);
   assert.deepEqual(got, ['fallback']);
+});
+
+/* The fixtures' real html, parsed and converted, must give the stored markdown. */
+const pasteDir = new URL('../fixtures/paste/', import.meta.url);
+for (const f of readdirSync(pasteDir).filter((n) => n.endsWith('.html'))) {
+  test('parsed html fixture ' + f + ' converts to its stored markdown', () => {
+    const html = readFileSync(new URL(f, pasteDir), 'utf8');
+    assert.equal(convertNodeTree(parseBody(html)), fixture(f.replace(/\.html$/, '.md')));
+  });
+}
+
+test('a literal asterisk or underscore is written with a backslash escape', () => {
+  assert.equal(convertNodeTree(el('p', {}, [tx('5 * 3 and 7 * 2')])), '5 \\* 3 and 7 \\* 2');
+  assert.equal(convertNodeTree(el('p', {}, [tx('snake_case_word')])), 'snake\\_case\\_word');
+  assert.equal(convertNodeTree(el('p', {}, [tx('a\\b')])), 'a\\\\b');
+});
+
+test('escaping does not disturb real emphasis or scene breaks', () => {
+  assert.equal(convertNodeTree(el('p', {}, [el('em', {}, [tx('a*b')])])), '*a\\*b*');
+  assert.equal(convertNodeTree(el('p', {}, [tx('* * *')])), '---');
+  assert.equal(convertNodeTree(el('p', {}, [tx('***')])), '---');
+  assert.equal(convertNodeTree(el('p', {}, [tx('___')])), '---');
+});
+
+const nest = (n) => { let t = tx('deep'); for (let i = 0; i < n; i++) { t = el('div', {}, [t]); } return t; };
+
+test('a tree deeper than the cap is refused so the caller falls back to plain text', () => {
+  assert.equal(convertNodeTree(nest(MAX_DEPTH + 5)), '');
+  assert.equal(convertNodeTree(nest(MAX_DEPTH - 5)), 'deep');
+});
+
+test('html over the size cap is never parsed', () => {
+  let parsed = 0;
+  const parser = { parseFromString(h) { parsed++; return new MiniDOMParser().parseFromString(h); } };
+  assert.equal(htmlToMarkdown('<p>' + 'x'.repeat(MAX_HTML_LENGTH) + '</p>', parser), '');
+  assert.equal(parsed, 0);
+  assert.equal(htmlToMarkdown('<p>fine</p>', parser), 'fine');
+  assert.equal(parsed, 1);
+});
+
+test('a size or depth refusal falls through to the plain text paste', () => {
+  const box = fakeBox(); const got = [];
+  attach(box, (h) => htmlToMarkdown(h, new MiniDOMParser()), (b, t) => got.push(t));
+  const huge = '<p>' + 'x'.repeat(MAX_HTML_LENGTH) + '</p>';
+  pasteEvent({ 'text/html': huge, 'text/plain': 'plain copy' }, box);
+  assert.deepEqual(got, ['plain copy']);
 });

@@ -12,6 +12,10 @@
 })(typeof window !== 'undefined' ? window : globalThis, function () {
   var SKIP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, IMG: 1, HEAD: 1, META: 1, LINK: 1, NOSCRIPT: 1, TEMPLATE: 1, SVG: 1, TITLE: 1 };
   var BLOCK = { P: 1, DIV: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, UL: 1, OL: 1, LI: 1, BLOCKQUOTE: 1, TABLE: 1, TR: 1, TD: 1, TH: 1, BODY: 1, HR: 1, PRE: 1, SECTION: 1, ARTICLE: 1 };
+  /* Pastes past these fall back to the browser's plain text paste: a huge
+     document or a deeply nested one would freeze the page while it converts. */
+  var MAX_HTML_LENGTH = 2000000;
+  var MAX_DEPTH = 100;
   var HEADING = { H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1 };
 
   function tagOf(n) { return n.nodeType === 1 ? String(n.tagName || '').toUpperCase() : ''; }
@@ -66,9 +70,14 @@
   }
   function isBlockish(n) { return n.nodeType === 1 && !SKIP[tagOf(n)] && (BLOCK[tagOf(n)] || hasBlock(n)); }
 
+  /* A literal backslash, asterisk or underscore in pasted text gets a
+     backslash so the site's markdown shows it as typed ("5 * 3" is not
+     emphasis). Real emphasis markers are added after this, unescaped. */
+  function escapeLiteral(t) { return t.replace(/([\\*_])/g, '\\$1'); }
+
   /* One inline node to a string of markdown. st carries inherited b and i. */
   function inline(n, st) {
-    if (n.nodeType === 3) { return String(n.nodeValue || '').replace(/[\s ]+/g, ' '); }
+    if (n.nodeType === 3) { return escapeLiteral(String(n.nodeValue || '').replace(/[\s ]+/g, ' ')); }
     if (n.nodeType !== 1) { return ''; }
     var tag = tagOf(n);
     if (SKIP[tag]) { return ''; }
@@ -99,6 +108,7 @@
     return s.replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/^\s+|\s+$/g, '');
   }
   function isSceneBreak(s) {
+    s = s.replace(/\\([\\*_])/g, '$1');
     return /^(?:\*\s*){3,}$/.test(s) || /^(?:[-\u2013\u2014_=]\s*){3,}$/.test(s) || /^~+$/.test(s) || /^#$/.test(s);
   }
 
@@ -168,8 +178,22 @@
   }
 
   /* The converter: a parsed tree to a markdown string for this site. */
+  function tooDeep(root, max) {
+    var level = [root];
+    for (var d = 0; level.length; d++) {
+      if (d > max) { return true; }
+      var next = [];
+      for (var i = 0; i < level.length; i++) {
+        var kids = level[i].childNodes || [];
+        for (var k = 0; k < kids.length; k++) { if (kids[k].nodeType === 1) { next.push(kids[k]); } }
+      }
+      level = next;
+    }
+    return false;
+  }
+
   function convertNodeTree(root) {
-    if (!root) { return ''; }
+    if (!root || tooDeep(root, MAX_DEPTH)) { return ''; }
     return normalizeMarkdown(blocksOf([root], { b: false }).join('\n\n'));
   }
 
@@ -191,9 +215,10 @@
 
   /* Reading the clipboard's html: parse it in an inert document (scripts
      never run) and convert. Any failure yields '' so the caller falls back. */
-  function htmlToMarkdown(html) {
+  function htmlToMarkdown(html, parser) {
+    if (String(html).length > MAX_HTML_LENGTH) { return ''; }
     try {
-      return convertNodeTree(new DOMParser().parseFromString(html, 'text/html').body);
+      return convertNodeTree((parser || new DOMParser()).parseFromString(html, 'text/html').body);
     } catch (err) { return ''; }
   }
 
@@ -226,5 +251,6 @@
   }
   if (typeof Kip !== 'undefined' && Kip.init) { Kip.init(init); }
 
-  return { convertNodeTree: convertNodeTree, unwrapGoogleUrl: unwrapGoogleUrl, normalizeMarkdown: normalizeMarkdown, attach: attach, init: init };
+  return { convertNodeTree: convertNodeTree, unwrapGoogleUrl: unwrapGoogleUrl, normalizeMarkdown: normalizeMarkdown, attach: attach, init: init,
+    htmlToMarkdown: htmlToMarkdown, MAX_HTML_LENGTH: MAX_HTML_LENGTH, MAX_DEPTH: MAX_DEPTH };
 });
