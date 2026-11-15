@@ -43,7 +43,6 @@
 | [reading_history](reading_history.md) | 5 |  | table |
 | [reports](reports.md) | 7 |  | table |
 | [contact_log](contact_log.md) | 4 |  | table |
-| [stories_fts](stories_fts.md) | 2 |  | virtual table |
 | [chapters_fts](chapters_fts.md) | 3 |  | virtual table |
 | [nav_links](nav_links.md) | 5 |  | table |
 | [reading_lists](reading_lists.md) | 8 |  | table |
@@ -74,6 +73,7 @@
 | [activity_log](activity_log.md) | 6 |  | table |
 | [word_filter](word_filter.md) | 2 |  | table |
 | [profile_slug_history](profile_slug_history.md) | 3 |  | table |
+| [stories_fts](stories_fts.md) | 3 |  | virtual table |
 
 ## Relations
 
@@ -3159,9 +3159,9 @@ CREATE TABLE stories (
 
 | Name | Definition |
 | ---- | ---------- |
-| stories_fts_ins | CREATE TRIGGER stories_fts_ins AFTER INSERT ON stories BEGIN<br />            INSERT INTO stories_fts (rowid, title, summary) VALUES (new.id, new.title, new.summary); END |
-| stories_fts_upd | CREATE TRIGGER stories_fts_upd AFTER UPDATE OF title, summary ON stories BEGIN<br />            DELETE FROM stories_fts WHERE rowid = old.id;<br />            INSERT INTO stories_fts (rowid, title, summary) VALUES (new.id, new.title, new.summary); END |
 | stories_fts_del | CREATE TRIGGER stories_fts_del AFTER DELETE ON stories BEGIN<br />            DELETE FROM stories_fts WHERE rowid = old.id; END |
+| stories_fts_ins | CREATE TRIGGER stories_fts_ins AFTER INSERT ON stories BEGIN<br />            INSERT INTO stories_fts (rowid, title, summary, tags) VALUES (new.id, new.title, new.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = new.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = new.id))); END |
+| stories_fts_upd | CREATE TRIGGER stories_fts_upd AFTER UPDATE OF title, summary ON stories BEGIN<br />            DELETE FROM stories_fts WHERE rowid = old.id;<br />            INSERT INTO stories_fts (rowid, title, summary, tags) VALUES (new.id, new.title, new.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = new.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = new.id))); END |
 
 ## Relations
 
@@ -3182,7 +3182,7 @@ CREATE TABLE stories (
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
-CREATE VIRTUAL TABLE stories_fts USING fts5(title, summary, tokenize = 'porter unicode61')
+CREATE VIRTUAL TABLE stories_fts USING fts5(title, summary, tags, tokenize = 'porter unicode61', prefix = '2 3')
 ```
 
 </details>
@@ -3193,6 +3193,7 @@ CREATE VIRTUAL TABLE stories_fts USING fts5(title, summary, tokenize = 'porter u
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
 | title |  |  | true |  |  |  |
 | summary |  |  | true |  |  |  |
+| tags |  |  | true |  |  |  |
 
 ## Relations
 
@@ -3408,6 +3409,13 @@ CREATE TABLE story_tags (
 | idx_story_tags_tag | CREATE INDEX idx_story_tags_tag ON story_tags (tag_id) |
 | sqlite_autoindex_story_tags_1 | PRIMARY KEY (story_id, tag_id) |
 
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| stories_fts_tag_ins | CREATE TRIGGER stories_fts_tag_ins AFTER INSERT ON story_tags BEGIN DELETE FROM stories_fts WHERE rowid IN (new.story_id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (new.story_id); END |
+| stories_fts_tag_del | CREATE TRIGGER stories_fts_tag_del AFTER DELETE ON story_tags BEGIN DELETE FROM stories_fts WHERE rowid IN (old.story_id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (old.story_id); END |
+
 ## Relations
 
 ![er](story_tags.svg)
@@ -3512,6 +3520,14 @@ CREATE TABLE tags (
 | idx_tags_name | CREATE INDEX idx_tags_name        ON tags(name COLLATE NOCASE) |
 | idx_tags_type | CREATE INDEX idx_tags_type ON tags (tag_type_id) |
 | sqlite_autoindex_tags_1 | UNIQUE (tag_type_id, name) |
+
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| stories_fts_tags_ins | CREATE TRIGGER stories_fts_tags_ins AFTER INSERT ON tags BEGIN DELETE FROM stories_fts WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id = new.canonical_id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id = new.canonical_id); END |
+| stories_fts_tags_upd | CREATE TRIGGER stories_fts_tags_upd AFTER UPDATE OF name, canonical_id ON tags BEGIN DELETE FROM stories_fts WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id IN (old.id, new.id, old.canonical_id, new.canonical_id));<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id IN (old.id, new.id, old.canonical_id, new.canonical_id)); END |
+| stories_fts_tags_del | CREATE TRIGGER stories_fts_tags_del BEFORE DELETE ON tags BEGIN DELETE FROM stories_fts WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id = old.id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id AND t.id <> old.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id AND syn.canonical_id <> old.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id = old.id); END |
 
 ## Relations
 
