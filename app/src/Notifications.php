@@ -31,7 +31,8 @@ final class Notifications
             'SELECT n.kind, n.story_id, n.story_title, n.read_at, n.created_at,
                     (SELECT penname FROM users u WHERE u.id = n.actor_id) AS actor,
                     (SELECT profile_slug FROM users us WHERE us.id = n.actor_id) AS actor_slug,
-                    (SELECT slug FROM stories st WHERE st.id = n.story_id) AS story_slug
+                    (SELECT slug FROM stories st WHERE st.id = n.story_id) AS story_slug,
+                    (SELECT title FROM stories st2 WHERE st2.id = n.story_id) AS story_name
              FROM notifications n WHERE n.user_id = ?
              ORDER BY n.created_at DESC LIMIT 50', [$userId]);
     }

@@ -714,6 +714,8 @@ return [
     'notifications.challenge_submit' => '{actor} submitted {story} to your challenge',
     'notifications.challenge_confirm' => 'Your story {story} was added to a challenge',
     'notifications.coauthor' => '{actor} added you as coauthor on {story}',
+    'notifications.tag_approved' => 'Your tag suggestion {tag} was added on {story}.',
+    'notifications.tag_rejected' => 'Your tag suggestion {tag} was not added on {story}.',
     'notifications.pm' => '{actor} sent you a message',
 
     // Pages (custom admin pages).

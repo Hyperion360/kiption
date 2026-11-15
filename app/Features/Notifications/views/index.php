@@ -62,6 +62,13 @@
           <span><?= \App\Lang::t('notifications.challenge_confirm', ['story' => $story]) ?></span>
         <?php elseif ($n['kind'] === 'coauthor' && $n['story_id'] !== null): ?>
           <span><?= \App\Lang::t('notifications.coauthor', ['actor' => $actor('notifications.someone'), 'story' => $story]) ?></span>
+        <?php elseif ($n['kind'] === 'tag_suggestion_approved' && $n['story_id'] !== null): ?>
+          <?php // story_title carries the TAG name here; the story rides the join. ?>
+          <?php $storyLink = '<a href="/story/view/' . $this->e($n['story_slug'] ?? '') . '">' . $this->e($n['story_name'] ?? '') . '</a>'; ?>
+          <span><?= \App\Lang::t('notifications.tag_approved', ['tag' => $this->e((string) ($n['story_title'] ?? '')), 'story' => $storyLink]) ?></span>
+        <?php elseif ($n['kind'] === 'tag_suggestion_rejected' && $n['story_id'] !== null): ?>
+          <?php $storyLink = '<a href="/story/view/' . $this->e($n['story_slug'] ?? '') . '">' . $this->e($n['story_name'] ?? '') . '</a>'; ?>
+          <span><?= \App\Lang::t('notifications.tag_rejected', ['tag' => $this->e((string) ($n['story_title'] ?? '')), 'story' => $storyLink]) ?></span>
         <?php else: ?>
           <span><?= $this->e($n['kind']) ?></span>
         <?php endif; ?>

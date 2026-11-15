@@ -90,22 +90,40 @@ final class TagqueueController extends AdminScreen
         return [(int) ($this->request->post['type_id'] ?? 0), trim((string) ($this->request->post['name'] ?? ''))];
     }
 
+    /** Tell each distinct suggester what happened to their name, once, with
+     *  the acting admin left out (the actor never notifies themselves). Runs
+     *  after the action's commit, so a notification is never inside the
+     *  transaction it describes. */
+    private function notify(array $rows, string $kind, int $me, string $name): void
+    {
+        $notifications = new \App\Notifications($this->db);
+        $seen = [];
+        foreach ($rows as $r) {
+            $user = (int) $r['user'];
+            if (isset($seen[$user]) || $user === $me || $user <= 0) continue;
+            $seen[$user] = true;
+            $notifications->create($user, $kind, (int) $r['story'], $me, $name);
+        }
+    }
+
     #[Auth]
     #[Post]
     public function approve(): Response|string
     {
         if (($g = $this->gate()) !== null) return $g;
         [$typeId, $name] = $this->keyInput();
-        $stories = [];
+        $me = (int) $this->session->get('user_id');
+        $touched = [];
         try {
-            $this->atomically(function () use (&$stories, $typeId, $name): void {
-                $stories = (new \App\Repositories\TagSuggestionRepository($this->db))->approve($typeId, $name, (int) $this->session->get('user_id'));
+            $this->atomically(function () use (&$touched, $typeId, $name, $me): void {
+                $touched = (new \App\Repositories\TagSuggestionRepository($this->db))->approve($typeId, $name, $me);
             });
         } catch (\App\SuggestionTypeMismatch) {
             return new Response(Lang::t('error.not_found'), 404);
         }
-        if ($stories === []) return new Response(Lang::t('error.not_found'), 404);
+        if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.approve', "type {$typeId}: {$name}");
+        $this->notify($touched, 'tag_suggestion_approved', $me, $name);
         $this->purge(); // approve changes what public story pages and listings show
         return \App\Saved::to('/tagqueue', \App\CachePurge::savedCode($this->app, 'added'));
     }
@@ -117,16 +135,18 @@ final class TagqueueController extends AdminScreen
         if (($g = $this->gate()) !== null) return $g;
         [$typeId, $name] = $this->keyInput();
         $targetId = (int) ($this->request->post['target_id'] ?? 0);
-        $stories = [];
+        $me = (int) $this->session->get('user_id');
+        $touched = [];
         try {
-            $this->atomically(function () use (&$stories, $typeId, $name, $targetId): void {
-                $stories = (new \App\Repositories\TagSuggestionRepository($this->db))->mergeInto($typeId, $name, $targetId, (int) $this->session->get('user_id'));
+            $this->atomically(function () use (&$touched, $typeId, $name, $targetId, $me): void {
+                $touched = (new \App\Repositories\TagSuggestionRepository($this->db))->mergeInto($typeId, $name, $targetId, $me);
             });
         } catch (\App\SuggestionTypeMismatch) {
             return new Response(Lang::t('tagqueue.err_type'), 422);
         }
-        if ($stories === []) return new Response(Lang::t('error.not_found'), 404);
+        if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.merge', "type {$typeId}: {$name} -> tag {$targetId}");
+        $this->notify($touched, 'tag_suggestion_approved', $me, $name);
         $this->purge();
         return \App\Saved::to('/tagqueue', \App\CachePurge::savedCode($this->app, 'moved'));
     }
@@ -137,9 +157,11 @@ final class TagqueueController extends AdminScreen
     {
         if (($g = $this->gate()) !== null) return $g;
         [$typeId, $name] = $this->keyInput();
-        $touched = (new \App\Repositories\TagSuggestionRepository($this->db))->reject($typeId, $name, (int) $this->session->get('user_id'));
-        if ($touched === 0) return new Response(Lang::t('error.not_found'), 404);
+        $me = (int) $this->session->get('user_id');
+        $touched = (new \App\Repositories\TagSuggestionRepository($this->db))->reject($typeId, $name, $me);
+        if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.reject', "type {$typeId}: {$name}");
+        $this->notify($touched, 'tag_suggestion_rejected', $me, $name);
         // reject changes nothing public: no purge (the PurgeSeams rule)
         return \App\Saved::to('/tagqueue');
     }
