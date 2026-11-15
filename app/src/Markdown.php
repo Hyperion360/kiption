@@ -112,13 +112,17 @@ final class Markdown
         return $safe;
     }
 
-    /** Words in the markdown source, markup syntax and scene breaks excluded. */
+    /** Words in the markdown source, markup syntax and scene breaks excluded.
+     *  A word is a run of letters, digits and marks, joined across an
+     *  apostrophe (straight or curly) or hyphen, so "don’t" is one word and
+     *  Cyrillic or accented text counts like English. public/assets/wordcount.js
+     *  is the same rule; tests/fixtures/wordcount.json keeps the two equal. */
     public static function wordCount(string $md): int
     {
         $t = str_replace(["\r\n", "\r"], "\n", $md);
         $t = preg_replace('/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/m', ' ', $t) ?? $t;
         $t = preg_replace('/(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/', '$2', $t) ?? $t;
-        $t = str_replace(['*', '_', '`'], ' ', $t);
-        return str_word_count(trim($t));
+        $n = preg_match_all('/[\p{L}\p{N}\p{M}]+(?:[\'\x{2019}\-][\p{L}\p{N}\p{M}]+)*/u', $t);
+        return $n === false ? str_word_count(trim(str_replace(['*', '_', '`'], ' ', $t))) : $n;
     }
 }

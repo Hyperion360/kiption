@@ -127,6 +127,14 @@ final class MarkdownTest extends TestCase
         $this->assertSame("<ul>\n<li>a * b</li></ul>\n", Markdown::render('- a \\* b', true));
     }
 
+    public function test_word_count_is_unicode_aware(): void
+    {
+        $this->assertSame(2, Markdown::wordCount('don’t stop'));
+        $this->assertSame(2, Markdown::wordCount("don't stop"));
+        $this->assertSame(2, Markdown::wordCount('Привет мир'));
+        $this->assertSame(2, Markdown::wordCount('café naïve'));
+    }
+
     public function test_word_count_strips_markup(): void
     {
         $this->assertSame(8, Markdown::wordCount('Falling *down* the **hole**, [past](https://e.test/) shelves of nothing.'));
