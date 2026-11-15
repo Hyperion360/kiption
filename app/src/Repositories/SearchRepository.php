@@ -62,7 +62,7 @@ final class SearchRepository
         $taxonomy = "SELECT 'r' k, r.position p, CAST(r.id AS TEXT) a, r.label b, NULL c, NULL d, NULL e, NULL f, NULL g, NULL h FROM ratings r
                      UNION ALL
                      SELECT 'c', c.position, c.slug, c.name, NULL, NULL, NULL, NULL, NULL, NULL FROM categories c";
-        if ($tokens === [] && empty($filters['tag']) && empty($filters['character'])) {
+        if ($tokens === [] && self::tagFilter($filters)->isEmpty() && empty($filters['character'])) {
             return $this->partition($this->db->all($taxonomy . ' ORDER BY k, p'), $perPage, 'none', $capped);
         }
         $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
@@ -150,6 +150,11 @@ final class SearchRepository
         ];
     }
 
+    private static function tagFilter(array $filters): TagFilter
+    {
+        return TagFilter::fromQuery(['tag' => $filters['tag'] ?? [], 'xtag' => $filters['xtag'] ?? [], 'tags' => $filters['tags'] ?? '']);
+    }
+
     private function filterSql(array $filters, array &$params): string
     {
         $sql = '';
@@ -160,14 +165,10 @@ final class SearchRepository
         if (!empty($filters['rating_id'])) { $sql .= ' AND s.rating_id = ?'; $params[] = (int) $filters['rating_id']; }
         if (isset($filters['completed']) && $filters['completed'] !== null) { $sql .= ' AND s.completed = ?'; $params[] = $filters['completed'] ? 1 : 0; }
         if (!empty($filters['language'])) { $sql .= ' AND s.language = ?'; $params[] = $filters['language']; }
-        // Last, so the binds above keep their documented order. CAST because the
-        // driver binds ints as text and an expression has no column affinity. A synonym id
-        // matches through its canonical tag (two binds, same value); an unknown id matches nothing.
-        if (!empty($filters['tag'])) {
-            $sql .= ' AND EXISTS (SELECT 1 FROM story_tags stf JOIN tags tf ON tf.id = stf.tag_id WHERE stf.story_id = s.id AND COALESCE(tf.canonical_id, tf.id) = COALESCE((SELECT tw.canonical_id FROM tags tw WHERE tw.id = CAST(? AS INTEGER)), CAST(? AS INTEGER)))';
-            $params[] = (int) $filters['tag'];
-            $params[] = (int) $filters['tag'];
-        }
+        // Tag include, leave-out and name constraints live in TagFilter (the
+        // synonym-through-canonical rule included). Its binds land here, before
+        // character, so the documented bind order is unchanged.
+        $sql .= self::tagFilter($filters)->sql($params, 's');
         if (!empty($filters['character'])) {
             $sql .= ' AND EXISTS (SELECT 1 FROM story_characters scf WHERE scf.story_id = s.id AND scf.character_id = ?)';
             $params[] = (int) $filters['character'];

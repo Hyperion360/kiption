@@ -30,6 +30,9 @@ final class SearchController
             'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($this->request->get['language'] ?? '')) ? (string) $this->request->get['language'] : null,
             // Tag and character ids from the story page links; junk and 0 coerce to no filter.
             'tag' => $this->positiveId('tag'),
+            // Leave-out ids and tag names ride the same TagFilter, which validates them.
+            'xtag' => ($this->request->get['xtag'] ?? []) ?: null,
+            'tags' => ($this->request->get['tags'] ?? '') ?: null,
             'character' => $this->positiveId('character'),
         ];
         [$perPage, $offset] = $this->paginate();

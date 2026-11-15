@@ -50,6 +50,21 @@ final class TaxonomyFilterTest extends TaxonomyCase
         $this->assertSame([$a], $this->slugs('tag=' . $syn));
     }
 
+    /** Pins the behavior TagFilter inherited: a story carrying a retired
+     *  synonym is found by the canonical id and by the synonym id, and a story
+     *  without either tag is not. */
+    public function test_canonical_and_synonym_ids_both_find_a_story_tagged_with_the_synonym(): void
+    {
+        [$a, $b] = $this->twoStories();
+        $fantasy = $this->tagId('Fantasy');
+        $this->db->query("INSERT INTO tags (tag_type_id, name, canonical_id) VALUES ((SELECT tag_type_id FROM tags WHERE id = ?), 'Fantasyish', ?)", [$fantasy, $fantasy]);
+        $syn = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO story_tags (story_id, tag_id) VALUES (?, ?)', [$this->storyId($a), $syn]);
+        $this->assertSame([$a], $this->slugs('tag=' . $fantasy));
+        $this->assertSame([$a], $this->slugs('tag=' . $syn));
+        $this->assertNotContains($b, $this->slugs('tag=' . $fantasy));
+    }
+
     public function test_search_by_character_and_combined_with_category(): void
     {
         [$a, $b] = $this->twoStories();
