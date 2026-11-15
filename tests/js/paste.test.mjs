@@ -164,6 +164,48 @@ for (const f of readdirSync(pasteDir).filter((n) => n.endsWith('.html'))) {
   });
 }
 
+test('word office markup vanishes: namespaced tags, del, bullet glyph fonts', () => {
+  const oTag = el('O:P', {}, [tx('para mark')]);
+  const shape = el('V:SHAPE', {}, [el('div', {}, [tx('Vector junk')])]);
+  const tree = el('div', {}, [
+    el('p', {}, [oTag, tx('Real text')]),
+    shape,
+    el('p', {}, [el('ins', {}, [tx('Kept')]), tx(' '), el('del', {}, [tx('Gone')]), tx(' stays')]),
+  ]);
+  const out = convertNodeTree(tree);
+  assert.equal(out.includes('Vector junk'), false, 'namespaced tags and their children vanish');
+  assert.equal(out.includes('para mark'), false);
+  assert.equal(out.includes('Gone'), false, 'tracked-change deletions drop');
+  assert.equal(out.includes('Kept stays'), true, 'insertions keep');
+});
+
+test('a footnote anchor drops with its link, a real sup keeps', () => {
+  const footnote = el('sup', {}, [el('a', { href: '#_ftn1' }, [tx('1')])]);
+  const tree = el('p', {}, [tx('Read the note'), footnote, tx(' and move on.')]);
+  assert.equal(convertNodeTree(tree), 'Read the note and move on.');
+  /* a superscript with no same-page link is content (an exponent), not paper */
+  const math = el('p', {}, [tx('2'), el('sup', {}, [tx('10')]), tx(' is large')]);
+  assert.equal(convertNodeTree(math).includes('10'), true, 'a content sup keeps');
+});
+
+test('a word fake list keeps a literal marker', () => {
+  const bullet = el('p', { class: 'MsoListBullet' }, [el('span', { style: { fontFamily: 'Symbol' } }, [tx('\u00b7')]), tx('Point one')]);
+  const numbered = el('p', { class: 'MsoListNumber' }, [el('span', {}, [tx('1. ')]), tx('Step two')]);
+  const out = convertNodeTree(el('div', {}, [bullet, numbered]));
+  assert.equal(out, '- Point one\n\n1. Step two');
+});
+
+test('pasted markdown-looking plain text arrives as typed', () => {
+  /* a text-only clipboard is left to the browser, which inserts the words
+     verbatim: the converter never runs, so markdown lookalikes are never
+     reinterpreted */
+  const box = fakeBox(); const got = [];
+  attach(box, () => 'SHOULD NOT RUN', (b, t) => got.push(t));
+  const ev = pasteEvent({ 'text/plain': '**bold-looking** stays _typed_' }, box);
+  assert.equal(ev.prevented, false, 'the browser does the insert');
+  assert.deepEqual(got, [], 'the converter never runs');
+});
+
 test('a literal asterisk or underscore is written with a backslash escape', () => {
   assert.equal(convertNodeTree(el('p', {}, [tx('5 * 3 and 7 * 2')])), '5 \\* 3 and 7 \\* 2');
   assert.equal(convertNodeTree(el('p', {}, [tx('snake_case_word')])), 'snake\\_case\\_word');

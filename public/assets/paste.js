@@ -10,7 +10,7 @@
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
   if (root.Kip) { root.Kip.pasteToMarkdown = api.convertNodeTree; root.Kip.pasteInit = api.init; }
 })(typeof window !== 'undefined' ? window : globalThis, function () {
-  var SKIP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, IMG: 1, HEAD: 1, META: 1, LINK: 1, NOSCRIPT: 1, TEMPLATE: 1, SVG: 1, TITLE: 1 };
+  var SKIP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, IMG: 1, HEAD: 1, META: 1, LINK: 1, NOSCRIPT: 1, TEMPLATE: 1, SVG: 1, TITLE: 1, DEL: 1 };
   var BLOCK = { P: 1, DIV: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, UL: 1, OL: 1, LI: 1, BLOCKQUOTE: 1, TABLE: 1, TR: 1, TD: 1, TH: 1, BODY: 1, HR: 1, PRE: 1, SECTION: 1, ARTICLE: 1 };
   /* Pastes past these fall back to the browser's plain text paste: a huge
      document or a deeply nested one would freeze the page while it converts. */
@@ -20,6 +20,10 @@
 
   function tagOf(n) { return n.nodeType === 1 ? String(n.tagName || '').toUpperCase() : ''; }
   function styleOf(n, prop) { return String((n.style && n.style[prop]) || '').toLowerCase(); }
+  function classOf(n) { return String((n.className !== undefined && n.className) || (n.getAttribute && n.getAttribute('class')) || ''); }
+  /* Word's down-level-revealed markup arrives as namespaced tags (o:p,
+     v:shape, st1:place): none of them survive the walk. */
+  function skipTag(tag) { return !!SKIP[tag] || tag.indexOf(':') > -1; }
 
   /* Bold: an explicit font-weight wins (Docs wraps everything in a b tag that
      says font-weight:normal), else a bare b or strong means bold (Word), else
@@ -64,11 +68,11 @@
     var kids = n.childNodes || [];
     for (var i = 0; i < kids.length; i++) {
       var k = kids[i];
-      if (k.nodeType === 1 && !SKIP[tagOf(k)] && (BLOCK[tagOf(k)] || hasBlock(k))) { return true; }
+      if (k.nodeType === 1 && !skipTag(tagOf(k)) && (BLOCK[tagOf(k)] || hasBlock(k))) { return true; }
     }
     return false;
   }
-  function isBlockish(n) { return n.nodeType === 1 && !SKIP[tagOf(n)] && (BLOCK[tagOf(n)] || hasBlock(n)); }
+  function isBlockish(n) { return n.nodeType === 1 && !skipTag(tagOf(n)) && (BLOCK[tagOf(n)] || hasBlock(n)); }
 
   /* A literal backslash, asterisk or underscore in pasted text gets a
      backslash so the site's markdown shows it as typed ("5 * 3" is not
@@ -80,8 +84,14 @@
     if (n.nodeType === 3) { return escapeLiteral(String(n.nodeValue || '').replace(/[\s ]+/g, ' ')); }
     if (n.nodeType !== 1) { return ''; }
     var tag = tagOf(n);
-    if (SKIP[tag]) { return ''; }
+    if (skipTag(tag)) { return ''; }
     if (tag === 'BR') { return '\n'; }
+    /* Word's bullet glyphs ride Symbol or Wingdings font spans: the glyph is
+       the bullet, the list marker below replaces it */
+    if (tag === 'SPAN' && /symbol|wingdings/.test(styleOf(n, 'fontFamily'))) { return ''; }
+    /* a footnote anchor (a superscript number linking inside the page) is
+       paper baggage: story text keeps the sentence, not the citation machinery */
+    if ((tag === 'SUP' || tag === 'SMALL') && isFootnote(n)) { return ''; }
     var b = boldOf(n, st.b), i = italicOf(n, st.i);
     var inner = inlineRun(n.childNodes || [], { b: b, i: i });
     if (tag === 'A') {
@@ -98,6 +108,30 @@
     else if (newI) { out = wrap(out, '*'); }
     return out;
   }
+  /* A superscript or small span whose links all point inside the page and
+     whose text is bare numbers: a footnote anchor. */
+  function isFootnote(n) {
+    var text = tidy(inlineRun(n.childNodes || [], { b: false, i: false }));
+    if (text === '' || !/^[\d\s,.]*$/.test(text)) { return false; }
+    /* a real footnote anchor links inside the page; a superscript with no
+       link is content (an exponent), so it keeps */
+    var links = [];
+    (function walk(node) {
+      var kids = node.childNodes || [];
+      for (var i = 0; i < kids.length; i++) {
+        if (kids[i].nodeType !== 1) { continue; }
+        if (tagOf(kids[i]) === 'A') { links.push(kids[i]); }
+        walk(kids[i]);
+      }
+    })(n);
+    if (links.length === 0) { return false; }
+    for (var i = 0; i < links.length; i++) {
+      var href = String((links[i].getAttribute && links[i].getAttribute('href')) || '');
+      if (href.charAt(0) !== '#') { return false; }
+    }
+    return true;
+  }
+
   function inlineRun(nodes, st) {
     var s = '';
     for (var k = 0; k < nodes.length; k++) { s += inline(nodes[k], st); }
@@ -131,7 +165,7 @@
     for (var k = 0; k < nodes.length; k++) {
       var n = nodes[k];
       if (n.nodeType === 3) { run.push(n); continue; }
-      if (n.nodeType !== 1 || SKIP[tagOf(n)]) { continue; }
+      if (n.nodeType !== 1 || skipTag(tagOf(n))) { continue; }
       if (!isBlockish(n)) { run.push(n); continue; }
       flush();
       out = out.concat(blockOf(n, ctx));
@@ -140,8 +174,26 @@
     return out;
   }
 
+  /* Word fake lists: paragraphs of class MsoList*, the bullet glyph in a
+     Symbol or Wingdings span (dropped above), the number as literal text.
+     A bullet paragraph gets a literal '- ' marker; the numbered kind keeps
+     its own typed number, so the line reads exactly as Word printed it. */
+  function isMsoList(n) { return /msolist/i.test(classOf(n)); }
+  function msoListItem(n, ctx) {
+    var kids = Array.prototype.slice.call(n.childNodes || []);
+    var kept = [], dropped = false;
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].nodeType === 1 && /symbol|wingdings/.test(styleOf(kids[i], 'fontFamily'))) { dropped = true; continue; }
+      kept.push(kids[i]);
+    }
+    var text = tidy(inlineRun(kept, { b: ctx.b, i: false }));
+    if (text === '') { return []; }
+    return [dropped ? '- ' + text : text];
+  }
+
   function blockOf(n, ctx) {
     var tag = tagOf(n);
+    if (isMsoList(n)) { return msoListItem(n, ctx); }
     if (tag === 'HR') { return ['---']; }
     if (HEADING[tag]) {
       var h = tidy(inlineRun(n.childNodes || [], { b: true, i: false }));
