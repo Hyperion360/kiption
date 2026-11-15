@@ -19,6 +19,11 @@
     if (typeof module !== 'undefined' && module.exports) { return require('./text-edit.js'); }
     return root && root.Kip ? { insertText: root.Kip.textInsert, wrapSelection: root.Kip.textWrap, prefixLines: root.Kip.textPrefix } : null;
   })();
+  /* smart punctuation rides the same keydown path in the browser; the Node
+   * tests drive it directly, so it stays null here */
+  var smart = (typeof module !== 'undefined' && module.exports)
+    ? null
+    : (root && root.Kip && root.Kip.smart ? root.Kip.smart : null);
 
   var MARKERS = { bold: ['**', '**'], italic: ['*', '*'] };
 
@@ -92,6 +97,12 @@
       box.addEventListener('compositionstart', function () { state.composing = true; });
       box.addEventListener('compositionend', function () { state.composing = false; });
       box.addEventListener('keydown', function (e) {
+        /* smart punctuation consumes the keystroke first (a plain quote,
+         * hyphen or dot, no modifiers); the shortcuts read the modifiers */
+        if (smart && !e.ctrlKey && !e.metaKey && !e.altKey && smart.apply(box, e.key)) {
+          e.preventDefault();
+          return;
+        }
         var id = handleKey(state, e.key, e.ctrlKey, e.metaKey);
         if (id === null) { return; }
         e.preventDefault();
