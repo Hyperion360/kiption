@@ -140,4 +140,23 @@ final class TaxonomyFilterTest extends TaxonomyCase
         $this->db->query('INSERT INTO story_tags (story_id, tag_id) VALUES (?, ?)', [$this->storyId($a), $syn]);
         $this->assertStringContainsString('href="/search?tag=' . $fantasy . '"', $this->client()->get('/story/view/' . $a)->body);
     }
+
+    public function test_the_search_pager_keeps_leave_out_tags_and_tag_names(): void
+    {
+        $this->twoStories();
+        $author = (int) $this->row('SELECT author_id FROM stories LIMIT 1')['author_id'];
+        $rating = (int) $this->row('SELECT id FROM ratings LIMIT 1')['id'];
+        for ($i = 0; $i < 22; $i++) {
+            $this->db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES (?, ?, ?, ?, ?, 1)', ['Pager ' . $i, 'pager-' . $i, 'pagerword', $author, $rating]);
+            $this->db->query('INSERT INTO story_tags (story_id, tag_id) VALUES (?, ?)', [(int) $this->db->lastInsertId(), $this->tagId('Fantasy')]);
+        }
+        $x = $this->tagId('Maritime');
+        $body = $this->client()->get('/search', ['q' => 'pagerword', 'xtag' => [(string) $x], 'tags' => 'Fantasy'])->body;
+        $this->assertMatchesRegularExpression('#rel="next"#', $body);
+        preg_match('#href="(/search\?[^"]*)" rel="next"#', $body, $m);
+        $this->assertNotEmpty($m, 'next link present');
+        parse_str(html_entity_decode($m[1] ?? ''), $qs);
+        $this->assertSame([(string) $x], array_map('strval', $qs['xtag'] ?? []), 'leave-out tag survives paging');
+        $this->assertSame('Fantasy', $qs['tags'] ?? null, 'tag names survive paging');
+    }
 }

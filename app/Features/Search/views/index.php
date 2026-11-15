@@ -68,6 +68,11 @@ $carry = ['q' => $q,
           'tag' => (string) ($filters['tag'] ?? ''),
           'character' => (string) ($filters['character'] ?? '')];
 $keep = array_filter($carry, fn (string $v): bool => $v !== '');
+// Leave-out ids and tag names ride the pager too, or paging drops them.
+$xtag = array_values(array_filter((array) ($filters['xtag'] ?? []), 'is_string'));
+$xtag = array_values(array_filter($xtag, 'ctype_digit'));
+if ($xtag !== []) { $keep['xtag'] = $xtag; }
+if (is_string($filters['tags'] ?? null) && $filters['tags'] !== '') { $keep['tags'] = $filters['tags']; }
 $prevQ = http_build_query($keep + ['page' => max(1, $page - 1)]);
 $nextQ = http_build_query($keep + ['page' => $page + 1]);
 ?>
