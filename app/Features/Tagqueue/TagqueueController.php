@@ -2,7 +2,7 @@
 namespace App\Features\Tagqueue;
 use App\{AdminScreen, Lang};
 use Kip\Http\Response;
-use Kip\Routing\Auth;
+use Kip\Routing\{Auth, Post};
 
 /** The owner's queue of waiting tag suggestions (admin only). Pending names
  *  live in tag_suggestions, never in tags, so nothing here is reachable from
@@ -73,5 +73,74 @@ final class TagqueueController extends AdminScreen
         return $this->page('tagqueue/index', 'tagqueue.heading', '/tagqueue', [
             'groups' => $q['groups'], 'total' => $q['total'],
         ]);
+    }
+
+    /** The admin gate for the writes, with the transaction's undo path: the
+     *  gate's users row is a second query, which a write can afford. */
+    private function gate(): ?Response
+    {
+        $g = $this->deny();
+        return $g instanceof Response ? $g : null;
+    }
+
+    /** @return array{0: int, 1: string} the (type id, name) key the queue
+     *  forms post; junk coerces to a key that holds no rows, which 404s. */
+    private function keyInput(): array
+    {
+        return [(int) ($this->request->post['type_id'] ?? 0), trim((string) ($this->request->post['name'] ?? ''))];
+    }
+
+    #[Auth]
+    #[Post]
+    public function approve(): Response|string
+    {
+        if (($g = $this->gate()) !== null) return $g;
+        [$typeId, $name] = $this->keyInput();
+        $stories = [];
+        try {
+            $this->atomically(function () use (&$stories, $typeId, $name): void {
+                $stories = (new \App\Repositories\TagSuggestionRepository($this->db))->approve($typeId, $name, (int) $this->session->get('user_id'));
+            });
+        } catch (\App\SuggestionTypeMismatch) {
+            return new Response(Lang::t('error.not_found'), 404);
+        }
+        if ($stories === []) return new Response(Lang::t('error.not_found'), 404);
+        \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.approve', "type {$typeId}: {$name}");
+        $this->purge(); // approve changes what public story pages and listings show
+        return \App\Saved::to('/tagqueue', \App\CachePurge::savedCode($this->app, 'added'));
+    }
+
+    #[Auth]
+    #[Post]
+    public function merge(): Response|string
+    {
+        if (($g = $this->gate()) !== null) return $g;
+        [$typeId, $name] = $this->keyInput();
+        $targetId = (int) ($this->request->post['target_id'] ?? 0);
+        $stories = [];
+        try {
+            $this->atomically(function () use (&$stories, $typeId, $name, $targetId): void {
+                $stories = (new \App\Repositories\TagSuggestionRepository($this->db))->mergeInto($typeId, $name, $targetId, (int) $this->session->get('user_id'));
+            });
+        } catch (\App\SuggestionTypeMismatch) {
+            return new Response(Lang::t('tagqueue.err_type'), 422);
+        }
+        if ($stories === []) return new Response(Lang::t('error.not_found'), 404);
+        \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.merge', "type {$typeId}: {$name} -> tag {$targetId}");
+        $this->purge();
+        return \App\Saved::to('/tagqueue', \App\CachePurge::savedCode($this->app, 'moved'));
+    }
+
+    #[Auth]
+    #[Post]
+    public function reject(): Response|string
+    {
+        if (($g = $this->gate()) !== null) return $g;
+        [$typeId, $name] = $this->keyInput();
+        $touched = (new \App\Repositories\TagSuggestionRepository($this->db))->reject($typeId, $name, (int) $this->session->get('user_id'));
+        if ($touched === 0) return new Response(Lang::t('error.not_found'), 404);
+        \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.reject', "type {$typeId}: {$name}");
+        // reject changes nothing public: no purge (the PurgeSeams rule)
+        return \App\Saved::to('/tagqueue');
     }
 }

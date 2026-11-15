@@ -152,6 +152,84 @@ final class TagSuggestionRepository
         );
     }
 
+    // ---- The admin queue's writes (Task 4.5). Each runs inside the
+    // controller's atomically() wrapper: one transaction per action, all or
+    // nothing. @return list<int> the story ids the action attached to, or []
+    // when the (type, name) key held no pending rows (the caller 404s). ----
+
+    private function pending(int $typeId, string $name): array
+    {
+        return $this->db->all(
+            "SELECT id, story_id FROM tag_suggestions WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE ORDER BY id",
+            [$typeId, $name]
+        );
+    }
+
+    /** Create the tag (or find the one a racing admin already made), attach
+     *  every pending story, delete the rows. The audit trail is the activity
+     *  log; approved rows leave no suggestion behind. */
+    public function approve(int $typeId, string $name, int $adminId): array
+    {
+        $rows = $this->pending($typeId, $name);
+        if ($rows === []) { return []; }
+        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$typeId, $name]);
+        $tag = $this->db->one('SELECT id, canonical_id FROM tags WHERE tag_type_id = ? AND name = ? COLLATE NOCASE', [$typeId, $name]);
+        if ($tag === null) { return []; } // unreachable outside a broken type; the INSERT decided
+        $tagId = (int) ((int) $tag['canonical_id'] ?: (int) $tag['id']);
+        return $this->attachAndClear($tagId, $typeId, $name);
+    }
+
+    /** Attach to the chosen live tag and record the suggested name as a
+     *  retired synonym of it, exactly the row shape Wrangling's merge
+     *  produces, so its unmerge can undo the retirement. The target must be
+     *  of the suggestion's own type; a retired target resolves to its
+     *  canonical first. */
+    public function mergeInto(int $typeId, string $name, int $targetId, int $adminId): array
+    {
+        $rows = $this->pending($typeId, $name);
+        if ($rows === []) { return []; }
+        $target = $this->db->one('SELECT id, canonical_id, tag_type_id FROM tags WHERE id = ?', [$targetId]);
+        if ($target === null || (int) $target['tag_type_id'] !== $typeId) {
+            throw new \App\SuggestionTypeMismatch();
+        }
+        $real = (int) ((int) $target['canonical_id'] ?: (int) $target['id']);
+        // Record the retirement (INSERT OR IGNORE: a racing admin may have
+        // created the name first; the UNIQUE on (tag_type_id, name) decides),
+        // then resolve whatever row now holds the name and attach through it.
+        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)', [$typeId, $name, $real]);
+        $held = $this->db->one('SELECT id, canonical_id FROM tags WHERE tag_type_id = ? AND name = ? COLLATE NOCASE', [$typeId, $name]);
+        if ($held !== null) { $real = (int) ((int) $held['canonical_id'] ?: (int) $held['id']); }
+        return $this->attachAndClear($real, $typeId, $name);
+    }
+
+    /** Mark the rows rejected with who decided. Nothing attaches, nothing
+     *  public changes, so the caller purges nothing. @return int rows touched */
+    public function reject(int $typeId, string $name, int $adminId): int
+    {
+        return $this->db->query(
+            "UPDATE tag_suggestions SET status = 'rejected', resolved_at = ?, resolved_by = ?
+             WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE",
+            [date('c'), $adminId, $typeId, $name]
+        )->rowCount();
+    }
+
+    /** ONE INSERT..SELECT from the pending rows (so a story that snuck in
+     *  after the read still rides), then the delete. */
+    private function attachAndClear(int $tagId, int $typeId, string $name): array
+    {
+        $storyIds = array_map(fn (array $r): int => (int) $r['story_id'], $this->pending($typeId, $name));
+        $this->db->query(
+            "INSERT OR IGNORE INTO story_tags (story_id, tag_id)
+             SELECT story_id, ? FROM tag_suggestions WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE",
+            [$tagId, $typeId, $name]
+        );
+        $this->db->query(
+            "DELETE FROM tag_suggestions WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE",
+            [$typeId, $name]
+        );
+        return $storyIds;
+    }
+
     private function attach(int $storyId, int $tagId): void
     {
         $this->db->query('INSERT OR IGNORE INTO story_tags (story_id, tag_id) VALUES (?, ?)', [$storyId, $tagId]);

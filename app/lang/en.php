@@ -1025,6 +1025,7 @@ return [
     'tagqueue.merge_go' => 'Merge',
     'tagqueue.pick_existing' => 'Choose a Tag',
     'tagqueue.reject' => 'Reject',
+    'tagqueue.err_type' => 'The chosen tag is of another type. A suggestion can only fold into a tag of its own type.',
     'tagsadmin.heading' => 'Tags and Tag Types',
     'tagsadmin.help' => 'Tags are grouped by type. Common types are Genres, Warnings and Relationships. Authors pick tags when they post a story.',
     'tagsadmin.suggest_heading' => 'Add a Common Tag Type',
