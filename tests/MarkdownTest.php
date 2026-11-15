@@ -89,6 +89,44 @@ final class MarkdownTest extends TestCase
         $this->assertSame("<p>A</p>\n<p>B</p>\n", Markdown::render("A\r\n\r\nB"));
     }
 
+    public function test_snake_case_words_do_not_italicize(): void
+    {
+        $this->assertSame("<p>use snake_case_word here</p>\n", Markdown::render('use snake_case_word here'));
+        $this->assertSame("<p>my_var and other_var</p>\n", Markdown::render('my_var and other_var'));
+        $this->assertSame("<p>a <em>real</em> one and snake_case_word</p>\n", Markdown::render('a _real_ one and snake_case_word'));
+        $this->assertSame("<p><em>Привет мир</em> и по_русски_так</p>\n", Markdown::render('_Привет мир_ и по_русски_так'));
+    }
+
+    public function test_underscores_in_link_addresses_stay_in_the_address(): void
+    {
+        $this->assertSame(
+            '<p><a href="https://e.test/a_b_c" rel="noopener">x</a> and <a href="https://e.test/_x_" rel="noopener">y</a></p>' . "\n",
+            Markdown::render('[x](https://e.test/a_b_c) and [y](https://e.test/_x_)'));
+        $this->assertSame(
+            '<p><a href="https://e.test/a*b*c" rel="noopener">z</a></p>' . "\n",
+            Markdown::render('[z](https://e.test/a*b*c)'));
+        $this->assertSame(
+            '<p><img src="https://e.test/a_b_c.png" alt="p"></p>' . "\n",
+            Markdown::render('![p](https://e.test/a_b_c.png)'));
+    }
+
+    public function test_backslash_escapes_make_literal_markers(): void
+    {
+        $this->assertSame("<p>5 * 3 and 7 * 2</p>\n", Markdown::render('5 \\* 3 and 7 \\* 2'));
+        $this->assertSame("<p>snake_case_word</p>\n", Markdown::render('snake\\_case\\_word'));
+        $this->assertSame("<p>*not italic*</p>\n", Markdown::render('\\*not italic\\*'));
+        $this->assertSame("<p>_not italic_</p>\n", Markdown::render('\\_not italic\\_'));
+        $this->assertSame("<p>a\\b</p>\n", Markdown::render('a\\\\b'));
+        $this->assertSame("<p>keep \\n as typed</p>\n", Markdown::render('keep \\n as typed'));
+        $this->assertSame("<p><em>a*b</em></p>\n", Markdown::render('*a\\*b*'));
+    }
+
+    public function test_escaped_markers_in_link_text_and_list_items(): void
+    {
+        $this->assertSame('<p><a href="https://e.test/" rel="noopener">a*b</a></p>' . "\n", Markdown::render('[a\\*b](https://e.test/)'));
+        $this->assertSame("<ul>\n<li>a * b</li></ul>\n", Markdown::render('- a \\* b', true));
+    }
+
     public function test_word_count_strips_markup(): void
     {
         $this->assertSame(8, Markdown::wordCount('Falling *down* the **hole**, [past](https://e.test/) shelves of nothing.'));
