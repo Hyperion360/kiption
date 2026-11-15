@@ -471,6 +471,12 @@ return [
     'chapter.access_clear_label' => 'Remove Password',
     'chapter.markdown_help' => 'Markdown: *italic*, **bold**, a line of --- for a scene break, > for quotes, [text](https://...). HTML is not available.',
     'chapter.paste_hint' => 'Pasting from Google Docs or Word keeps italics, bold, links, and scene breaks. Hold Shift to paste plain text.',
+    'chapter.editor_bold' => 'Bold',
+    'chapter.editor_italic' => 'Italic',
+    'chapter.editor_link' => 'Add Link',
+    'chapter.editor_quote' => 'Quote',
+    'chapter.editor_break' => 'Scene Break',
+    'chapter.editor_hint' => 'The buttons above the box and Ctrl or Cmd plus B, I, and K work while you type.',
     'chapter.save' => 'Save chapter',
     'chapter.delete' => 'Delete chapter',
 

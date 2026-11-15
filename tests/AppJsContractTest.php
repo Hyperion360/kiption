@@ -359,7 +359,8 @@ final class AppJsContractTest extends TestCase
     {
         $authorId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
         $html = $this->client()->actingAs($authorId)->get('/chapter/new/the-rabbit-hole')->body;
-        $this->assertMatchesRegularExpression('/<textarea[^>]*name="content"[^>]*data-js-module="paste"/', $html);
+        // the box carries several modules now (paste editor): word-boundary match
+        $this->assertMatchesRegularExpression('/<textarea[^>]*name="content"[^>]*data-js-module="[^"]*\bpaste\b[^"]*"/', $html);
         $this->assertMatchesRegularExpression('/<textarea[^>]*name="content"[^>]*\brequired\b/', $html, 'the plain form is unchanged');
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $html, 'no inline script is added');
         $this->assertStringContainsString(\App\Lang::t('chapter.paste_hint'), $html);
