@@ -1054,6 +1054,20 @@ return [
     'story.err_locked_category' => 'One of the categories you picked is reserved for the site owner. Choose a different category.',
     'story.characters_label' => 'Characters:',
     'story.tags_label' => 'Tags:',
+    'story.suggest_label' => 'Suggest a New Tag',
+    'story.suggest_hint' => 'Separate names with commas. New tags are reviewed before anyone else sees them.',
+    'story.suggest_hint_free' => 'Separate names with commas. New tags go live when you save.',
+    'story.suggest_pending' => 'Waiting for Review',
+    'story.suggest_rejected' => 'Not Accepted',
+    'story.suggest_withdraw' => 'Withdraw',
+    'story.suggest_refused' => 'Some tags were not added: {names}',
+    'story.suggest_refused_name' => 'not a usable name',
+    'story.suggest_refused_type' => 'a tag of this name exists in another type',
+    'story.suggest_refused_duplicate' => 'already waiting for review',
+    'story.suggest_refused_rejected' => 'not accepted here before',
+    'story.suggest_refused_limit' => 'too many waiting suggestions',
+    'story.suggest_refused_rate' => 'too many saves too fast',
+    'story.suggest_refused_off' => 'suggestions are turned off',
 
     // The admin invite-code surface (list, mint, revoke-unused). Registration
     // mode `invite` consumes the codes; this is where they come from.
