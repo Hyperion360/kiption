@@ -65,6 +65,19 @@ final class ContactTest extends TestCase
         $this->assertMatchesRegularExpression('/<div hidden[^>]*>.*name="website"/s', $res->body);
     }
 
+    public function test_removed_menu_links_stay_hidden_on_the_contact_page(): void
+    {
+        $navFile = tempnam(sys_get_temp_dir(), 'kiption-ct-nav-') . '.json';
+        $this->db->query('DELETE FROM nav_links');
+        $this->db->query('INSERT INTO nav_links (label, url, position) VALUES (?,?,?)', ['Recent', '/browse/recent', 1]);
+        \App\NavLinks::rebuild($this->db, $navFile);
+        $body = $this->client(['nav_file' => $navFile])->get('/contact')->body;
+        $this->assertStringContainsString('href="/browse/recent"', $body);
+        $this->assertStringNotContainsString('href="/browse/authors"', $body);
+        $this->assertStringNotContainsString('href="/series"', $body);
+        @unlink($navFile);
+    }
+
     public function test_a_signed_in_member_is_not_offered_a_log_in_link(): void
     {
         $this->assertStringContainsString('<a class="nav-account" href="/auth/login">', $this->client()->get('/contact')->body);

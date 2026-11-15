@@ -124,12 +124,12 @@ final class TextTest extends TestCase
     {
         $c = $this->client($this->adminId);
         $home = $c->get('/text')->body;
-        $this->assertStringContainsString('<a href="/text/group/adminmembers?lang=en"><span class="manage-name">Members admin</span>', $home);
+        $this->assertStringContainsString('<a href="/text/group/adminmembers?lang=en"><span class="manage-name">Members Admin</span>', $home);
         $this->assertStringContainsString('<a href="/text/group/foot?lang=en"><span class="manage-name">Footer</span>', $home);
         $this->assertStringNotContainsString('>adminmembers<', $home, 'codes never stand in for a name');
         $this->assertStringContainsString('<h3>What visitors and readers see</h3>', $home);
         $this->assertStringContainsString('<h3>What admins and moderators see</h3>', $home);
-        $this->assertStringContainsString('<h1>Members admin</h1>', $c->get('/text/group/adminmembers')->body);
+        $this->assertStringContainsString('<h1>Members Admin</h1>', $c->get('/text/group/adminmembers')->body);
     }
 
     public function test_every_group_has_a_name_and_a_section(): void

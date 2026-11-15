@@ -158,7 +158,7 @@ final class MetadataTest extends TestCase
         $rating = (string) $this->db->one("SELECT id FROM ratings WHERE label = 'Teen'")['id'];
         $cat = (string) $this->db->one("SELECT id FROM categories WHERE slug = 'general'")['id'];
         $body = $this->client()->get('/story/edit/the-rabbit-hole')->body;
-        $this->assertStringContainsString('Original work', $body); // the attestation label
+        $this->assertStringContainsString('Original Work', $body); // the attestation label
         // The seeded story is a fan work (0): the box renders unchecked.
         $this->assertStringNotContainsString('name="is_original" value="1" checked', $body);
         $res = $this->client()->postWithToken('/story/update/the-rabbit-hole',

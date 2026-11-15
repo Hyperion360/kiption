@@ -298,7 +298,7 @@ final class ListsTest extends TestCase
     {
         $body = $this->client()->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('href="/lists"', $body);
-        $this->assertStringContainsString('Reading lists', $body);
+        $this->assertStringContainsString('Reading Lists', $body);
     }
 
     public function test_restricted_flip_purges_the_cached_public_list(): void

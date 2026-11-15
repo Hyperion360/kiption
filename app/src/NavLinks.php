@@ -35,4 +35,22 @@ final class NavLinks
         }
         return $out;
     }
+
+    /** The built-in header and Menu links the operator may switch off from the
+     *  menu-links page: Recent, Authors and Series. Browse and Search always
+     *  show, so nobody can lock readers out of finding stories. A built-in
+     *  shows when the artifact lists its URL; before the artifact exists (a
+     *  fresh checkout) every built-in shows.
+     *  @return array<string, bool> url => shown */
+    public static function builtIns(string $file): array
+    {
+        $urls = ['/browse/recent', '/browse/authors', '/series'];
+        $raw = ($file === '' || !is_file($file)) ? false : @file_get_contents($file);
+        // missing, unreadable or corrupt: show everything rather than hide it by accident
+        if ($raw === false || !is_array(json_decode($raw, true))) return array_fill_keys($urls, true);
+        $listed = array_column(self::all($file), 'url');
+        $out = [];
+        foreach ($urls as $u) $out[$u] = in_array($u, $listed, true);
+        return $out;
+    }
 }

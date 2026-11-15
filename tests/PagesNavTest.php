@@ -170,18 +170,18 @@ final class PagesNavTest extends TestCase
         $this->assertSame([['label' => 'About', 'url' => '/page/view/about']], \App\NavLinks::all($this->navFile()), 'the artifact still rebuilt');
     }
 
-    public function test_auth_page_renders_nav_free_at_200(): void
+    public function test_auth_page_carries_the_custom_nav(): void
     {
-        // the recorded auth-page nav gap: AuthController omits navFile (like it
-        // omits theme), so auth surfaces keep the minimal chrome; finding 1's
-        // guard makes the omission safe by construction, pinned here.
+        // Sign-in pages used to omit navFile and so showed the minimal chrome.
+        // They now pass it, so a link the operator removed stays gone there too
+        // (see AuthTest). The header still renders at 200 with the custom link.
         $db = $this->db();
         $db->query('INSERT INTO nav_links (label, url, position) VALUES (?,?,?)', ['About', '/page/view/about', 1]);
         \App\NavLinks::rebuild($db, $this->navFile());
         $res = $this->client()->get('/auth/login');
         $this->assertSame(200, $res->status);
-        $this->assertStringNotContainsString('href="/page/view/about"', $res->body);
-        $this->assertStringContainsString('href="/browse"', $res->body); // hardcoded layout links still render
+        $this->assertStringContainsString('href="/page/view/about"', $res->body);
+        $this->assertStringContainsString('href="/browse"', $res->body);
     }
 
     public function test_public_page_renders_markdown_and_caches(): void

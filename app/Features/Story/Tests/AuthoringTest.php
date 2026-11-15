@@ -91,6 +91,15 @@ final class AuthoringTest extends TestCase
             'SELECT COUNT(*) c FROM story_categories WHERE story_id = ?', [$row['id']])['c']);
     }
 
+    public function test_create_keeps_the_completed_box(): void
+    {
+        $res = $this->clientAs(1)->postWithToken('/story/create',
+            ['title' => 'Done Already', 'summary' => 'Finished before posting.', 'rating_id' => (string) $this->ratingId(),
+             'categories' => [(string) $this->categoryId()], 'completed' => '1']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(1, (int) $this->db->one("SELECT completed FROM stories WHERE title = 'Done Already'")['completed']);
+    }
+
     /** Purge-pinning tests plant cache files here, never in the repo's real
      *  public/cache: a failed run must leave nothing the preview server
      *  could serve as a stale hit. */
@@ -157,6 +166,29 @@ final class AuthoringTest extends TestCase
         // restore the category for later tasks/tests
         $this->db->query('INSERT INTO story_categories (story_id, category_id)
                           SELECT id, ? FROM stories WHERE slug = \'the-rabbit-hole\'', [$this->categoryId()]);
+    }
+
+    public function test_saving_an_edit_says_saved_to_the_author(): void
+    {
+        $c = $this->clientAs(1);
+        $res = $c->postWithToken('/story/update/the-rabbit-hole',
+            ['title' => 'The Rabbit Hole', 'summary' => 'A slow fall into a stranger world.',
+             'rating_id' => (string) $this->ratingId(), 'categories' => [(string) $this->categoryId()]]);
+        $this->assertSame(302, $res->status);
+        $this->assertStringContainsString('saved=1', (string) ($res->headers['Location'] ?? ''));
+        $page = $c->get('/story/edit/the-rabbit-hole', ['saved' => '1']);
+        $this->assertStringContainsString('Saved.', $page->body);
+        $this->assertStringNotContainsString('Saved.', $c->get('/story/edit/the-rabbit-hole')->body);
+    }
+
+    public function test_the_edit_page_prints_saved_only_for_the_plain_saved_code(): void
+    {
+        $c = $this->clientAs(1);
+        foreach (['removed', 'bogus', '<b>x</b>'] as $code) {
+            $body = $c->get('/story/edit/the-rabbit-hole', ['saved' => $code])->body;
+            $this->assertStringNotContainsString('Saved.', $body, "?saved={$code} says nothing");
+            $this->assertStringNotContainsString('<b>x</b>', $body);
+        }
     }
 
     public function test_delete_is_soft_and_purges(): void

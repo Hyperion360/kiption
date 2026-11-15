@@ -139,14 +139,15 @@ final class AuthoringRepository
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
                                 array $categoryIds, bool $validated, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '', bool $isOriginal = false,
-                                array $tagIds = [], ?string $accessHash = null, ?array $characterIds = null): array
+                                array $tagIds = [], ?string $accessHash = null, ?array $characterIds = null,
+                                bool $completed = false): array
     {
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
         try {
             $this->db->query(
-                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language, round_robin, gift_to, is_original, access_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0, $accessHash]);
+                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language, round_robin, gift_to, is_original, access_hash, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0, $accessHash, $completed ? 1 : 0]);
             $storyId = (int) $this->db->lastInsertId();
             $this->writeCategories($storyId, $categoryIds);
             $this->writeTags($storyId, $tagIds);
