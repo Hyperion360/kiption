@@ -52,7 +52,14 @@ final class BrowseFilterTest extends TaxonomyCase
         $this->assertStringContainsString('<details', $body);
         $this->assertStringContainsString('data-js-module="listfilter"', $body);
         $this->assertStringContainsString('type="submit"', $body);
-        $this->assertSame(0, preg_match('#<script[^>]*>[^<]*[A-Za-z]#', $body), 'no inline script is needed to submit');
+        preg_match('#<form method="get" action="/browse/filter".*?</form>#s', $body, $form);
+        $this->assertNotEmpty($form);
+        $this->assertStringNotContainsString('<script', $form[0], 'nothing scripted inside the form');
+        $this->assertDoesNotMatchRegularExpression('#\son(click|change|submit|input)=#i', $body, 'no inline handlers');
+        preg_match_all('#<script\b([^>]*)>#i', $body, $tags);
+        foreach ($tags[1] as $attrs) {
+            $this->assertMatchesRegularExpression('#src="|type="application/ld\+json"#', $attrs, 'every script is external or JSON-LD, never inline code');
+        }
     }
 
     public function test_the_page_is_noindex_in_the_header_and_the_markup(): void
@@ -106,5 +113,19 @@ final class BrowseFilterTest extends TaxonomyCase
         $body = $this->client()->get('/browse/filter', ['tag' => [(string) $id]])->body;
         $this->assertStringContainsString('Also Selected', $body);
         $this->assertMatchesRegularExpression('#name="tag\[\]" value="' . $id . '" checked#', $body);
+    }
+
+    public function test_a_muted_authors_stories_hide_from_the_muting_member_and_return_when_the_flag_is_off(): void
+    {
+        $slug = (string) $this->row('SELECT slug FROM stories WHERE validated = 1 ORDER BY id LIMIT 1')['slug'];
+        $authorId = (int) $this->row('SELECT author_id FROM stories WHERE slug = ?', [$slug])['author_id'];
+        $this->db->query('INSERT INTO muted (user_id, author_id) VALUES (?, ?)', [$this->memberId, $authorId]);
+        \App\Features::init($this->db, []);
+        $me = $this->client($this->memberId);
+        $this->assertNotContains($slug, $this->slugs($me->get('/browse/filter')->body), 'muted for the muting member');
+        $this->assertContains($slug, $this->slugs($this->client()->get('/browse/filter')->body), 'a guest still sees it');
+        \App\Features::toggle('mute', false);
+        $this->assertContains($slug, $this->slugs($me->get('/browse/filter')->body), 'flag off stops the filtering');
+        \App\Features::toggle('mute', true);
     }
 }
