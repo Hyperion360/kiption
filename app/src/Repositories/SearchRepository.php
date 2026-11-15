@@ -6,6 +6,7 @@ final class SearchRepository
 {
     private const MAX_TOKENS = 8;
     private ?bool $fts = null;
+    private ?bool $tri = null;
 
     public function __construct(private Database $db) {}
 
@@ -17,6 +18,14 @@ final class SearchRepository
             catch (\PDOException) { $this->fts = false; }
         }
         return $this->fts;
+    }
+
+    /** The trigram arm's presence, learned the finding-6 way: the first
+     *  failed prepare of the arm IS the probe, memoized negative. No query
+     *  is ever spent probing for the table. */
+    private function triOn(): bool
+    {
+        return $this->tri !== false;
     }
 
     /** @param array{category?:string,rating_id?:int,completed?:bool,language?:string} $filters
@@ -86,26 +95,43 @@ final class SearchRepository
             return $this->partition($rows, $perPage, 'filter', $capped);
         }
         if ($this->fts !== false) {
-            try {
-                $match = self::matchExpression($q);
-                $params = [$match, $match, $me];
-                if ($viewer > 0) $params[] = $viewer;
-                $filter = $this->filterSql($filters, $params);
-                $params[] = $perPage + 1; $params[] = $offset;
-                // The rank order is the FTS arm's native sort; the updated
-                // choice shares the documented TEMP B-TREE exception. The
-                // inner statement orders and pages on the same expression.
-                $order = $sort === 'updated' ? 'st.updated_at DESC, st.id DESC' : 'st.rank ASC';
-                $rows = $this->db->all(
-                    $taxonomy . " UNION ALL
-                    SELECT 's', ROW_NUMBER() OVER (ORDER BY {$order}), st.slug, st.title, st.summary,
-                           st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-                    FROM ({$this->ftsStatement($mute, $filter, $sort)}) st
-                    ORDER BY k, p",
-                    $params
-                );
-                return $this->partition($rows, $perPage, 'fts', $capped);
-            } catch (\PDOException) { $this->fts = false; }
+            // Two attempts at most: with the trigram arm, then without. The
+            // finding-6 doctrine applies to each: a failure IS the probe,
+            // memoized. The arm's failure (no 069 table on this build) drops
+            // only the arm; an FTS failure drops to LIKE below.
+            for ($attempt = 0; $attempt < 2; $attempt++) {
+                try {
+                    $match = self::matchExpression($q);
+                    // slice 10: the typo arm's MATCH bind rides right after the
+                    // two MATCH binds of the CTE (strict SQL text order)
+                    $triExpr = $this->triOn() ? self::trigramExpression($q) : '';
+                    $params = [$match, $match];
+                    if ($triExpr !== '') { $params[] = $triExpr; }
+                    $params[] = $me;
+                    if ($viewer > 0) $params[] = $viewer;
+                    $filter = $this->filterSql($filters, $params);
+                    $params[] = $perPage + 1; $params[] = $offset;
+                    // The rank order is the FTS arm's native sort; the updated
+                    // choice shares the documented TEMP B-TREE exception. The
+                    // inner statement orders and pages on the same expression.
+                    $order = $sort === 'updated' ? 'st.updated_at DESC, st.id DESC' : 'st.rank ASC';
+                    $rows = $this->db->all(
+                        $taxonomy . " UNION ALL
+                        SELECT 's', ROW_NUMBER() OVER (ORDER BY {$order}), st.slug, st.title, st.summary,
+                               st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
+                        FROM ({$this->ftsStatement($mute, $filter, $sort, $triExpr)}) st
+                        ORDER BY k, p",
+                        $params
+                    );
+                    return $this->partition($rows, $perPage, 'fts', $capped);
+                } catch (\PDOException) {
+                    if ($attempt === 0 && $this->tri !== false) {
+                        $this->tri = false;
+                        continue;
+                    }
+                    $this->fts = false;
+                }
+            }
         }
         $like = self::likePattern($q);
         $params = [$me];
@@ -207,16 +233,31 @@ final class SearchRepository
     public function searchFts(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0, string $sort = 'relevance'): array
     {
         $match = self::matchExpression($q);
+        // slice 10: the typo arm's MATCH bind rides after the two MATCH binds
+        $triExpr = $this->triOn() ? self::trigramExpression($q) : '';
         $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
         // Bind order (finding 2, probed): the two MATCH ?s live in the fts_matches
-        // CTE, which binds BEFORE fromGates' CAST in the WHERE; the Task 2 mute
+        // CTE, which binds BEFORE fromGates' CAST in the WHERE; the trigram
+        // MATCH sits with them (its CTE follows in text); the Task 2 mute
         // viewer sits immediately after that CAST (the clause's text position);
         // then filter params in filterSql's fixed order; then LIMIT/OFFSET.
-        $params = [$match, $match, $me];
+        $params = [$match, $match];
+        if ($triExpr !== '') { $params[] = $triExpr; }
+        $params[] = $me;
         if ($viewer > 0) $params[] = $viewer;
         $filter = $this->filterSql($filters, $params);
         $params[] = $perPage + 1; $params[] = $offset;
-        $rows = $this->db->all($this->ftsStatement($mute, $filter, $sort), $params);
+        try {
+            $rows = $this->db->all($this->ftsStatement($mute, $filter, $sort, $triExpr), $params);
+        } catch (\PDOException) {
+            // the arm's failure is the probe (finding 6): drop it, retry once
+            $this->tri = false;
+            $params = [$match, $match, $me];
+            if ($viewer > 0) $params[] = $viewer;
+            $filter = $this->filterSql($filters, $params);
+            $params[] = $perPage + 1; $params[] = $offset;
+            $rows = $this->db->all($this->ftsStatement($mute, $filter, $sort), $params);
+        }
         $hasMore = count($rows) > $perPage;
         return ['rows' => array_slice($rows, 0, $perPage), 'hasMore' => $hasMore, 'mode' => 'fts'];
         // Finding 3, probed: bm25() CANNOT sit inside MIN(...) GROUP BY in the
@@ -244,13 +285,61 @@ final class SearchRepository
      *  stays per-f-row inside the CTE, where a story whose only match is an
      *  unvalidated chapter is dropped before the fold. WITH needs SQLite
      *  3.8.3 (2014), far below the FTS5 floor this table feature-detects. */
-    private function ftsStatement(string $mute, string $filter, string $sort = 'relevance'): string
+    /** The trigram MATCH input for slice 10's typo arm: the one-letter
+     *  deletion neighborhood of each token, OR'd. The trigram tokenizer
+     *  matches SUBSTRINGS (the probed fact behind this whole slice), so a
+     *  deletion variant of the typed word lands only when a story carries a
+     *  word the typo is one dropped or added letter away from. That is the
+     *  honest scope this slice shipped under: dropped and doubled letters
+     *  and mid-word fragments reach their words; a substituted-letter typo
+     *  ("wonderlend" for "wonderland") does not, because the trigram
+     *  tokenizer is substring-like rather than edit-distance, exactly the
+     *  caveat the plan recorded when the owner took this slice. Budget:
+     *  thirty variants, tokens of at least four characters (variants of
+     *  three stay above the tokenizer's floor). */
+    public static function trigramExpression(string $q): string
+    {
+        $parts = [];
+        $seen = [];
+        $budget = 30;
+        foreach (array_slice(self::sanitizedTokens($q), 0, self::MAX_TOKENS) as $t) {
+            $len = mb_strlen($t);
+            if ($len < 4) { continue; }
+            for ($i = 0; $i < $len && $budget > 0; $i++) {
+                $variant = mb_substr($t, 0, $i) . mb_substr($t, $i + 1);
+                if (mb_strlen($variant) < 3 || isset($seen[$variant])) { continue; }
+                $seen[$variant] = true;
+                $parts[] = '"' . $variant . '"';
+                $budget--;
+            }
+            if ($budget <= 0) { break; }
+        }
+        return implode(' OR ', $parts);
+    }
+
+    private function ftsStatement(string $mute, string $filter, string $sort = 'relevance', string $triExpr = ''): string
     {
         // Slice 3 ranking: per-column bm25 weights make a title hit outrank a
         // tag hit, which outranks a summary hit (columns: title, summary,
         // tags). The updated choice swaps the rank sort for the recency sort,
         // sharing the documented rank-order TEMP B-TREE exception.
         $order = $sort === 'updated' ? 's.updated_at DESC, s.id DESC' : 'rank ASC';
+        // Slice 10's typo arm: the trigram copy of the story index rides the
+        // SAME statement as a guarded second source, so the budget stays one
+        // query. Its per-story rows enter only where the normal arm has no
+        // row, so nothing is contributed twice. The rank scales of the two
+        // tables are not comparable, which is fine: a fuzzy hit only ever
+        // surfaces where the exact hit is absent, under the same documented
+        // rank-order sort exception.
+        $triCte = '';
+        $triSelect = '';
+        if ($triExpr !== '') {
+            $triCte = ", tri_matches AS (
+                SELECT rowid AS story_id, bm25(stories_trigram) AS rank FROM stories_trigram WHERE stories_trigram MATCH ?
+            )";
+            $triSelect = " UNION ALL SELECT t.story_id, t.rank FROM tri_matches t
+                WHERE NOT EXISTS (SELECT 1 FROM fts_matches f2 WHERE f2.story_id = t.story_id)";
+        }
         return "WITH fts_matches AS (
                 SELECT f.story_id AS story_id, MIN(f.rank) AS rank FROM (
                     SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts, 10.0, 1.0, 5.0) AS rank FROM stories_fts WHERE stories_fts MATCH ?
@@ -258,8 +347,10 @@ final class SearchRepository
                     SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
                 ) f{$this->chapterGate()}
                 GROUP BY f.story_id
-            )
-            SELECT {$this->selectList()}, s.id AS id, m.rank AS rank FROM fts_matches m
+            ){$triCte}
+            SELECT {$this->selectList()}, s.id AS id, m.rank AS rank FROM (
+                SELECT m.story_id, m.rank FROM fts_matches m{$triSelect}
+            ) m
             CROSS JOIN stories s
             JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
             WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND s.access_hash IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}{$filter}
