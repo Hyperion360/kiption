@@ -141,3 +141,20 @@ should still do with it.
   they need the plan-first process, not QA.
 - Owner actions deliberately outside QA: the social-preview upload, the
   v0.3.0 GitHub Release object, launch posts.
+
+## Headline case in the admin panel (branch chore/headline-case-admin)
+
+Headings, titles, labels, links and buttons now use Chicago headline case
+(124 strings in `app/lang/en.php`, guarded by `tests/HeadlineCaseTest.php`).
+
+To test by hand:
+
+- Open each admin screen and the site text editor: the group labels in the
+  editor should match the page headings ("Members Admin", "Reading Lists").
+- Fresh install: the footer link reads "Reading Lists" and matches the
+  story page link.
+- Maintenance banner and the review-queue notice: the trailing links
+  ("Turn it off in Settings", "Review them") stay in sentence case because
+  they finish a sentence.
+- Known and deliberate: email subjects stay in sentence case. A site-text
+  override saved before this change keeps its old casing until reset.
