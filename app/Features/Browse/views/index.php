@@ -7,6 +7,7 @@
   <header class="page-head">
     <h1><?= \App\Lang::t('browse.heading') ?></h1>
     <p class="lede"><?= \App\Lang::t('browse.lede') ?></p>
+    <p><a href="/browse/filter"><?= \App\Lang::t('browse.filter_link') ?></a></p>
   </header>
 <?php if ($language !== ''): ?>
   <h2 class="section-label"><?= \App\Lang::t('browse.stories_in', ['language' => $this->e($language)]) ?></h2>

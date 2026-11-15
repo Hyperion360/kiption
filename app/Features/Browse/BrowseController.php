@@ -1,7 +1,7 @@
 <?php // app/Features/Browse/BrowseController.php
 namespace App\Features\Browse;
 use Kip\{App, Http\Request, Http\Response, Session, View};
-use App\Repositories\StoryRepository;
+use App\Repositories\{BrowseFilterRepository, BrowseQuery, StoryRepository};
 use App\Repositories\UserRepository;
 
 final class BrowseController
@@ -19,6 +19,7 @@ final class BrowseController
         private UserRepository $users,
         private Session $session,
         private \Kip\Database $db,
+        private BrowseFilterRepository $filters,
     ) {}
 
     public function index(): string
@@ -102,6 +103,31 @@ final class BrowseController
             // a short one cannot. Feeds data-next-url on the card list.
             'hasOlder' => count($stories) === $perPage,
         ]);
+    }
+
+    /** GET /browse/filter: tags to include and leave out, status, language,
+     *  word range, category and sort, from one statement. The query string
+     *  keeps the page out of the static cache (its whitelist is path-only and
+     *  this path is not on it), and it renders noindex like /search. Junk
+     *  values coerce to their defaults inside BrowseQuery. */
+    public function filter(): Response
+    {
+        $me = \App\Viewer::id($this->request, $this->session, $this->db);
+        $query = BrowseQuery::fromQuery($this->request->get);
+        // flag off disables the filtering, not just the buttons (the index() rule)
+        $result = $this->filters->page($query, \App\Features::on('mute') ? $me : 0);
+        $title = \App\Lang::t('browse.filter_title');
+        $html = $this->view->render('browse/filter', [
+            'title' => $title,
+            'head' => $this->head()->withTitle($title)->withCanonical('/browse/filter')->withNoindex(),
+            'theme' => \App\Theme::current($this->request),
+            'request' => $this->request,
+            'loggedIn' => $me !== 0,
+            'navFile' => (string) $this->app->config('nav_file', ''),
+            'q' => $query,
+            'result' => $result,
+        ]);
+        return (new Response($html, 200))->withHeader('X-Robots-Tag', 'noindex');
     }
 
     /** The infinite-scroll card loop. Member cards carry Continue pills, so
