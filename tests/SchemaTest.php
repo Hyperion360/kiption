@@ -44,6 +44,17 @@ final class SchemaTest extends TestCase
         return array_map(static fn(string $t): array => [$t], $tables);
     }
 
+    /** Migration 066: the browse filter's sort, language and tag lookup indexes. */
+    public function test_browse_filter_indexes_exist(): void
+    {
+        $db = $this->db();
+        $this->migrate($db);
+        $names = array_column($db->all("SELECT name FROM sqlite_master WHERE type='index'"), 'name');
+        foreach (['idx_stories_created', 'idx_stories_words', 'idx_stories_title', 'idx_tags_name', 'idx_tags_canonical', 'idx_tags_type_name', 'idx_story_tags_rev', 'idx_stories_language'] as $i) {
+            $this->assertContains($i, $names, $i);
+        }
+    }
+
     /** Migration 023: the muted PK pair IS the toggle idempotence contract
      *  (INSERT OR IGNORE lands at most one row per pair), and tags grows
      *  the wrangling column the M4 batch 2 merge surface writes. */
