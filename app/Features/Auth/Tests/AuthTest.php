@@ -154,7 +154,7 @@ final class AuthTest extends TestCase
 
         $form = $this->app->handle(new Request('GET', "/auth/reset/{$token}", [], [], []));
         $this->assertSame(200, $form->status);
-        $this->assertStringContainsString('Choose a new password', $form->body);
+        $this->assertStringContainsString('Choose a New Password', $form->body);
 
         $short = $this->post('/auth/confirm', ['token' => $token, 'password' => 'short']);
         $this->assertSame(422, $short->status);

@@ -162,7 +162,7 @@ final class ChapterReviewTest extends TestCase
         $rootId = (int) $this->db->one("SELECT id FROM reviews WHERE body = ? AND parent_id IS NULL", ['The garden scene lands.'])['id'];
         $res = $this->client($this->fanId)->get('/review/chapter/cctest/2');
         $this->assertSame(200, $res->status, $res->body);
-        $this->assertStringContainsString('Chapter 2 comments', $res->body, 'the heading carries the position');
+        $this->assertStringContainsString('Chapter 2 Comments', $res->body, 'the heading carries the position');
         $this->assertStringContainsString('The garden scene lands.', $res->body);
         $this->assertStringContainsString('/review/reply/' . $rootId, $res->body, 'a reply form posts at the comment id');
     }

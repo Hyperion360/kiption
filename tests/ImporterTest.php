@@ -632,13 +632,13 @@ final class ImporterTest extends TestCase
         // bit 2 alone reaches the age gate; the consent cookie opens it
         $gate = $guest->get('/story/read/' . $adult . '/1');
         $this->assertSame(200, $gate->status);
-        $this->assertStringContainsString('Content warning', $gate->body, 'the age gate engaged');
+        $this->assertStringContainsString('Content Warning', $gate->body, 'the age gate engaged');
         $this->assertStringNotContainsString('Matrix chapter text 2', $gate->body);
         $consented = new \Kip\Testing\TestClient(new \Kip\App($this->config()));
         $consented->cookie(\App\AgeGate::COOKIE, '1');
         $open = $consented->get('/story/read/' . $adult . '/1');
         $this->assertSame(200, $open->status);
-        $this->assertStringNotContainsString('Content warning', $open->body, 'the consent cookie opens the age gate');
+        $this->assertStringNotContainsString('Content Warning', $open->body, 'the consent cookie opens the age gate');
         $this->assertStringContainsString('Matrix chapter text 2', $open->body);
 
         // operator edits survive recommit: the conflict is reported, never

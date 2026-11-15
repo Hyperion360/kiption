@@ -41,6 +41,6 @@ final class MaintenanceGuardTest extends TestCase
         $res = MaintenanceGuard::response(['views' => dirname(__DIR__) . '/app/views']);
         $this->assertSame(503, $res->status);
         $this->assertSame('300', $res->headers['Retry-After']);
-        $this->assertStringContainsString('Scheduled maintenance', $res->body);
+        $this->assertStringContainsString('Scheduled Maintenance', $res->body);
     }
 }

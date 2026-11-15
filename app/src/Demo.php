@@ -618,7 +618,7 @@ final class Demo
     private function site(): void
     {
         $arch = $this->users['archivist'];
-        foreach ([[self::NEWS[0], "You can now build **reading lists**, public or private, with a note on every story.\n\nFind them under Reading lists in the footer.", 20],
+        foreach ([[self::NEWS[0], "You can now build **reading lists**, public or private, with a note on every story.\n\nFind them under Reading Lists in the footer.", 20],
                   [self::NEWS[1], "The reader got a redesign: three themes (Paper, Sepia, Night), a text panel, bookmarks with notes, and a focus mode.\n\nTell us what you think in the comments.", 6],
                   [self::NEWS[2], "Our first community challenge. Pick a prompt, write a lighthouse, submit it to the challenge page.", 2]] as [$title, $body, $days]) {
             $this->db->query('INSERT INTO news (author_id, title, body, published_at) VALUES (?, ?, ?, ?)', [$arch, $title, $body, $this->day($days)]);
