@@ -19,7 +19,7 @@ use Kip\Database;
  *    index idx_tags_type_name already yields (type, name) order.
  *
  *  Binds follow SQL text order: selected tag ids, then the results arm
- *  (language, word bounds, category, tag constraints, mute viewer, limit, offset). */
+ *  (category, status, language, word bounds, tag constraints, mute viewer, limit, offset). */
 final class BrowseFilterRepository
 {
     public const TAGS_PER_TYPE = 100;
@@ -105,23 +105,9 @@ final class BrowseFilterRepository
               SELECT 's', s.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, r.label, NULL
                 FROM stories s JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
                WHERE s.validated = 1 AND s.deleted_at IS NULL AND s.is_restricted = 0";
-        if ($q->status !== 'any') {
-            $sql .= ' AND s.completed = ' . ($q->status === 'complete' ? '1' : '0');
-        }
-        if ($q->language !== '') {
-            $sql .= ' AND +s.language = ?';
-            $binds[] = $q->language;
-        }
-        if ($q->wmin !== null) {
-            $sql .= ' AND +s.word_count >= CAST(? AS INTEGER)';
-            $binds[] = $q->wmin;
-        }
-        if ($q->wmax !== null) {
-            $sql .= ' AND +s.word_count <= CAST(? AS INTEGER)';
-            $binds[] = $q->wmax;
-        }
-        $sql .= CategoryFilter::sql($q->categories, $binds);
-        $sql .= $q->tags->sql($binds, 's');
+        [$filters, $filterBinds] = DiscoveryFilter::sql(DiscoveryFilter::fromBrowse($q));
+        $sql .= $filters;
+        array_push($binds, ...$filterBinds);
         if ($viewer > 0) {
             $sql .= MuteRepository::clause('s');
             $binds[] = $viewer;

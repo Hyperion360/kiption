@@ -122,26 +122,10 @@ final class SearchRepository
         ];
     }
 
-    private static function tagFilter(array $filters): TagFilter
-    {
-        return TagFilter::fromQuery(['tag' => $filters['tag'] ?? [], 'xtag' => $filters['xtag'] ?? [], 'tags' => $filters['tags'] ?? '', 'xtags' => $filters['xtags'] ?? '']);
-    }
-
     private function filterSql(array $filters, array &$params): string
     {
-        $sql = '';
-        $sql .= CategoryFilter::sql(CategoryFilter::slugs($filters['category'] ?? []), $params);
-        if (!empty($filters['rating_id'])) { $sql .= ' AND s.rating_id = ?'; $params[] = (int) $filters['rating_id']; }
-        if (isset($filters['completed']) && $filters['completed'] !== null) { $sql .= ' AND s.completed = ?'; $params[] = $filters['completed'] ? 1 : 0; }
-        if (!empty($filters['language'])) { $sql .= ' AND s.language = ?'; $params[] = $filters['language']; }
-        // Tag include, leave-out and name constraints live in TagFilter (the
-        // synonym-through-canonical rule included). Its binds land here, before
-        // character, so the documented bind order is unchanged.
-        $sql .= self::tagFilter($filters)->sql($params, 's');
-        if (!empty($filters['character'])) {
-            $sql .= ' AND EXISTS (SELECT 1 FROM story_characters scf WHERE scf.story_id = s.id AND scf.character_id = ?)';
-            $params[] = (int) $filters['character'];
-        }
+        [$sql, $binds] = DiscoveryFilter::sql($filters);
+        array_push($params, ...$binds);
         return $sql;
     }
 

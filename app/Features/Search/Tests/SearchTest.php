@@ -465,7 +465,7 @@ final class SearchTest extends TestCase
         $this->assertStringContainsString('/browse/filter', $c->get('/search', ['tag' => (string) $tag])->body);
     }
 
-    public function test_the_tag_name_constraint_never_scans_story_tags(): void
+    public function test_the_tag_name_constraint_builds_one_uncorrelated_membership_set(): void
     {
         $db = $this->db();
         $this->storyRow('Embers', 'embers', 'A quiet night in the north.');
@@ -473,15 +473,20 @@ final class SearchTest extends TestCase
         $this->attachTag((int) $db->one("SELECT id FROM stories WHERE slug = 'embers'")['id'], $tag);
         $sqls = [];
         $db->onQuery(function (string $sql) use (&$sqls): void { $sqls[] = $sql; });
-        (new \App\Repositories\SearchRepository($db))->searchWithTaxonomies('night', ['tags' => 'slow burn'], 20, 0, 0);
+        $result = (new \App\Repositories\SearchRepository($db))->searchWithTaxonomies('night', ['tags' => 'slow burn'], 20, 0, 0);
         $db->onQuery(fn () => null);
         $stmt = array_values(array_filter($sqls, fn (string $s): bool => str_contains($s, 'COALESCE(tf.canonical_id')));
         $this->assertCount(1, $stmt, 'the tag-name constraint rode the one ranking statement');
-        $details = array_column($db->query('EXPLAIN QUERY PLAN ' . $stmt[0])->fetchAll(), 'detail');
-        $scan = array_values(array_filter($details, fn (string $d): bool => str_contains($d, 'SCAN x') || str_contains($d, 'SCAN story_tags')));
-        $this->assertSame([], $scan, 'story_tags must be sought, never scanned: ' . implode(' | ', $details));
-        $this->assertTrue((bool) array_filter($details, fn (string $d): bool => str_contains($d, 'SEARCH x USING')), 'the EXISTS seeks story_tags');
-        $this->assertTrue((bool) array_filter($details, fn (string $d): bool => str_contains($d, 'SEARCH tf USING')), 'the name probe seeks the tags row');
+        $plan = $db->query('EXPLAIN QUERY PLAN ' . $stmt[0])->fetchAll();
+        $details = array_column($plan, 'detail', 'id');
+        $tagAccess = array_values(array_filter($plan, fn (array $row): bool => preg_match('/^(?:SCAN|SEARCH) (?:x|story_tags)(?: |$)/', $row['detail']) === 1));
+        $this->assertCount(1, $tagAccess, 'one access builds the included tag set');
+        // Resolve matching tag IDs once, then seek their story attachments.
+        // Never repeat this work in a correlated predicate per candidate story.
+        $this->assertStringStartsWith('LIST SUBQUERY', $details[$tagAccess[0]['parent']] ?? '', implode(' | ', $details));
+        $this->assertStringContainsString('SEARCH x USING COVERING INDEX idx_story_tags_rev', $tagAccess[0]['detail']);
+        $this->assertStringContainsString('SEARCH tags USING INDEX idx_tags_name (name=?)', implode(' | ', $details));
+        $this->assertSame(['embers'], array_column($result['rows'], 'slug'));
     }
 
     /** Perf regression guard (qa-full 2026-10-07, probed on a 1,500-story /
