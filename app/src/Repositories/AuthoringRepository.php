@@ -54,7 +54,7 @@ final class AuthoringRepository
                              JOIN stories s3 ON s3.id = st2.story_id WHERE s3.slug = ?) AS e,
                             t.canonical_id AS f,
                             tt.position AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
-                     FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id";
+                     FROM tag_types tt LEFT JOIN tags t ON t.tag_type_id = tt.id";
         // The 'ch' branch is appended after 'tag' (its slug bind is the LAST
         // bind): every character with its category_id (f), category name (c)
         // and the story's selected character ids as the per-row concat (e).
@@ -380,9 +380,9 @@ final class AuthoringRepository
             if ($selected === []) {
                 $selected = array_filter(explode(',', (string) ($r['e'] ?? '')), 'strlen');
             }
-            if ($r['f'] !== null) continue; // retired synonym: not a form choice
             $typeId = (int) $r['d'];
             $groups[$typeId] ??= ['name' => (string) $r['c'], 'pos' => (int) ($r['g'] ?? 0), 'tags' => []];
+            if ($r['a'] === null || $r['f'] !== null) continue; // empty type or retired synonym
             $groups[$typeId]['tags'][(int) $r['a']] = (string) $r['b'];
         }
         foreach ($groups as &$g) {

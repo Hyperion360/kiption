@@ -37,20 +37,6 @@ final class DiscoveryFold
                 array_push($binds,...$more);
             }
         }
-        foreach (['include'=>'matches','exclude'=>'exclusion_base'] as $prefix=>$base) {
-            if ($prefix === 'exclude' && $bases['matches'] === $bases['exclusion_base']) {
-                $ctes[] = 'exclude_tag_counts AS (SELECT * FROM include_tag_counts)';
-                continue;
-            }
-            $ctes[]=$prefix.'_tag_counts AS MATERIALIZED (SELECT COALESCE(t.canonical_id,t.id) tag_id,COUNT(DISTINCT count_rows.id) n '
-                .'FROM '.$base.' count_rows CROSS JOIN story_tags st JOIN tags t ON t.id=st.tag_id WHERE st.story_id=count_rows.id '
-                .'GROUP BY COALESCE(t.canonical_id,t.id))';
-        }
-        $ctes[] = 'category_counts AS (SELECT sc.category_id,COUNT(*) n FROM category_base category_rows '
-            . 'CROSS JOIN story_categories sc WHERE sc.story_id=category_rows.id GROUP BY sc.category_id)';
-        foreach (['language'=>'language','rating'=>'rating_id','status'=>'completed'] as $kind=>$column) {
-            $ctes[] = $kind.'_counts AS (SELECT '.$column.',COUNT(*) n FROM '.$kind.'_base facet_rows GROUP BY '.$column.')';
-        }
         $tags = $filters['tag_filter'] ?? TagFilter::fromQuery($filters);
         $selected = array_values(array_unique(array_merge($tags->include, $tags->exclude)));
         $binds[] = json_encode($selected, JSON_THROW_ON_ERROR);
@@ -59,6 +45,32 @@ final class DiscoveryFold
         $ctes[] = 'picked_tags AS (SELECT * FROM listed_tags UNION ALL SELECT t.* FROM tags t '
             . 'WHERE t.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?)) '
             . 'AND NOT EXISTS(SELECT 1 FROM listed_tags l WHERE l.id=t.id))';
+        // A broad, unranked source has many more attachments than displayed
+        // tags. Seek the displayed canonical tags first instead of grouping
+        // every story-tag attachment in the archive.
+        $broadTags = !$materialize && $pageWhere === '';
+        if ($broadTags) {
+            $ctes[] = 'counted_tags AS MATERIALIZED (SELECT DISTINCT COALESCE(canonical_id,id) id FROM picked_tags)';
+        }
+        foreach (['include'=>'matches','exclude'=>'exclusion_base'] as $prefix=>$base) {
+            if ($prefix === 'exclude' && $bases['matches'] === $bases['exclusion_base']) {
+                $ctes[] = 'exclude_tag_counts AS (SELECT * FROM include_tag_counts)';
+                continue;
+            }
+            $ctes[] = $broadTags
+                ? $prefix.'_tag_counts AS MATERIALIZED (SELECT p.id tag_id,COUNT(DISTINCT count_rows.id) n '
+                    .'FROM counted_tags p JOIN tags t ON t.id=p.id OR t.canonical_id=p.id '
+                    .'CROSS JOIN story_tags st JOIN '.$base.' count_rows ON count_rows.id=st.story_id '
+                    .'WHERE st.tag_id=t.id GROUP BY p.id)'
+                : $prefix.'_tag_counts AS MATERIALIZED (SELECT COALESCE(t.canonical_id,t.id) tag_id,COUNT(DISTINCT count_rows.id) n '
+                    .'FROM '.$base.' count_rows CROSS JOIN story_tags st JOIN tags t ON t.id=st.tag_id WHERE st.story_id=count_rows.id '
+                    .'GROUP BY COALESCE(t.canonical_id,t.id))';
+        }
+        $ctes[] = 'category_counts AS (SELECT sc.category_id,COUNT(*) n FROM category_base category_rows '
+            . 'CROSS JOIN story_categories sc WHERE sc.story_id=category_rows.id GROUP BY sc.category_id)';
+        foreach (['language'=>'language','rating'=>'rating_id','status'=>'completed'] as $kind=>$column) {
+            $ctes[] = $kind.'_counts AS (SELECT '.$column.',COUNT(*) n FROM '.$kind.'_base facet_rows GROUP BY '.$column.')';
+        }
         $json = "json_object('id',page_rows.id,'slug',page_rows.slug,'title',page_rows.title,'summary',page_rows.summary,'completed',page_rows.completed,
             'word_count',page_rows.word_count,'updated_at',page_rows.updated_at,'penname',page_rows.penname,'profile_slug',page_rows.profile_slug,'rating_label',page_rows.rating_label,
             'tier',page_rows.tier,'distance',page_rows.distance,'field_rank',page_rows.field_rank,'rank',page_rows.rank)";

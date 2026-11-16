@@ -6,13 +6,17 @@ final class SpellingSql
 {
     /** Excluding exact FTS hits requires the enclosing statement to define fts_matches.
      *  @return array{string, list<string>} */
-    public static function ctes(array $probe, bool $excludeFtsMatches = false): array
+    public static function ctes(array $probe, bool $excludeFtsMatches = false, bool $exactPrefixAvailable = false): array
     {
         if ($probe['count'] === 0) return ['', []];
         $last = $probe['count'] - 1;
         // Exact stories already win; discard all their postings before ranking the remaining stories.
         $exclude = $excludeFtsMatches ? ' WHERE p.story_id NOT IN (SELECT story_id FROM fts_matches WHERE story_id IS NOT NULL)' : '';
-        $prefix = mb_strlen($probe['tokens'][$last], 'UTF-8') >= 2 ? [[$last, $probe['tokens'][$last]]] : [];
+        // A one-word prefix is already returned by the enclosing exact FTS
+        // arm. Standalone spelling calls still need the prefix postings.
+        $prefix = ($probe['count'] > 1 || !$excludeFtsMatches || !$exactPrefixAvailable)
+            && mb_strlen($probe['tokens'][$last], 'UTF-8') >= 2
+            ? [[$last, $probe['tokens'][$last]]] : [];
         $sql = "spell_direct(i,w,c) AS (
           SELECT json_extract(value,'$[0]'),json_extract(value,'$[1]'),json_extract(value,'$[2]') FROM json_each(?)
         ), spell_sub(i,k,p) AS (

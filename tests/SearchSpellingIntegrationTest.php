@@ -109,6 +109,14 @@ final class SearchSpellingIntegrationTest extends TaxonomyCase
         $this->assertSame([], $this->repo->search('wzzderland', [], 20, 0, 0)['rows']);
     }
 
+    public function test_punctuation_after_a_single_spelling_token_keeps_prefix_candidates(): void
+    {
+        $this->a->story('Lexicon');
+        foreach (['lex !!!', 'lex ...', 'lex 🦊'] as $query) {
+            $this->assertSame(['Lexicon'], array_column($this->repo->search($query, [], 20, 0, 0)['rows'], 'title'), $query);
+        }
+    }
+
     public function test_fuzzy_title_precedes_tag_and_equal_scores_use_story_id(): void
     {
         $tag = $this->a->tag('Wonderland');

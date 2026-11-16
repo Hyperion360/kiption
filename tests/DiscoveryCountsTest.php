@@ -126,6 +126,19 @@ final class DiscoveryCountsTest extends TaxonomyCase
         $this->assertSame(1, $filtered['total']);
     }
 
+    public function test_unfiltered_browse_counts_alias_once_and_omits_hidden_stories(): void
+    {
+        $alias = $this->a->tag('Fantasy Alias', 'Search Fixture', $this->ids['Fantasy']);
+        $zero = $this->a->tag('Unused', 'Search Fixture');
+        $this->a->story('River Alias', ['tags' => [$this->ids['Fantasy'], $alias]]);
+        $this->a->story('River Hidden', ['validated' => 0, 'tags' => [$this->ids['Fantasy']]]);
+        $r = (new BrowseFilterRepository($this->db))->page(BrowseQuery::fromQuery([]));
+        $counts = $this->counts($r, 'tags', 'id');
+        $this->assertSame(5, $r['total']);
+        $this->assertSame(3, $counts[$this->ids['Fantasy']]);
+        $this->assertSame(0, $counts[$zero]);
+    }
+
     public function test_rating_omission_keeps_other_facets_and_zero_options(): void
     {
         $rating = (int) $this->db->one('SELECT id FROM ratings WHERE id<>? LIMIT 1', [$this->a->rating])['id'];

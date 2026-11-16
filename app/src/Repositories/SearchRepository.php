@@ -119,10 +119,17 @@ final class SearchRepository
         string $sort): ?array
     {
         if ($this->fts === false) return null;
+        $probes = \App\Search\Spelling::probes($q);
+        $match = self::matchExpression($q);
+        // Only a plain single word has the same exact FTS prefix as its
+        // normalized spelling token. Punctuation can leave one spelling
+        // token while changing the FTS expression, so retain that prefix.
+        $exactPrefix = $probes['count'] === 1
+            && preg_match('/\A[\p{L}\p{N}]+\z/u', trim($q)) === 1
+            && mb_strtolower($match, 'UTF-8') === '"' . $probes['tokens'][0] . '"*';
         for ($attempt = 0; $attempt < 2; $attempt++) {
             [$spell, $params] = $this->spelling !== false
-                ? \App\Search\SpellingSql::ctes(\App\Search\Spelling::probes($q), true) : ['', []];
-            $match = self::matchExpression($q);
+                ? \App\Search\SpellingSql::ctes($probes, true, $exactPrefix) : ['', []];
             array_push($params, $match, $match, $me);
             $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
             if ($viewer > 0) $params[] = $viewer;

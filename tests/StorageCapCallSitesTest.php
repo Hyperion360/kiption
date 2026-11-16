@@ -306,6 +306,24 @@ final class StorageCapCallSitesTest extends TestCase
         $this->assertStringNotContainsString(\App\Lang::t('images.storage_warn'), $body, '200 of 1000 is far from the line');
     }
 
+    public function test_capped_images_page_uses_its_file_total_without_a_quota_query(): void
+    {
+        $this->seedUploads(2);
+        $admin = $this->client($this->adminId, cap: 1000);
+        $db = $this->app->container->make(Database::class);
+        $queries = [];
+        $db->onQuery(static function (string $sql) use (&$queries): void { $queries[] = $sql; });
+        try {
+            $body = $admin->get('/images')->body;
+        } finally {
+            $db->onQuery(static function (): void {});
+        }
+        $this->assertStringContainsString(\App\Lang::t('images.storage_used',
+            ['used' => \App\StorageQuota::human(200), 'total' => \App\StorageQuota::human(1000)]), $body);
+        $this->assertSame([], array_values(array_filter($queries,
+            static fn (string $sql): bool => str_contains($sql, 'storage_usage'))));
+    }
+
     public function test_the_images_page_warns_at_ninety_percent(): void
     {
         $this->seedUploads(9, 100); // 900 of 1000

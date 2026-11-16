@@ -39,7 +39,10 @@ final class ImagesController
         $quota = \App\StorageQuota::forApp($this->app);
         $storage = null;
         if ($quota->cap() > 0) {
-            $used = $quota->used();
+            // The library already measured every stored file above. Show that
+            // actual total without a second content query; writes still use
+            // StorageQuota's atomic counter to enforce the cap.
+            $used = $total;
             $storage = ['used' => \App\StorageQuota::human($used), 'total' => \App\StorageQuota::human($quota->cap()),
                 'warn' => 10 * $used >= 9 * $quota->cap(), 'full' => $used >= $quota->cap()];
         }

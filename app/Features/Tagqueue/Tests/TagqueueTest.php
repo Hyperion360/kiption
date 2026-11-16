@@ -166,6 +166,55 @@ final class TagqueueTest extends TaxonomyCase
         $this->assertSame(0, $this->n('SELECT COUNT(*) c FROM tag_suggestions'));
     }
 
+    public function test_approve_reuses_a_case_variant_created_after_suggestion(): void
+    {
+        $story = $this->makeStory('approve-case-race');
+        $this->pendingRow($story, $this->memberId, 'race marker');
+        $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$this->typeId('genre'), 'Race Marker']);
+        $existing = (int) $this->row("SELECT id FROM tags WHERE name = 'Race Marker'")['id'];
+        $res = $this->admin()->postWithToken('/tagqueue/approve', ['type_id' => (string) $this->typeId('genre'), 'name' => 'race marker']);
+        $this->assertSame(302, $res->status);
+        $this->assertSame(1, $this->n('SELECT COUNT(*) c FROM tags WHERE tag_type_id = ? AND name = ? COLLATE NOCASE', [$this->typeId('genre'), 'race marker']));
+        $this->assertSame($existing, (int) $this->row('SELECT tag_id FROM story_tags WHERE story_id = ?', [$story])['tag_id']);
+        $this->assertSame(0, $this->n('SELECT COUNT(*) c FROM tag_suggestions WHERE story_id = ?', [$story]));
+    }
+
+    public function test_merge_refuses_a_case_variant_owned_by_another_target(): void
+    {
+        $story = $this->makeStory('merge-case-conflict');
+        $this->pendingRow($story, $this->memberId, 'race marker');
+        $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$this->typeId('genre'), 'Race Marker']);
+        $fantasy = (int) $this->row("SELECT id FROM tags WHERE name = 'Fantasy'")['id'];
+        $res = $this->admin()->postWithToken('/tagqueue/merge', ['type_id' => (string) $this->typeId('genre'), 'name' => 'race marker', 'target_id' => (string) $fantasy]);
+        $this->assertSame(422, $res->status);
+        $this->assertSame(1, $this->n('SELECT COUNT(*) c FROM tags WHERE tag_type_id = ? AND name = ? COLLATE NOCASE', [$this->typeId('genre'), 'race marker']));
+        $this->assertSame(1, $this->n('SELECT COUNT(*) c FROM tag_suggestions WHERE story_id = ?', [$story]));
+        $this->assertSame(0, $this->n('SELECT COUNT(*) c FROM story_tags WHERE story_id = ?', [$story]));
+    }
+
+    public function test_merge_reuses_a_case_variant_when_it_is_the_chosen_target(): void
+    {
+        $story = $this->makeStory('merge-case-same-target');
+        $this->pendingRow($story, $this->memberId, 'race marker');
+        $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$this->typeId('genre'), 'Race Marker']);
+        $target = (int) $this->row("SELECT id FROM tags WHERE name = 'Race Marker'")['id'];
+        $res = $this->admin()->postWithToken('/tagqueue/merge', ['type_id' => (string) $this->typeId('genre'), 'name' => 'race marker', 'target_id' => (string) $target]);
+        $this->assertSame(302, $res->status);
+        $this->assertSame(1, $this->n('SELECT COUNT(*) c FROM tags WHERE tag_type_id = ? AND name = ? COLLATE NOCASE', [$this->typeId('genre'), 'race marker']));
+        $this->assertSame($target, (int) $this->row('SELECT tag_id FROM story_tags WHERE story_id = ?', [$story])['tag_id']);
+    }
+
+    public function test_approve_refuses_a_name_now_used_by_another_type(): void
+    {
+        $story = $this->makeStory('approve-cross-type-conflict');
+        $this->pendingRow($story, $this->memberId, 'Maritime');
+        $res = $this->admin()->postWithToken('/tagqueue/approve', ['type_id' => (string) $this->typeId('genre'), 'name' => 'Maritime']);
+        $this->assertSame(422, $res->status);
+        $this->assertSame(1, $this->n('SELECT COUNT(*) c FROM tags WHERE name = ? COLLATE NOCASE', ['Maritime']));
+        $this->assertSame(1, $this->n('SELECT COUNT(*) c FROM tag_suggestions WHERE story_id = ?', [$story]));
+        $this->assertSame(0, $this->n('SELECT COUNT(*) c FROM story_tags WHERE story_id = ?', [$story]));
+    }
+
     public function test_merge_attaches_the_chosen_tag_and_records_a_retired_synonym(): void
     {
         $target = (int) $this->row("SELECT id FROM tags WHERE name = 'Fantasy'")['id'];

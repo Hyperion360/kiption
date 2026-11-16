@@ -125,6 +125,8 @@ final class TagqueueController extends AdminScreen
             });
         } catch (\App\SuggestionTypeMismatch) {
             return new Response(Lang::t('error.not_found'), 404);
+        } catch (\App\SuggestionNameConflict) {
+            return new Response(Lang::t('tagqueue.err_conflict'), 422);
         }
         if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.approve', "type {$typeId}: {$name}");
@@ -148,6 +150,8 @@ final class TagqueueController extends AdminScreen
             });
         } catch (\App\SuggestionTypeMismatch) {
             return new Response(Lang::t('tagqueue.err_type'), 422);
+        } catch (\App\SuggestionNameConflict) {
+            return new Response(Lang::t('tagqueue.err_conflict'), 422);
         }
         if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.merge', "type {$typeId}: {$name} -> tag {$targetId}");

@@ -19,7 +19,7 @@ final class TextController
      *  URL. A group missing here lands under "Other" and shows its code. */
     private const SECTIONS = [
         'visitors' => ['home', 'browse', 'search', 'story', 'reader', 'series', 'top', 'feed', 'news', 'challenges', 'lists', 'user', 'review', 'report', 'contact', 'auth', 'nav', 'foot', 'theme', 'msg', 'maintenance', 'error', 'site'],
-        'members' => ['account', 'chapter', 'posting', 'messages', 'notifications', 'favorites', 'stats', 'mute', 'uploads'],
+        'members' => ['account', 'chapter', 'writer', 'posting', 'messages', 'notifications', 'favorites', 'stats', 'mute', 'uploads'],
         'admins' => ['manage', 'saved', 'adminmembers', 'queue', 'activity', 'analytics', 'settings', 'features', 'text', 'look', 'categories', 'ratings', 'characters', 'tagsadmin', 'tagqueue', 'wrangling', 'taxonomy', 'pages', 'page', 'navlinks', 'images', 'invites', 'signupcheck', 'profilefields', 'templates', 'mailusers', 'wordfilter', 'notice', 'admin'],
         'shared' => ['common', 'form'],
     ];

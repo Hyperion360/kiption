@@ -3,10 +3,23 @@ declare(strict_types=1);
 namespace App\Tests;
 
 use App\Search\Spelling;
+use App\Search\SpellingSql;
 use PHPUnit\Framework\TestCase;
 
 final class SearchSpellingTest extends TestCase
 {
+    public function test_single_token_prefix_is_left_to_exact_fts_but_multi_token_spelling_keeps_it(): void
+    {
+        [, $default] = SpellingSql::ctes(Spelling::probes('lex'), true);
+        [, $single] = SpellingSql::ctes(Spelling::probes('lex'), true, true);
+        [, $multiple] = SpellingSql::ctes(Spelling::probes('wonderlnd lex'), true, true);
+        [, $standalone] = SpellingSql::ctes(Spelling::probes('lex'), false, true);
+        self::assertSame('[[0,"lex"]]', $default[3]);
+        self::assertSame('[]', $single[3]);
+        self::assertSame('[[1,"lex"]]', $multiple[3]);
+        self::assertSame('[[0,"lex"]]', $standalone[3]);
+    }
+
     public function test_probes_cover_all_single_edit_classes(): void
     {
         $p = Spelling::probes('wonderlend riverss wondreland wnderland');

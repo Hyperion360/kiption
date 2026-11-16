@@ -97,6 +97,29 @@ final class TagSuggestFormTest extends TestCase
         $this->assertStringContainsString('name="suggest[' . $genre . ']"', $new, 'free renders the input too');
     }
 
+    public function test_empty_tag_types_still_offer_suggestions(): void
+    {
+        $this->db->query('DELETE FROM story_tags');
+        $this->db->query('DELETE FROM tags');
+        $this->setPolicy('suggest');
+        $genre = $this->genreTypeId();
+        $content = (int) $this->db->one("SELECT id FROM tag_types WHERE name = 'content'")['id'];
+
+        $new = $this->clientAs(1)->get('/story/new');
+        $this->assertSame(200, $new->status);
+        $this->assertStringContainsString('name="suggest[' . $genre . ']"', $new->body);
+        $this->assertStringContainsString('name="suggest[' . $content . ']"', $new->body);
+
+        $created = $this->clientAs(1)->postWithToken('/story/create', [
+            'title' => 'First Tag Proposal', 'summary' => 'A tale.',
+            'rating_id' => (string) $this->ratingId(),
+            'categories' => [(string) $this->categoryId()],
+            'suggest' => [$genre => 'First Genre'],
+        ]);
+        $this->assertSame(302, $created->status);
+        $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) c FROM tag_suggestions WHERE name = 'First Genre' AND status = 'pending'")['c']);
+    }
+
     public function test_posting_a_suggestion_with_the_story_stores_it_pending(): void
     {
         $this->setPolicy('suggest');
