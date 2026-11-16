@@ -19,6 +19,7 @@
     var reserved = Array(source.length).fill(false);
     var styles = [];
     var blocks = [];
+    var segments = [];
     function paint(from, to, kind) { for (var i = from; i < to; i++) kinds[i] = kind; }
     function paintContent(from, to, kind) {
       for (var i = from; i < to; i++) {
@@ -43,36 +44,50 @@
         start = pos + 1;
       }
     }
+    // PHP splits paragraphs only at consecutive LF characters, then applies
+    // its ASCII trim set. JavaScript trim would also discard NBSP.
+    var edgeSpace = /[ \n\r\t\v\0]/;
     for (var at = 0; at < lines.length;) {
-      if (lines[at].text.trim() === '') {
+      if (lines[at].text === '') {
         blocks.push({ kind: 'blank', start: lines[at].start, end: lines[at].end });
         at++;
         continue;
       }
       var until = at + 1;
-      while (until < lines.length && lines[until].text.trim() !== '') until++;
+      while (until < lines.length && lines[until].text !== '') until++;
       var first = lines[at], last = lines[until - 1];
-      var whole = source.slice(first.start, last.end).trim();
+      var blockStart = first.start, blockEnd = last.end;
+      while (blockStart < blockEnd && edgeSpace.test(source[blockStart])) blockStart++;
+      while (blockEnd > blockStart && edgeSpace.test(source[blockEnd - 1])) blockEnd--;
+      var whole = source.slice(blockStart, blockEnd);
+      if (whole === '') {
+        for (var emptyLine = at; emptyLine < until; emptyLine++) {
+          blocks.push({ kind: 'blank', start: lines[emptyLine].start, end: lines[emptyLine].end });
+        }
+        at = until;
+        continue;
+      }
+      segments.push({ start: blockStart, end: blockEnd });
       var kind = /^(?:-{3,}|\*{3,}|_{3,})$/.test(whole) ? 'scene' :
-        first.text[0] === '>' ? 'quote' : 'paragraph';
+        whole[0] === '>' ? 'quote' : 'paragraph';
       for (var line = at; line < until; line++) {
         blocks.push({ kind: kind, start: lines[line].start, end: lines[line].end });
       }
       if (kind === 'scene') {
-        var sceneStart = first.start + first.text.indexOf(whole);
-        paint(sceneStart, sceneStart + whole.length, 'scene');
+        paint(blockStart, blockEnd, 'scene');
         hold(first.start, last.end);
-        style('scene', sceneStart, sceneStart + whole.length);
+        style('scene', blockStart, blockEnd);
       } else if (kind === 'quote') {
         for (var q = at; q < until; q++) {
-          var marker = /^>\s?/.exec(lines[q].text);
+          var markerAt = q === at ? blockStart : lines[q].start;
+          var marker = /^>\s?/.exec(source.slice(markerAt, lines[q].end));
           if (marker) {
-            paint(lines[q].start, lines[q].start + marker[0].length, 'syntax');
-            hold(lines[q].start, lines[q].start + marker[0].length);
+            paint(markerAt, markerAt + marker[0].length, 'syntax');
+            hold(markerAt, markerAt + marker[0].length);
           }
         }
-        var firstMarker = /^>\s?/.exec(first.text);
-        style('quote', first.start + (firstMarker ? firstMarker[0].length : 0), last.end);
+        var firstMarker = /^>\s?/.exec(whole);
+        style('quote', blockStart + (firstMarker ? firstMarker[0].length : 0), blockEnd);
       }
       at = until;
     }
@@ -86,38 +101,55 @@
     }
     // Reserve link addresses before scanning marks; the reader never formats URLs.
     var link = /(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, match;
-    while ((match = link.exec(source)) !== null) {
-      var from = match.index, to = from + match[0].length;
-      if (!free(from, to)) continue;
-      if (match[1] === '!') { hold(from, to); continue; }
-      var labelFrom = from + 1, labelTo = labelFrom + match[2].length;
-      hold(from, labelFrom); hold(labelTo, to);
-      if (!match[3].startsWith('https://')) continue;
-      paint(from, labelFrom, 'syntax'); paint(labelFrom, labelTo, 'link');
-      paint(labelTo, to, 'syntax'); style('link', labelFrom, labelTo);
+    var labels = [];
+    for (var segment of segments) {
+      var blockText = source.slice(segment.start, segment.end);
+      link.lastIndex = 0;
+      while ((match = link.exec(blockText)) !== null) {
+        var from = segment.start + match.index, to = from + match[0].length;
+        if (!free(from, to)) continue;
+        if (match[1] === '!') { hold(from, to); continue; }
+        var labelFrom = from + 1, labelTo = labelFrom + match[2].length;
+        labels.push({ start: labelFrom, end: labelTo });
+        hold(from, labelFrom); hold(labelTo, to);
+        if (!match[3].startsWith('https://')) continue;
+        paint(from, labelFrom, 'syntax'); paint(labelFrom, labelTo, 'link');
+        paint(labelTo, to, 'syntax'); style('link', labelFrom, labelTo);
+      }
     }
 
-    // A protected URL may contain marker characters. Mask them without
-    // changing string length, so enclosing emphasis still sees one text run.
+    // PHP protects link tokens before formatting surrounding text. Use a
+    // same-length mask for those markers, then scan labels separately.
     for (var maskedAt = 0; maskedAt < source.length; maskedAt++) {
       if (reserved[maskedAt] && '*_'.includes(source[maskedAt])) masked[maskedAt] = '\uE000';
     }
-    masked = masked.join('');
+    var innerMask = masked.join('');
+    var outer = masked.slice();
+    for (var label of labels) {
+      for (var labelAt = label.start; labelAt < label.end; labelAt++) {
+        if ('*_'.includes(source[labelAt])) outer[labelAt] = '\uE000';
+      }
+    }
+    var outerMask = outer.join('');
 
-    function marks(re, kind, open, close) {
+    function marks(re, kind, open, close, text, labelOnly) {
       var m;
-      while ((m = re.exec(masked)) !== null) {
+      while ((m = re.exec(text)) !== null) {
         var from = m.index, to = from + m[0].length;
         var innerFrom = from + open, innerTo = to - close;
+        if (labelOnly && !labels.some(function (label) { return from >= label.start && to <= label.end; })) continue;
         if (!free(from, innerFrom) || !free(innerTo, to)) continue;
         paint(from, innerFrom, 'syntax'); paintContent(innerFrom, innerTo, kind);
         paint(innerTo, to, 'syntax'); hold(from, innerFrom); hold(innerTo, to);
         style(kind, innerFrom, innerTo);
       }
     }
-    marks(/\*\*([^*\n]+)\*\*/g, 'strong', 2, 2);
-    marks(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, 'em', 1, 1);
-    marks(/(?<![\p{L}\p{N}_])_(?!\s)([^_\n]*[^_\s])_(?![\p{L}\p{N}_])/gu, 'em', 1, 1);
+    marks(/\*\*([^*\n]+)\*\*/g, 'strong', 2, 2, outerMask, false);
+    marks(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, 'em', 1, 1, outerMask, false);
+    marks(/(?<![\p{L}\p{N}_])_(?!\s)([^_\n]*[^_\s])_(?![\p{L}\p{N}_])/gu, 'em', 1, 1, outerMask, false);
+    marks(/\*\*([^*\n]+)\*\*/g, 'strong', 2, 2, innerMask, true);
+    marks(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, 'em', 1, 1, innerMask, true);
+    marks(/(?<![\p{L}\p{N}_])_(?!\s)([^_\n]*[^_\s])_(?![\p{L}\p{N}_])/gu, 'em', 1, 1, innerMask, true);
 
     var spans = [], spanStart = 0, current = kinds[0];
     for (var i = 1; i <= source.length; i++) {

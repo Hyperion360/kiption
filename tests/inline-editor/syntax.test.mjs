@@ -19,6 +19,9 @@ for (const fixture of cases) {
     }
     assert.equal(offset, fixture.source.length);
     assert.deepEqual(result.styledRanges, fixture.styledRanges);
+    if (fixture.spans) {
+      assert.deepEqual(result.spans.map(({ kind, start, end }) => ({ kind, start, end })), fixture.spans);
+    }
     assert.equal(JSON.stringify(result).includes('src='), false);
   });
 }
