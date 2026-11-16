@@ -17,6 +17,9 @@ final class AssetUrlTest extends TestCase
     {
         self::assertSame('/assets/reader.css', AssetUrl::for('reader.css'));
         self::assertSame('/assets/skins/classic.css', AssetUrl::for('skins/classic.css'));
+        self::assertSame('/favicon.ico', AssetUrl::icon('favicon.ico'));
+        self::assertSame('/favicon.svg', AssetUrl::icon('favicon.svg'));
+        self::assertSame('/apple-touch-icon.png', AssetUrl::icon('apple-touch-icon.png'));
     }
 
     public function test_release_digest_versions_every_asset_path(): void
@@ -25,6 +28,9 @@ final class AssetUrlTest extends TestCase
         AssetUrl::init(['asset_digest' => $digest]);
         self::assertSame('/assets/releases/' . $digest . '/app.js', AssetUrl::for('app.js'));
         self::assertSame('/assets/releases/' . $digest . '/skins/classic.css', AssetUrl::for('skins/classic.css'));
+        self::assertSame('/assets/releases/' . $digest . '/favicon.ico', AssetUrl::icon('favicon.ico'));
+        self::assertSame('/assets/releases/' . $digest . '/favicon.svg', AssetUrl::icon('favicon.svg'));
+        self::assertSame('/assets/releases/' . $digest . '/apple-touch-icon.png', AssetUrl::icon('apple-touch-icon.png'));
     }
 
     public function test_invalid_digest_and_path_are_rejected(): void
@@ -39,6 +45,12 @@ final class AssetUrlTest extends TestCase
         AssetUrl::for('../config.php');
     }
 
+    public function test_only_known_site_icons_can_use_icon_url(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        AssetUrl::icon('../private.svg');
+    }
+
     public function test_all_asset_references_use_versioned_helper_and_dynamic_loader_base(): void
     {
         foreach (['app/views/layout.php', 'app/skins/classic/views/layout.php',
@@ -46,6 +58,8 @@ final class AssetUrlTest extends TestCase
             $source = (string) file_get_contents(dirname(__DIR__) . '/' . $path);
             self::assertStringNotContainsString('href="/assets/', $source, $path);
             self::assertStringNotContainsString('src="/assets/', $source, $path);
+            self::assertStringNotContainsString('href="/favicon.', $source, $path);
+            self::assertStringNotContainsString('href="/apple-touch-icon.png', $source, $path);
         }
         $script = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         self::assertStringNotContainsString("script.src = '/assets/'", $script);

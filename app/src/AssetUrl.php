@@ -30,4 +30,12 @@ final class AssetUrl
         }
         return self::$prefix . $name;
     }
+
+    public static function icon(string $name): string
+    {
+        if (!in_array($name, ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png'], true)) {
+            throw new \InvalidArgumentException('Unknown site icon');
+        }
+        return self::$prefix === '/assets/' ? '/' . $name : self::$prefix . $name;
+    }
 }
