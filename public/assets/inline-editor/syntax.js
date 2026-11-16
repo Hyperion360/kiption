@@ -133,11 +133,14 @@
     var outerMask = outer.join('');
 
     function marks(re, kind, open, close, text, labelOnly) {
-      var m;
+      var m, labelIndex = 0;
       while ((m = re.exec(text)) !== null) {
         var from = m.index, to = from + m[0].length;
         var innerFrom = from + open, innerTo = to - close;
-        if (labelOnly && !labels.some(function (label) { return from >= label.start && to <= label.end; })) continue;
+        if (labelOnly) {
+          while (labelIndex < labels.length && labels[labelIndex].end <= from) labelIndex++;
+          if (labelIndex === labels.length || from < labels[labelIndex].start || to > labels[labelIndex].end) continue;
+        }
         if (!free(from, innerFrom) || !free(innerTo, to)) continue;
         paint(from, innerFrom, 'syntax'); paintContent(innerFrom, innerTo, kind);
         paint(innerTo, to, 'syntax'); hold(from, innerFrom); hold(innerTo, to);
