@@ -64,6 +64,18 @@ final class TagSuggestionTest extends TestCase
         $this->assertSame([], $out['created']);
     }
 
+    /** An unknown type id parks nothing and attaches nothing: the typed name
+     *  is ignored entirely, not refused and not stored. */
+    public function test_an_unknown_type_id_parks_and_attaches_nothing(): void
+    {
+        $story = $this->makeStory();
+        $out = $this->repo()->submit($story, 2, [999999 => 'Zzyzx Marker'], 'suggest');
+        $this->assertSame([], $out['pending'], 'nothing parked');
+        $this->assertSame([], $out['refused'], 'an unknown type is ignored, not refused');
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM tag_suggestions')['c']);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM story_tags WHERE story_id = ?', [$story])['c'], 'nothing attached');
+    }
+
     public function test_suggest_policy_stores_pending_and_creates_no_tag(): void
     {
         $story = $this->makeStory();
