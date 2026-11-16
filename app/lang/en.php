@@ -513,6 +513,8 @@ return [
     'writer.copyFallback' => 'Select and copy the recovery text.',
     'writer.copied' => 'Recovery text copied.',
     'writer.saving' => 'Saving…',
+    'writer.focus' => 'Focus Mode',
+    'writer.typewriter' => 'Typewriter Scrolling',
 
     'chapter.changed' => 'This chapter changed after you opened it. Your text is still here. Compare it with the current version before saving.',
     'chapter.reload_before_save' => 'This editing page is out of date. Keep a copy of your text, then reopen the chapter before saving.',

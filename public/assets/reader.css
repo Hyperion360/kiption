@@ -359,6 +359,13 @@ label:has(+ p.hint) { margin-block-end: 0; }
 .writer-actions button { min-height: 44px; }
 .writer-actions [role="status"] { font: 14px/1.4 var(--sans); }
 @media print { .writer-actions { display: none; } }
+.writer-comfort { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
+.writer-comfort button { min-height: 44px; }
+.writer-comfort [aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
+.writer-focus { max-width: 72ch; margin-inline: auto; }
+.writer-focus textarea[name="content"] { margin-block: 1.5rem; }
+.writer-caret-mirror { position: fixed; left: -100000px; top: 0; visibility: hidden; pointer-events: none; height: auto; overflow: visible; }
+@media print { .writer-comfort, .writer-caret-mirror { display: none; } }
 /* A link that does a button job (Export, Remove content) wears the button box. */
 a.btn {
   display: inline-flex; align-items: center; justify-content: center;

@@ -5,7 +5,7 @@
   <p class="chapter-meta"><?= \App\Lang::t('chapter.for') ?> <a href="/story/edit/<?= $this->e($story['slug']) ?>"><?= $this->e($story['story_title']) ?></a></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <?php if (($notice ?? '') !== ''): ?><p class="notice"><?= $this->e($notice) ?></p><?php endif; ?>
-  <form id="chapter-editor-form" data-js-module="writer-status draft-form" data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>"
+  <form id="chapter-editor-form" data-js-module="writer-status draft-form writer-comfort" data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>"
     data-writer-owner="<?= $this->e((string) $writerOwner) ?>"
     data-writer-chapter="<?= $this->e($writerChapter) ?>"
     data-writer-base="<?= $this->e($currentRevision) ?>"

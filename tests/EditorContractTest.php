@@ -94,6 +94,23 @@ final class EditorContractTest extends TestCase
         }
     }
 
+    public function test_comfort_enhancement_has_labels_but_no_inert_script_free_buttons(): void
+    {
+        [$form, $xpath] = $this->writerForm($this->client()->get('/chapter/new/the-rabbit-hole')->body, 'chapter-editor-form');
+        $this->assertStringContainsString('writer-comfort', $form->getAttribute('data-js-module'));
+        $labels = json_decode($form->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Focus Mode', $labels['focus']);
+        $this->assertSame('Typewriter Scrolling', $labels['typewriter']);
+        $this->assertSame(0, $xpath->query('.//button[@aria-pressed]', $form)->length);
+        $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $form)->length);
+        $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
+        $this->assertTrue($box->hasAttribute('required'));
+        $this->assertFalse($box->hasAttribute('hidden'));
+        [$story] = $this->writerForm($this->client()->get('/story/new')->body, 'story-editor-form');
+        $this->assertStringNotContainsString('writer-comfort', $story->getAttribute('data-js-module'));
+        $this->assertStringContainsString("['writer-comfort']", file_get_contents(dirname(__DIR__) . '/public/assets/app.js'));
+    }
+
     private function writerForm(string $html, string $id): array
     {
         $doc = new \DOMDocument();
