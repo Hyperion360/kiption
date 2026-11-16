@@ -102,6 +102,22 @@ final class SearchTrigramTest extends TestCase
         $this->assertSame([], $repo->searchWithTaxonomies('zz', [], 20, 0, 0)['rows']);
     }
 
+    /** A build where 069 no-opped (no trigram tokenizer in this SQLite) carries
+     *  stories_fts but no stories_trigram: the arm's first failed prepare drops
+     *  it, memoized, and the fold answers through stories_fts alone. */
+    public function test_a_missing_trigram_table_drops_the_arm_and_search_still_answers(): void
+    {
+        $this->makeStory('The Wonderland Tale', 'wonderland-tale');
+        $this->db->query('DROP TABLE stories_trigram');
+        $repo = $this->repo();
+        $first = $repo->searchWithTaxonomies('wonderland', [], 20, 0, 0);
+        $this->assertSame('fts', $first['mode'], 'the retry answers as fts, not like');
+        $this->assertSame(['wonderland-tale'], array_column($first['rows'], 'slug'));
+        $second = $repo->searchWithTaxonomies('wonderland', [], 20, 0, 0);
+        $this->assertSame('fts', $second['mode'], 'the dropped arm stays dropped for this repository');
+        $this->assertSame(['wonderland-tale'], array_column($second['rows'], 'slug'));
+    }
+
     public function test_migration_down_drops_the_table_and_triggers_and_up_restores(): void
     {
         $migration = require dirname(__DIR__, 1) . '/migrations/069_search_trigram.php';
