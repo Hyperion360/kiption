@@ -15,9 +15,12 @@ final class TagqueueController extends AdminScreen
     /** @return array{groups: list<array{typeId: int, type: string, name: string, count: int, titles: list<string>, tags: list<array{id: int, name: string}>}>, total: int} */
     private function queue(): array
     {
+        // The titles concat splits on a unit separator, not a visible one: a
+        // title carrying a pipe would otherwise come back as two titles.
+        $sep = "\x1f";
         $rows = $this->db->all(
             "SELECT 'q' AS k, s.tag_type_id AS a, tt.name AS b, MIN(s.name) AS c, COUNT(*) AS d,
-                    GROUP_CONCAT(st.title, '|') AS e, tt.position AS f
+                    GROUP_CONCAT(st.title, '{$sep}') AS e, tt.position AS f
              FROM tag_suggestions s
              JOIN tag_types tt ON tt.id = s.tag_type_id
              JOIN stories st ON st.id = s.story_id
@@ -36,7 +39,7 @@ final class TagqueueController extends AdminScreen
                 $typeId = (int) $r['a'];
                 $typeOrder[$typeId] = [(int) $r['f'], (string) $r['b']];
                 $groups[] = ['typeId' => $typeId, 'type' => (string) $r['b'], 'name' => (string) $r['c'],
-                    'count' => (int) $r['d'], 'titles' => explode('|', (string) $r['e']), 'tags' => []];
+                    'count' => (int) $r['d'], 'titles' => explode($sep, (string) $r['e']), 'tags' => []];
             }
         }
         // The merge picker's options: the live tags of the row's own type,

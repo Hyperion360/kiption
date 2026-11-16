@@ -37,6 +37,19 @@ final class TagqueueTest extends TaxonomyCase
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $body, 'no inline script');
     }
 
+    /** Titles ride the queue row as one GROUP_CONCAT string split on a
+     *  separator. A title carrying the separator itself must come back as
+     *  one title, not two. */
+    public function test_a_pipe_in_a_story_title_stays_one_title(): void
+    {
+        $story = $this->makeStory('queue-pipe');
+        $this->db->query('UPDATE stories SET title = ? WHERE id = ?', ['Alpha|Beta', $story]);
+        $this->suggest($story, $this->memberId, 'Pipe Marker');
+        $body = $this->admin()->get('/tagqueue')->body;
+        $this->assertStringContainsString('Suggested on: Alpha|Beta', $body, 'the whole title shows');
+        $this->assertStringNotContainsString('Suggested on: Alpha, Beta', $body, 'no split into two phantom titles');
+    }
+
     public function test_queue_gates_and_noindex(): void
     {
         $res = $this->admin()->get('/tagqueue');
