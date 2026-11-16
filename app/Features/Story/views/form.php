@@ -4,8 +4,12 @@
   <h1><?= $story === null ? \App\Lang::t('story.new_heading') : \App\Lang::t('story.edit_heading') ?></h1>
   <?php if (($notice ?? '') !== ''): ?><div class="prose notice"><?= $notice /* Markdown, every character escaped */ ?></div><?php endif; ?>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-  <form method="post" action="<?= $story === null ? '/story/create' : '/story/update/' . $this->e($story['slug']) ?>">
+  <form id="story-editor-form" data-js-module="writer-status" method="post" action="<?= $story === null ? '/story/create' : '/story/update/' . $this->e($story['slug']) ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <div class="writer-actions">
+      <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
+      <span data-writer-state role="status" aria-live="polite"></span>
+    </div>
     <label><?= \App\Lang::t('common.title') ?> <input name="title" required maxlength="200" value="<?= $this->e($story['title'] ?? '') ?>"></label>
     <label><?= \App\Lang::t('common.summary') ?> <textarea name="summary" maxlength="1000" rows="3"><?= $this->e($story['summary'] ?? '') ?></textarea></label>
     <label><?= \App\Lang::t('story.notes') ?> <textarea name="notes" rows="2"><?= $this->e($story['notes'] ?? '') ?></textarea></label>
@@ -90,7 +94,6 @@
     <label><?= \App\Lang::t('story.crosspost_label') ?> <input name="crosspost_url" maxlength="200" value="<?= $this->e($story['crosspost_url'] ?? '') ?>"></label>
     <p class="chapter-meta"><?= \App\Lang::t('story.syndication_help') ?></p>
     <?php endif; ?>
-    <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
   <?php if ($story !== null): ?>
     <form class="form-aside" method="post" action="/story/cover/<?= $this->e($story['slug']) ?>" enctype="multipart/form-data">

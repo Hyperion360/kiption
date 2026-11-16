@@ -289,6 +289,10 @@ final class AuthoringTest extends TestCase
         $res = $this->clientAs(1)->postWithToken('/chapter/update/ch-upd/1',
             ['title' => 'One', 'content' => 'Now five whole words here.', 'notes_before' => '', 'notes_after' => '']);
         $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame('/chapter/edit/ch-upd/1?saved=1', $res->headers['Location']);
+        $saved = $this->clientAs(1)->get('/chapter/edit/ch-upd/1', ['saved' => '1']);
+        $this->assertSame(200, $saved->status);
+        $this->assertStringContainsString('Chapter saved.', $saved->body);
         $ch = $this->db->one("SELECT word_count FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-upd') AND position = 1");
         $this->assertSame(5, (int) $ch['word_count']);
         $story = $this->db->one("SELECT word_count FROM stories WHERE slug = 'ch-upd'");
@@ -315,6 +319,60 @@ final class AuthoringTest extends TestCase
         $this->assertSame(422, $res->status);
         $this->assertSame(2, (int) $this->db->one(
             "SELECT COUNT(*) c FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'ch-empty')")['c']);
+        $res = $this->clientAs(1)->postWithToken('/chapter/update/ch-empty/1',
+            ['title' => 'Revised Title', 'content' => '   ', 'notes_before' => 'Opening note.', 'notes_after' => 'Ending note.']);
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString('Revised Title', $res->body);
+        $this->assertStringContainsString('Opening note.', $res->body);
+        $this->assertStringContainsString('Ending note.', $res->body);
+        $this->assertSame('One hundred words pretend.', $this->db->one(
+            "SELECT content FROM chapters WHERE story_id=(SELECT id FROM stories WHERE slug='ch-empty') AND position=1"
+        )['content']);
+    }
+
+    public function test_invalid_chapter_schedule_keeps_submitted_prose(): void
+    {
+        $this->chapterFixture('keep-input');
+        foreach (['/chapter/update/keep-input/1', '/chapter/create/keep-input'] as $path) {
+            foreach (['1', ['1']] as $accessClear) {
+                $r = $this->clientAs(1)->postWithToken($path, [
+                    'title' => 'My Revised Title', 'content' => "New <script>draft</script>\n\n**Words**",
+                    'notes_before' => 'A new opening note.', 'notes_after' => 'A new ending note.',
+                    'publish_at' => '2099-13-45T99:99:59', 'access_clear' => $accessClear,
+                    'access_password' => 'never-show-this-password',
+                ]);
+                $this->assertSame(422, $r->status);
+                $this->assertStringContainsString('My Revised Title', $r->body);
+                $this->assertStringContainsString('New &lt;script&gt;draft&lt;/script&gt;', $r->body);
+                $this->assertStringContainsString('**Words**', $r->body);
+                $this->assertStringContainsString('A new opening note.', $r->body);
+                $this->assertStringContainsString('A new ending note.', $r->body);
+                $this->assertStringContainsString('value="2099-13-45T99:99:59"', $r->body);
+                $this->assertStringNotContainsString('never-show-this-password', $r->body);
+                if ($accessClear === '1') {
+                    $this->assertStringContainsString('name="access_clear" value="1" checked', $r->body);
+                } else {
+                    $this->assertStringNotContainsString('name="access_clear" value="1" checked', $r->body);
+                }
+            }
+        }
+        $this->assertSame('One hundred words pretend.', $this->db->one(
+            "SELECT content FROM chapters WHERE story_id=(SELECT id FROM stories WHERE slug='keep-input') AND position=1"
+        )['content']);
+        $this->assertSame(2, (int) $this->db->one(
+            "SELECT COUNT(*) c FROM chapters WHERE story_id=(SELECT id FROM stories WHERE slug='keep-input')"
+        )['c']);
+    }
+
+    public function test_invalid_chapter_update_does_not_expose_another_authors_text(): void
+    {
+        $this->chapterFixture('private-input');
+        $member = $this->clientAs($this->memberId());
+        foreach ([['content' => 'Draft', 'publish_at' => 'invalid'], ['content' => '']] as $input) {
+            $r = $member->postWithToken('/chapter/update/private-input/1', $input);
+            $this->assertSame(404, $r->status);
+            $this->assertStringNotContainsString('One hundred words pretend.', $r->body);
+        }
     }
 
     public function test_story_rejects_unknown_rating(): void

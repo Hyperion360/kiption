@@ -342,6 +342,23 @@ label:has(+ p.hint) { margin-block-end: 0; }
 }
 .btn-primary:hover,
 .site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)):hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
+.writer-actions {
+  position: sticky;
+  top: .5rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  padding: .65rem;
+  margin-block: 0 1rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+}
+.writer-actions button { min-height: 44px; }
+.writer-actions [role="status"] { font: 14px/1.4 var(--sans); }
+@media print { .writer-actions { display: none; } }
 /* A link that does a button job (Export, Remove content) wears the button box. */
 a.btn {
   display: inline-flex; align-items: center; justify-content: center;

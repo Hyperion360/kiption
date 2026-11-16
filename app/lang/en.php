@@ -479,7 +479,8 @@ return [
     'chapter.editor_quote' => 'Quote',
     'chapter.editor_break' => 'Scene Break',
     'chapter.editor_hint' => 'The buttons above the box and Ctrl or Cmd plus B, I, and K work while you type.',
-    'chapter.save' => 'Save chapter',
+    'chapter.save' => 'Save Chapter',
+    'chapter.saved' => 'Chapter saved.',
     'chapter.delete' => 'Delete chapter',
 
     // The account page.

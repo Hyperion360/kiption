@@ -30,15 +30,15 @@ final class ChapterController
         if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
         if (trim($content) === '') {
-            return new Response($this->form($slug, null, \App\Lang::t('chapter.err_text')), 422);
+            return $this->form($slug, null, \App\Lang::t('chapter.err_text'));
         }
         if (($wordError = $this->wordLimitError($content)) !== null) {
-            return new Response($this->form($slug, null, $wordError), 422);
+            return $this->form($slug, null, $wordError);
         }
         try {
             $publishAt = $this->canonicalPublishAt($rawPublishAt);
         } catch (\InvalidArgumentException) {
-            return new Response($this->form($slug, null, \App\Lang::t('chapter.publish_invalid')), 422);
+            return $this->form($slug, null, \App\Lang::t('chapter.publish_invalid'));
         }
         $auto = $this->autoValidates();
         // The round-robin expansion reaches chapter CREATION only (finding 7's
@@ -76,13 +76,16 @@ final class ChapterController
     public function update(string $slug, int $position): Response|string
     {
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
+        if (trim($content) === '') {
+            return $this->form($slug, $position, \App\Lang::t('chapter.err_text'));
+        }
         if (($wordError = $this->wordLimitError($content)) !== null) {
-            return new Response($this->form($slug, $position, $wordError), 422);
+            return $this->form($slug, $position, $wordError);
         }
         try {
             $publishAt = $this->canonicalPublishAt($rawPublishAt);
         } catch (\InvalidArgumentException) {
-            return new Response($this->form($slug, $position, \App\Lang::t('chapter.publish_invalid')), 422);
+            return $this->form($slug, $position, \App\Lang::t('chapter.publish_invalid'));
         }
         // The post-password pair (Fictioneer parity; the repository hashes the
         // raw input and applies the clear-wins trio). A NULL-to-set lock on a
@@ -116,7 +119,7 @@ final class ChapterController
             'SELECT validated FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
             [$slug, $position])['validated'] ?? 0);
         if ($wasLive === 1) $this->notifyPublish($slug); // only an already-live chapter's edit is "news"
-        return Response::redirect('/story/edit/' . $slug);
+        return \App\Saved::to('/chapter/edit/' . $slug . '/' . $position);
     }
 
     #[AuthAttr] #[Post]
@@ -139,7 +142,15 @@ final class ChapterController
         // story-side, matching the update/delete writes it feeds).
         $row = $this->repo()->chapterFormData($slug, $position, $this->uid(), \App\Features::on('roundrobin'));
         if ($row === null) return new Response(\App\Lang::t('error.not_found'), 404);
-        return $this->view->render('chapter/form', [
+        $baseRow = $row;
+        if ($error !== null) {
+            foreach (['title', 'content', 'notes_before', 'notes_after', 'publish_at'] as $field) {
+                $value = $this->request->post[$field] ?? '';
+                $row[$field] = is_string($value) ? $value : '';
+            }
+            $row['access_clear'] = ($this->request->post['access_clear'] ?? null) === '1';
+        }
+        $html = $this->view->render('chapter/form', [
             'title' => $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'),
             'head' => $this->head()->withTitle($position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'))
                 ->withCanonical($this->request->path)->withNoindex(),
@@ -148,11 +159,15 @@ final class ChapterController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'story' => $row,
+            'baseRow' => $baseRow,
             'position' => $position,
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
+            'notice' => $error === null && \App\Saved::message($this->request) === 'admin.saved_saved'
+                ? \App\Lang::t('chapter.saved') : '',
             'loggedIn' => true,
         ]);
+        return $error === null ? $html : new Response($html, 422);
     }
 
     /** The owner's per-chapter word limits (0 means none): a friendly message with the count, or null when fine. */

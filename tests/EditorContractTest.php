@@ -33,7 +33,7 @@ final class EditorContractTest extends TestCase
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->path . '.mail', 'from' => 'noreply@localhost'],
-            'uploads' => [sys_get_temp_dir() . '/kiption-editor-upl'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-editor-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ]);
         return (new TestClient($app))->actingAs(1);
@@ -58,6 +58,31 @@ final class EditorContractTest extends TestCase
         $this->assertStringContainsString("'editor'", $js);
         foreach (['subset.js', 'text-edit.js', 'editor.js'] as $f) {
             $this->assertFileExists(dirname(__DIR__, 1) . '/public/assets/' . $f);
+        }
+    }
+
+    public function test_editor_forms_keep_one_native_primary_save_action(): void
+    {
+        foreach ([
+            ['/chapter/new/the-rabbit-hole', 'chapter-editor-form', '/chapter/create/the-rabbit-hole', 'Save Chapter'],
+            ['/chapter/edit/the-rabbit-hole/1', 'chapter-editor-form', '/chapter/update/the-rabbit-hole/1', 'Save Chapter'],
+            ['/story/new', 'story-editor-form', '/story/create', 'Create'],
+            ['/story/edit/the-rabbit-hole', 'story-editor-form', '/story/update/the-rabbit-hole', 'Save'],
+        ] as [$path, $id, $action, $label]) {
+            $r = $this->client()->get($path);
+            $this->assertSame(200, $r->status, $path);
+            $doc = new \DOMDocument();
+            @$doc->loadHTML($r->body);
+            $xpath = new \DOMXPath($doc);
+            $form = $xpath->query('//form[@id="' . $id . '"]')->item(0);
+            $this->assertInstanceOf(\DOMElement::class, $form, $path);
+            $this->assertSame('post', $form->getAttribute('method'));
+            $this->assertSame($action, $form->getAttribute('action'));
+            $this->assertSame(1, $xpath->query('.//input[@name="_token"]', $form)->length);
+            $buttons = $xpath->query('.//button[@type="submit"]', $form);
+            $this->assertSame(1, $buttons->length, $path);
+            $this->assertSame($label, trim($buttons->item(0)->textContent));
+            $this->assertSame('btn-primary', $buttons->item(0)->getAttribute('class'));
         }
     }
 
