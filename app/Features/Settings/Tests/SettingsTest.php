@@ -317,7 +317,9 @@ final class SettingsTest extends TestCase
             ->postWithToken('/settings/save', ['site_name' => 'Purged Name', 'registration_mode' => 'verify',
                 'validation_required' => '1', 'items_per_page' => '20', 'powered_by' => '0'])->status);
         $this->assertNull($static->serve($homeReq), 'static file unlinked');
-        $this->assertFileDoesNotExist($this->root . '/app/cache.sqlite', 'framework cache file unlinked');
+        $this->assertFileExists($this->root . '/app/cache.sqlite', 'live cache database remains available');
+        $cacheDb = new Database('sqlite:' . $this->root . '/app/cache.sqlite');
+        $this->assertSame(0, (int) $cacheDb->one('SELECT COUNT(*) c FROM pages')['c'], 'framework cache rows cleared');
     }
 
     /** The footer seam, pinned end to end: a stored powered_by row must govern

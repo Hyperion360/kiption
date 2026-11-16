@@ -240,7 +240,8 @@ final class FeaturesTest extends TestCase
         $this->assertSame(0, (int) $this->db()->one('SELECT enabled FROM feature_flags WHERE key = ?', ['news'])['enabled']);
         $this->assertFalse(\App\Features::on('news'), 'toggle dropped the memo: fresh resolution');
         $this->assertNull($static->serve($newsReq), 'static file unlinked');
-        $this->assertFileDoesNotExist($this->root . '/app/cache.sqlite', 'framework cache file unlinked');
+        $this->assertFileExists($this->root . '/app/cache.sqlite', 'live cache database remains available');
+        $this->assertSame(0, (int) $cacheDb->one('SELECT COUNT(*) c FROM pages')['c'], 'framework cache rows cleared');
         $this->assertFileDoesNotExist($publicDir . '/sitemap-news.xml', 'the news segment file is gone');
         $this->assertStringNotContainsString('sitemap-news.xml', (string) file_get_contents($publicDir . '/sitemap.xml'), 'the index no longer lists it');
 
