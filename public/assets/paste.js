@@ -255,7 +255,10 @@
      and see MDN on HTMLInputElement.setRangeText and Document.execCommand).
      execCommand is deprecated but still the only undo-safe route, so it is
      tried first and setRangeText is the fallback when it is missing or
-     refuses. Either way an input event tells listeners the value changed. */
+     refuses. Either way an input event tells listeners the value changed.
+     This local copy exists for the standalone case (node tests, a page where
+     the editor helpers did not load); init() prefers text-edit.js's shared
+     insertText when it is present, so the browser runs one implementation. */
   function insertText(box, text) {
     var done = false;
     try { done = document.execCommand('insertText', false, text); } catch (err) { done = false; }
@@ -298,9 +301,13 @@
 
   function init() {
     /* Word match (~=), not an exact match: the chapter box carries several
-       modules ("paste editor"), and an exact selector would find no box. */
+       modules ("paste editor"), and an exact selector would find no box.
+       The shared insert helper (text-edit.js) wins when it is loaded, so the
+       toolbar, smart punctuation and this module all edit through one path;
+       init runs at DOMContentLoaded, after every deferred helper has run. */
+    var insert = (typeof Kip !== 'undefined' && Kip.textInsert) ? Kip.textInsert : insertText;
     Array.prototype.forEach.call(document.querySelectorAll('textarea[data-js-module~="paste"]'), function (box) {
-      attach(box, htmlToMarkdown, insertText);
+      attach(box, htmlToMarkdown, insert);
     });
   }
   if (typeof Kip !== 'undefined' && Kip.init) { Kip.init(init); }
