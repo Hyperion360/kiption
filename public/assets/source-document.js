@@ -19,12 +19,18 @@
   function create(initial, initialSelection) {
     var text = String(initial), selection;
     var undo = [], redo = [];
+    var selectionEpoch = 0;
     function copy(s) { return { anchor: s.anchor, focus: s.focus }; }
     function validate(s, length) {
       if (!s || !Number.isInteger(s.anchor) || !Number.isInteger(s.focus) ||
           Math.min(s.anchor, s.focus) < 0 || Math.max(s.anchor, s.focus) > length) throw RangeError('selection');
     }
-    function select(s) { validate(s, text.length); selection = copy(s); }
+    function setSelection(s) { validate(s, text.length); selection = copy(s); }
+    function select(s) {
+      validate(s, text.length);
+      if (selection && (selection.anchor !== s.anchor || selection.focus !== s.focus)) selectionEpoch++;
+      selection = copy(s);
+    }
     select(initialSelection || { anchor: 0, focus: 0 });
     function replace(start, end, insert) { text = text.slice(0, start) + insert + text.slice(end); }
     function prune() {
@@ -45,12 +51,13 @@
         validate(next, text.length - (end - start) + insert.length);
         if (text.slice(start, end) === insert) { select(next); return false; }
         var item = { start: start, removed: text.slice(start, end), insert: insert,
-          before: copy(selection), after: copy(next), kind: kind, at: now };
+          before: copy(selection), after: copy(next), kind: kind, at: now, selectionEpoch: selectionEpoch };
         var last = undo[undo.length - 1];
         var join = kind === 'typing' && last && last.kind === 'typing' &&
           item.removed === '' && last.removed === '' && last.start + last.insert.length === start &&
-          now >= last.at && now - last.at <= 750 && selection.anchor === start && selection.focus === start;
-        replace(start, end, insert); select(next); redo.length = 0;
+          now >= last.at && now - last.at <= 750 && selection.anchor === start && selection.focus === start &&
+          last.selectionEpoch === selectionEpoch;
+        replace(start, end, insert); setSelection(next); redo.length = 0;
         if (join) { last.insert += insert; last.after = copy(next); last.at = now; }
         else undo.push(item);
         prune(); return true;
@@ -58,12 +65,12 @@
       undo: function () {
         var item = undo.pop(); if (!item) return false;
         replace(item.start, item.start + item.insert.length, item.removed);
-        select(item.before); redo.push(item); return true;
+        setSelection(item.before); selectionEpoch++; redo.push(item); return true;
       },
       redo: function () {
         var item = redo.pop(); if (!item) return false;
         replace(item.start, item.start + item.removed.length, item.insert);
-        select(item.after); undo.push(item); return true;
+        setSelection(item.after); selectionEpoch++; undo.push(item); return true;
       }
     };
   }

@@ -77,6 +77,56 @@ test('adjacent typing groups at the 750 ms boundary and separates beyond it', ()
   model.redo(); assert.equal(model.text, 'ab');
 });
 
+test('selection movement away and back separates typing from the previous burst', () => {
+  const model = create('ab', sel(0));
+  model.apply(0, 0, 'x', sel(1), 'typing', 1000);
+  model.select(sel(3));
+  model.select(sel(1));
+  model.apply(1, 1, 'y', sel(2), 'typing', 1100);
+  model.undo(); assert.equal(model.text, 'xab');
+  model.undo(); assert.equal(model.text, 'ab');
+});
+
+test('backward selection movement separates typing even when caret returns', () => {
+  const model = create('ab', sel(0));
+  model.apply(0, 0, 'x', sel(1), 'typing', 1000);
+  model.select(sel(3, 1));
+  model.select(sel(1));
+  model.apply(1, 1, 'y', sel(2), 'typing', 1100);
+  model.undo(); assert.equal(model.text, 'xab');
+  model.undo(); assert.equal(model.text, 'ab');
+});
+
+test('redundant selection capture and no-op edits preserve adjacent typing group', () => {
+  const model = create('ab', sel(0));
+  model.apply(0, 0, 'x', sel(1), 'typing', 1000);
+  model.select(sel(1));
+  assert.equal(model.apply(0, 1, 'x', sel(1), 'input', 1050), false);
+  model.apply(1, 1, 'y', sel(2), 'typing', 1100);
+  model.undo(); assert.equal(model.text, 'ab');
+});
+
+test('a no-op edit that moves selection separates subsequent typing', () => {
+  const model = create('ab', sel(0));
+  model.apply(0, 0, 'x', sel(1), 'typing', 1000);
+  assert.equal(model.apply(0, 1, 'x', sel(3), 'input', 1050), false);
+  model.select(sel(1));
+  model.apply(1, 1, 'y', sel(2), 'typing', 1100);
+  model.undo(); assert.equal(model.text, 'xab');
+  model.undo(); assert.equal(model.text, 'ab');
+});
+
+test('typing after undo and redo starts a new history group', () => {
+  const model = create('');
+  model.apply(0, 0, 'a', sel(1), 'typing', 1000);
+  model.apply(1, 1, 'b', sel(2), 'typing', 1100);
+  model.undo(); assert.equal(model.text, '');
+  model.redo(); assert.equal(model.text, 'ab');
+  model.apply(2, 2, 'c', sel(3), 'typing', 1200);
+  model.undo(); assert.equal(model.text, 'ab');
+  model.undo(); assert.equal(model.text, '');
+});
+
 test('paste, deletion, selected typing, and backward timestamps remain separate transactions', () => {
   const model = create('');
   model.apply(0, 0, 'a', sel(1), 'typing', 1000);
