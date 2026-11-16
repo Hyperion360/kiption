@@ -16,6 +16,7 @@ final class HeadlineCaseTest extends TestCase
     /** Not headings: a label that is not a heading, or a link that ends a sentence. */
     private const SKIP = ['auth.terms_label', 'series.membership_label',
         'settings.waiting_link', 'maintenance.banner_link', 'settings.penname_pointer_link',
+        'look.sample_link', // the sample anchor's text on the Colors and Layout screen, not a link in running copy
         // "Sign In" is a phrasal verb and "On and Off" are adverbs, so they keep their capitals.
         'auth.link.title', 'auth.link.heading', 'features.heading', 'text.group.features'];
 

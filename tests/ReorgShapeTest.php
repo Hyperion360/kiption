@@ -87,14 +87,16 @@ final class ReorgShapeTest extends TestCase
             // admin_nav, admin_tabs, menu_post, menu_staff and confirm are
             // shell partials every layout and skin includes for owner screens
             // and the post and staff links, so they sit beside the layout.
-            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php', 'admin_nav.php', 'admin_tabs.php', 'admin_main.php', 'menu_post.php', 'menu_staff.php', 'confirm.php'],
+            // _look_link is the owner stylesheet link every layout renders.
+            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php', 'admin_nav.php', 'admin_tabs.php', 'admin_main.php', 'menu_post.php', 'menu_staff.php', 'confirm.php', '_look_link.php'],
                 'app/views must hold only the kernel layout, its shell partials, maintenance and notice pages, found ' . $f);
         }
         $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');
-        // 59 with Help, Manage, Rules, Terms and Wordfilter; 54 with Adminstories and Mailusers; 52 with Contact, Signupcheck, Profilefields and Activity; 48 with the Categories, Ratings, Tags and Characters managers; 44 since the site text editor (Text); 43 since the Compare feature left (marketing copy is documentation
+        // 60 with Help, Manage, Rules, Terms and Wordfilter; 54 with Adminstories and Mailusers; 52 with Contact, Signupcheck, Profilefields and Activity; 48 with the Categories, Ratings, Tags and Characters managers; 44 since the site text editor (Text); 43 since the Compare feature left (marketing copy is documentation
         // now; Cloud and Dmca remain from the marketing top paths batch;
-        // 41 since the invite-code surface, 40 since recommendations).
-        $this->assertCount(59, $features, 'exactly 59 feature folders expected');
+        // 41 since the invite-code surface, 40 since recommendations;
+        // 60 since the colors and layout editor (Look)).
+        $this->assertCount(60, $features, 'exactly 60 feature folders expected');
     }
 
     public function test_no_test_files_outside_the_tests_directory(): void

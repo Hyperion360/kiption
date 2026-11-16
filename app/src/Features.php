@@ -84,6 +84,19 @@ final class Features
         self::$settings = [];
     }
 
+    /** Remove one operator setting row, then drop both memos (the putSetting
+     *  discipline). Unlike reset(), it keeps the DB handle and the defaults, so
+     *  a following putSetting still works. */
+    public static function deleteSetting(string $key): void
+    {
+        if (self::$db === null) {
+            throw new \LogicException('Features::deleteSetting before init (no DB handle)');
+        }
+        self::$db->query('DELETE FROM settings WHERE key = ?', [$key]);
+        self::$memo = null;
+        self::$settings = [];
+    }
+
     /** Is the flag on? Unknown keys are OFF; uninit reads the inventory alone. */
     public static function on(string $key): bool
     {

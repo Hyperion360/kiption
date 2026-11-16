@@ -142,6 +142,21 @@ final class AppJsContractTest extends TestCase
         $this->assertStringContainsString('data-filter-rows', (string) file_get_contents($assets . 'listfilter.js'));
     }
 
+    public function test_the_look_module_is_known_to_the_loader_and_writes_only_safe_things(): void
+    {
+        $assets = dirname(__DIR__) . '/public/assets/';
+        $this->assertStringContainsString("'look'", (string) file_get_contents($assets . 'app.js'), 'the loader knows the look module');
+        $js = (string) file_get_contents($assets . 'look.js');
+        $this->assertStringStartsWith('/* Kiption enhancement layer, look module.', $js);
+        $this->assertStringContainsString("'use strict'", $js);
+        $this->assertStringContainsString('Kip.init', $js);
+        foreach (['eval(', 'new Function', 'innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'setAttribute(\'style\''] as $banned) {
+            $this->assertStringNotContainsString($banned, $js, 'look.js must not use ' . $banned);
+        }
+        $this->assertStringContainsString('style.setProperty', $js);
+        $this->assertStringContainsString('textContent', $js);
+    }
+
     public function test_the_double_submission_guard_ships_in_the_core(): void
     {
         $loader = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');

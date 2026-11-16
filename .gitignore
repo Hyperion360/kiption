@@ -28,3 +28,4 @@ config.marketing.php
 # private working memory (local-only)
 TODOS.md
 app/site-text/
+app/site-look/

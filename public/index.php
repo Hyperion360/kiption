@@ -202,6 +202,7 @@ $config = \App\Settings::apply($config);
 // AFTER the static-cache HIT and the maintenance 503 above by construction:
 // both serve before the skin layer exists, so neither is ever skinned.
 $config['views_override'] = \App\Skins::overrideDir($config);
+\App\Look\Boot::init(); // the owner's colors and layout: reads the settings row the boot statement already loaded (no query)
 
 $session = Kip\Session::lazy(new Kip\SessionStarter($https));
 // A request carrying a session cookie signs out a member locked or deleted since

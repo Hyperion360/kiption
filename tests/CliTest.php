@@ -97,6 +97,39 @@ final class CliTest extends TestCase
         $this->assertStringContainsString('migrate', $out);
     }
 
+    public function test_look_compile_writes_the_saved_look_and_says_so_when_none_is_saved(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-cli-look-' . bin2hex(random_bytes(4));
+        $this->fixtures = $dir;
+        mkdir($dir);
+        $env = 'KIP_SITE_LOOK_DIR=' . escapeshellarg($dir . '/site-look');
+        $this->kip('migrate');
+        [$code, $out] = $this->kip('look:compile', '', $env);
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString('no saved look', $out);
+        $this->assertDirectoryDoesNotExist($dir . '/site-look', 'nothing saved, nothing created');
+        $values = ['accent' => '#8a2be2', 'bg' => '#ffffff', 'ink' => '#111111', 'width' => 'wide', 'size' => 'standard', 'density' => 'standard', 'header' => 'standard'];
+        (new Database('sqlite:' . $this->path))->query('INSERT INTO settings (key, value) VALUES (?, ?)', ['site_look', json_encode($values)]);
+        [$code, $out] = $this->kip('look:compile', '', $env);
+        $this->assertSame(0, $code, $out);
+        $this->assertStringContainsString($dir . '/site-look/look.css', $out);
+        $this->assertStringContainsString('#8a2be2', (string) file_get_contents($dir . '/site-look/look.css'));
+    }
+
+    public function test_look_compile_fails_loudly_when_the_folder_cannot_be_written(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-cli-look-' . bin2hex(random_bytes(4));
+        $this->fixtures = $dir;
+        mkdir($dir);
+        file_put_contents($dir . '/blocker', 'x');
+        $this->kip('migrate');
+        $values = ['accent' => '#8a2be2', 'bg' => '#ffffff', 'ink' => '#111111', 'width' => 'standard', 'size' => 'standard', 'density' => 'standard', 'header' => 'standard'];
+        (new Database('sqlite:' . $this->path))->query('INSERT INTO settings (key, value) VALUES (?, ?)', ['site_look', json_encode($values)]);
+        [$code, $out] = $this->kip('look:compile', '', 'KIP_SITE_LOOK_DIR=' . escapeshellarg($dir . '/blocker/site-look'));
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('could not write the compiled look', $out);
+    }
+
     public function test_rollback_undoes_the_last_batch_and_migrate_restores_it(): void
     {
         $this->kip('migrate');

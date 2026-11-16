@@ -332,4 +332,24 @@ final class FeaturesTest extends TestCase
         $client = new TestClient(new App($this->config($extra)));
         return $as === null ? $client : $client->actingAs($as);
     }
+
+    public function test_deleteSetting_removes_the_row_and_keeps_the_handle(): void
+    {
+        \App\Features::init($this->db, []);
+        \App\Features::putSetting('probe_key', 'one');
+        $this->assertSame('one', \App\Features::settings()['probe_key'] ?? null);
+        \App\Features::deleteSetting('probe_key');
+        $this->assertArrayNotHasKey('probe_key', \App\Features::settings());
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM settings WHERE key = 'probe_key'")['c']);
+        \App\Features::putSetting('probe_key', 'two'); // no LogicException after a delete
+        $this->assertSame('two', \App\Features::settings()['probe_key'] ?? null);
+        \App\Features::deleteSetting('never_set'); // deleting nothing is fine
+    }
+
+    public function test_deleteSetting_before_init_throws(): void
+    {
+        \App\Features::reset();
+        $this->expectException(\LogicException::class);
+        \App\Features::deleteSetting('probe_key');
+    }
 }

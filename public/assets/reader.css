@@ -4,6 +4,7 @@
   --bg:#f8f7f3; --ink:#1c2320; --ink-2:#4b544e; --muted:#5f6962;
   --line:#e4e2da; --line-strong:#d6d3c9; --hover:#efede6;
   --accent:#1f4f42; --accent-hover:#2a6a58; --on-accent:#fff; --visited:#64506e;
+  --btn:#1f4f42; --btn-ink:#fff;
   --track:#e4e2da; --surface:#fff; --scrim:rgba(28,35,32,.45);
   --pill-bg:#e3ece6; --cover-ink:#f1efe8; --danger:#b3261e; --danger-bg:#f6e3de; --danger-line:#e8c2b8;
   --serif:ui-serif,'Iowan Old Style',Charter,'Bitstream Charter',Georgia,serif;
@@ -337,10 +338,10 @@ label:has(+ p.hint) { margin-block-end: 0; }
 .btn-primary,
 .site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)) {
   min-height: 48px; padding-inline: 24px;
-  background: #1f4f42; border-color: #1f4f42; color: #fff; font-weight: 500;
+  background: var(--btn); border-color: var(--btn); color: var(--btn-ink); font-weight: 500;
 }
 .btn-primary:hover,
-.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)):hover { background: #1f4f42; color: #fff; opacity: .92; }
+.site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)):hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
 /* A link that does a button job (Export, Remove content) wears the button box. */
 a.btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -647,7 +648,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   display: flex; flex-direction: column; justify-content: space-between;
   aspect-ratio: 2 / 3; padding: 22px 20px;
   /* fixed brand green (A.1): the cover card does not re-theme */
-  background: #1f4f42; color: var(--cover-ink);
+  background: var(--btn); color: var(--cover-ink);
 }
 .cover-kicker { font: 11px/1.4 var(--sans); letter-spacing: .16em; text-transform: uppercase; opacity: .8; }
 .cover-title { font-family: var(--serif); font-size: 28px; line-height: 1.1; }
@@ -658,9 +659,9 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .continue-cta {
   display: flex; flex-direction: column; gap: 3px; justify-content: center;
   min-height: 60px; padding: 10px 18px;
-  background: #1f4f42; color: #fff; text-decoration: none;
+  background: var(--btn); color: var(--btn-ink); text-decoration: none;
 }
-.continue-cta:hover { opacity: .92; color: #fff; }
+.continue-cta:hover { opacity: .92; color: var(--btn-ink); }
 .continue-label { font: 600 16px/1.3 var(--sans); }
 .continue-sub { font: 13px/1.4 var(--sans); opacity: .85; font-variant-numeric: tabular-nums; }
 .eyebrow {
@@ -1783,10 +1784,10 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .cta-primary {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 52px; padding: 12px 32px;
-  background: #1f4f42; color: #fff; border: 1px solid #1f4f42;
+  background: var(--btn); color: var(--btn-ink); border: 1px solid var(--btn);
   font: 500 16px/1 var(--sans); text-decoration: none;
 }
-.cta-primary:hover { background: #1f4f42; color: #fff; opacity: .92; }
+.cta-primary:hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
 .cta-secondary {
   display: inline-flex; align-items: center; min-height: 44px;
   font: 500 15px/1 var(--sans); color: var(--accent);
@@ -1888,3 +1889,27 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .admin-suggest { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 24px; }
 .admin-suggest .section-label { flex-basis: 100%; margin-block: 0 4px; }
 .btn-quiet { background: transparent; color: var(--ink-2); border: 1px solid var(--line); }
+
+/* The colors and layout screen: two sample panes that wear the chosen look.
+   The pane numbers mirror App\Look\Presets (a test keeps the two in step),
+   and they ride --look-* names so the panes never rebind the page's real
+   --read-* tokens (only :root and the member's own prefs set those). */
+.look-form input[type="color"] { width: 64px; height: 40px; padding: 2px; }
+.look-live .look-form [data-look-preview-button] { display: none; }
+.look-live-error { color: var(--danger); font: 500 14px/1.5 var(--sans); margin: 0 0 12px; }
+.look-panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-block: 12px 28px; }
+.look-preview { background: var(--bg); color: var(--ink); border: 1px solid var(--line-strong); --look-size: 19px; --look-lh: 1.7; --look-width: 640px; --pad: 32px; }
+.look-preview-head { padding: 10px 16px; font: 600 13px/1.4 var(--sans); border-block-end: 1px solid var(--line); color: var(--ink-2); }
+.look-preview[data-header="plain"] .look-preview-head { border-block-end-color: transparent; }
+.look-preview[data-header="tinted"] .look-preview-head { background: var(--surface); }
+.look-preview[data-width="narrow"] { --look-width: 560px; }
+.look-preview[data-width="wide"] { --look-width: 720px; }
+.look-preview[data-size="small"] { --look-size: 17px; }
+.look-preview[data-size="large"] { --look-size: 21px; }
+.look-preview[data-density="compact"] { --look-lh: 1.6; --pad: 20px; }
+.look-preview[data-density="roomy"] { --look-lh: 1.85; --pad: 44px; }
+.look-preview-body { max-width: var(--look-width); margin-inline: auto; padding: var(--pad) 16px; font: var(--look-size)/var(--look-lh) var(--serif); }
+.look-preview-body h3 { margin: 0 0 8px; font: 600 1.1em/1.3 var(--serif); color: var(--ink); }
+.look-preview-body p { margin: 0 0 12px; }
+.look-preview-body a { color: var(--accent); }
+.look-preview-button { display: inline-block; padding: 8px 16px; background: var(--btn); color: var(--btn-ink); font: 500 14px/1.4 var(--sans); }

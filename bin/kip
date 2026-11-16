@@ -11,6 +11,7 @@ $config = \App\Settings::apply($config); // operator settings overlay the config
 \App\Posting::init($config); // the registration mode the guest menu link depends on (pages:build bakes the link into cached pages)
 \App\FooterLegal::init($config); // the legal-line seam, same order (pages:build bakes it into cached pages), from the MERGED config (the index.php order: after the settings overlay, so pages:build renders the board's powered_by row)
 $config['views_override'] = \App\Skins::overrideDir($config); // the skins seam: CLI renders (pages:build above all) use the operator skin, and Builder::build() propagates the key into its own App
+\App\Look\Boot::init(); // the owner's colors and layout: reads the settings row already loaded, so pages:build bakes the stylesheet link into cached pages
 
 // Feature folders (Kip guide ch. 3): the migration inventory lives in
 // App\Setup\Install (one service for the CLI and the browser setup, so the
@@ -310,6 +311,15 @@ match ($argv[1] ?? 'help') {
         \App\Seo\Sitemap::writeRobots($file, (bool) ($config['ai_crawlers'] ?? true), rtrim((string) ($config['base_url'] ?? ''), '/'));
         echo "Wrote {$file}\n";
     })(),
+    'storage:reconcile' => (function () use ($config) {
+        // Operator seam for the upload-bytes counter: one walk of the uploads
+        // directory, the counter set to what is really there. reserve() runs
+        // the same walk on a stale refusal; this runs it on demand.
+        $db = new Kip\Database($config['db']['dsn']);
+        $dir = rtrim((string) ($config['uploads']['dir'] ?? dirname(__DIR__) . '/public/uploads'), '/');
+        $quota = new \App\StorageQuota($db, $dir, (int) ($config['storage_cap_bytes'] ?? 0));
+        printf("Storage reconciled: %s under %s.\n", \App\StorageQuota::human($quota->reconcile()), $dir);
+    })(),
     'digest:send' => (function () use ($config, $argv) {
         // The flag gate precedes ANY work (the guard-before-data rule, CLI
         // arm): off means no member query, no mailer, no send. Immediate
@@ -474,7 +484,8 @@ match ($argv[1] ?? 'help') {
             fwrite(STDERR, "No .epub files in {$target}\n");
             exit(1);
         }
-        $importer = new \App\Import\Epub($db, (string) $config['uploads']['dir']);
+        $importer = new \App\Import\Epub($db, (string) $config['uploads']['dir'], quota: new \App\StorageQuota($db,
+            rtrim((string) $config['uploads']['dir'], '/'), (int) ($config['storage_cap_bytes'] ?? 0)));
         // finding 6: a hostile dc:title or note must not steer the
         // operator's terminal; control characters strip at print time
         $clean = static fn (string $s): string => (string) preg_replace('/[\x00-\x1f]/', '', $s);
@@ -585,6 +596,25 @@ match ($argv[1] ?? 'help') {
         }
         echo "compiled site text to {$dir}\n";
     })(),
+    'look:compile' => (function () use ($config) {
+        // Rebuild the compiled colors and layout file from the saved row (run after a deploy or a restore).
+        try {
+            $values = \App\Look\Store::get();
+        } catch (\Throwable $e) {
+            fwrite(STDERR, "the settings table is missing: run migrate first\n");
+            exit(1);
+        }
+        if ($values === null) {
+            echo "no saved look\n";
+            return;
+        }
+        $dir = \App\Look\Boot::dir($config);
+        if (!\App\Look\Compiler::write($values, $dir)) {
+            fwrite(STDERR, "could not write the compiled look to {$dir}\n");
+            exit(1);
+        }
+        echo "compiled look to {$dir}/" . \App\Look\Compiler::FILE . "\n";
+    })(),
     'mail:users' => (function () use ($config, $argv) {
         $rest = array_slice($argv, 2);
         $mode = in_array('--dry-run', $rest, true) ? 'dry-run' : (in_array('--commit', $rest, true) ? 'commit' : '');
@@ -626,8 +656,16 @@ match ($argv[1] ?? 'help') {
             $mail['log_path'] = $mailLog;
         }
         $mailer = new \App\MailGuard($db, new Kip\Mailer($mail), new Kip\App($config));
+        // The /mailusers screen's up-front refusal, same strings: a broadcast
+        // that cannot fit mails nobody and exits non-zero.
+        $fit = \App\MassMail::fits($mailer, count($recipients));
+        if (!$fit['fits']) {
+            $key = $fit['binding'] === 'month' ? 'mailusers.err_cap_month' : 'mailusers.err_cap_day';
+            fwrite(STDERR, \App\Lang::t($key, ['n' => number_format(count($recipients)), 'room' => number_format($fit['room'])]) . "\n");
+            exit(1);
+        }
         $mailed = \App\MassMail::send($mailer, $recipients, $subject, $body);
         echo "mailed {$mailed}\n";
     })(),
-    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|text:compile|cache:clear|robots|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]|auth:link <email> [--hours=1..168]]\n"),
+    default => print("Usage: kip [migrate|rollback|serve|logs|logs:prune|doctor [--json]|version [--check]|backup|pages:build|pages:prune|text:compile|look:compile|cache:clear|robots|storage:reconcile|digest:send|release:due [--mail-log=<path>]|import:token|import:efiction <bundle.tar.gz> (--dry-run|--commit)|import:epub <book.epub|directory> (--dry-run|--commit) [--author=<penname>|--author-id=<id>]|import:fictioneer <export.xml|export.xml.gz> (--dry-run|--commit) [--owner=<penname|id>]|mail:users <subject> <body> (--dry-run|--commit) [--template=<name>] [--mail-log=<path>]|db:seed [--force]|db:blank|db:demo [--force]|user:create <email> [password] [--admin]|auth:link <email> [--hours=1..168]]\n"),
 };
