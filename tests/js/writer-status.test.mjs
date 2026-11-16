@@ -146,6 +146,21 @@ test('module loader appends ordered classic scripts and loads shared helpers onc
   assert.equal(new Set(scripts.map(script => script.src)).size, scripts.length);
 });
 
+test('module loader keeps the digest path of its own script', () => {
+  const scripts = [];
+  const marker = { getAttribute: () => 'editor' };
+  const digest = 'a'.repeat(64);
+  const document = {
+    currentScript: { src: '/assets/releases/' + digest + '/app.js' },
+    readyState: 'loading', addEventListener() {}, documentElement: { classList: { add() {} } },
+    querySelector: () => null, querySelectorAll: () => [marker], createElement: () => ({ async: true }),
+    head: { appendChild: script => scripts.push(script) }
+  };
+  vm.runInNewContext(readFileSync(new URL('../../public/assets/app.js', import.meta.url), 'utf8'), { window: {}, document });
+  assert.ok(scripts.length > 0);
+  assert.ok(scripts.every(script => script.src.startsWith('/assets/releases/' + digest + '/')));
+});
+
 
 test('delayed attachment uses server defaults, preserving early text and checkbox edits as unsaved', () => {
   const f = fixture({ saved: true, beforeAttach(form) {

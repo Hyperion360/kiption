@@ -8,7 +8,8 @@
  * data-js-* attributes set by the views; this file contains no content. */
 'use strict';
 (function () {
-  var assetBase = new URL('.', document.currentScript.src).href;
+  var scriptUrl = document.currentScript && document.currentScript.src || '/assets/app.js';
+  var assetBase = scriptUrl.slice(0, scriptUrl.lastIndexOf('/') + 1);
   var Kip = {
     $: function (sel, root) { return (root || document).querySelector(sel); },
     $$: function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); },
