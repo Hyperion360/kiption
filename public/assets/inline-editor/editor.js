@@ -61,6 +61,9 @@
       liveButton.setAttribute('aria-pressed',String(mode === 'live'));
     }
     function showSource() {
+      if (!blocked && !sourceOnly && box.value !== model.text) {
+        blockUnsignaledSource(); return false;
+      }
       if (mode === 'source') return true;
       try { model.select(view.readSelection()); }
       catch (_) { fail(view.element.textContent || ''); return false; }
@@ -72,8 +75,9 @@
     }
     function showLive() {
       if (blocked || sourceOnly) return false;
+      if (box.value !== model.text) { blockUnsignaledSource(); return false; }
       if (mode === 'live') return true;
-      if (box.value.length > MAX_SOURCE || box.value !== model.text) {
+      if (box.value.length > MAX_SOURCE) {
         status.textContent = 'Continue editing in Source mode.';
         return false;
       }
@@ -82,11 +86,11 @@
       mode = 'live'; updateModes(); view.element.focus();
       return true;
     }
-    function fail(uncertain) {
+    function fail(uncertain, preserveSource) {
       if (blocked) return;
       blocked = true;
       if (controller) controller.detach();
-      box.value = model.text;
+      if (!preserveSource) box.value = model.text;
       blockedSourceValue = box.value;
       mode = 'source'; updateModes();
       liveButton.disabled = true;
@@ -96,9 +100,12 @@
       copy.setAttribute('aria-label','Unconverted Input Copy');
       copy.setAttribute('data-editor-control','copy');
       host.append(copy);
-      status.textContent = 'Input could not be converted. Copy the text below into Source mode, then edit it before saving.';
+      status.textContent = preserveSource ?
+        'Source text changed outside the editor. Review and edit it before saving.' :
+        'Input could not be converted. Copy the text below into Source mode, then edit it before saving.';
       box.focus();
     }
+    function blockUnsignaledSource() { fail(box.value,true); }
     try {
       controller = modules.input.create(model,view,{source:box,
         convertHtml:options.convertHtml,onFailure:fail});
@@ -114,6 +121,9 @@
       status.textContent = 'Source editing restored. Save uses the visible source text.';
     },true);
     listen(form,'submit',function (event) {
+      if (!blocked && !sourceOnly && box.value !== model.text) {
+        event.preventDefault(); blockUnsignaledSource(); return;
+      }
       if (blocked) {
         event.preventDefault();
         status.textContent = 'Edit the source text before saving.';
@@ -139,6 +149,9 @@
       detach:function () {
         if (detached) return true;
         if (blocked) return false;
+        if (!sourceOnly && box.value !== model.text) {
+          blockUnsignaledSource(); return false;
+        }
         if (!sourceOnly) box.value = model.text;
         controller.detach();
         for (var off of cleanup) off();

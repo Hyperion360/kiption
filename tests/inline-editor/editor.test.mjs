@@ -93,6 +93,7 @@ test('form submit mirrors exact source and failure blocks stale Save until expli
   const f = fixture('abc');
   const handle = editor.attach(f.box,{modules:f.modules});
   f.model.apply({from:1,to:1,insert:'Z',selection:{anchor:2,focus:2}});
+  f.box.value = f.model.text; // The real input adapter mirrors each accepted edit.
   let event = new Event('submit',{cancelable:true});
   f.form.dispatchEvent(event);
   assert.equal(event.defaultPrevented,false);
@@ -127,6 +128,40 @@ test('a failing source input event cannot also clear the Save block', () => {
   f.form.dispatchEvent(event);
   assert.equal(event.defaultPrevented,false);
   assert.equal(handle.detach(),true);
+});
+
+test('submit preserves an unsignaled source change and blocks stale Save', () => {
+  const f = fixture('abc');
+  const handle = editor.attach(f.box,{modules:f.modules});
+  f.box.value = 'autofilled source';
+  let event = new Event('submit',{cancelable:true});
+  f.form.dispatchEvent(event);
+  assert.equal(event.defaultPrevented,true);
+  assert.equal(f.box.value,'autofilled source');
+  assert.equal(handle.mode,'source');
+  assert.equal(find(f.box.inserted,'copy').value,'autofilled source');
+  f.box.value = 'author reviewed source';
+  f.box.dispatchEvent(new Event('input'));
+  event = new Event('submit',{cancelable:true});
+  f.form.dispatchEvent(event);
+  assert.equal(event.defaultPrevented,false);
+  assert.equal(f.box.value,'author reviewed source');
+  assert.equal(handle.detach(),true);
+});
+
+test('detach and mode switches preserve an unsignaled source change', () => {
+  for (const action of ['detach','showSource','showLive']) {
+    const f = fixture('abc');
+    const handle = editor.attach(f.box,{modules:f.modules});
+    if (action === 'showLive') handle.showSource();
+    f.box.value = 'external ' + action;
+    assert.equal(handle[action](),false,action);
+    assert.equal(f.box.value,'external ' + action,action + ' preserved');
+    assert.equal(find(f.box.inserted,'copy').value,'external ' + action);
+    const event = new Event('submit',{cancelable:true});
+    f.form.dispatchEvent(event);
+    assert.equal(event.defaultPrevented,true,action + ' blocked Save');
+  }
 });
 
 test('oversize and missing capability leave native textarea untouched', () => {

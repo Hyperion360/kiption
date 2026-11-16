@@ -434,6 +434,33 @@
     box.dispatchEvent(new Event('input',{bubbles:true}));
     equal(handle.detach(),true,'author correction permits detach');
   });
+  check('unsignaled textarea change survives Save and requires review', function () {
+    var box = document.getElementById('chapter'), form = box.form;
+    box.value = 'abc';
+    var handle = KipInline.editor.attach(box);
+    box.value = 'autofilled source';
+    var blockedByEditor = null;
+    form.addEventListener('submit',function (event) {
+      blockedByEditor = event.defaultPrevented; event.preventDefault();
+    },{once:true});
+    form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+    equal(blockedByEditor,true,'stale submit blocked');
+    equal(box.value,'autofilled source','visible source preserved');
+    equal(handle.mode,'source','source revealed');
+    equal(box.nextElementSibling.querySelector('[data-editor-control="copy"]').value,
+      'autofilled source','copy retained');
+    equal(handle.detach(),false,'unreviewed source cannot detach');
+    box.value = 'reviewed source';
+    box.dispatchEvent(new Event('input',{bubbles:true}));
+    var correctedBlockedByEditor = null;
+    form.addEventListener('submit',function (event) {
+      correctedBlockedByEditor = event.defaultPrevented; event.preventDefault();
+    },{once:true});
+    form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+    equal(correctedBlockedByEditor,false,'reviewed source can submit');
+    equal(box.value,'reviewed source','reviewed value preserved');
+    equal(handle.detach(),true,'detach after review');
+  });
   check('package leaves oversize and unavailable native source usable', function () {
     var box = document.getElementById('chapter');
     box.value = 'x'.repeat(2000001);
