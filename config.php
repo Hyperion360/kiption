@@ -8,6 +8,7 @@ $dataDir = defined('KIPTION_SHARED_DIR') ? KIPTION_SHARED_DIR : __DIR__ . '/app'
 $deploymentFile = $dataDir . '/deployment.php';
 $deployment = is_file($deploymentFile) ? (require $deploymentFile) : [];
 $publicDir = defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : ($deployment['public_dir'] ?? __DIR__ . '/public');
+$uploadsDir = defined('KIPTION_UPLOADS_DIR') ? KIPTION_UPLOADS_DIR : ($deployment['uploads_dir'] ?? $publicDir . '/uploads');
 // The footer legal line's links: KIP_FOOTER_LINKS carries them as a JSON
 // array of {label,url} pairs; unreadable JSON reads as no links (the
 // FooterLegal init filters malformed pairs itself, the NavLinks stance).
@@ -46,7 +47,7 @@ return [
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),
     'admin'   => ['enabled' => true],   // /admin CRUD panel, gate: users.is_admin = 1
-    'uploads' => ['dir' => $publicDir . '/uploads', 'max_bytes' => 2097152,
+    'uploads' => ['dir' => $uploadsDir, 'max_bytes' => 2097152,
                   'ext' => ['png', 'jpg', 'jpeg', 'webp', 'gif']],
     'base_url' => getenv('KIP_BASE_URL') ?: ($deployment['base_url'] ?? 'http://localhost:8080'),   // absolute links in emails; setup records the canonical HTTPS URL in deployment.php
     'mail'     => $deployment['mail'] ?? ['transport' => 'log', 'log_path' => $dataDir . '/mail.log', 'from' => 'noreply@localhost'],

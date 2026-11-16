@@ -3,7 +3,7 @@ namespace App;
 
 /**
  * The purge set every admin save runs, in one place: the whole static layer
- * (maintenance marker preserved, plus the framework page cache file), the
+ * (maintenance marker preserved, plus the framework page cache rows), the
  * sitemap refreshed under the public_dir + base_url guard, and a configured
  * CDN purged after the response leaves, so a slow or failed edge call can
  * never fail or delay the save that triggered it.
@@ -36,7 +36,9 @@ final class CachePurge
     {
         if (self::$ranFor?->get() === $app) return self::$result;
         $cacheDir = StaticCache\Cache::configuredDir($app);
-        StaticCache\Builder::prune($cacheDir, (string) $app->config('app_dir', dirname(__DIR__)));
+        $cacheDb = (array) ($app->config('cache_db', []) ?? []);
+        StaticCache\Builder::prune($cacheDir, '');
+        StaticCache\Builder::purgeLivePageCache((string) ($cacheDb['dsn'] ?? ''));
         $publicDir = $app->config('public_dir');
         $baseUrl = rtrim((string) $app->config('base_url', ''), '/');
         if ($publicDir !== null && $baseUrl !== '') {

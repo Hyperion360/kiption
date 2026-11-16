@@ -87,6 +87,18 @@ final class CachePurgeTest extends TestCase
         $this->assertFileDoesNotExist($marker, 'after reset() the next save prunes again');
     }
 
+    public function test_live_purge_clears_page_cache_without_unlinking_open_database(): void
+    {
+        $cacheFile = $this->root . '/page-cache.sqlite';
+        $cacheDb = new Database('sqlite:' . $cacheFile);
+        $pageCache = new \Kip\Cache\PageCache($cacheDb);
+        $pageCache->put('/stale', '', new \Kip\Http\Response('stale'), ['pages']);
+        CachePurge::run($this->app(['cache_db' => ['dsn' => 'sqlite:' . $cacheFile]]), $this->db);
+        $this->assertFileExists($cacheFile);
+        $this->assertSame(0, (int) $cacheDb->one('SELECT COUNT(*) n FROM pages')['n']);
+        $this->assertSame(0, (int) $cacheDb->one('SELECT COUNT(*) n FROM page_tags')['n']);
+    }
+
     public function test_no_cdn_save_says_saved(): void
     {
         $app = $this->app(['cdn' => ['enabled' => false]]); // trusted_proxy unset: nothing in front

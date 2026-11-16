@@ -65,8 +65,38 @@ final class BuilderTest extends TestCase
     public function test_prune_empties_the_layer(): void
     {
         Builder::build($this->config(), $this->cacheDir);
-        Builder::prune($this->cacheDir, dirname(__DIR__) . '/app');
+        Builder::prune($this->cacheDir, 'sqlite:' . $this->path . '.cache');
         $cache = new Cache($this->cacheDir);
         $this->assertNull($cache->serve(new Request('GET', '/', [], [], [])));
+    }
+
+    public function test_prune_removes_the_configured_cache_database_not_code(): void
+    {
+        $cacheDb = $this->path . '.cache';
+        $codeDir = $this->path . '.code';
+        mkdir($codeDir);
+        file_put_contents($codeDir . '/cache.sqlite', 'immutable code sentinel');
+        foreach (['', '-wal', '-shm'] as $suffix) {
+            file_put_contents($cacheDb . $suffix, 'old cache');
+        }
+        try {
+            Builder::prune($this->cacheDir, 'sqlite:' . $cacheDb);
+            foreach (['', '-wal', '-shm'] as $suffix) {
+                $this->assertFileDoesNotExist($cacheDb . $suffix);
+            }
+            $this->assertSame('immutable code sentinel', file_get_contents($codeDir . '/cache.sqlite'));
+        } finally {
+            foreach (['', '-wal', '-shm'] as $suffix) @unlink($cacheDb . $suffix);
+            @unlink($codeDir . '/cache.sqlite');
+            @rmdir($codeDir);
+        }
+    }
+
+    public function test_cache_database_path_handles_uri_parameters_and_memory(): void
+    {
+        self::assertSame('/tmp/cache.sqlite', Builder::cacheDbPath('sqlite:/tmp/cache.sqlite?mode=ro'));
+        self::assertNull(Builder::cacheDbPath('sqlite::memory:'));
+        self::assertNull(Builder::cacheDbPath('sqlite:relative.sqlite'));
+        self::assertNull(Builder::cacheDbPath('mysql:cache'));
     }
 }
