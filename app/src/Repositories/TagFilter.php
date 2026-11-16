@@ -37,12 +37,24 @@ final class TagFilter
         return !$this->include && !$this->exclude && !$this->names && !$this->excludeNames;
     }
 
-    /** " AND EXISTS(...) ..." (leading space, or '' when empty). Appends binds in SQL order. */
-    public function sql(array &$binds, string $s = 's'): string
+    /** Preserve already-normalized inclusions when omitting the exclusion dimension. */
+    public function withoutExclusions(): self
+    {
+        return new self($this->include, [], $this->names);
+    }
+
+    /** Leading AND predicates, or '' when empty. Appends binds in SQL order.
+     *  Membership resolves matching tag IDs once, then seeks their attachments.
+     *  Unary plus keeps the outer sort index eligible; the null guard makes NOT IN safe. */
+    public function sql(array &$binds, string $s = 's', bool $membership = false): string
     {
         $sql = '';
-        $same = fn(string $m) => " AND {$m}(SELECT 1 FROM story_tags x JOIN tags tf ON tf.id = x.tag_id"
-            . " WHERE x.story_id = {$s}.id AND COALESCE(tf.canonical_id, tf.id) = (SELECT COALESCE(canonical_id, id) FROM tags WHERE id = ?))";
+        $head = fn(string $m) => $membership
+            ? " AND +{$s}.id " . ($m === 'EXISTS' ? 'IN' : 'NOT IN')
+                . '(SELECT x.story_id FROM story_tags x WHERE x.story_id IS NOT NULL AND x.tag_id IN (SELECT tf.id FROM tags tf WHERE '
+            : " AND {$m}(SELECT 1 FROM story_tags x JOIN tags tf ON tf.id = x.tag_id WHERE x.story_id = {$s}.id AND ";
+        $same = fn(string $m) => $head($m)
+            . 'COALESCE(tf.canonical_id, tf.id) = (SELECT COALESCE(canonical_id, id) FROM tags WHERE id = ?))' . ($membership ? ')' : '');
         foreach ($this->include as $id) {
             $sql .= $same('EXISTS');
             $binds[] = $id;
@@ -51,9 +63,8 @@ final class TagFilter
             $sql .= $same('NOT EXISTS');
             $binds[] = $id;
         }
-        $named = fn(string $m) => " AND {$m}(SELECT 1 FROM story_tags x JOIN tags tf ON tf.id = x.tag_id"
-            . " WHERE x.story_id = {$s}.id AND COALESCE(tf.canonical_id, tf.id) IN"
-            . " (SELECT COALESCE(canonical_id, id) FROM tags WHERE name = ? COLLATE NOCASE))";
+        $named = fn(string $m) => $head($m) . 'COALESCE(tf.canonical_id, tf.id) IN'
+            . ' (SELECT COALESCE(canonical_id, id) FROM tags WHERE name = ? COLLATE NOCASE))' . ($membership ? ')' : '');
         foreach ($this->names as $n) {
             $sql .= $named('EXISTS');
             $binds[] = $n;

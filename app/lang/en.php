@@ -1905,4 +1905,11 @@ return [
     'look.err_contrast_text' => 'Text and background contrast is {ratio} to 1. It needs at least 4.5 to 1.',
     'look.err_contrast_accent' => 'Accent and background contrast is {ratio} to 1. It needs at least 5 to 1.',
     'look.err_write' => 'Your choices could not be saved because the site folder is not writable. Nothing was changed.',
+    'search.categories' => 'Categories',
+    'search.categories_hint' => 'Stories may belong to any selected category.',
+    'search.matching_story' => '{count} Matching Story',
+    'search.matching_stories' => '{count} Matching Stories',
+    'search.category_counts_help' => 'Category counts keep your other filters. Selected categories are combined, so their counts may overlap.',
+    'search.tag_counts_help' => 'Include counts show matches within your current results. Exclude counts show stories containing the tag before exclusions; those counts may overlap.',
+    'search.count' => '{count}',
 ];
