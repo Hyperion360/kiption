@@ -481,6 +481,15 @@ return [
     'chapter.editor_hint' => 'The buttons above the box and Ctrl or Cmd plus B, I, and K work while you type.',
     'chapter.save' => 'Save Chapter',
     'chapter.saved' => 'Chapter saved.',
+    'chapter.changed' => 'This chapter changed after you opened it. Your text is still here. Compare it with the current version before saving.',
+    'chapter.reload_before_save' => 'This editing page is out of date. Keep a copy of your text, then reopen the chapter before saving.',
+    'chapter.busy' => 'The archive is busy. Your text is still here. Try Save again.',
+    'chapter.compare_versions' => 'Compare Versions',
+    'chapter.your_text' => 'Your Text',
+    'chapter.archive_version' => 'Current Archive Version',
+    'chapter.replace_shown' => 'Save My Text Over the Shown Version',
+    'chapter.replace_explained' => 'This replaces the archive version shown above with the text and settings in your editing fields below.',
+
     'chapter.delete' => 'Delete chapter',
 
     // The account page.

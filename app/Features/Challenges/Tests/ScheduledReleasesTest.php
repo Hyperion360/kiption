@@ -146,7 +146,7 @@ final class ScheduledReleasesTest extends TestCase
         $db = $this->db();
         // Chapter 1 of the seed, live; schedule it through the edit form
         $this->assertSame(302, $me->postWithToken('/chapter/update/the-rabbit-hole/1',
-            ['title' => 'Down', 'content' => 'Falling words.', 'publish_at' => '2099-06-01T12:30'])->status);
+            ['title' => 'Down', 'content' => 'Falling words.', 'publish_at' => '2099-06-01T12:30', 'base_revision' => \App\Tests\Support\ChapterForm::revision($me->get('/chapter/edit/the-rabbit-hole/1')->body)])->status);
         $row = $db->one("SELECT validated, publish_at FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole') AND position = 1");
         $this->assertSame('2099-06-01T12:30:00Z', $row['publish_at'], 'update can set a schedule (canonicalized)');
         $this->assertSame(1, (int) $row['validated'], 'an edited live chapter keeps its validated state; releaseDue ignores its stray publish_at');
@@ -155,7 +155,7 @@ final class ScheduledReleasesTest extends TestCase
         $this->assertStringContainsString('value="2099-06-01T12:30"', $form);
         // an emptied field clears it
         $this->assertSame(302, $me->postWithToken('/chapter/update/the-rabbit-hole/1',
-            ['title' => 'Down', 'content' => 'Falling words.', 'publish_at' => ''])->status);
+            ['title' => 'Down', 'content' => 'Falling words.', 'publish_at' => '', 'base_revision' => \App\Tests\Support\ChapterForm::revision($form)])->status);
         $this->assertNull($db->one("SELECT publish_at FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole') AND position = 1")['publish_at'],
             'update can clear a schedule');
         // junk on update 422s as well

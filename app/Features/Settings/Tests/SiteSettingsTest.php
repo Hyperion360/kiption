@@ -195,7 +195,8 @@ final class SiteSettingsTest extends TestCase
         $this->assertSame(422, $edit->status);
         // 0 means no limit.
         $this->set(['min_words' => '0', 'max_words' => '0']);
-        $this->assertSame(302, $author()->postWithToken('/chapter/update/the-rabbit-hole/1', ['title' => 'Down', 'content' => 'tiny'])->status);
+        $revision = \App\Tests\Support\ChapterForm::revision($author()->get('/chapter/edit/the-rabbit-hole/1')->body);
+        $this->assertSame(302, $author()->postWithToken('/chapter/update/the-rabbit-hole/1', ['title' => 'Down', 'content' => 'tiny', 'base_revision' => $revision])->status);
     }
 
     // --- C2.4 dates ------------------------------------------------------

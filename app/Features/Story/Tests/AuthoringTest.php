@@ -286,8 +286,10 @@ final class AuthoringTest extends TestCase
     public function test_chapter_update_recounts(): void
     {
         $this->chapterFixture('ch-upd');
-        $res = $this->clientAs(1)->postWithToken('/chapter/update/ch-upd/1',
-            ['title' => 'One', 'content' => 'Now five whole words here.', 'notes_before' => '', 'notes_after' => '']);
+        $client = $this->clientAs(1);
+        $revision = $this->writerRevision($client->get('/chapter/edit/ch-upd/1')->body);
+        $res = $client->postWithToken('/chapter/update/ch-upd/1',
+            ['title' => 'One', 'content' => 'Now five whole words here.', 'notes_before' => '', 'notes_after' => '', 'base_revision' => $revision]);
         $this->assertSame(302, $res->status, $res->body);
         $this->assertSame('/chapter/edit/ch-upd/1?saved=1', $res->headers['Location']);
         $saved = $this->clientAs(1)->get('/chapter/edit/ch-upd/1', ['saved' => '1']);
@@ -400,5 +402,244 @@ final class AuthoringTest extends TestCase
         $row = $this->db->one("SELECT * FROM stories WHERE title = 'Odd Categories'");
         $this->assertSame(1, (int) $this->db->one(
             'SELECT COUNT(*) c FROM story_categories WHERE story_id = ?', [$row['id']])['c']); // only the real id stored
+    }
+    private function writerRevision(string $body, string $field = 'base_revision'): string
+    {
+        return \App\Tests\Support\ChapterForm::revision($body, $field);
+    }
+
+    public function test_stale_save_requires_explicit_replacement_of_the_shown_version(): void
+    {
+        $this->chapterFixture('revision-flow');
+        $client = $this->clientAs(1);
+        $base = $this->writerRevision($client->get('/chapter/edit/revision-flow/1')->body);
+        $a = ['title'=>'Title', 'content'=>'Version A', 'base_revision'=>$base];
+        $this->assertSame(302, $client->postWithToken('/chapter/update/revision-flow/1', $a)->status);
+        $b = ['title'=>'Title', 'content'=>'Version B <script>literal</script>', 'base_revision'=>$base];
+        $rejected = $client->postWithToken('/chapter/update/revision-flow/1', $b);
+        $this->assertSame(409, $rejected->status);
+        $this->assertSame($base, $this->writerRevision($rejected->body));
+        $this->assertStringContainsString('Version A', $rejected->body);
+        $this->assertStringContainsString('Version B &lt;script&gt;literal&lt;/script&gt;', $rejected->body);
+        $shown = $this->writerRevision($rejected->body, 'accept_revision');
+        $this->assertNotSame($base, $shown);
+        $this->assertSame(409, $client->postWithToken('/chapter/update/revision-flow/1', $b)->status);
+        $this->assertSame(302, $client->postWithToken('/chapter/update/revision-flow/1', $b + ['accept_revision'=>$shown])->status);
+        $row = $this->db->one('SELECT ch.content FROM chapters ch JOIN stories s ON s.id=ch.story_id WHERE s.slug=? AND ch.position=1', ['revision-flow']);
+        $this->assertSame($b['content'], $row['content']);
+        $this->assertSame(409, $client->postWithToken('/chapter/update/revision-flow/1', $a + ['accept_revision'=>$shown])->status);
+    }
+
+    public function test_http_revision_validation_has_no_missing_or_array_bypass(): void
+    {
+        $this->chapterFixture('revision-shape');
+        $client = $this->clientAs(1);
+        foreach ([null, '', 'wrong', ['forged'], strtoupper(str_repeat('a', 64))] as $revision) {
+            $post = ['title'=>'Title', 'content'=>'Uncommitted'];
+            if ($revision !== null) $post['base_revision'] = $revision;
+            $response = $client->postWithToken('/chapter/update/revision-shape/1', $post);
+            $this->assertSame(409, $response->status);
+            $this->assertStringContainsString('Uncommitted', $response->body);
+            $this->assertStringContainsString('name="base_revision" value=""', $response->body);
+            $this->assertStringNotContainsString('name="accept_revision"', $response->body);
+        }
+        $valid = $this->writerRevision($client->get('/chapter/edit/revision-shape/1')->body);
+        $this->assertSame(409, $client->postWithToken('/chapter/update/revision-shape/1', [
+            'content' => 'Not committed', 'base_revision' => $valid, 'accept_revision' => ['forged'],
+        ])->status);
+        $this->assertSame(404, $client->postWithToken('/chapter/update/not-a-story/1', ['content'=>'Text'])->status);
+    }
+
+    public function test_repository_wal_upgrade_cannot_overwrite_a_newer_writer(): void
+    {
+        $this->chapterFixture('wal-conflict');
+        $this->db->query('PRAGMA journal_mode=WAL');
+        $this->db->query('PRAGMA busy_timeout=0');
+        $other = new \PDO('sqlite:' . $this->path);
+        $other->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $other->exec('PRAGMA busy_timeout=0');
+        $repo = new \App\Repositories\AuthoringRepository($this->db);
+        $row = $repo->chapterFormData('wal-conflict', 1, 1);
+        $revision = \App\ChapterRevision::of($row);
+        $ran = false;
+        $this->db->onQuery(function (string $sql) use (&$ran, $other): void {
+            if (!$ran && preg_match('/^UPDATE chapters SET title/', $sql)) {
+                $ran = true;
+                $other->exec("UPDATE chapters SET content='Concurrent winner' WHERE story_id=(SELECT id FROM stories WHERE slug='wal-conflict') AND position=1");
+            }
+        });
+        try {
+            $repo->updateChapter('wal-conflict', 1, 1, 'Title', 'Stale writer', '', '', null, null, false, $revision);
+            $this->fail('The stale read transaction must not overwrite the concurrent writer.');
+        } catch (\PDOException $e) {
+            $this->assertContains(((int) ($e->errorInfo[1] ?? 0)) & 0xff, [5, 6]);
+        } finally {
+            $this->db->onQuery(static function (string $sql): void {});
+        }
+        $this->assertTrue($ran);
+        $this->assertSame('Concurrent winner', $this->db->one("SELECT ch.content FROM chapters ch JOIN stories s ON s.id=ch.story_id WHERE s.slug='wal-conflict' AND ch.position=1")['content']);
+    }
+
+    public function test_conflict_comparison_uses_the_write_transaction_snapshot(): void
+    {
+        \App\Tests\Support\QueryTap::on($this->db, static function (string $sql): void {});
+        \App\Tests\Support\QueryTap::off($this->db);
+        $this->chapterFixture('snapshot-race');
+        $base = $this->writerRevision($this->clientAs(1)->get('/chapter/edit/snapshot-race/1')->body);
+        $other = new \PDO('sqlite:' . $this->path);
+        $other->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $armed = false; $changed = false; $formReads = 0;
+        \App\Tests\Support\QueryTap::on($this->db, function (string $sql) use (&$armed, &$changed, &$formReads, $other): void {
+            if (str_contains($sql, 's.title AS story_title')) { $armed = true; $formReads++; }
+            if ($armed && !$changed && str_contains($sql, 'SELECT id, title, author_id, access_hash FROM stories')) {
+                $changed = true;
+                $other->exec("UPDATE chapters SET content='Won after form read' WHERE story_id=(SELECT id FROM stories WHERE slug='snapshot-race') AND position=1");
+            }
+        });
+        $app = new App($this->config());
+        $app->container->instance(Database::class, $this->db);
+        $client = (new TestClient($app))->actingAs(1);
+        try {
+            $response = $client->postWithToken('/chapter/update/snapshot-race/1', ['title'=>'Title', 'content'=>'Losing draft', 'base_revision'=>$base]);
+        } finally {
+            \App\Tests\Support\QueryTap::off($this->db);
+        }
+        $this->assertTrue($changed);
+        $this->assertSame(1, $formReads, 'redisplay reuses the ownership-qualified form query');
+        $this->assertSame(409, $response->status);
+        $this->assertStringContainsString('Won after form read', $response->body);
+        $current = (new \App\Repositories\AuthoringRepository($this->db))->chapterFormData('snapshot-race', 1, 1);
+        $this->assertSame(\App\ChapterRevision::of($current), $this->writerRevision($response->body, 'accept_revision'));
+        $this->assertSame($base, $this->writerRevision($response->body));
+    }
+    public function test_deleted_chapters_and_resequenced_ids_cannot_receive_an_old_save(): void
+    {
+        $this->chapterFixture('revision-identity');
+        $client = $this->clientAs(1);
+        $first = $this->writerRevision($client->get('/chapter/edit/revision-identity/1')->body);
+        $second = $this->writerRevision($client->get('/chapter/edit/revision-identity/2')->body);
+        $repo = new \App\Repositories\AuthoringRepository($this->db);
+        $repo->deleteChapter('revision-identity', 1, 1);
+        $this->assertSame(409, $client->postWithToken('/chapter/update/revision-identity/1', [
+            'title' => 'Old first chapter', 'content' => 'Never replace the second chapter.', 'base_revision' => $first,
+        ])->status);
+        $this->assertSame(404, $client->get('/chapter/edit/revision-identity/2')->status);
+        $this->assertSame(404, $client->postWithToken('/chapter/update/revision-identity/2', [
+            'content' => 'Deleted chapter draft', 'base_revision' => $second,
+        ])->status);
+        $this->assertSame('Also pretend words here.', $this->db->one(
+            "SELECT content FROM chapters WHERE story_id=(SELECT id FROM stories WHERE slug='revision-identity') AND position=1"
+        )['content']);
+    }
+
+    public function test_a_coauthor_uses_the_same_revision_protection(): void
+    {
+        $this->chapterFixture('coauthor-revision');
+        $coauthor = $this->memberId();
+        $this->db->query('INSERT INTO coauthors (story_id, user_id) VALUES ((SELECT id FROM stories WHERE slug=?), ?)', ['coauthor-revision', $coauthor]);
+        $client = $this->clientAs($coauthor);
+        $base = $this->writerRevision($client->get('/chapter/edit/coauthor-revision/1')->body);
+        $post = ['title' => 'Coauthored', 'content' => 'Agreed draft.', 'base_revision' => $base];
+        $this->assertSame(302, $client->postWithToken('/chapter/update/coauthor-revision/1', $post)->status);
+        $this->assertSame(409, $client->postWithToken('/chapter/update/coauthor-revision/1', $post)->status);
+    }
+
+    public function test_form_recovery_protection_covers_story_and_chapter_without_exposing_hashes(): void
+    {
+        $this->chapterFixture('protected-revision');
+        $repo = new \App\Repositories\AuthoringRepository($this->db);
+        foreach ([[null, null, 0], ['story-private-hash', null, 1], [null, 'chapter-private-hash', 1], ['story-private-hash', 'chapter-private-hash', 1]] as [$storyHash, $chapterHash, $protected]) {
+            $this->db->query('UPDATE stories SET access_hash=? WHERE slug=?', [$storyHash, 'protected-revision']);
+            $this->db->query('UPDATE chapters SET access_hash=? WHERE story_id=(SELECT id FROM stories WHERE slug=?) AND position=1', [$chapterHash, 'protected-revision']);
+            $this->assertSame($protected, (int) $repo->chapterFormData('protected-revision', 1, 1)['recovery_protected']);
+            $html = $this->clientAs(1)->get('/chapter/edit/protected-revision/1')->body;
+            $this->assertStringNotContainsString('story-private-hash', $html);
+            $this->assertStringNotContainsString('chapter-private-hash', $html);
+            $this->assertNotSame('', $this->writerRevision($html));
+        }
+    }
+
+    public function test_busy_writer_preserves_input_and_returns_a_retryable_response(): void
+    {
+        \App\Tests\Support\QueryTap::on($this->db, static function (string $sql): void {});
+        \App\Tests\Support\QueryTap::off($this->db);
+        $this->db->exec('PRAGMA busy_timeout=0');
+        $this->chapterFixture('busy-save');
+        $base = $this->writerRevision($this->clientAs(1)->get('/chapter/edit/busy-save/1')->body);
+        $other = new \PDO('sqlite:' . $this->path);
+        $other->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $other->exec('PRAGMA busy_timeout=0');
+        $held = false;
+        \App\Tests\Support\QueryTap::on($this->db, function (string $sql) use (&$held, $other): void {
+            if (!$held && str_starts_with($sql, 'UPDATE chapters SET title')) {
+                $other->exec('BEGIN IMMEDIATE');
+                $held = true;
+            }
+        });
+        $app = new App($this->config());
+        $app->container->instance(Database::class, $this->db);
+        try {
+            $response = (new TestClient($app))->actingAs(1)->postWithToken('/chapter/update/busy-save/1', [
+                'title' => 'Retained Title', 'content' => 'Unsaved <draft>', 'notes_before' => 'Opening note.',
+                'notes_after' => 'Ending note.', 'base_revision' => $base,
+            ]);
+        } finally {
+            \App\Tests\Support\QueryTap::off($this->db);
+            if ($held) $other->exec('ROLLBACK');
+        }
+        $this->assertTrue($held);
+        $this->assertSame(503, $response->status);
+        $this->assertSame('1', $response->headers['Retry-After']);
+        foreach (['Retained Title', 'Unsaved &lt;draft&gt;', 'Opening note.', 'Ending note.'] as $retained) {
+            $this->assertStringContainsString($retained, $response->body);
+        }
+        $this->assertSame($base, $this->writerRevision($response->body));
+        $this->assertSame(0, $this->db->transactionDepth());
+        $this->assertSame('One hundred words pretend.', $this->db->one(
+            "SELECT content FROM chapters WHERE story_id=(SELECT id FROM stories WHERE slug='busy-save') AND position=1"
+        )['content']);
+    }
+
+    public function test_extended_busy_codes_retry_but_other_database_errors_do_not_masquerade_as_missing_chapters(): void
+    {
+        \App\Tests\Support\QueryTap::on($this->db, static function (string $sql): void {});
+        \App\Tests\Support\QueryTap::off($this->db);
+        $this->chapterFixture('error-classification');
+        $base = $this->writerRevision($this->clientAs(1)->get('/chapter/edit/error-classification/1')->body);
+        foreach ([517 => 503, 6 => 503, 1 => 500] as $code => $expected) {
+            \App\Tests\Support\QueryTap::on($this->db, static function (string $sql) use ($code): void {
+                if (!str_starts_with($sql, 'UPDATE chapters SET title')) return;
+                $e = new \PDOException('test write failure');
+                $e->errorInfo = ['HY000', $code, 'test write failure'];
+                throw $e;
+            });
+            $app = new App($this->config());
+            $app->container->instance(Database::class, $this->db);
+            try {
+                $response = (new TestClient($app))->actingAs(1)->postWithToken('/chapter/update/error-classification/1', [
+                    'title' => 'Title', 'content' => 'Retained draft', 'base_revision' => $base,
+                ]);
+            } finally {
+                \App\Tests\Support\QueryTap::off($this->db);
+            }
+            $this->assertSame($expected, $response->status, (string) $code);
+            $this->assertSame(0, $this->db->transactionDepth());
+            if ($expected === 503) $this->assertStringContainsString('Retained draft', $response->body);
+            else $this->assertStringNotContainsString('test write failure', $response->body);
+        }
+    }
+    public function test_internal_updates_keep_optional_revision_compatibility_and_reject_missing_rows(): void
+    {
+        $this->chapterFixture('internal-revision');
+        $repo = new \App\Repositories\AuthoringRepository($this->db);
+        $repo->updateChapter('internal-revision', 1, 1, 'Internal', 'Internal caller text.', '', '');
+        $this->assertSame('Internal caller text.', $repo->chapterFormData('internal-revision', 1, 1)['content']);
+        try {
+            $repo->updateChapter('internal-revision', 99, 1, 'Missing', 'Never saved.', '', '');
+            $this->fail('A missing chapter cannot report a successful update.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('not found', $e->getMessage());
+        }
+        $this->assertSame(0, $this->db->transactionDepth());
     }
 }
