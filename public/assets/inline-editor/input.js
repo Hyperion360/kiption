@@ -40,13 +40,17 @@
 
   function nativeBlockChange(model, view) {
     var root = view.element, doc = root.ownerDocument;
-    if (!doc || !doc.getSelection || !root.children) throw new RangeError('native DOM unavailable');
-    var lines = model.text.split('\n'), children = Array.from(root.children);
+    if (!doc || !doc.getSelection || !root.childNodes) throw new RangeError('native DOM unavailable');
+    // Include text nodes: Element.children would silently ignore a browser
+    // mutation inserted directly between line blocks.
+    var lines = model.text.split('\n'), children = Array.from(root.childNodes);
     if (children.length !== lines.length) throw new RangeError('native block count changed');
     var changed = -1;
     for (var i = 0; i < children.length; i++) {
       var line = children[i];
-      if (!line.classList.contains('ki-line')) throw new RangeError('native block structure');
+      if (line.nodeType !== 1 || line.nodeName !== 'DIV' || !line.classList.contains('ki-line')) {
+        throw new RangeError('native block structure');
+      }
       for (var child of line.childNodes) {
         if (child.nodeName === 'BR' && line.childNodes.length === 1) continue;
         if (child.nodeName !== 'SPAN' || !child.classList.contains('ki-token')) throw new RangeError('native inline structure');
@@ -209,7 +213,7 @@
       event.preventDefault();
       if (!text && html) { fail(control, html); return; }
       try { replace(control,text,'paste'); }
-      catch (_) { fail(control); }
+      catch (_) { fail(control,text); }
     }
     function onCompositionStart(event) {
       if (failed || composing) return;

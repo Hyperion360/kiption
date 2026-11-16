@@ -119,9 +119,9 @@ test('default native block reconciliation reads one changed line and rejects an 
   const f = fixture('a\nb');
   const textNode = {nodeType:3,nodeName:'#text',data:'bx'};
   const span = {nodeName:'SPAN',classList:{contains:value => value === 'ki-token'},childNodes:[textNode]};
-  const first = {nodeName:'DIV',classList:{contains:value => value === 'ki-line'},childNodes:[span],textContent:'a'};
-  const second = {nodeName:'DIV',classList:{contains:value => value === 'ki-line'},childNodes:[span],textContent:'bx',contains:node => node === textNode};
-  f.live.children = [first,second];
+  const first = {nodeType:1,nodeName:'DIV',classList:{contains:value => value === 'ki-line'},childNodes:[span],textContent:'a'};
+  const second = {nodeType:1,nodeName:'DIV',classList:{contains:value => value === 'ki-line'},childNodes:[span],textContent:'bx',contains:node => node === textNode};
+  f.live.children = [first,second]; f.live.childNodes = [first,second];
   f.live.ownerDocument = {
     getSelection:() => ({anchorNode:textNode,anchorOffset:2,focusNode:textNode,focusOffset:2}),
     createRange:() => ({setStart(){},setEnd(node,offset){this.offset=offset;},toString(){return 'bx'.slice(0,this.offset);}})
@@ -133,6 +133,18 @@ test('default native block reconciliation reads one changed line and rejects an 
   f.live.fire('input', {inputType:'insertText'});
   assert.equal(f.controller.failed, true);
   assert.equal(f.model.text, 'a\nbx');
+});
+
+test('root-level native mutation fails closed and retains visible text', () => {
+  const f = fixture('ab');
+  const rogue = {nodeType:3,nodeName:'#text',data:'pasted'};
+  const line = {nodeType:1,nodeName:'DIV',classList:{contains:value => value === 'ki-line'},childNodes:[],textContent:'ab'};
+  f.live.children = [line]; f.live.childNodes = [line,rogue]; f.live.textContent = 'abpasted';
+  f.live.ownerDocument = {getSelection:() => ({})};
+  f.live.fire('input', {inputType:'insertText'});
+  assert.equal(f.controller.failed, true);
+  assert.equal(f.model.text, 'ab');
+  assert.equal(f.failures[0], 'abpasted');
 });
 
 test('noncancelable browser-menu undo and redo keep one model history', () => {
@@ -184,6 +196,12 @@ test('HTML paste uses converter; Shift-paste and conversion failures retain plai
   assert.equal(missing.defaultPrevented, true);
   assert.equal(absent.controller.failed, true);
   assert.equal(absent.model.text, 'untouched');
+  const oversized = fixture('');
+  const pasted = 'x'.repeat(2000001);
+  oversized.live.fire('paste', {clipboardData:clip('',pasted)});
+  assert.equal(oversized.controller.failed, true);
+  assert.equal(oversized.model.text, '');
+  assert.equal(oversized.failures[0], pasted);
 });
 
 test('detach removes event handling', () => {

@@ -300,6 +300,27 @@
     equal(failures.length,1,'visible fallback callback');
     input.detach();
   });
+  check('root-level native text fails closed without losing its visible copy', function () {
+    var f = fixture('ab'), retained = [], input = KipInline.input.create(f.model,f.view,{onFailure:function(text){retained.push(text);}});
+    f.view.element.appendChild(document.createTextNode('unexpected'));
+    f.view.element.dispatchEvent(inputEvent('input','insertText','unexpected',false));
+    equal(input.failed,true,'root mutation blocked');
+    equal(f.model.text,'ab','authoritative source unchanged');
+    equal(retained[0],'abunexpected','unconverted text retained');
+    input.detach();
+  });
+  check('oversized plain paste is retained for fallback', function () {
+    var f = fixture(''), retained = [], input = KipInline.input.create(f.model,f.view,{onFailure:function(text){retained.push(text);}});
+    f.view.restoreSelection({anchor:0,focus:0});
+    var pasted = 'x'.repeat(2000001), event = new Event('paste',{bubbles:true,cancelable:true});
+    Object.defineProperty(event,'clipboardData',{value:{getData:function(type){return type==='text/plain'?pasted:'';}}});
+    f.view.element.dispatchEvent(event);
+    equal(event.defaultPrevented,true,'native paste blocked');
+    equal(input.failed,true,'oversized paste blocked');
+    equal(f.model.text,'','source unchanged');
+    equal(retained[0].length,pasted.length,'paste retained');
+    input.detach();
+  });
   check('noncancelable input inside styled text retains Markdown delimiters', function () {
     var f = fixture('**Words**'), input = KipInline.input.create(f.model,f.view);
     f.view.restoreSelection({anchor:4,focus:4});
