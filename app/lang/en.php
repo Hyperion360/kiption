@@ -1835,6 +1835,8 @@ return [
     'admin.err_role' => 'Unknown role.',
     'story.err_title' => 'Title is required.',
     'story.err_rating' => 'Choose a rating.',
+    'story.choose_rating' => 'Choose a Rating',
+    'story.password_reenter' => 'Enter the story password again before saving.',
     'contact.err_message' => 'Message must be 1 to 5000 characters.',
     'contact.err_rate' => 'You have sent several messages recently, try again later.',
     'contact.err_send' => 'The message could not be sent, try again later.',
