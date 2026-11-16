@@ -211,6 +211,7 @@
       if (first < 0) first = all.length - 1; if (last < first) last = first;
       region = { start: all[first].start, end: all[last].end };
       activeOff(); active = K.richActive.create(doc, candidate, labels, box); activeOff = wire(active.element);
+      if (first === last) active.element.dataset.writerBlock = all[first].type;
       surface.replaceChildren(); rendered = [];
       all.forEach(function (span, i) {
         if (i === first) surface.appendChild(active.element);

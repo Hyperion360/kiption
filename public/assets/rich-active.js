@@ -57,8 +57,11 @@
     el.spellcheck = original ? original.spellcheck : true; el.lang = original ? original.lang : '';
     if (original) {
       var style = doc.defaultView.getComputedStyle(original);
-      ['font', 'lineHeight', 'letterSpacing', 'direction'].forEach(function (property) { el.style[property] = style[property]; });
-      if (candidate === 'a') el.wrap = original.wrap;
+      // The formatted surface supplies one reading type scale to active and
+      // inactive blocks. Copying the hidden source field's font made the
+      // active paragraph look like a separate form control.
+      el.style.direction = style.direction;
+      if (candidate === 'a') { el.wrap = original.wrap; el.rows = 1; }
     }
     function value() { return candidate === 'a' ? el.value : readText(el); }
     function selection() {

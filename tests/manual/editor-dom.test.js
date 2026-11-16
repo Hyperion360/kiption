@@ -50,7 +50,8 @@ async function runEditorDOMTests(K, actions) {
     for (var raw of ['**bold** and _word_ [site](https://example.org/a_b)', '**outer _inner_**', '*outer **inner** outer*', '[**bold**](https://example.org)', '\\*literal*', '![image](https://example.org/x)', '<img src=x onerror=alert(1)>']) {
       var part = K.richProjection.renderSpan(document, raw, {type:'p', start:0, end:raw.length}, K.subset, labels);
       assert(!part.element.querySelector('a,img,script,iframe,[href],[src],[style]'), 'no active/resource elements');
-      if (/outer|literal|image|\[\*\*/.test(raw)) equal(part.element.textContent, raw, 'ambiguous span stays wholly raw');
+      if (/outer|image|\[\*\*/.test(raw)) equal(part.element.textContent, raw, 'ambiguous span stays wholly raw');
+      else if (raw.includes('literal')) equal(part.element.textContent, '*literal*', 'escaped marker reads literally');
       else if (raw.startsWith('**bold')) equal(part.element.textContent, 'bold and word site', 'simple formatting');
       equal(part.point(document.body, 0), null, 'outside has no mapping');
       equal(part.point(part.element, 0), 0, 'outer boundary maps to source start');
@@ -70,6 +71,30 @@ async function runEditorDOMTests(K, actions) {
     var quote=K.richProjection.renderSpan(document,'>compact\n>',{type:'quote',start:0,end:10},K.subset,labels);
     equal(quote.element.textContent,'compact\n','compact and empty quote prefixes stay display-only');
     var node=quote.element.lastChild;equal(quote.point(node,0),10,'empty quote boundary');
+  });
+  await test('inactive quote styling and escaped markers read like the chapter', function() {
+    var quote='> **Bold** and *soft*';
+    var part=K.richProjection.renderSpan(document,quote,{type:'quote',start:0,end:quote.length},K.subset,labels);
+    equal(part.element.textContent,'Bold and soft','quoted prose hides markers');
+    assert(!!part.element.querySelector('strong') && !!part.element.querySelector('em'),'quoted emphasis uses reader elements');
+    equal(part.point(part.element.querySelector('strong').firstChild,0),4,'quoted strong maps after the source prefix and marker');
+    var escaped='A \\*literal* and **bold**';
+    var e=K.richProjection.renderSpan(document,escaped,{type:'p',start:0,end:escaped.length},K.subset,labels);
+    equal(e.element.textContent,'A *literal* and bold','literal escape is hidden while supported bold renders');
+    assert(!!e.element.querySelector('strong'),'supported emphasis remains formatted beside a literal escape');
+    equal(e.point(e.element.childNodes[1],0),3,'visible literal marker maps after the source escape');
+  });
+  await test('formatted surface keeps the active paragraph in the reading flow', function() {
+    var f=fixture('First paragraph.\n\nSecond paragraph.','a');
+    f.editor.showFormatted();
+    var active=f.editor.activeControl, other=f.form.querySelector('.writer-p'),surface=f.form.querySelector('.writer-surface');
+    assert(!!other,'inactive paragraph exists beside the active one');
+    var a=getComputedStyle(active),p=getComputedStyle(other),s=getComputedStyle(surface);
+    equal(a.fontFamily,p.fontFamily,'active and inactive paragraphs share typeface');
+    equal(a.fontSize,p.fontSize,'active and inactive paragraphs share type size');
+    equal(a.borderTopWidth,'0px','active paragraph is not a nested bordered box');
+    equal(s.borderTopWidth,'0px','reading surface is not a nested card');
+    assert(active.getBoundingClientRect().height <= parseFloat(a.lineHeight) * 1.8,'one-line source occupies one reading line');
   });
   await test('plaintext mapping rejects outside endpoints and retains saved selections', function() {
     var holder=document.createElement('div');holder.append(document.createComment('IME annotation'),document.createTextNode('Text'));
@@ -187,7 +212,8 @@ async function runEditorDOMTests(K, actions) {
       f.box.addEventListener('input',()=>events++); input(f,'First\nNew',{anchor:9,focus:9});
       assert(f.editor.activeControl === active, 'active subtree retained'); equal(events,1,'one source input');
       equal(f.box.value,'First\nNew\n\nSecond','submission source current');
-      equal(getComputedStyle(active).fontSize,getComputedStyle(f.box).fontSize,'font size inherited');equal(getComputedStyle(active).lineHeight,getComputedStyle(f.box).lineHeight,'line height inherited');
+      var inactive=f.form.querySelector('.writer-p');
+      equal(getComputedStyle(active).fontSize,getComputedStyle(inactive).fontSize,'reading size shared');equal(getComputedStyle(active).lineHeight,getComputedStyle(inactive).lineHeight,'reading line height shared');
       equal(active.spellcheck,false,'spellcheck inherited');equal(active.lang,'fr','language inherited');
       var second=f.form.querySelector('.writer-block:last-child');var s=document.getSelection();s.setBaseAndExtent(second.firstChild,0,second.firstChild,0);
       second.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));
