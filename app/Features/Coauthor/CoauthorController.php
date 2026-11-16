@@ -32,7 +32,14 @@ final class CoauthorController
             "You were added as a coauthor on \"{title}\".\n\nView and manage the story:\n{url}");
         $pairs = ['{title}' => (string) $story['title'], '{slug}' => $slug, '{url}' => "{$base}/story/view/{$slug}"];
         try {
-            $this->mailer->send((string) $coauthor['email'], strtr($subject, $pairs), strtr($body, $pairs));
+            if (!$this->mailer->send((string) $coauthor['email'], strtr($subject, $pairs), strtr($body, $pairs))) {
+                // A coauthor who is never emailed does not know they were added,
+                // so the refusal is never silent: one null-actor row (a member
+                // path has a session, but the loss belongs to the archive), the
+                // story title in the detail, never the address.
+                \App\ActivityLog::record($this->db, null, 'coauthor.refused',
+                    'sending limit reached; story: ' . (string) $story['title']);
+            }
         } catch (\Throwable $e) {
             // the add already happened: mail is best-effort, never blocks the redirect
             error_log("Coauthor mail failed: {$e->getMessage()}");

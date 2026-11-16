@@ -24,7 +24,8 @@ final class MailusersController extends AdminScreen
         return $this->form('mailusers/index', '', '', null, $now['n'], $now);
     }
 
-    /** Show the message as it will go, with the recipient count. Sends nothing. */
+    /** Show the message as it will go, with the recipient count and the fit
+     *  verdict. Sends nothing; the verdict is advisory (the POST re-checks). */
     #[AuthAttr] #[Post]
     public function preview(): Response|string
     {
@@ -32,7 +33,8 @@ final class MailusersController extends AdminScreen
         [$subject, $body, $error] = $this->input();
         $count = count(MassMail::recipients($this->db));
         if ($error !== null) return new Response($this->form('mailusers/index', $subject, $body, $error, $count), 422);
-        return $this->form('mailusers/preview', $subject, $body, null, $count);
+        $fit = MassMail::fits($this->mailer, $count);
+        return $this->form('mailusers/preview', $subject, $body, null, $count, null, $fit);
     }
 
     #[AuthAttr] #[Post]
@@ -44,6 +46,15 @@ final class MailusersController extends AdminScreen
         if ($error !== null) return new Response($this->form('mailusers/index', $subject, $body, $error, count($recipients)), 422);
         if ($recipients === []) {
             return new Response($this->form('mailusers/index', $subject, $body, \App\Lang::t('mailusers.err_nobody'), 0), 422);
+        }
+        // Refuse up front, before the ten-minute slot is claimed: a broadcast
+        // that cannot fit sends nothing, burns nothing, and names the limit
+        // that was hit (the send's own admission stays the last word).
+        $fit = MassMail::fits($this->mailer, count($recipients));
+        if (!$fit['fits']) {
+            $key = $fit['binding'] === 'month' ? 'mailusers.err_cap_month' : 'mailusers.err_cap_day';
+            return new Response($this->form('mailusers/index', $subject, $body,
+                \App\Lang::t($key, ['n' => number_format(count($recipients)), 'room' => number_format($fit['room'])]), count($recipients)), 422);
         }
         if (!MassMail::claim($this->db, (int) $this->session->get('user_id'), $subject, count($recipients))) {
             return new Response($this->form('mailusers/index', $subject, $body, \App\Lang::t('mailusers.err_wait'), count($recipients)), 429);
@@ -64,8 +75,13 @@ final class MailusersController extends AdminScreen
         return [$subject, $body, null];
     }
 
-    private function form(string $view, string $subject, string $body, ?string $error, int $count, ?array $now = null): string
+    private function form(string $view, string $subject, string $body, ?string $error, int $count, ?array $now = null, ?array $fit = null): string
     {
-        return $this->page($view, 'mailusers.heading', '', ['subject' => $subject, 'body' => $body, 'error' => $error, 'count' => $count, 'now' => $now]);
+        // usage() pays its two counter reads only when a daily cap is set; an
+        // uncapped archive gets null and the pages render exactly as before.
+        $usage = $this->mailer->usage();
+        return $this->page($view, 'mailusers.heading', '', ['subject' => $subject, 'body' => $body, 'error' => $error,
+            'count' => $count, 'now' => $now, 'fit' => $fit,
+            'usage' => $usage['dailyCap'] > 0 ? $usage : null]);
     }
 }

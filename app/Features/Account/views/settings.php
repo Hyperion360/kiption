@@ -28,7 +28,8 @@
   <?php if (\App\Settings::on('uploads_on')): ?>
   <form method="post" action="/account/avatar" enctype="multipart/form-data">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-    <label><?= \App\Lang::t('account.avatar_label') ?> <input type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+    <label for="avatar"><?= \App\Lang::t('account.avatar_label') ?> <input id="avatar" type="file" name="avatar" accept="image/png,image/jpeg,image/webp,image/gif"<?= !empty($avatarError) ? ' aria-invalid="true" aria-describedby="avatar-error"' : '' ?>></label>
+    <?php if (!empty($avatarError)): ?><p id="avatar-error" class="field-error" role="alert"><?= $this->e($avatarError) ?></p><?php endif; ?>
     <button type="submit" class="btn-secondary"><?= \App\Lang::t('account.upload') ?></button>
   </form>
   <?php endif; ?>

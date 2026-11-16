@@ -177,10 +177,14 @@ final class AdminmembersController
             $this->db->query('DELETE FROM coauthors WHERE user_id = ?', [$uid]);
             // The picture is scrubbed with the account, not left serving from
             // /uploads (the self-delete path unlinks it too). basename() keeps
-            // the delete inside the configured uploads dir.
+            // the delete inside the configured uploads dir; the storage
+            // counter drops with the file (release before the unlink, the
+            // delete-path order).
             if ((string) ($target['avatar_path'] ?? '') !== '') {
                 $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
-                @unlink($dir . '/' . basename((string) $target['avatar_path']));
+                $file = $dir . '/' . basename((string) $target['avatar_path']);
+                \App\StorageQuota::forApp($this->app)->release((int) @filesize($file));
+                @unlink($file);
             }
             // Pending tokens die with the account; the email-keyed ones need
             // the address from before the scrub.

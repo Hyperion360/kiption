@@ -188,4 +188,26 @@ final class ContactTest extends TestCase
         $this->db->query("UPDATE users SET role = 'member', is_admin = 0");
         $this->assertSame(503, $this->client()->postWithToken('/contact/send', $this->form())->status);
     }
+
+    /** Task B6: the contact form's content exists nowhere else, so a
+     *  sending-limit refusal writes one null-actor activity row (the topic
+     *  in the detail, never the address) and the page claims no success. */
+    public function test_a_refused_contact_form_mail_writes_one_activity_row(): void
+    {
+        $res = $this->client(['mail_daily_cap' => 10])->postWithToken('/contact/send', $this->form()); // usable 0
+        $this->assertSame(502, $res->status);
+        $this->assertStringContainsString(\App\Lang::t('contact.err_mail'), $res->body, 'the page does not claim the mail was sent');
+        $rows = $this->db->all("SELECT actor_id, action, detail FROM activity_log WHERE action = 'contact.refused'");
+        $this->assertCount(1, $rows, 'one row per refusal');
+        $this->assertNull($rows[0]['actor_id']);
+        $this->assertStringContainsString('contact form', $rows[0]['detail'], 'the topic is named');
+        $this->assertStringNotContainsString('pat@example.test', $rows[0]['detail'], 'the address never rides the log');
+        $this->assertSame('', $this->mail());
+    }
+
+    public function test_a_delivered_contact_form_writes_no_refusal_row(): void
+    {
+        $this->client()->postWithToken('/contact/send', $this->form());
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'contact.refused'")['c']);
+    }
 }

@@ -3,6 +3,7 @@
 <section class="auth-card">
   <h1><?= \App\Lang::t('auth.register.heading') ?></h1>
   <?php if (!empty($toPost)): ?><p class="notice"><?= \App\Lang::t('auth.register.to_post') ?></p><?php endif; ?>
+  <?php if (!empty($mailIssue)): ?><p class="notice" role="status"><?= \App\Lang::t('auth.mail_not_sent') ?> <a href="/auth/forgot"><?= \App\Lang::t('auth.forgot.title') ?></a></p><?php endif; ?>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <form method="post" action="/auth/store">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">

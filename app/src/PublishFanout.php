@@ -43,14 +43,25 @@ final class PublishFanout
             '{pos}' => (string) $story['latest_position'],
             '{url}' => "{$this->baseUrl}/story/read/{$story['slug']}/{$story['latest_position']}",
         ];
+        $refused = 0;
         foreach ($emails as $memberId => $email) {
             try {
                 if (!$this->mailer->send($email, strtr($subject, $pairs), strtr($body, $pairs))) {
-                    continue; // the daily cap dropped this follower; the next chapter re-reaches them
+                    // The cap dropped this follower with no marker: the loss is
+                    // accepted (the in-app notification exists and the next
+                    // chapter re-reaches them), but it must be visible.
+                    $refused++;
+                    continue;
                 }
             } catch (\Throwable $e) {
                 error_log("follower mail failed for member {$memberId}: {$e->getMessage()}");
             }
+        }
+        // Never silent loss: a publish run can come from a cron or CLI path
+        // with no session, so the row's actor is null, and plain record()
+        // (never recordOnce) so two chapters in one window write two rows.
+        if ($refused > 0) {
+            ActivityLog::record($this->db, null, 'mail.skipped', "{$refused} emails skipped, sending limit reached");
         }
     }
 }

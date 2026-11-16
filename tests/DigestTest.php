@@ -150,4 +150,68 @@ final class DigestTest extends TestCase
         $recovered = new Digest($this->db, \App\MailGuard::off($this->db, new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'])), 'https://archive.example');
         $this->assertSame(1, $recovered->send(), 'the same batch mails once the transport works again');
     }
+
+    /** Task B6: a run that skips members on the sending limit writes one
+     *  null-actor activity row with the count, and keeps every skipped
+     *  member's marker so the next run retries. */
+
+    private function guard(int $cap): \App\MailGuard
+    {
+        return new \App\MailGuard($this->db,
+            new \Kip\Mailer(['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost']),
+            new \Kip\App(['app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod',
+                'db' => ['dsn' => 'sqlite:' . $this->path], 'mail_daily_cap' => $cap]));
+    }
+
+    /** Twenty digest-eligible members, each carrying one unread notification. */
+    private function seedDigestMembers(int $n): void
+    {
+        for ($i = 0; $i < $n; $i++) {
+            $this->db->query('INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)',
+                ["dig$i@e.test", 'x', "digfan$i", date('c'), date('c')]);
+            $id = (int) $this->db->lastInsertId();
+            $this->db->query('INSERT INTO user_prefs (user_id) VALUES (?)', [$id]);
+            $this->db->query("INSERT INTO follows (follower_id, author_id, notify_mode) VALUES (?, 1, 'digest')", [$id]);
+            $this->db->query("INSERT INTO notifications (user_id, kind, story_id, actor_id, story_title) VALUES (?, 'update', 1, 1, 'The Rabbit Hole')", [$id]);
+        }
+    }
+
+    public function test_a_digest_run_that_skips_n_mails_writes_one_row_with_the_count(): void
+    {
+        $this->seedDigestMembers(20);
+        $digest = new Digest($this->db, $this->guard(22), 'https://archive.example'); // usable 12
+        $mailed = -1;
+        $this->errorLogged(function () use ($digest, &$mailed) { $mailed = $digest->send(); });
+        $this->assertSame(12, $mailed);
+        $this->assertSame(8, $digest->skipped);
+        $rows = $this->db->all("SELECT actor_id, action, detail FROM activity_log WHERE action = 'mail.skipped'");
+        $this->assertCount(1, $rows);
+        $this->assertNull($rows[0]['actor_id'], 'the nightly run has no session, so no actor');
+        $this->assertStringContainsString('8', $rows[0]['detail']);
+    }
+
+    public function test_two_runs_inside_fifteen_minutes_write_two_rows(): void
+    {
+        $this->seedDigestMembers(20);
+        $digest = new Digest($this->db, $this->guard(22), 'https://archive.example');
+        $this->errorLogged(fn () => $digest->send());
+        $this->errorLogged(fn () => $digest->send()); // the skipped members keep their marker, so the retry skips again
+        $rows = $this->db->all("SELECT detail FROM activity_log WHERE action = 'mail.skipped'");
+        $this->assertCount(2, $rows, 'plain record(), never recordOnce(): each night writes its own row');
+    }
+
+    /** The digest refusals each error_log a line; park error_log on a real
+     *  file for the run (the MailGuardTest idiom). */
+    private function errorLogged(callable $fn): void
+    {
+        $log = tempnam(sys_get_temp_dir(), 'kiption-dig-err-');
+        touch($log);
+        ini_set('error_log', $log);
+        try {
+            $fn();
+        } finally {
+            ini_set('error_log', '/dev/null');
+            @unlink($log);
+        }
+    }
 }

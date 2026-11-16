@@ -41,6 +41,7 @@ final class Epub
         private Database $db,
         private string $uploadsDir,   // cover storage (import half)
         private bool $coverStrict = false, // test seam: cover skips become throws
+        private ?\App\StorageQuota $quota = null, // the upload-bytes cap; null = uncapped (default)
     ) {}
 
     /** The last importFile() report row: file, status (imported, would
@@ -577,11 +578,19 @@ final class Epub
             if (file_put_contents($tmp, $bytes) === false) {
                 throw new \RuntimeException("could not write the cover extract for '{$archivePath}'");
             }
+            $storage = new \Kip\Storage($this->uploadsDir, 2 * 1024 * 1024, ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+                static fn (string $t, string $d): bool => copy($t, $d) && unlink($t));
             try {
-                return (new \Kip\Storage($this->uploadsDir, 2 * 1024 * 1024, ['png', 'jpg', 'jpeg', 'webp', 'gif'],
-                    static fn (string $t, string $d): bool => copy($t, $d) && unlink($t)))
-                    ->put(['name' => basename($archivePath), 'type' => 'application/octet-stream',
-                           'tmp_name' => $tmp, 'error' => \UPLOAD_ERR_OK, 'size' => strlen($bytes)]);
+                if ($this->quota !== null) {
+                    // The upload-bytes cap (admin share: the importer runs for
+                    // the operator). At the cap the TEXT still imports; only
+                    // the cover is skipped, and the summary says so.
+                    $stored = $this->quota->putUnderCap(['name' => basename($archivePath), 'type' => 'application/octet-stream',
+                        'tmp_name' => $tmp, 'error' => \UPLOAD_ERR_OK, 'size' => strlen($bytes)], true, $storage);
+                    return $stored ?? $skip('storage limit');
+                }
+                return $storage->put(['name' => basename($archivePath), 'type' => 'application/octet-stream',
+                       'tmp_name' => $tmp, 'error' => \UPLOAD_ERR_OK, 'size' => strlen($bytes)]);
             } catch (\Kip\UploadException $e) {
                 if ($this->coverStrict) { throw $e; }
                 return $skip($e->getMessage());

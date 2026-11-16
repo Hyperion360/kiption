@@ -48,13 +48,16 @@ final class Settings
     /** @return array<string, string> raw DB rows, memoized with the flags pass */
     public static function all(): array { return Features::settings(); }
 
-    /** Values to overlay onto $config at boot: only keys the DB actually holds, coerced to the config's own type. */
+    /** Values to overlay onto $config at boot: only keys the DB actually holds, coerced to the config's own type.
+     *  A row outside KEYS (a stray or restored row named like a cap key) is skipped before the
+     *  config is consulted: the board could never have written it, so it never wins. */
     public static function overrides(array $config): array
     {
         $out = [];
         foreach (self::all() as $k => $v) {
-            $current = $config[$k] ?? null;
             if ($k === 'maintenance_on') { $out[$k] = ($v === '1'); continue; } // the owner's switch has no config.php key
+            if (!\array_key_exists($k, self::KEYS)) continue; // never board-writable: a hosting operator's cap keys stay config
+            $current = $config[$k] ?? null;
             if ($current === null && !\in_array($k, ['skin'], true)) continue; // unknown keys stay config.php territory
             if ($current === true || $current === false) { $out[$k] = ($v === '1' || $v === 'on'); continue; }
             if (\is_int($current)) { $out[$k] = max(1, (int) $v); continue; }

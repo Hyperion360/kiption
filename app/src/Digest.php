@@ -71,6 +71,12 @@ final class Digest
                 error_log("digest mail failed for user {$m['id']}: {$e->getMessage()}");
             }
         }
+        // Never silent loss: the nightly run has no session (no actor), and the
+        // kept markers mean the next run retries, so one row per run with the
+        // count is what the owner reads in the activity log.
+        if ($this->skipped > 0) {
+            ActivityLog::record($this->db, null, 'mail.skipped', "{$this->skipped} emails skipped, sending limit reached");
+        }
         return $mailed;
     }
 }

@@ -6,6 +6,16 @@ use Kip\Routing\{Auth as AuthAttr, Post};
 
 final class AuthController
 {
+    /** The per-address mail limit for the public forms that trigger
+     *  verification mail (registration, forgot password, sign-in link): one
+     *  address is mailed at most this many times per AttemptLimiter's
+     *  15-minute window, thirty per IP, counted whether or not an account
+     *  exists, so the limit adds no account-existence oracle. What it caps
+     *  is the MAIL COUNT per address across IPs, the thing that burns a
+     *  hosting operator's provider quota. */
+    private const MAIL_ADDR_MAX_PER_ADDRESS = 3;
+    private const MAIL_ADDR_MAX_PER_IP = 30;
+
     public function __construct(
         private Auth $auth,
         private View $view,
@@ -214,6 +224,17 @@ final class AuthController
             return $this->registerError($mode, \App\Lang::t('auth.err_mismatch'), $penname, $email);
         }
         if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $penname)) !== null) return $this->registerError($mode, $blocked, $penname, $email);
+        if ($mode === 'verify') {
+            // Both gates run BEFORE the account exists, so no account is ever
+            // created that its verification mail cannot reach: the per-address
+            // mail limit, and the critical bucket's advisory preflight (the
+            // send's own statement still decides at send time).
+            $limit = new \App\AttemptLimiter($this->db);
+            if (!$limit->claim('mail_addr', mb_strtolower($email), $this->request->ip, self::MAIL_ADDR_MAX_PER_ADDRESS, self::MAIL_ADDR_MAX_PER_IP)
+                || !$this->mailer->criticalFits()) {
+                return $this->registerError($mode, \App\Lang::t('auth.err_mail_busy'), $penname, $email);
+            }
+        }
         [$ok, $error] = $this->users->register($mode, $penname, $email, $password, $this->request->postStr('invite'));
         if (!$ok) {
             return $this->registerError($mode, $error, $penname, $email);
@@ -228,10 +249,26 @@ final class AuthController
             $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/auth/verify/' . $raw;
             [$subject, $body] = \App\Templates::get($this->db, 'member_verify', 'Verify your account',
                 "Welcome to the archive. Confirm your address:\n\n{url}\n\nThe link is valid for 24 hours.");
+            $sent = false;
             try {
-                $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
+                $sent = $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
             } catch (\Throwable $e) {
                 error_log("Verification mail failed: {$e->getMessage()}");
+            }
+            if (!$sent) {
+                // The narrow race: the bucket filled between the preflight and
+                // the send, so the account exists but its mail went nowhere. The
+                // page says so and points at Forgot Password, whose reset link
+                // also verifies the address (the resend path; no account is
+                // stranded unverified forever).
+                return new Response($this->render('auth/register', [
+                    'title' => \App\Lang::t('auth.register.title'),
+                    'head' => $this->head()->withTitle(\App\Lang::t('auth.register.title'))->withCanonical('/auth/register')->withNoindex(),
+                    'csrf' => $this->session->csrfToken(), 'error' => null, 'mailIssue' => true,
+                    'toPost' => $this->toPost(),
+                    'mode' => $mode,
+                    'terms_url' => \App\Notices::termsUrl((string) $this->app->config('signup_terms_url', '')),
+                ] + $this->checkFields()), 200);
             }
         }
         return Response::redirect($this->request->postStr('to') === 'post' ? '/auth/login?to=post' : '/auth/login');
@@ -284,6 +321,12 @@ final class AuthController
     public function remind(): string
     {
         $email = $this->request->postStr('email');
+        // The per-address mail limit runs before the reset token: a refused
+        // claim mints no token and sends nothing, and the page is the same
+        // page either way (the claim counts whether or not the account exists).
+        if (!(new \App\AttemptLimiter($this->db))->claim('mail_addr', mb_strtolower($email), $this->request->ip, self::MAIL_ADDR_MAX_PER_ADDRESS, self::MAIL_ADDR_MAX_PER_IP)) {
+            return $this->render('auth/forgot', ['title' => \App\Lang::t('auth.forgot.title'), 'sent' => true]);
+        }
         $token = $this->auth->createReset($email, $this->request->ip);
         if ($token !== null) {
             $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . "/auth/reset/{$token}";
@@ -295,7 +338,12 @@ final class AuthController
             $this->app->defer(function () use ($email, $subject, $body, $url): void {
                 $this->logFor($email, 'auth.reset_requested');
                 try {
-                    $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
+                    if (!$this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL)) {
+                        // A ceiling refusal gets a log line (subject only, never
+                        // the address); the page was already identical either way.
+                        error_log('Password-reset mail skipped: the verification mail limit is reached');
+                        return;
+                    }
                 } catch (\Throwable $e) {
                     // A mailer failure must not become an account-existence oracle: the page
                     // is identical either way, and the failure lands in the server log.
@@ -351,6 +399,11 @@ final class AuthController
     public function send(): Response
     {
         $email = $this->request->postStr('email');
+        // The per-address mail limit (the remind() mirror): a refused claim
+        // mints no link and sends nothing, and the page is the same page.
+        if (!(new \App\AttemptLimiter($this->db))->claim('mail_addr', mb_strtolower($email), $this->request->ip, self::MAIL_ADDR_MAX_PER_ADDRESS, self::MAIL_ADDR_MAX_PER_IP)) {
+            return $this->linkView('sent', 200);
+        }
         $token = (new \App\LoginLinks($this->db))->request($email, $this->request->ip);
         if ($token !== null) {
             $url = \App\LoginLinks::url((string) $this->app->config('base_url', 'http://localhost:8080'), $token);
@@ -360,7 +413,10 @@ final class AuthController
             $this->app->defer(function () use ($email, $subject, $body, $url): void {
                 $this->logFor($email, 'auth.link_requested');
                 try {
-                    $this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
+                    if (!$this->mailer->send($email, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL)) {
+                        error_log('Sign-in link mail skipped: the verification mail limit is reached');
+                        return;
+                    }
                 } catch (\Throwable $e) {
                     error_log("Sign-in link mail failed for a known address: {$e->getMessage()}");
                 }

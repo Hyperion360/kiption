@@ -226,6 +226,30 @@ final class SettingsTest extends TestCase
         \App\Settings::put('no_such_setting', 'x');
     }
 
+    /** Pin: the sending and storage caps are operator config, never board
+     *  rows. A hosting operator may cap outbound mail and uploads; the
+     *  settings board must never be able to move those keys. */
+    public function test_the_cap_keys_are_never_board_settings(): void
+    {
+        foreach (['mail_daily_cap', 'mail_monthly_cap', 'storage_cap_bytes'] as $cap) {
+            $this->assertArrayNotHasKey($cap, \App\Settings::KEYS, "{$cap} must stay config.php territory");
+        }
+    }
+
+    /** A stray or restored settings row named like a cap key must lose: the
+     *  board could never have written it, so the overlay skips any key
+     *  outside KEYS before it looks at the config. */
+    public function test_a_stray_settings_row_cannot_change_a_cap(): void
+    {
+        \App\Features::init($this->db(), []);
+        $config = ['mail_daily_cap' => 5];
+        \App\Features::putSetting('mail_daily_cap', '9999');
+        \App\Features::init($this->db(), []); // a stale memo must not mask the row
+        $this->assertSame(5, \App\Settings::apply($config)['mail_daily_cap'],
+            'a settings row the board can never write must not override a cap');
+        $this->assertArrayNotHasKey('mail_daily_cap', \App\Settings::overrides(['mail_daily_cap' => 5]));
+    }
+
     public function test_put_validates_every_key_kind(): void
     {
         \App\Features::init($this->db(), []);

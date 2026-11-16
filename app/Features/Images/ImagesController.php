@@ -34,6 +34,15 @@ final class ImagesController
             $name = basename($f);
             $files[] = ['name' => $name, 'human' => self::humanSize($bytes), 'inUse' => isset($inUse[$name])];
         }
+        // The storage line renders only when a hosting operator set a cap; an
+        // uncapped archive renders the page exactly as before.
+        $quota = \App\StorageQuota::forApp($this->app);
+        $storage = null;
+        if ($quota->cap() > 0) {
+            $used = $quota->used();
+            $storage = ['used' => \App\StorageQuota::human($used), 'total' => \App\StorageQuota::human($quota->cap()),
+                'warn' => 10 * $used >= 9 * $quota->cap(), 'full' => $used >= $quota->cap()];
+        }
         return $this->view->render('images/index', [
             'title' => \App\Lang::t('images.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('images.heading'))->withCanonical('/images')->withNoindex(),
@@ -44,6 +53,7 @@ final class ImagesController
             'files' => $files,
             'totalHuman' => self::humanSize($total),
             'count' => count($files),
+            'storage' => $storage,
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
             'isAdmin' => true, // the gate above already proved it
@@ -51,7 +61,8 @@ final class ImagesController
     }
 
     /** The avatar idiom: Storage's whole check chain (size twice, DENY_EXT,
-     *  finfo MIME) renders rejections as a plain 422. */
+     *  finfo MIME) renders rejections as a plain 422. At the storage cap the
+     *  upload is refused before anything is stored. */
     #[AuthAttr] #[Post]
     public function upload(): Response
     {
@@ -63,10 +74,11 @@ final class ImagesController
             return new Response(\App\Lang::t('images.err_upload'), 422);
         }
         try {
-            $this->storage->put($file);
+            $path = \App\StorageQuota::forApp($this->app)->putUnderCap($file, true, $this->storage);
         } catch (UploadException) {
             return new Response(\App\Lang::t('images.err_upload'), 422);
         }
+        if ($path === null) return new Response(\App\Lang::t('images.storage_full'), 422);
         \App\ActivityLog::by($this->db, $this->session, 'images.upload', (string) ($file['name'] ?? ''));
         return \App\Saved::to('/images', 'added');
     }
@@ -90,25 +102,20 @@ final class ImagesController
             return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, 'images.confirm_delete', 'common.delete', '/images', true, ['name' => $name]));
         }
         $target = $this->uploadsDir() . '/' . $name;
-        if (!is_file($target) || !@unlink($target)) return new Response(\App\Lang::t('error.not_found'), 404);
+        if (!is_file($target)) return new Response(\App\Lang::t('error.not_found'), 404);
+        $bytes = (int) @filesize($target);
+        if (!@unlink($target)) return new Response(\App\Lang::t('error.not_found'), 404);
+        \App\StorageQuota::forApp($this->app)->release($bytes); // the counter drops with the file
         \App\ActivityLog::by($this->db, $this->session, 'images.delete', $name);
         return \App\Saved::to('/images', 'removed');
     }
 
-    /** The whole in-use set from ONE statement: both reference arms (avatar,
-     *  cover) fold through the UNION so the listing pays a single query.
+    /** The shared reference check (App\UploadRefs), so the library and the
+     *  storage quota can never disagree about what "in use" means.
      *  @return array<string, true> basenames of every referenced file */
     private function inUseNames(): array
     {
-        $set = [];
-        // UNION ALL, not UNION: the basename map below already dedups, so the
-        // dedup sorts (three TEMP B-TREEs under EXPLAIN) buy nothing.
-        $rows = $this->db->all('SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL UNION ALL SELECT cover_path FROM stories WHERE cover_path IS NOT NULL UNION ALL SELECT cover_path FROM series WHERE cover_path IS NOT NULL');
-        foreach ($rows as $r) {
-            $p = (string) (array_values($r)[0] ?? '');
-            if ($p !== '') $set[basename($p)] = true;
-        }
-        return $set;
+        return \App\UploadRefs::names($this->db);
     }
 
     private function uploadsDir(): string

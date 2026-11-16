@@ -20,6 +20,7 @@ final class AccountController
     private array $errorParams = [];
     private ?string $pennameError = null;
     private ?string $pennameValue = null;
+    private ?string $avatarError = null;
     private ?array $submittedFields = null;
 
     public function __construct(
@@ -74,12 +75,13 @@ final class AccountController
         if ($err !== null) return $this->refuse($err);
         $url = rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/') . '/account/emailconfirm?t=' . $token;
         [$subject, $body] = \App\Templates::get($this->db, 'email_change_confirm', ...\App\Templates::pair('email_change_confirm'));
+        $sent = false;
         try {
-            $this->mailer()->send($new, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
+            $sent = $this->mailer()->send($new, $subject, strtr($body, ['{url}' => $url]), \App\MailGuard::CRITICAL);
         } catch (\Throwable $e) {
             error_log("Email change mail failed: {$e->getMessage()}");
-            return $this->refuse('account.err_email_mail');
         }
+        if (!$sent) return $this->refuse('account.err_email_mail'); // a ceiling refusal rides the existing refuse path
         \App\ActivityLog::record($this->db, $me, 'account.email_requested');
         return Response::redirect('/account/settings?done=emailsent');
     }
@@ -102,7 +104,11 @@ final class AccountController
         \App\ActivityLog::record($this->db, (int) ($this->db->one('SELECT id FROM users WHERE email = ?', [$res['new']])['id'] ?? 0) ?: null, 'account.email_changed');
         [$subject, $body] = \App\Templates::get($this->db, 'email_changed_notice', ...\App\Templates::pair('email_changed_notice'));
         try {
-            $this->mailer()->send($res['old'], $subject, strtr($body, ['{new_email}' => $res['new']]), \App\MailGuard::CRITICAL);
+            if (!$this->mailer()->send($res['old'], $subject, strtr($body, ['{new_email}' => $res['new']]), \App\MailGuard::CRITICAL)) {
+                // The change is already applied, so a ceiling refusal on the
+                // notice to the old address is only a log line (never the address).
+                error_log('Email change notice skipped: the verification mail limit is reached');
+            }
         } catch (\Throwable $e) {
             error_log("Email change notice failed: {$e->getMessage()}");
         }
@@ -165,7 +171,9 @@ final class AccountController
         if ($avatar !== null && $avatar !== '') {
             // basename() keeps the delete inside the configured uploads dir.
             $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
-            @unlink($dir . '/' . basename($avatar));
+            $file = $dir . '/' . basename($avatar);
+            \App\StorageQuota::forApp($this->app)->release((int) @filesize($file)); // the counter drops with the file
+            @unlink($file);
         }
         (new \Kip\Auth($this->db, $this->session))->logout();
         \App\CachePurge::run($this->app, $this->db);
@@ -348,6 +356,7 @@ final class AccountController
             'errorParams' => $this->errorParams,
             'pennameError' => $this->pennameError,
             'pennameValue' => $this->pennameValue,
+            'avatarError' => $this->avatarError,
             'profileFields' => $profileFields,
         ];
     }
@@ -362,20 +371,26 @@ final class AccountController
             return new Response(\App\Lang::t('images.err_avatar'), 422);
         }
         try {
-            $path = $this->storage->put($file);
+            $path = \App\StorageQuota::forApp($this->app)->putUnderCap($file, false, $this->storage);
         } catch (\Kip\UploadException) {
             return new Response(\App\Lang::t('images.err_avatar'), 422);
+        }
+        if ($path === null) {
+            // The member limit (95 percent of the cap) is full: the refusal
+            // renders beside the avatar field, where the attempt was made.
+            return $this->refuseAvatar(\App\Lang::t('images.storage_full'));
         }
         $userId = (int) $this->session->get('user_id');
         $old = $this->db->one('SELECT avatar_path FROM users WHERE id = ?', [$userId]);
         $this->db->query('UPDATE users SET avatar_path = ? WHERE id = ?', [$path, $userId]);
-        if ($old !== null && $old['avatar_path'] !== null) {
-            // basename() keeps the delete inside the configured uploads dir.
-            $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
-            @unlink($dir . '/' . basename((string) $old['avatar_path']));
-        }
         \App\ActivityLog::by($this->db, $this->session, 'account.avatar', '');
+        // The purge first, then the retire: no cached page keeps pointing at
+        // a file that is already gone. removeFile releases the counter and
+        // unlinks only when nothing else references the file.
         $this->purgeOwnProfile();
+        if ($old !== null && $old['avatar_path'] !== null) {
+            \App\StorageQuota::forApp($this->app)->removeFile(basename((string) $old['avatar_path']));
+        }
         return Response::redirect('/account/settings');
     }
 
@@ -385,6 +400,15 @@ final class AccountController
         $this->pennameError = $message;
         $this->pennameValue = $typed;
         return new Response($this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'))), $status);
+    }
+
+    /** The settings page again with the avatar form's refusal beside the
+     *  field (the refusePenname pattern): a storage-cap refusal sits where
+     *  the member attempted the upload, never as a bare body. */
+    private function refuseAvatar(string $message): Response
+    {
+        $this->avatarError = $message;
+        return new Response($this->view->render('account/settings', $this->page('/account/settings', \App\Lang::t('account.settings'))), 422);
     }
 
     /** Change your own pen name. The profile address follows and the old one

@@ -110,11 +110,24 @@ final class MailusersTest extends TestCase
         $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) c FROM mass_mail_log')['c']);
     }
 
-    public function test_mails_dropped_by_the_daily_cap_are_not_counted_as_sent(): void
+    /** The refusal text renders through the escaped error slot, so the
+     *  assertions compare the escaped form. */
+    private function escaped(string $text): string
     {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+
+    public function test_a_broadcast_at_a_cap_with_no_room_is_refused_up_front(): void
+    {
+        // Cap 10, usable 0: the up-front refusal fires before the cooldown is
+        // claimed (Task B4 semantics; the old mid-send drop with "Sent to 0 of
+        // N" cannot start from the screen any more).
         $res = $this->client($this->adminId, ['mail_daily_cap' => 10])->postWithToken('/mailusers/send', ['subject' => 'Hello all', 'body' => 'Big news.']);
-        $this->assertStringContainsString('Sent to 0 of ' . $this->eligible(), $res->body);
+        $this->assertSame(422, $res->status);
+        $this->assertStringContainsString($this->escaped(\App\Lang::t('mailusers.err_cap_day',
+            ['n' => number_format($this->eligible()), 'room' => number_format(0)])), $res->body);
         $this->assertSame('', $this->mail());
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM mass_mail_log')['c']);
     }
 
     public function test_a_second_send_within_ten_minutes_is_refused(): void
@@ -180,5 +193,145 @@ final class MailusersTest extends TestCase
         $this->db->query('UPDATE users SET approved_at = NULL');
         $body = $this->client($this->adminId)->get('/mailusers')->body;
         $this->assertStringContainsString(\App\Lang::t('mailusers.reach_none'), $body);
+    }
+
+    /** Extra members for the cap tests, all broadcast-eligible. */
+    private int $seeded = 0;
+
+    private function seedMembers(int $n): void
+    {
+        for ($i = 0; $i < $n; $i++) {
+            $j = $this->seeded++;
+            $this->db->query('INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)',
+                ["cap$j@e.test", 'x', "capmember$j", date('c'), date('c')]);
+        }
+    }
+
+    private function eligibleTotal(): int
+    {
+        return (int) $this->db->one('SELECT COUNT(*) c FROM users WHERE penname IS NOT NULL AND is_locked = 0 AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL')['c'];
+    }
+
+    public function test_a_broadcast_that_does_not_fit_is_refused_up_front(): void
+    {
+        $this->seedMembers(40); // 43 eligible with the seeded roster; daily cap 30 leaves room for 20
+        $admin = $this->client($this->adminId, ['mail_daily_cap' => 30]);
+        $preview = $admin->postWithToken('/mailusers/preview', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertSame(200, $preview->status);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.fits_not'), $preview->body);
+        $this->assertStringContainsString('<button type="submit" disabled', $preview->body, 'the Send control renders disabled');
+        $before = substr_count($this->mail(), 'Subject: ');
+        $sent = $admin->postWithToken('/mailusers/send', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertSame(422, $sent->status);
+        $this->assertStringContainsString($this->escaped(\App\Lang::t('mailusers.err_cap_day',
+            ['n' => number_format($this->eligibleTotal()), 'room' => number_format(20)])), $sent->body);
+        $this->assertSame($before, substr_count($this->mail(), 'Subject: '), 'no mail left the archive');
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM mass_mail_log')['c'], 'the cooldown is not burned');
+    }
+
+    public function test_a_broadcast_over_the_monthly_cap_names_the_month(): void
+    {
+        $this->seedMembers(25); // 28 eligible; monthly cap 20 binds first
+        $admin = $this->client($this->adminId, ['mail_daily_cap' => 500, 'mail_monthly_cap' => 20]);
+        $sent = $admin->postWithToken('/mailusers/send', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertSame(422, $sent->status);
+        $this->assertStringContainsString($this->escaped(\App\Lang::t('mailusers.err_cap_month',
+            ['n' => number_format($this->eligibleTotal()), 'room' => number_format(20)])), $sent->body);
+        $this->assertSame('', $this->mail());
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM mass_mail_log')['c']);
+    }
+
+    public function test_a_broadcast_to_exactly_the_room_sends(): void
+    {
+        while ($this->eligibleTotal() < 20) $this->seedMembers(1); // exactly the room at cap 30 (usable 20)
+        $admin = $this->client($this->adminId, ['mail_daily_cap' => 30]);
+        $res = $admin->postWithToken('/mailusers/send', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringContainsString('Sent to ' . $this->eligibleTotal() . ' of ' . $this->eligibleTotal(), $res->body);
+    }
+
+    public function test_the_preview_fit_note_is_advisory_and_the_send_still_refuses(): void
+    {
+        while ($this->eligibleTotal() < 20) $this->seedMembers(1); // 20 eligible: the preview says the message fits
+        $admin = $this->client($this->adminId, ['mail_daily_cap' => 30]);
+        $preview = $admin->postWithToken('/mailusers/preview', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.fits'), $preview->body);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.fits_advisory'), $preview->body);
+        // Another send takes the last slot between the preview and the POST.
+        $this->db->query('INSERT INTO mail_sends (day, sent) VALUES (?, 1)', [gmdate('Y-m-d')]);
+        $sent = $admin->postWithToken('/mailusers/send', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertSame(422, $sent->status, 'the POST re-checks and refuses');
+        $this->assertSame('', $this->mail());
+    }
+
+    public function test_the_command_refuses_a_broadcast_that_does_not_fit(): void
+    {
+        $this->seedMembers(25); // 28 eligible, room 20 at cap 30
+        $out = (string) shell_exec(sprintf(
+            'KIP_DB_DSN=%s KIP_MAIL_DAILY_CAP=30 KIP_STATIC_CACHE_DIR=%s %s %s mail:users "Hello all" "Big news." --commit 2>&1',
+            escapeshellarg('sqlite:' . $this->path),
+            escapeshellarg($this->root . '/static'),
+            escapeshellarg(PHP_BINARY), escapeshellarg(dirname(__DIR__, 4) . '/bin/kip')));
+        $this->assertStringContainsString(\App\Lang::t('mailusers.err_cap_day',
+            ['n' => number_format($this->eligibleTotal()), 'room' => number_format(20)]), $out);
+        $this->assertSame('', $this->mail());
+    }
+
+    /** The CLI exit code check rides the same refusal; assert it separately
+     *  from the output text (shell_exec hides the exit code). */
+    public function test_the_command_exits_non_zero_on_a_refused_broadcast(): void
+    {
+        while ($this->eligibleTotal() < 30) $this->seedMembers(1); // room 20 at cap 30
+        $cmd = sprintf('KIP_DB_DSN=%s KIP_MAIL_DAILY_CAP=30 KIP_STATIC_CACHE_DIR=%s %s %s mail:users "Hello all" "Big news." --commit >/dev/null 2>&1',
+            escapeshellarg('sqlite:' . $this->path),
+            escapeshellarg($this->root . '/static'),
+            escapeshellarg(PHP_BINARY), escapeshellarg(dirname(__DIR__, 4) . '/bin/kip'));
+        exec($cmd, $ignored, $code);
+        $this->assertSame(1, $code, 'a refused broadcast exits non-zero');
+        $this->assertSame('', $this->mail());
+    }
+
+    public function test_the_compose_screen_shows_the_usage_lines(): void
+    {
+        $this->db->query('INSERT INTO mail_sends (day, sent) VALUES (?, 42)', [gmdate('Y-m-d')]);
+        // The month row plus today's row is what the month line shows (the
+        // monthly sum counts every bulk row in the UTC month).
+        $this->db->query('INSERT INTO mail_sends (day, sent) VALUES (?, 568)', [gmdate('Y-m-01')]);
+        $body = $this->client($this->adminId, ['mail_daily_cap' => 150, 'mail_monthly_cap' => 2000])->get('/mailusers')->body;
+        $this->assertStringContainsString(\App\Lang::t('mailusers.usage_day', ['sent' => number_format(42), 'total' => number_format(140)]), $body);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.usage_month', ['sent' => number_format(610), 'total' => number_format(2000)]), $body);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.usage_help'), $body);
+        $this->assertStringNotContainsString(\App\Lang::t('mailusers.warn_close'), $body, '42 of 140 is under the warning line');
+    }
+
+    public function test_the_usage_lines_warn_at_eighty_percent(): void
+    {
+        $this->db->query('INSERT INTO mail_sends (day, sent) VALUES (?, 112)', [gmdate('Y-m-d')]); // 112 of 140 usable
+        $body = $this->client($this->adminId, ['mail_daily_cap' => 150])->get('/mailusers')->body;
+        $this->assertStringContainsString(\App\Lang::t('mailusers.warn_close'), $body);
+        $this->db->query('UPDATE mail_sends SET sent = 111 WHERE day = ?', [gmdate('Y-m-d')]);
+        $body = $this->client($this->adminId, ['mail_daily_cap' => 150])->get('/mailusers')->body;
+        $this->assertStringNotContainsString(\App\Lang::t('mailusers.warn_close'), $body, '111 of 140 stays under the warning line');
+    }
+
+    public function test_an_uncapped_compose_screen_gains_nothing(): void
+    {
+        // The open-source shape: no cap keys, no usage lines, no warning.
+        $body = $this->client($this->adminId)->get('/mailusers')->body;
+        $this->assertStringNotContainsString(\App\Lang::t('mailusers.usage_day', ['sent' => '0', 'total' => '0']), $body);
+        $this->assertStringNotContainsString(\App\Lang::t('mailusers.usage_help'), $body);
+        $this->assertStringNotContainsString(\App\Lang::t('mailusers.warn_close'), $body);
+    }
+
+    public function test_the_preview_shows_the_usage_lines_and_the_fit_verdict(): void
+    {
+        $this->db->query('INSERT INTO mail_sends (day, sent) VALUES (?, 42)', [gmdate('Y-m-d')]);
+        $admin = $this->client($this->adminId, ['mail_daily_cap' => 150, 'mail_monthly_cap' => 2000]);
+        $preview = $admin->postWithToken('/mailusers/preview', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.usage_day', ['sent' => number_format(42), 'total' => number_format(140)]), $preview->body);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.fits'), $preview->body);
+        $this->db->query('UPDATE mail_sends SET sent = 140 WHERE day = ?', [gmdate('Y-m-d')]);
+        $full = $admin->postWithToken('/mailusers/preview', ['subject' => 'Hello all', 'body' => 'Big news.']);
+        $this->assertStringContainsString(\App\Lang::t('mailusers.fits_not'), $full->body);
     }
 }

@@ -33,7 +33,7 @@ final class CoauthorTest extends TestCase
         @unlink($this->mailLog);
     }
 
-    private function client(?int $as = null): TestClient
+    private function client(?int $as = null, array $extra = []): TestClient
     {
         $app = new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
@@ -44,7 +44,7 @@ final class CoauthorTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-coa-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-        ]);
+        ] + $extra);
         $client = new TestClient($app);
         return $as === null ? $client : $client->actingAs($as);
     }
@@ -136,5 +136,22 @@ final class CoauthorTest extends TestCase
         $mail = file_get_contents($this->mailLog);
         $this->assertStringContainsString('coauthor', $mail);
         $this->assertStringContainsString('The Rabbit Hole', $mail);
+    }
+
+    /** Task B6: a coauthor who is never emailed does not know they were
+     *  added, so the refusal writes one null-actor row (the story title in
+     *  the detail, never the address). The add itself still succeeds. */
+    public function test_a_refused_coauthor_add_writes_one_activity_row(): void
+    {
+        $owner = $this->client($this->authorId(), ['mail_daily_cap' => 10]); // usable 0: the mail is refused
+        $res = $owner->postWithToken('/coauthor/add/the-rabbit-hole', ['penname' => 'otherwriter']);
+        $this->assertSame(302, $res->status, 'the add still succeeds');
+        $this->assertSame(1, (int) $this->db->one("SELECT COUNT(*) c FROM coauthors WHERE user_id = ?", [$this->otherUserId])['c']);
+        $rows = $this->db->all("SELECT actor_id, action, detail FROM activity_log WHERE action = 'coauthor.refused'");
+        $this->assertCount(1, $rows);
+        $this->assertNull($rows[0]['actor_id']);
+        $this->assertStringContainsString('The Rabbit Hole', $rows[0]['detail'], 'the story title is named');
+        $this->assertStringNotContainsString('ow@e.test', $rows[0]['detail'], 'the address never rides the log');
+        $this->assertSame('', (string) file_get_contents($this->mailLog));
     }
 }

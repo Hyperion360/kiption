@@ -53,12 +53,21 @@ final class ContactController
         $text = strtr($body, ['{name}' => $name, '{email}' => $email, '{message}' => $message]);
         $mailer = $this->app->container->make(\App\MailGuard::class);
         $sent = 0;
+        $refused = 0;
         foreach ($admins as $a) {
             try {
                 if ($mailer->send((string) $a['email'], $subject, $text) === true) $sent++;
+                else $refused++;
             } catch (\Throwable $e) {
                 error_log("Contact form mail failed: {$e->getMessage()}");
             }
+        }
+        // The message content exists nowhere else, so a sending-limit refusal
+        // must be visible to the owner: one null-actor row per refused
+        // submission, the topic in the detail, never the address.
+        if ($refused > 0) {
+            \App\ActivityLog::record($this->db, null, 'contact.refused',
+                "{$refused} of " . count($admins) . ' refused, sending limit reached; topic: contact form');
         }
         if ($sent === 0) return $this->form('contact.err_mail', 502, $old);
         \App\ActivityLog::record($this->db, null, 'contact.send', $sent . ' of ' . count($admins) . ' delivered');

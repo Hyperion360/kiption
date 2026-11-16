@@ -6,6 +6,10 @@ use App\Repositories\SeriesRepository;
 
 final class SeriesController
 {
+    /** The story cover's throttle numbers (the profile_save shape). */
+    private const COVER_MAX_PER_MEMBER = 10;
+    private const COVER_MAX_PER_IP = 30;
+
     public function __construct(
         private View $view,
         private Request $request,
@@ -143,18 +147,29 @@ final class SeriesController
         if (!\App\Settings::on('series_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         try { $this->series->forEdit($slug, (int) $this->session->get('user_id')); }
         catch (\RuntimeException) { return new Response(\App\Lang::t('error.not_found'), 404); }
+        // The story cover's throttle (the profile_save numbers), staff included.
+        $me = (int) $this->session->get('user_id');
+        if (!(new \App\AttemptLimiter($this->db))->claim('cover_save', (string) $me, $this->request->ip, self::COVER_MAX_PER_MEMBER, self::COVER_MAX_PER_IP)) {
+            return new Response(\App\Lang::t('account.too_many_changes'), 429);
+        }
         $file = $this->request->file('cover');
         if ($file === null) {
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
+        $quota = \App\StorageQuota::forApp($this->app);
         try {
-            $path = $this->storage->put($file);
+            $path = $quota->putUnderCap($file, $this->isAdmin($me), $this->storage);
         } catch (\Kip\UploadException) {
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
+        if ($path === null) return new Response(\App\Lang::t('images.storage_full'), 422);
+        $old = (string) ($this->db->one('SELECT cover_path FROM series WHERE slug = ?', [$slug])['cover_path'] ?? '');
         $this->db->query('UPDATE series SET cover_path = ? WHERE slug = ?', [$path, $slug]);
         \App\ActivityLog::by($this->db, $this->session, 'series.cover', $slug);
         $this->staticCache()->purgeSeries($slug);
+        // The purge first, then the retire (the story-cover order): the
+        // reference check keeps a file another avatar or cover still uses.
+        if ($old !== '') $quota->removeFile(basename($old));
         return Response::redirect('/series/edit/' . $slug);
     }
 

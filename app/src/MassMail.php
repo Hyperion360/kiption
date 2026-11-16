@@ -35,6 +35,19 @@ final class MassMail
         return ['n' => (int) ($row['n'] ?? 0), 'last_at' => $row['last_at'] ?? null, 'last_subject' => $row['last_subject'] ?? null];
     }
 
+    /** The up-front room check for a broadcast, from ONE usage() read: the
+     *  message and the numbers come from the same snapshot, so a send that
+     *  lands between two reads could never make the text name the wrong
+     *  limit. Advisory, not a lock: other mail can use the last slots before
+     *  the send runs, and the send step's own admission is the one that
+     *  counts (the sent page then reports "Sent to X of Y" as always).
+     *  @return array{fits: bool, binding: ?string, room: int} */
+    public static function fits(MailGuard $guard, int $recipients): array
+    {
+        $u = $guard->usage();
+        return ['fits' => $recipients <= $u['room'], 'binding' => $u['binding'], 'room' => $u['room']];
+    }
+
     /** Send to each recipient once. One bad address never stops the batch
      *  (the Digest idiom). Returns how many were handed to the mail layer. */
     public static function send(MailGuard $mailer, array $recipients, string $subject, string $body): int

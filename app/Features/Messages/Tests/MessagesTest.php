@@ -52,7 +52,7 @@ final class MessagesTest extends TestCase
         return $this->authorRowId;
     }
 
-    private function client(?int $as = null): TestClient
+    private function client(?int $as = null, array $extra = []): TestClient
     {
         $client = new TestClient(new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
@@ -63,7 +63,7 @@ final class MessagesTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->mailLog, 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-pm-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-        ]));
+        ] + $extra));
         return $as === null ? $client : $client->actingAs($as);
     }
 
@@ -231,5 +231,20 @@ final class MessagesTest extends TestCase
         $this->assertSame(404, $me->postWithToken('/messages/send/demo-author', ['body' => 'hi'])->status);
         $this->assertSame(0, (int) $db->one('SELECT COUNT(*) c FROM messages')['c']);
         $this->assertStringNotContainsString('href="/messages"', $me->get('/account')->body);
+    }
+
+    /** The stated exception to the never-silent-loss rule: a message stores
+     *  its own copy in-app, so a cap that would refuse a notification mail
+     *  loses nothing and writes no activity row. */
+    public function test_sending_at_the_sending_limit_persists_the_message_and_writes_no_row(): void
+    {
+        $me = $this->client($this->memberId(), ['mail_daily_cap' => 10]); // usable 0: any mail would be refused
+        $res = $me->postWithToken('/messages/send/demo-author', ['body' => 'Reads fine in the app.']);
+        $this->assertSame(302, $res->status);
+        $thread = $this->client($this->authorId())->get('/messages/view/betafriend');
+        $this->assertSame(200, $thread->status);
+        $this->assertStringContainsString('Reads fine in the app.', $thread->body);
+        $this->assertSame(0, (int) $this->db()->one("SELECT COUNT(*) c FROM activity_log WHERE action LIKE 'mail.%' OR action LIKE 'contact.%' OR action LIKE 'coauthor.%'")['c'],
+            'nothing is lost, so nothing is logged');
     }
 }

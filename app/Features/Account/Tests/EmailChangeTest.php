@@ -36,6 +36,7 @@ final class EmailChangeTest extends TestCase
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->log, 'from' => 'noreply@localhost'],
+            'mail_daily_cap' => 5, // armed in every test here; the cap-refusal tests fill the critical bucket to it
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-em-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ]);
@@ -245,5 +246,47 @@ final class EmailChangeTest extends TestCase
         $done = (new TestClient($this->app()))->postWithToken('/account/emailapply', ['t' => $t]);
         $this->assertSame(410, $done->status);
         $this->assertSame('beta@example.test', $this->email());
+    }
+
+    /** The verification-mail ceiling refused the confirm mail: the member
+     *  gets the existing refuse path, and no request row is logged (the
+     *  change never went out). */
+    public function test_email_change_refused_mail_uses_the_existing_refuse_path(): void
+    {
+        $this->fillCriticalBucket(5);
+        $errFile = tempnam(sys_get_temp_dir(), 'kiption-em-err-');
+        ini_set('error_log', $errFile);
+        $res = $this->ask();
+        ini_set('error_log', '/dev/null');
+        $this->assertSame(422, $res->status, $res->body);
+        $this->assertStringContainsString(\App\Lang::t('account.err_email_mail'), $res->body);
+        $this->assertSame('beta@example.test', $this->email(), 'nothing changed');
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'account.email_requested'")['c']);
+        @unlink($errFile);
+    }
+
+    /** The apply step's notice to the OLD address at the ceiling: the change
+     *  is already applied, so the refusal only writes a log line. */
+    public function test_a_refused_change_notice_only_logs(): void
+    {
+        $this->ask(); // the request mail goes out while the bucket is empty
+        $t = $this->token();
+        $this->fillCriticalBucket(5);
+        $errFile = tempnam(sys_get_temp_dir(), 'kiption-em-err-');
+        ini_set('error_log', $errFile);
+        $done = (new TestClient($this->app()))->postWithToken('/account/emailapply', ['t' => $t]);
+        ini_set('error_log', '/dev/null');
+        $this->assertSame(200, $done->status, $done->body);
+        $this->assertSame('fresh@example.test', $this->email(), 'the change itself went through');
+        $log = (string) file_get_contents($errFile);
+        $this->assertStringContainsString('Email change notice skipped: the verification mail limit is reached', $log);
+        $this->assertStringNotContainsString('beta@example.test', $log, 'the old address never rides the log');
+        @unlink($errFile);
+    }
+
+    private function fillCriticalBucket(int $cap): void
+    {
+        $this->db->query('INSERT INTO mail_sends (day, sent) VALUES (?, ?) ON CONFLICT (day) DO UPDATE SET sent = excluded.sent',
+            ['c:' . gmdate('Y-m-d'), $cap]);
     }
 }

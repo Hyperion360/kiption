@@ -6,6 +6,12 @@ use App\Repositories\StoryRepository;
 
 final class StoryController
 {
+    /** Cover uploads per member per AttemptLimiter window (and per IP), the
+     *  profile_save numbers: covers are open-signup surface, so the byte
+     *  churn stays scarce like renames and avatar posts. */
+    private const COVER_MAX_PER_MEMBER = 10;
+    private const COVER_MAX_PER_IP = 30;
+
     public function __construct(
         private View $view,
         private Request $request,
@@ -723,19 +729,33 @@ final class StoryController
         } catch (\RuntimeException) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
+        // Cover uploads are throttled like avatars (the profile_save numbers:
+        // ten per member and thirty per IP in 15 minutes), staff included:
+        // covers are open-signup surface, so a bot cannot churn bytes.
+        if (!(new \App\AttemptLimiter($this->db))->claim('cover_save', (string) $this->uid(), $this->request->ip, self::COVER_MAX_PER_MEMBER, self::COVER_MAX_PER_IP)) {
+            return new Response(\App\Lang::t('account.too_many_changes'), 429);
+        }
         $file = $this->request->file('cover');
         if ($file === null) {
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
+        $isAdmin = (int) ($this->db->one('SELECT is_admin FROM users WHERE id = ?', [$this->uid()])['is_admin'] ?? 0) === 1;
+        $quota = \App\StorageQuota::forApp($this->app);
         try {
-            $path = $this->storage->put($file);
+            $path = $quota->putUnderCap($file, $isAdmin, $this->storage);
         } catch (\Kip\UploadException) {
             return new Response(\App\Lang::t('common.cover_rejected'), 422);
         }
+        if ($path === null) return new Response(\App\Lang::t('images.storage_full'), 422);
+        $old = (string) ($this->db->one('SELECT cover_path FROM stories WHERE id = ?', [$story['id']])['cover_path'] ?? '');
         $this->db->query('UPDATE stories SET cover_path = ? WHERE id = ?', [$path, $story['id']]);
         \App\ActivityLog::by($this->db, $this->session, 'story.cover', $slug);
         [$seriesSlugs, $authorSlug] = $this->authoring()->purgeData((int) $story['id'], (int) $story['author_id']);
         $this->staticCache()->purgeStory($slug, $this->authoring()->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug);
+        // The purge first, then the retire: no cached page keeps pointing at
+        // a file that is already gone. removeFile releases the counter and
+        // unlinks only when nothing else references the file.
+        if ($old !== '') $quota->removeFile(basename($old));
         return Response::redirect('/story/edit/' . $slug);
     }
 
