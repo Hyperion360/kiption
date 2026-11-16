@@ -228,7 +228,7 @@ final class SearchTest extends TestCase
         $this->assertSame(200, $bare->status);
         $this->assertStringContainsString('Search', $bare->body);
         // nothing asked yet: the hint, never an empty-result verdict
-        $this->assertStringContainsString('Quotes match an exact phrase.', $bare->body);
+        $this->assertStringContainsString(\App\Lang::t('search.hint'), $bare->body);
         $this->assertStringNotContainsString('No stories matched', $bare->body);
         $this->assertStringNotContainsString('rel="next"', $bare->body);
         $junk = $this->client()->get('/search', ['q' => '   ', 'category' => 'nope', 'rating' => 'abc', 'completed' => 'maybe', 'language' => '!!!', 'sort' => 'sideways', 'page' => '0']);
