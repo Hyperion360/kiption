@@ -128,7 +128,7 @@ final class RoundRobinTest extends TestCase
         $up = $author->postWithToken('/chapter/update/the-rabbit-hole/' . $pos,
             ['title' => 'Crowd entry', 'content' => 'The author smoothed it.']);
         $this->assertSame(302, $up->status, $up->body);
-        $this->assertStringEndsWith('/story/edit/the-rabbit-hole', $up->headers['Location']);
+        $this->assertSame('/chapter/edit/the-rabbit-hole/' . $pos . '?saved=1', $up->headers['Location']);
         $this->assertSame('The author smoothed it.',
             $this->db->one("SELECT content FROM chapters WHERE title = 'Crowd entry'")['content']);
     }
