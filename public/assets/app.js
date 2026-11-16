@@ -96,7 +96,7 @@
     document.head.appendChild(script);
   }
   [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['adminforms'], ['look'],
-   ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']]].forEach(function (entry) {
+   ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']], ['draft-form', ['draft-store']]].forEach(function (entry) {
     var m = entry[0];
     var wanted = function (el) { return (' ' + el.getAttribute('data-js-module') + ' ').indexOf(' ' + m + ' ') > -1; };
     if (Array.prototype.some.call(document.querySelectorAll('[data-js-module]'), wanted)) {
@@ -104,4 +104,8 @@
       load(m);
     }
   });
+  if (document.querySelector('[data-js-module~="draft-cleanup"], form[action="/auth/logout"]')) {
+    load('draft-store');
+    load('draft-form');
+  }
 })();

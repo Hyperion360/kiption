@@ -138,7 +138,7 @@ test('module loader appends ordered classic scripts and loads shared helpers onc
   const marker = { getAttribute: () => 'editor writer-status' };
   const document = {
     readyState: 'loading', addEventListener() {}, documentElement: { classList: { add() {} } },
-    querySelectorAll: () => [marker], createElement: () => ({ async: true }), head: { appendChild: script => scripts.push(script) }
+    querySelector: () => null, querySelectorAll: () => [marker], createElement: () => ({ async: true }), head: { appendChild: script => scripts.push(script) }
   };
   vm.runInNewContext(readFileSync(new URL('../../public/assets/app.js', import.meta.url), 'utf8'), { window: {}, document });
   assert.deepEqual(scripts.map(script => script.src), ['/assets/subset.js', '/assets/text-edit.js', '/assets/smart.js', '/assets/editor.js', '/assets/wordcount.js', '/assets/writer-status.js']);
@@ -195,7 +195,7 @@ test('core records only a password-touched boolean if typing is cleared before s
   const f = fixture({ saved: true, beforeAttach(form) {
     const document = Object.assign(new Target(), {
       readyState: 'loading', documentElement: { classList: { add() {} } },
-      querySelectorAll: () => [form], createElement: () => ({}), head: { appendChild() {} }
+      querySelector: () => null, querySelectorAll: () => [form], createElement: () => ({}), head: { appendChild() {} }
     });
     vm.runInNewContext(readFileSync(new URL('../../public/assets/app.js', import.meta.url), 'utf8'), { window: {}, document });
     const password = form.elements.namedItem('access_password'); password.form = form;
@@ -211,4 +211,14 @@ test('core records only a password-touched boolean if typing is cleared before s
   } });
   assert.equal(f.attached.dirty(), true); assert.equal(f.state.textContent, labels.unsaved);
   assert.equal(f.env.count('beforeunload'), 1); f.attached.destroy();
+});
+
+test('cleanup-only and logout pages load the real recovery modules once', () => {
+  for (const modules of ['draft-cleanup', 'writer-status draft-form']) {
+    const scripts=[],marker={getAttribute:()=>modules};
+    const document={readyState:'loading',addEventListener(){},documentElement:{classList:{add(){}}},querySelector:()=>marker,querySelectorAll:()=>[marker],createElement:()=>({async:true}),head:{appendChild:script=>scripts.push(script)}};
+    vm.runInNewContext(readFileSync(new URL('../../public/assets/app.js',import.meta.url),'utf8'),{window:{},document});
+    const paths=scripts.map(script=>script.src);assert.equal(paths.filter(p=>p==='/assets/draft-form.js').length,1);assert.equal(paths.filter(p=>p==='/assets/draft-store.js').length,1);assert.ok(!paths.includes('/assets/draft-cleanup.js'));
+    if(modules.includes('writer-status'))assert.ok(paths.indexOf('/assets/writer-status.js')<paths.indexOf('/assets/draft-form.js'));
+  }
 });

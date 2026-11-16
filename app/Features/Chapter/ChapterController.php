@@ -183,6 +183,19 @@ final class ChapterController
             }
             $row['access_clear'] = ($this->request->post['access_clear'] ?? null) === '1';
         }
+        $writerServer = [];
+        foreach (['title', 'content', 'notes_before', 'notes_after', 'publish_at'] as $field) {
+            $writerServer[$field] = (string) ($baseRow[$field] ?? '');
+        }
+        $writerServer['publish_at'] = substr($writerServer['publish_at'], 0, 16);
+        $writerLabels = [];
+        foreach (['words', 'selection', 'unsaved', 'saved', 'saving', 'compare', 'archive', 'recovery',
+            'enable', 'disable', 'restore', 'replaceUnsaved', 'useDraft', 'discard', 'copy',
+            'recoveryUnavailable', 'recoveryProtected', 'recoveryOff', 'recoveryTab', 'recoveryOffer',
+            'recoveryConflict', 'recoveryDiscarded', 'recoveryRestored', 'recoveryWritten',
+            'recoveryClearFailed', 'recoveryRemoveFailed', 'recoveryProtectedRetained', 'copyFallback', 'copied'] as $label) {
+            $writerLabels[$label] = \App\Lang::t('writer.' . $label);
+        }
         $html = $this->view->render('chapter/form', [
             'title' => $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'),
             'head' => $this->head()->withTitle($position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'))
@@ -196,17 +209,17 @@ final class ChapterController
             'baseRevision' => $baseRevision,
             'currentRevision' => $currentRevision,
             'writerOwner' => $this->uid(),
+            'writerChapter' => $position === null ? 'new:' . $baseRow['story_id'] : 'chapter:' . $baseRow['chapter_id'],
+            'writerProtected' => (int) ($baseRow['recovery_protected'] ?? 0) === 1
+                || ($error !== null && is_string($this->request->post['access_password'] ?? null)
+                    && $this->request->post['access_password'] !== ''),
+            'writerServer' => $writerServer,
+            'writerCheckUrl' => $position === null ? '/chapter/new/' . $slug : '/chapter/edit/' . $slug . '/' . $position,
             'conflict' => isset($this->currentRevisions[$key]),
             'position' => $position,
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
-            'writerLabels' => [
-                'words' => \App\Lang::t('writer.words'),
-                'selection' => \App\Lang::t('writer.selection'),
-                'unsaved' => \App\Lang::t('writer.unsaved'),
-                'saved' => \App\Lang::t('writer.saved'),
-                'saving' => \App\Lang::t('writer.saving'),
-            ],
+            'writerLabels' => $writerLabels,
             'notice' => $error === null && \App\Saved::message($this->request) === 'admin.saved_saved'
                 ? \App\Lang::t('chapter.saved') : '',
             'loggedIn' => true,

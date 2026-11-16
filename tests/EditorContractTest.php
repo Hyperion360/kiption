@@ -155,6 +155,67 @@ final class EditorContractTest extends TestCase
         }
     }
 
+    public function test_recovery_contract_uses_saved_fields_stable_identity_and_no_secrets(): void
+    {
+        $db = new \Kip\Database('sqlite:' . $this->path);
+        $db->query("UPDATE chapters SET content = ?, notes_before = ?, publish_at = ? WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole') AND position = 1", ['Archive <script> text', 'Before', '2026-12-01T12:30:00']);
+        $client = $this->client();
+        $saved = $client->get('/chapter/edit/the-rabbit-hole/1');
+        [$form] = $this->writerForm($saved->body, 'chapter-editor-form');
+        $this->assertMatchesRegularExpression('/^chapter:[1-9][0-9]*$/D', $form->getAttribute('data-writer-chapter'));
+        $this->assertMatchesRegularExpression('/^[1-9][0-9]*$/D', $form->getAttribute('data-writer-owner'));
+        $this->assertSame('/chapter/edit/the-rabbit-hole/1', $form->getAttribute('data-writer-check-url'));
+        $this->assertSame('0', $form->getAttribute('data-writer-protected'));
+        $server = json_decode($form->getAttribute('data-writer-server'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['title', 'content', 'notes_before', 'notes_after', 'publish_at'], array_keys($server));
+        $this->assertSame('Archive <script> text', $server['content']);
+        $this->assertSame('2026-12-01T12:30', $server['publish_at']);
+        $this->assertSame(0, substr_count($saved->body, '<script> text'));
+        $rejected = $client->postWithToken('/chapter/update/the-rabbit-hole/1', ['content' => 'Rejected draft', 'base_revision' => str_repeat('0', 64)]);
+        $this->assertSame(409, $rejected->status);
+        [$failed, $xpath] = $this->writerForm($rejected->body, 'chapter-editor-form');
+        $this->assertSame($server, json_decode($failed->getAttribute('data-writer-server'), true, 512, JSON_THROW_ON_ERROR));
+        $this->assertSame($form->getAttribute('data-writer-base'), $failed->getAttribute('data-writer-base'));
+        $this->assertSame(str_repeat('0', 64), $xpath->query('.//input[@name="base_revision"]', $failed)->item(0)->getAttribute('value'));
+        $this->assertSame('Rejected draft', $xpath->query('.//textarea[@name="content"]', $failed)->item(0)->textContent);
+        foreach (['stories', 'chapters'] as $table) {
+            $db->query("UPDATE $table SET access_hash = ?", ['private-hash-canary']);
+            [$protected] = $this->writerForm($client->get('/chapter/edit/the-rabbit-hole/1')->body, 'chapter-editor-form');
+            $this->assertSame('1', $protected->getAttribute('data-writer-protected'));
+            $this->assertStringNotContainsString('private-hash-canary', $protected->ownerDocument->saveHTML());
+            $db->query("UPDATE $table SET access_hash = NULL");
+        }
+        $db->query("UPDATE chapters SET content = ? WHERE position = 1", ["Legacy \xff text"]);
+        $legacy = $client->get('/chapter/edit/the-rabbit-hole/1');
+        $this->assertSame(200, $legacy->status);
+        [$legacyForm] = $this->writerForm($legacy->body, 'chapter-editor-form');
+        $this->assertSame("Legacy \u{FFFD} text", json_decode($legacyForm->getAttribute('data-writer-server'), true, 512, JSON_THROW_ON_ERROR)['content']);
+        [$new] = $this->writerForm($client->get('/chapter/new/the-rabbit-hole')->body, 'chapter-editor-form');
+        $this->assertMatchesRegularExpression('/^new:[1-9][0-9]*$/D', $new->getAttribute('data-writer-chapter'));
+        $this->assertSame('new', $new->getAttribute('data-writer-base'));
+        $this->assertSame('/chapter/new/the-rabbit-hole', $new->getAttribute('data-writer-check-url'));
+    }
+
+    public function test_rejected_password_keeps_recovery_off_after_the_secret_is_discarded(): void
+    {
+        $response = $this->client()->postWithToken('/chapter/update/the-rabbit-hole/1', [
+            'content' => '', 'notes_before' => 'Private draft note', 'access_password' => 'password-canary',
+        ]);
+        $this->assertSame(422, $response->status);
+        [$form] = $this->writerForm($response->body, 'chapter-editor-form');
+        $this->assertSame('1', $form->getAttribute('data-writer-protected'));
+        $this->assertStringNotContainsString('password-canary', $response->body);
+        $this->assertStringContainsString('Private draft note', $response->body);
+    }
+
+    public function test_login_loads_cleanup_and_loader_reuses_recovery_asset(): void
+    {
+        $this->assertStringContainsString('data-js-module="draft-cleanup"', $this->client()->get('/auth/login')->body);
+        $loader = file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("['draft-form', ['draft-store']]", $loader);
+        $this->assertStringContainsString("load('draft-form')", $loader);
+    }
+
     /** The JS rule tables cannot drift from the PHP renderer: the scene-break
      *  set and the escape trio are pinned on both sides. */
     public function test_the_subset_tables_match_the_php_renderer(): void

@@ -6,6 +6,12 @@
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <?php if (($notice ?? '') !== ''): ?><p class="notice"><?= $this->e($notice) ?></p><?php endif; ?>
   <form id="chapter-editor-form" data-js-module="writer-status draft-form" data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>"
+    data-writer-owner="<?= $this->e((string) $writerOwner) ?>"
+    data-writer-chapter="<?= $this->e($writerChapter) ?>"
+    data-writer-base="<?= $this->e($currentRevision) ?>"
+    data-writer-protected="<?= $writerProtected ? '1' : '0' ?>"
+    data-writer-server="<?= $this->e(json_encode($writerServer, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)) ?>"
+    data-writer-check-url="<?= $this->e($writerCheckUrl) ?>"
     data-writer-saved="<?= ($error ?? null) === null && ($notice ?? '') !== '' ? '1' : '0' ?>"
     data-writer-rejected="<?= ($error ?? null) !== null ? '1' : '0' ?>" method="post" action="<?= $position === null
       ? '/chapter/create/' . $this->e($story['slug'])
