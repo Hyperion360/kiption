@@ -10,6 +10,11 @@
   <main>
     <h1>Inline Editor Local Comparison</h1>
     <p>Local source and selection fixture. No content is sent to a server.</p>
+    <form id="chapter-form" action="#" method="post">
+      <label for="chapter">Chapter Text</label>
+      <textarea id="chapter" name="text" required>**Words**</textarea>
+      <button type="submit">Save Chapter</button>
+    </form>
     <div id="editor"></div>
     <p id="summary" role="status">Checks not run.</p>
     <ol id="results"></ol>
@@ -18,6 +23,7 @@
   <script src="/public/assets/inline-editor/syntax.js"></script>
   <script src="/public/assets/inline-editor/projection.js"></script>
   <script src="/public/assets/inline-editor/input.js"></script>
+  <script src="/public/assets/inline-editor/editor.js"></script>
   <script src="/tests/manual/inline-editor-dom.js"></script>
 </body>
 </html>

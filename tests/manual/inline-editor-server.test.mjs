@@ -14,6 +14,7 @@ test('local inline-editor server serves only the fixture and package assets', as
       '/public/assets/inline-editor/syntax.js',
       '/public/assets/inline-editor/projection.js',
       '/public/assets/inline-editor/input.js',
+      '/public/assets/inline-editor/editor.js',
       '/public/assets/inline-editor/editor.css'
     ]) {
       const response = await fetch(base + path);

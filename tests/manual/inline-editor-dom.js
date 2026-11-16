@@ -347,6 +347,128 @@
     input.detach();
   });
 
+  check('package attaches to native form and ten mode toggles preserve source', function () {
+    var box = document.getElementById('chapter'), original = '**Words**';
+    box.value = original;
+    var handle = KipInline.editor.attach(box);
+    if (!handle || !box.hidden) throw Error('live editor did not attach');
+    var host = box.nextElementSibling;
+    if (!host.querySelector('.ki-strong')) throw Error('inline strong missing');
+    for (var n = 0; n < 10; n++) {
+      host.querySelector('[data-editor-control="source"]').click();
+      equal(box.hidden,false,'source visible');
+      equal(box.value,original,'source unchanged');
+      host.querySelector('[data-editor-control="live"]').click();
+      equal(box.hidden,true,'live visible');
+    }
+    equal(handle.detach(),true,'detach');
+    equal(box.hidden,false,'native source restored');
+  });
+  check('package mirrors source into the native form before submit', function () {
+    var box = document.getElementById('chapter'), form = box.form;
+    box.value = 'ab';
+    var handle = KipInline.editor.attach(box), host = box.nextElementSibling;
+    var live = host.querySelector('.ki-document');
+    var point = live.querySelector('.ki-token').firstChild;
+    document.getSelection().collapse(point,0);
+    live.dispatchEvent(inputEvent('beforeinput','insertText','x'));
+    var submit = new Event('submit',{bubbles:true,cancelable:true});
+    var blockedByEditor = null;
+    form.addEventListener('submit',function (event) {
+      blockedByEditor = event.defaultPrevented;
+      event.preventDefault(); // The fixture has no save endpoint.
+    },{once:true});
+    form.dispatchEvent(submit);
+    equal(blockedByEditor,false,'valid submit allowed');
+    equal(box.value,'xab','exact form value');
+    equal(handle.detach(),true,'detach');
+  });
+  check('package failure retains uncertain text and blocks stale Save', function () {
+    var box = document.getElementById('chapter'), form = box.form;
+    box.value = 'ab';
+    var handle = KipInline.editor.attach(box), host = box.nextElementSibling;
+    host.querySelector('.ki-document').appendChild(document.createTextNode('uncertain'));
+    host.querySelector('.ki-document').dispatchEvent(inputEvent('input','insertText','uncertain',false));
+    equal(handle.mode,'source','source fallback');
+    equal(box.hidden,false,'source visible');
+    equal(host.querySelector('[data-editor-control="copy"]').value,'abuncertain','copy retained');
+    var blocked = new Event('submit',{bubbles:true,cancelable:true});
+    var staleBlockedByEditor = null;
+    form.addEventListener('submit',function (event) {
+      staleBlockedByEditor = event.defaultPrevented;
+      event.preventDefault();
+    },{once:true});
+    form.dispatchEvent(blocked);
+    equal(staleBlockedByEditor,true,'stale Save blocked');
+    equal(handle.detach(),false,'cannot silently detach unresolved input');
+    box.value = 'author corrected';
+    box.dispatchEvent(new Event('input',{bubbles:true}));
+    var saved = new Event('submit',{bubbles:true,cancelable:true});
+    var correctedBlockedByEditor = null;
+    form.addEventListener('submit',function (event) {
+      correctedBlockedByEditor = event.defaultPrevented;
+      event.preventDefault();
+    },{once:true});
+    form.dispatchEvent(saved);
+    equal(correctedBlockedByEditor,false,'corrected source can save');
+    equal(box.value,'author corrected','corrected source retained');
+    equal(handle.detach(),true,'detach after correction');
+  });
+  check('source-input failure stays blocked until a later distinct edit', function () {
+    var box = document.getElementById('chapter'), form = box.form;
+    box.value = 'ab';
+    var handle = KipInline.editor.attach(box);
+    box.nextElementSibling.querySelector('[data-editor-control="source"]').click();
+    box.value = 'x'.repeat(2000001);
+    box.dispatchEvent(new Event('input',{bubbles:true}));
+    var copy = box.nextElementSibling.querySelector('[data-editor-control="copy"]');
+    equal(copy.value.length,2000001,'uncertain oversized source retained');
+    equal(box.value,'ab','authoritative source restored');
+    var blockedByEditor = null;
+    form.addEventListener('submit',function (event) {
+      blockedByEditor = event.defaultPrevented; event.preventDefault();
+    },{once:true});
+    form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+    equal(blockedByEditor,true,'same input event cannot unlock Save');
+    box.value = 'author corrected';
+    box.dispatchEvent(new Event('input',{bubbles:true}));
+    equal(handle.detach(),true,'author correction permits detach');
+  });
+  check('package leaves oversize and unavailable native source usable', function () {
+    var box = document.getElementById('chapter');
+    box.value = 'x'.repeat(2000001);
+    equal(KipInline.editor.attach(box),null,'oversize fallback');
+    equal(box.hidden,false,'native textarea visible');
+    box.value = '**Words**';
+    var prior = KipInline.projection.create;
+    KipInline.projection.create = function () { throw Error('selection unavailable'); };
+    try { equal(KipInline.editor.attach(box),null,'capability fallback'); }
+    finally { KipInline.projection.create = prior; }
+    equal(box.hidden,false,'native textarea remains visible');
+  });
+  check('package repeated attach and detach does not duplicate controls', function () {
+    var box = document.getElementById('chapter');
+    box.value = 'plain';
+    var first = KipInline.editor.attach(box);
+    equal(KipInline.editor.attach(box),first,'idempotent attach');
+    equal(document.querySelectorAll('.ki-editor').length,1,'one host');
+    equal(first.detach(),true,'first detach');
+    var second = KipInline.editor.attach(box);
+    if (!second || second === first) throw Error('new attach missing');
+    equal(document.querySelectorAll('.ki-editor').length,1,'one new host');
+    equal(second.detach(),true,'second detach');
+  });
+  check('native required validation reveals the source textarea', function () {
+    var box = document.getElementById('chapter');
+    box.value = '';
+    var handle = KipInline.editor.attach(box);
+    equal(box.hidden,true,'live mode starts visible');
+    equal(box.form.reportValidity(),false,'required validation fails');
+    equal(handle.mode,'source','source shown for invalid field');
+    equal(box.hidden,false,'native field visible');
+    equal(handle.detach(),true,'detach after validation');
+  });
+
   if (!new URLSearchParams(location.search).has('run')) {
     fixture('**Words** remain styled while this line is active.\nA second *paragraph* stays readable.');
     return;
