@@ -33,9 +33,9 @@ final class SearchTest extends TestCase
         return new Database('sqlite:' . $this->path);
     }
 
-    private function newApp(): App
+    private function newApp(array $config = []): App
     {
-        return new App([
+        return new App($config + [
             'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
             'views' => dirname(__DIR__, 4) . '/app/views',
@@ -522,4 +522,22 @@ final class SearchTest extends TestCase
         // and the page still answers through the guarded statement
         $this->assertSame('the-rabbit-hole', $repo->searchWithTaxonomies('rabbit', [], 20, 0, 0)['rows'][0]['slug'] ?? null);
     }
+    public function test_configured_large_pages_keep_all_rows_reachable(): void
+    {
+        $author = (int) $this->db->one('SELECT id FROM users LIMIT 1')['id'];
+        $rating = (int) $this->db->one('SELECT id FROM ratings LIMIT 1')['id'];
+        $archive = new \App\Tests\Support\SearchArchive($this->db, $author, $rating);
+        $archive->clear();
+        for ($i = 0; $i < 201; $i++) $archive->story('River Page ' . $i);
+        $client = new TestClient($this->newApp(['items_per_page' => 200]));
+        $links = [];
+        foreach ([1 => 100, 2 => 100, 3 => 1] as $page => $count) {
+            $body = $client->get('/search', ['q' => 'river', 'page' => (string) $page])->body;
+            preg_match_all('#href="/story/view/([^"]+)"#', $body, $matches);
+            $this->assertCount($count, $matches[1]);
+            array_push($links, ...$matches[1]);
+        }
+        $this->assertCount(201, array_unique($links));
+    }
+
 }

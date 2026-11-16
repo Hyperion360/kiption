@@ -31,7 +31,7 @@ final class SearchController
         $filters = [
             'category' => \App\Repositories\CategoryFilter::slugs($this->request->get['category'] ?? []),
             'rating_id' => ctype_digit((string) ($this->request->get['rating'] ?? '')) ? (int) $this->request->get['rating'] : null,
-            'completed' => ($this->request->get['completed'] ?? '') === '1' ? true : null,
+            'completed' => match ($this->request->get['completed'] ?? '') { '1' => true, '0' => false, default => null },
             'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($this->request->get['language'] ?? '')) ? (string) $this->request->get['language'] : null,
             // Tag and character ids from the story page links; junk and 0 coerce to no filter.
             'tag' => is_array($this->request->get['tag'] ?? null) ? $this->request->get['tag'] : $this->positiveId('tag'),
@@ -86,7 +86,7 @@ final class SearchController
      *  TypeError turns the listing into a 500. Cap page so it cannot. */
     private function paginate(): array
     {
-        $perPage = max(1, (int) $this->app->config('items_per_page', 20));
+        $perPage = max(1, min(100, (int) $this->app->config('items_per_page', 20)));
         $page = min($this->page(), intdiv(PHP_INT_MAX, $perPage));
         return [$perPage, ($page - 1) * $perPage];
     }
