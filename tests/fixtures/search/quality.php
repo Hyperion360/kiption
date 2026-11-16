@@ -19,7 +19,7 @@ foreach ($stories as $key => $story) {
 $queries = array_merge($queries, [
     ['q' => 'wonderland', 'first' => 'wonderland', 'kind' => 'exact'],
     ['q' => 'wonde', 'firstAny' => ['wonderland', 'typo-exact'], 'kind' => 'prefix'],
-    ['q' => 'wonderlend', 'first' => 'typo-exact', 'relevant' => 'wonderland', 'kind' => 'substitution', 'oneEdit' => true],
+    ['q' => 'wonderlend', 'first' => 'typo-exact', 'relevant' => 'wonderland', 'topFive' => ['wonderland'], 'kind' => 'substitution', 'oneEdit' => true],
     ['q' => 'wonderlend midnigth', 'first' => 'wonderland', 'kind' => 'multiword'],
     ['q' => 'winter harbor', 'first' => 'winter', 'kind' => 'all-tokens'],
     ['q' => 'rievrs', 'first' => 'river', 'kind' => 'transposition', 'oneEdit' => true],

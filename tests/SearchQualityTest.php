@@ -42,6 +42,9 @@ final class SearchQualityTest extends TaxonomyCase
             $errors = [];
             if (isset($case['first']) && ($actual[0] ?? null) !== $case['first']) $errors[] = 'first=' . $case['first'];
             if (isset($case['firstAny']) && !in_array($actual[0] ?? null, $case['firstAny'], true)) $errors[] = 'first outside allowed ties';
+            foreach ($case['topFive'] ?? [] as $key) {
+                if (!in_array($key, $top, true)) $errors[] = 'top five missing=' . $key;
+            }
             if (isset($case['only'])) {
                 $expected = $case['only']; $observed = $actual;
                 sort($expected); sort($observed);
