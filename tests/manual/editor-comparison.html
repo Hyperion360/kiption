@@ -5,7 +5,7 @@
 <h1>Editor Comparison</h1><p>This local comparison keeps Markdown as the source. It does not save or send your writing. Formatted editing remains unavailable to customers pending device validation.</p>
 <label>Fixture <select id="fixture"></select></label><button type="button" id="load-fixture">Load Fixture</button>
 <section><h2>Native Plaintext Paste Check</h2><p>Copy formatted text from another editor, then paste here. This probe lets the browser paste without conversion.</p><div id="paste-probe" role="textbox" aria-label="Native Plaintext Paste Probe" aria-multiline="true" contenteditable="plaintext-only" class="writer-active"></div><p id="paste-result" role="status">Pending native paste.</p></section>
-<main id="candidates"></main><button type="button" id="run-tests">Run DOM Checks</button>
+<main id="candidates"></main><button type="button" id="run-tests">Run DOM Checks</button><p id="dom-summary" role="status">DOM checks have not run.</p><pre id="dom-failures"></pre>
 <table><caption>DOM Check Results</caption><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody id="results"></tbody></table>
 <script src="/tests/manual/editor-environment.js"></script>
 <script src="/assets/subset.js"></script><script src="/assets/source-document.js"></script><script src="/assets/rich-projection.js"></script><script src="/assets/rich-active.js"></script>

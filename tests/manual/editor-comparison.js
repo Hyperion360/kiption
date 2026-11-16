@@ -28,6 +28,9 @@
   document.getElementById('run-tests').addEventListener('click',async function(){
     var result=await runEditorDOMTests(Kip,actions),body=document.getElementById('results');body.replaceChildren();
     result.tests.forEach(function(test){var row=document.createElement('tr'),name=document.createElement('td'),outcome=document.createElement('td');name.textContent=test.name;outcome.textContent=test.pass?'Pass':'Fail: '+test.error;row.append(name,outcome);body.append(row);});
+    var passed=result.tests.filter(function(test){return test.pass;}).length;
+    document.getElementById('dom-summary').textContent=passed+' Pass, '+(result.tests.length-passed)+' Fail';
+    document.getElementById('dom-failures').textContent=result.tests.filter(function(test){return !test.pass;}).map(function(test){return test.name+': '+test.error;}).join('\n');
     window.editorDOMResult=result;
   });
   var probe=document.getElementById('paste-probe'),pasteResult=document.getElementById('paste-result');
