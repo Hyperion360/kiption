@@ -224,6 +224,107 @@
     f.view.unfreeze(); f.view.render();
     equal(f.view.element.textContent, 'xtext', 'committed text');
   });
+  function inputEvent(type, inputType, data, cancelable) {
+    return new InputEvent(type, {bubbles:true,cancelable:cancelable !== false,inputType:inputType,data:data});
+  }
+  check('beforeinput typing, Enter, and undo share source history', function () {
+    var f = fixture('ab'), input = KipInline.input.create(f.model,f.view);
+    f.view.restoreSelection({anchor:0,focus:0});
+    var typed = inputEvent('beforeinput','insertText','x');
+    f.view.element.dispatchEvent(typed);
+    equal(typed.defaultPrevented,true,'typing prevented');
+    equal(f.model.text,'xab','typed source');
+    f.view.element.dispatchEvent(inputEvent('beforeinput','insertParagraph',null));
+    equal(f.model.text,'x\nab','newline source');
+    f.view.element.dispatchEvent(inputEvent('beforeinput','historyUndo',null));
+    equal(f.model.text,'xab','undo newline');
+    f.view.element.dispatchEvent(inputEvent('beforeinput','historyUndo',null));
+    equal(f.model.text,'ab','undo typing');
+    f.view.element.dispatchEvent(inputEvent('beforeinput','historyRedo',null));
+    equal(f.model.text,'xab','redo typing');
+    input.detach();
+  });
+  check('backspace deletes one emoji grapheme in the editable projection', function () {
+    var emoji = '👩🏽‍💻', f = fixture(emoji + 'a');
+    var input = KipInline.input.create(f.model,f.view);
+    f.view.restoreSelection({anchor:emoji.length,focus:emoji.length});
+    f.view.element.dispatchEvent(inputEvent('beforeinput','deleteContentBackward',null));
+    equal(f.model.text,'a','emoji removed as one grapheme');
+    equal(f.model.selection.anchor,0,'caret after removal');
+    input.detach();
+  });
+  check('source and live controls share browser-menu undo history', function () {
+    var f = fixture('ab'), source = document.createElement('textarea');
+    document.getElementById('editor').appendChild(source);
+    var input = KipInline.input.create(f.model,f.view,{source:source});
+    f.view.restoreSelection({anchor:0,focus:0});
+    f.view.element.dispatchEvent(inputEvent('beforeinput','insertText','x'));
+    source.setSelectionRange(1,1);
+    source.dispatchEvent(inputEvent('beforeinput','insertText','y'));
+    equal(f.model.text,'xyab','shared source');
+    source.dispatchEvent(inputEvent('beforeinput','historyUndo',null));
+    equal(f.model.text,'ab','source-mode undo of adjacent typing');
+    f.view.element.dispatchEvent(inputEvent('beforeinput','historyRedo',null));
+    equal(f.model.text,'xyab','live-mode redo');
+    input.detach();
+  });
+  check('HTML paste conversion and plain paste keep exact source', function () {
+    var f = fixture(''), input = KipInline.input.create(f.model,f.view,{convertHtml:function(){return '**Bold**';}});
+    f.view.restoreSelection({anchor:0,focus:0});
+    function paste(html,plain,shift) {
+      var event = new Event('paste',{bubbles:true,cancelable:true});
+      Object.defineProperty(event,'clipboardData',{value:{getData:function(type){return type==='text/html'?html:plain;}}});
+      Object.defineProperty(event,'shiftKey',{value:shift});
+      f.view.element.dispatchEvent(event);
+      equal(event.defaultPrevented,true,'paste prevented');
+    }
+    paste('<b>Bold</b>','Bold',false);
+    equal(f.model.text,'**Bold**','converted source');
+    paste('<script>bad</script>',' plain',true);
+    equal(f.model.text,'**Bold** plain','plain source');
+    equal(f.view.element.querySelectorAll('script,img').length,0,'inert DOM');
+    input.detach();
+  });
+  check('noncancelable native mutation reconciles one line and fails closed on structure', function () {
+    var f = fixture('ab'), failures = [], input = KipInline.input.create(f.model,f.view,{onFailure:function(text){failures.push(text);}});
+    f.view.restoreSelection({anchor:1,focus:1});
+    var node = f.view.element.querySelector('.ki-token').firstChild;
+    node.data = 'axb'; document.getSelection().collapse(node,2);
+    f.view.element.dispatchEvent(inputEvent('input','insertText','x',false));
+    equal(f.model.text,'axb','reconciled source');
+    var line = f.view.element.querySelector('.ki-line');
+    line.appendChild(document.createElement('em'));
+    f.view.element.dispatchEvent(inputEvent('input','insertText','y',false));
+    equal(input.failed,true,'ambiguous DOM failed');
+    equal(f.model.text,'axb','source retained');
+    equal(failures.length,1,'visible fallback callback');
+    input.detach();
+  });
+  check('noncancelable input inside styled text retains Markdown delimiters', function () {
+    var f = fixture('**Words**'), input = KipInline.input.create(f.model,f.view);
+    f.view.restoreSelection({anchor:4,focus:4});
+    var node = f.view.element.querySelector('.ki-strong').firstChild;
+    node.data = 'Woxrds'; document.getSelection().collapse(node,3);
+    f.view.element.dispatchEvent(inputEvent('input','insertText','x',false));
+    equal(f.model.text,'**Woxrds**','source with delimiters');
+    equal(f.model.selection.anchor,5,'caret in styled word');
+    equal(input.failed,false,'reconciliation succeeded');
+    input.detach();
+  });
+  check('composition freezes then commits once with one undo', function () {
+    var f = fixture('ab'), input = KipInline.input.create(f.model,f.view);
+    f.view.restoreSelection({anchor:0,focus:2});
+    f.view.element.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));
+    var node = f.view.element.querySelector('.ki-token').firstChild;
+    node.data = '日本'; document.getSelection().collapse(node,2);
+    f.view.element.dispatchEvent(inputEvent('input','insertCompositionText','日本',false));
+    equal(f.model.text,'ab','composition held');
+    f.view.element.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'日本'}));
+    equal(f.model.text,'日本','composition source');
+    f.view.element.dispatchEvent(inputEvent('beforeinput','historyUndo',null));
+    equal(f.model.text,'ab','one undo');
+    input.detach();
+  });
 
   if (!new URLSearchParams(location.search).has('run')) {
     fixture('**Words** remain styled while this line is active.\nA second *paragraph* stays readable.');

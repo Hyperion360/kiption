@@ -10,6 +10,7 @@ const files = new Map([
   ['/public/assets/inline-editor/source.js', 'text/javascript; charset=utf-8'],
   ['/public/assets/inline-editor/syntax.js', 'text/javascript; charset=utf-8'],
   ['/public/assets/inline-editor/projection.js', 'text/javascript; charset=utf-8'],
+  ['/public/assets/inline-editor/input.js', 'text/javascript; charset=utf-8'],
   ['/public/assets/inline-editor/editor.css', 'text/css; charset=utf-8']
 ]);
 
