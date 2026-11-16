@@ -23,6 +23,7 @@ return [
     'site_text_dir' => getenv('KIP_SITE_TEXT_DIR') ?: $dataDir . '/site-text', // compiled owner text (App\SiteText\Compiler); KIP_SITE_TEXT_DIR: tests/CLI point it at a throwaway dir
     'site_look_dir' => getenv('KIP_SITE_LOOK_DIR') ?: $dataDir . '/site-look', // compiled owner colors and layout (App\Look\Compiler); KIP_SITE_LOOK_DIR: tests/CLI point it at a throwaway dir
     'db'      => ['dsn' => getenv('KIP_DB_DSN') ?: 'sqlite:' . $dataDir . '/data.sqlite'], // KIP_DB_DSN: tests/CLI point bin/kip at a throwaway DB
+    'migration_lock_file' => getenv('KIP_MIGRATION_LOCK_FILE') ?: null, // optional pre-created private v1 flock file shared with an external code switch
     'log_db'  => ['dsn' => 'sqlite:' . $dataDir . '/logs.sqlite', 'retention_days' => 30],
     'cache_db' => ['dsn' => getenv('KIP_CACHE_DB_DSN') ?: 'sqlite:' . $dataDir . '/cache.sqlite', 'ttl_seconds' => 3600], // KIP_CACHE_DB_DSN: tests/CLI point kip cache:clear at a throwaway file
     'rate_limit' => [   // per first URL segment, fixed window, non-GET/HEAD only; table rate_limits (migration 025)

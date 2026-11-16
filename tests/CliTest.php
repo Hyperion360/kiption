@@ -47,6 +47,46 @@ final class CliTest extends TestCase
         return [$code, implode("\n", $out)];
     }
 
+    public function test_direct_cli_migration_waits_for_configured_exchange_lock(): void
+    {
+        $lock = realpath(sys_get_temp_dir()) . '/kip-cli-lock-' . bin2hex(random_bytes(5));
+        file_put_contents($lock, 'v1');
+        chmod($lock, 0600);
+        $env = 'KIP_MIGRATION_LOCK_FILE=' . escapeshellarg($lock);
+        $holder = fopen($lock, 'r+');
+        try {
+            self::assertTrue(flock($holder, LOCK_EX | LOCK_NB));
+            [$code, $out] = $this->kip('migrate', '', $env);
+            self::assertNotSame(0, $code);
+            self::assertStringContainsString('Migration lock is held', $out);
+            self::assertSame(0, (int) (new \PDO('sqlite:' . $this->path))->query(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '_migrations'"
+            )->fetchColumn());
+        } finally {
+            fclose($holder);
+        }
+        try {
+            [$code, $out] = $this->kip('migrate', '', $env);
+            self::assertSame(0, $code, $out);
+            $db = new \PDO('sqlite:' . $this->path);
+            $count = (int) $db->query('SELECT count(*) FROM _migrations')->fetchColumn();
+            self::assertGreaterThan(0, $count);
+            $holder = fopen($lock, 'r+');
+            self::assertIsResource($holder);
+            self::assertTrue(flock($holder, LOCK_EX | LOCK_NB));
+            try {
+                [$code, $out] = $this->kip('rollback', '', $env);
+                self::assertNotSame(0, $code);
+                self::assertStringContainsString('Migration lock is held', $out);
+                self::assertSame($count, (int) $db->query('SELECT count(*) FROM _migrations')->fetchColumn());
+            } finally {
+                fclose($holder);
+            }
+        } finally {
+            unlink($lock);
+        }
+    }
+
     public function test_words_recount_fixes_stale_chapter_and_story_totals_and_is_idempotent(): void
     {
         $this->kip('migrate');

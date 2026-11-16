@@ -52,13 +52,12 @@ match ($argv[1] ?? 'help') {
         $ran = \App\Setup\Install::migrate($config);
         echo $ran ? 'Ran: ' . implode(', ', $ran) . "\n" : "Nothing to migrate.\n";
     })(),
-    'rollback' => (function () use ($config, $migration_dirs) { // review 4A
-        $db = new Kip\Database($config['db']['dsn']);
-        $undone = (new Kip\Migrations\Migrator($db, $migration_dirs()))->rollback();
+    'rollback' => (function () use ($config) { // review 4A
+        $undone = \App\Setup\Install::rollback($config);
         echo $undone ? 'Rolled back: ' . implode(', ', $undone) . "\n" : "Nothing to roll back.\n";
     })(),
-    'serve' => (function () use ($config, $migration_dirs) {
-        $ran = (new Kip\Migrations\Migrator(new Kip\Database($config['db']['dsn']), $migration_dirs()))->migrate();
+    'serve' => (function () use ($config) {
+        $ran = \App\Setup\Install::migrate($config);
         if ($ran) echo 'Auto-migrated: ' . implode(', ', $ran) . "\n";
         passthru('KIP_ENV=dev php -S localhost:8080 -t ' . escapeshellarg(__DIR__ . '/../public'));
     })(),
