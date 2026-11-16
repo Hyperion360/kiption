@@ -7,6 +7,7 @@ $config = require __DIR__ . '/../config.php';
 $config = \App\Settings::apply($config); // operator settings overlay the config in the same resolution; guarded, so doctor/migrate survive an unmigrated DB
 \App\SiteText\Boot::late($config, static fn () => new Kip\Database($config['db']['dsn'])); // saved default language and owner text, same order as index.php; guarded the same way
 \App\Attribution::init($config); // the footer seam, from the MERGED config (the index.php order: after the settings overlay, so pages:build renders the board's powered_by row)
+\App\AssetUrl::init($config); // cached pages and web requests use the same release asset URLs
 \App\SiteName::init($config); // the archive name seam, same merged-config order (pages:build bakes it into cached pages)
 \App\Posting::init($config); // the registration mode the guest menu link depends on (pages:build bakes the link into cached pages)
 \App\FooterLegal::init($config); // the legal-line seam, same order (pages:build bakes it into cached pages), from the MERGED config (the index.php order: after the settings overlay, so pages:build renders the board's powered_by row)

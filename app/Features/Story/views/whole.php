@@ -10,7 +10,7 @@
    stylesheet is pure CSS plus the browser print command (no JS, no ?print=
    URL variant). The read beacon deliberately does NOT embed here: reads count
    per chapter only, and the whole view is not a chapter read. */ ?>
-<link rel="stylesheet" media="print" href="/assets/print.css">
+<link rel="stylesheet" media="print" href="<?= \App\AssetUrl::for('print.css') ?>">
 <article class="h-entry whole-work">
   <header class="whole-head">
     <p class="eyebrow"><?= \App\Lang::t('story.whole_link') ?></p>

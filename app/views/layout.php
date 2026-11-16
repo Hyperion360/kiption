@@ -46,9 +46,9 @@
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/assets/reader.css">
+  <link rel="stylesheet" href="<?= \App\AssetUrl::for('reader.css') ?>">
   <?= $this->render('_look_link') ?>
-  <script src="/assets/app.js" defer></script>
+  <script src="<?= \App\AssetUrl::for('app.js') ?>" defer></script>
 </head>
 <body<?= ($focus ?? false) ? ' class="focus"' : '' ?>>
 <?php if (($isAdmin ?? false) && \App\Maintenance::on()): ?>

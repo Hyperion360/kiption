@@ -193,6 +193,7 @@ $config = \App\Settings::apply($config);
 // Nothing above reads it (the static-cache HIT serves stored bytes, the
 // maintenance view is standalone), so init-after-apply covers every render.
 \App\Attribution::init($config);
+\App\AssetUrl::init($config);
 \App\SiteName::init($config); // the archive name for header, footer and home heading, same merged-config order
 \App\FooterLegal::init($config); // the legal-line seam, same merged-config order
 \App\Posting::init($config); // the registration mode the guest menu link depends on
