@@ -97,6 +97,7 @@
       box.addEventListener('compositionstart', function () { state.composing = true; });
       box.addEventListener('compositionend', function () { state.composing = false; });
       box.addEventListener('keydown', function (e) {
+        if (state.composing || e.isComposing) { return; }
         /* smart punctuation consumes the keystroke first (a plain quote,
          * hyphen or dot, no modifiers); the shortcuts read the modifiers */
         if (smart && !e.ctrlKey && !e.metaKey && !e.altKey && smart.apply(box, e.key)) {

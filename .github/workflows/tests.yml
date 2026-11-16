@@ -19,4 +19,7 @@ jobs:
           extensions: pdo_sqlite, sqlite3, mbstring
           coverage: none
       - uses: ramsey/composer-install@a8d0d959dab41457692a5e2041bd9b757a119e3f # v3.2.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: {node-version: '22'}
+      - run: node --test tests/js/*.test.mjs
       - run: vendor/bin/phpunit

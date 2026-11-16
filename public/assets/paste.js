@@ -8,7 +8,7 @@
 (function (root, factory) {
   var api = factory();
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
-  if (root.Kip) { root.Kip.pasteToMarkdown = api.convertNodeTree; root.Kip.pasteInit = api.init; }
+  if (root.Kip) { root.Kip.paste = api; root.Kip.pasteToMarkdown = api.convertNodeTree; root.Kip.pasteInit = api.init; }
 })(typeof window !== 'undefined' ? window : globalThis, function () {
   var SKIP = { SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, IMG: 1, HEAD: 1, META: 1, LINK: 1, NOSCRIPT: 1, TEMPLATE: 1, SVG: 1, TITLE: 1, DEL: 1 };
   var BLOCK = { P: 1, DIV: 1, H1: 1, H2: 1, H3: 1, H4: 1, H5: 1, H6: 1, UL: 1, OL: 1, LI: 1, BLOCKQUOTE: 1, TABLE: 1, TR: 1, TD: 1, TH: 1, BODY: 1, HR: 1, PRE: 1, SECTION: 1, ARTICLE: 1 };

@@ -53,7 +53,8 @@ test('wrapSelection toggles already wrapped text off', () => {
   const box = fakeBox('say **word** now', 6, 10);
   textEdit.wrapSelection(box, '**', '**');
   assert.equal(box.value, 'say word now');
-  assert.deepEqual([box.selectionStart, box.selectionEnd], [6, 10]);
+  assert.deepEqual([box.selectionStart, box.selectionEnd], [4, 8]);
+  assert.equal(box.value.slice(box.selectionStart, box.selectionEnd), 'word');
 });
 
 test('wrapSelection with an empty selection places the caret between markers', () => {

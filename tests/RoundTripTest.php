@@ -2,13 +2,10 @@
 namespace App\Tests;
 use PHPUnit\Framework\TestCase;
 
-/** Editor slices, Task 6.1: ONE shared fixture set every rich-view
- *  renderer must round trip. The PHP pin below holds the fixtures against
- *  today's App\Markdown output, so slice 6 cannot drift the renderer or the
- *  fixtures unnoticed. The JS half (source -> tokens -> surface -> writer ->
- *  source, byte-identical) lives in tests/js/roundtrip.test.mjs and only
- *  runs once Task 6.0's device spike has been recorded; until then it is a
- *  documented skip. */
+/** Shared fixtures pin the PHP renderer's subset and exact JavaScript source
+ *  contracts on every checkout. Browser parsing and form transport can normalize
+ *  newlines; the source model preserves the string it receives. Rich-surface and
+ *  real-device release evidence is verified separately. */
 final class RoundTripTest extends TestCase
 {
     /** The HTML subset the editor's renderer contract claims. Anything else
@@ -56,16 +53,10 @@ final class RoundTripTest extends TestCase
         $this->assertStringContainsString('Don’t', $render('curly.md'), 'curly punctuation survives rendering');
     }
 
-    /** The JS half of the round trip: skipped until the Task 6.0 device
-     *  spike records its winner (the plan file says where). */
-    public function test_the_js_round_trip_is_gated_on_the_device_spike(): void
+    /** Automated source tests are required independently of device acceptance. */
+    public function test_the_js_round_trip_contract(): void
     {
-        $gate = @file_get_contents(dirname(__DIR__, 1) . '/docs/superpowers/plans/2026-11-14-editor-slices-5-9.md');
-        $recorded = $gate !== false && strpos($gate, '(owner fills this in') === false;
-        if (!$recorded) {
-            $this->markTestSkipped('Task 6.0 (the owner-run device spike) has not been recorded; the rich view stays gated.');
-        }
-        exec('node --test ' . escapeshellarg(dirname(__DIR__, 1) . '/tests/js/roundtrip.test.mjs') . ' 2>&1', $out, $code);
+        exec('node --test ' . escapeshellarg(dirname(__DIR__) . '/tests/js/roundtrip.test.mjs') . ' 2>&1', $out, $code);
         $this->assertSame(0, $code, implode("\n", $out));
     }
 }
