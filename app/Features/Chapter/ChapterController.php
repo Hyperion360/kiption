@@ -190,7 +190,7 @@ final class ChapterController
         $writerServer['publish_at'] = substr($writerServer['publish_at'], 0, 16);
         $writerLabels = [];
         foreach (['words', 'selection', 'unsaved', 'saved', 'saving', 'compare', 'archive', 'recovery',
-            'enable', 'disable', 'restore', 'replaceUnsaved', 'useDraft', 'discard', 'copy',
+            'enable', 'disable', 'retry', 'restore', 'replaceUnsaved', 'useDraft', 'discard', 'copy',
             'recoveryUnavailable', 'recoveryProtected', 'recoveryOff', 'recoveryTab', 'recoveryOffer',
             'recoveryConflict', 'recoveryDiscarded', 'recoveryRestored', 'recoveryWritten',
             'recoveryClearFailed', 'recoveryRemoveFailed', 'recoveryProtectedRetained', 'copyFallback', 'copied'] as $label) {

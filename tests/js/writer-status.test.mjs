@@ -222,3 +222,31 @@ test('cleanup-only and logout pages load the real recovery modules once', () => 
     if(modules.includes('writer-status'))assert.ok(paths.indexOf('/assets/writer-status.js')<paths.indexOf('/assets/draft-form.js'));
   }
 });
+
+test('core logout clears writer keys before pending helpers load without blocking native submission', () => {
+  class Form extends EventTarget { constructor(action='https://archive.test/auth/logout') {super();this.action=action;this.method='post';} }
+  for(const action of ['https://archive.test/auth/logout','https://elsewhere.test/auth/logout','https://archive.test/other']) {
+    const map=new Map([['kiption:writer:v1:5:enabled','1'],['kiption:writer:v1:5:chapter%3A42','draft'],['kiption:writer:v1:6:chapter%3A42','other account'],['theme','dark']]);
+    const storage={get length(){return map.size;},key:i=>[...map.keys()][i],removeItem:k=>map.delete(k),getItem(){throw Error('core must not read prose');}};
+    const scripts=[],document=Object.assign(new Target(),{readyState:'loading',documentElement:{classList:{add(){}}},querySelector:()=>({}),querySelectorAll:()=>[],createElement:()=>({async:true}),head:{appendChild:s=>scripts.push(s)}});
+    const root={sessionStorage:storage};const location={href:'https://archive.test/account',origin:'https://archive.test'};
+    vm.runInNewContext(readFileSync(new URL('../../public/assets/app.js',import.meta.url),'utf8'),{window:root,document,location,HTMLFormElement:Form,URL});
+    assert.equal(scripts.length,2,'helpers requested but never executed');
+    const event=new Event('submit',{cancelable:true});Object.defineProperty(event,'target',{value:new Form(action)});document.dispatchEvent(event);
+    assert.equal(event.defaultPrevented,false);assert.equal(map.get('theme'),'dark');
+    assert.equal([...map.keys()].filter(k=>k.startsWith('kiption:writer:v1:')).length,action==='https://archive.test/auth/logout'?0:3);
+  }
+});
+test('core logout survives blocked storage and respects submitter action overrides', () => {
+  class Form extends EventTarget {constructor(){super();this.action='https://archive.test/auth/logout';this.method='post';}}
+  for(const blocked of [true,false]) {
+    const map=new Map([['kiption:writer:v1:5:chapter%3A42','draft']]);
+    const storage={get length(){return map.size;},key:i=>[...map.keys()][i],removeItem:k=>map.delete(k)};
+    const document=Object.assign(new Target(),{readyState:'loading',documentElement:{classList:{add(){}}},querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>({}),head:{appendChild(){}}});
+    const root={get sessionStorage(){if(blocked)throw Error('denied');return storage;}};
+    vm.runInNewContext(readFileSync(new URL('../../public/assets/app.js',import.meta.url),'utf8'),{window:root,document,location:{href:'https://archive.test/account',origin:'https://archive.test'},HTMLFormElement:Form,URL});
+    const event=new Event('submit',{cancelable:true});Object.defineProperty(event,'target',{value:new Form()});
+    if(!blocked)Object.defineProperty(event,'submitter',{value:{getAttribute:name=>name==='formaction'?'https://elsewhere.test/auth/logout':null}});
+    assert.doesNotThrow(()=>document.dispatchEvent(event));assert.equal(event.defaultPrevented,false);assert.equal(map.size,1);
+  }
+});

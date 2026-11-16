@@ -57,6 +57,27 @@
       form.kipPasswordTouched = true;
     }
   });
+  // Sign-out must clear tab recovery even while its lazy helpers are pending.
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    var submitter = e.submitter;
+    var action;
+    try { action = new URL((submitter && submitter.getAttribute('formaction')) || form.action, location.href); }
+    catch (_) { return; }
+    var method = (submitter && submitter.getAttribute('formmethod')) || form.method;
+    if (action.origin !== location.origin || action.pathname !== '/auth/logout' || method.toLowerCase() !== 'post') return;
+    Kip.writerLogout = true;
+    try {
+      var store = window.sessionStorage;
+      for (var i = store.length - 1; i >= 0; i--) {
+        var key = store.key(i);
+        if (key && key.indexOf('kiption:writer:v1:') === 0) {
+          try { store.removeItem(key); } catch (_) { /* Native logout still proceeds. */ }
+        }
+      }
+    } catch (_) { /* Storage access must never block native logout. */ }
+  }, true);
   /* Double-submission guard, core rather than a module because it serves
    * every form on the site (stories, chapters, reviews, kudos): on submit
    * the clicked button disables until the POST navigates away, so a double

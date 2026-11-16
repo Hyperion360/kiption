@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const storeApi = require('../../public/assets/draft-store.js');
 const api = require('../../public/assets/draft-form.js');
 const names = ['title', 'content', 'notes_before', 'notes_after', 'publish_at'];
-const labels = Object.fromEntries(['compare','archive','recovery','enable','disable','restore','replaceUnsaved','useDraft','discard','copy','recoveryUnavailable','recoveryProtected','recoveryOff','recoveryTab','recoveryOffer','recoveryConflict','recoveryDiscarded','recoveryRestored','recoveryWritten','recoveryClearFailed','recoveryRemoveFailed','recoveryProtectedRetained','copyFallback','copied'].map(k => [k,k]));
+const labels = Object.fromEntries(['retry','compare','archive','recovery','enable','disable','restore','replaceUnsaved','useDraft','discard','copy','recoveryUnavailable','recoveryProtected','recoveryOff','recoveryTab','recoveryOffer','recoveryConflict','recoveryDiscarded','recoveryRestored','recoveryWritten','recoveryClearFailed','recoveryRemoveFailed','recoveryProtectedRetained','copyFallback','copied'].map(k => [k,k]));
 class Element extends EventTarget {
   constructor(tag = 'div') { super(); this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.attributes = {}; this.value = ''; this.defaultValue = ''; this._text = ''; }
   set textContent(text) { this._text = text; this.children = []; }
@@ -20,7 +20,7 @@ class Element extends EventTarget {
   focus() { this.focused = true; }
   select() { this.selected = true; }
 }
-class Form extends Element { constructor() { super('form'); } }
+class Form extends Element { constructor() { super('form'); this.method = 'post'; } }
 function memory() {
   const map = new Map(), reads = [], writes = [];
   return { reads,writes,get length() { return map.size; },key: i => [...map.keys()][i],getItem(k) { reads.push(k); return map.get(k) ?? null; },setItem(k,v) { writes.push(k); map.set(k,v); },removeItem(k) { map.delete(k); } };
@@ -34,7 +34,7 @@ function fixture({ consent = false, content = 'Archive', record, recordBase = 'a
   form.dataset = { writerOwner:'5',writerChapter:'chapter:42',writerBase:'a'.repeat(64),writerProtected:protectedText?'1':'0',writerServer:JSON.stringify(api.values(form)),writerLabels:JSON.stringify(labels),writerCheckUrl:'/chapter/edit/story/1',writerRejected:'0' };
   const win = new EventTarget(), timers = new Map(); let tick = 0;
   Object.assign(win, { Event,HTMLFormElement:Form,location:{ href:'https://archive.test/chapter/edit/story/1',origin:'https://archive.test' },navigator:{},setTimeout: fn => { timers.set(++tick, fn); return tick; },clearTimeout: id => timers.delete(id) });
-  win.DOMParser = class { parseFromString() { return { querySelector: () => form.remote ?? form }; } };
+  win.DOMParser = class { parseFromString() { return { querySelector: selector => selector.includes('/auth/attempt') ? (form.loginPage ? {} : null) : (form.remote === null ? null : form.remote ?? form) }; } };
   const key = storeApi.key('5','chapter:42');
   if (consent) storeApi.setEnabled(store,'5',true);
   if (record !== undefined) storeApi.write(store,key,recordBase,storeApi.fields({ content:record }),1000);
@@ -116,11 +116,65 @@ test('bfcache waits for authorized identity and then uses the refreshed server v
   f.form.remote={dataset:{...f.form.dataset,writerBase:'b'.repeat(64),writerServer:JSON.stringify(storeApi.fields({content:'New archive'}))}};
   resolve({ok:true,url:'https://archive.test/chapter/edit/story/1',text:async()=>'<form>'});await check;f.input('content','After revalidation');f.flush();assert.equal(storeApi.read(f.store,f.key,1001).base,'a'.repeat(64),'ordinary hidden CAS token stays stale');f.attached.destroy();
 });
-test('expired, changed-account, and cross-origin sessions cannot write after restore', async () => {
-  for(const mode of ['expired','owner','origin']) {
-    const f=fixture({consent:true,fetch:async()=>({ok:true,url:mode==='expired'?'https://archive.test/auth/login':mode==='origin'?'https://elsewhere.test/chapter/edit/story/1':'https://archive.test/chapter/edit/story/1',text:async()=>'<form>'})});
-    if(mode==='owner')f.form.remote={dataset:{...f.form.dataset,writerOwner:'6'}};
-    await f.attached.revalidate();f.input('content','Must not persist');f.flush();assert.equal(f.store.getItem(f.key),null);assert.equal(f.status(),'recoveryUnavailable');f.attached.destroy();
+test('unverified revalidation failures retain every record and allow copy or discard without restoration', async () => {
+  for (const mode of ['offline','server','missing','malformed','origin','path','login-error']) {
+    const f=fixture({consent:true,record:'Recovery',fetch:async()=>{
+      if(mode==='offline')throw TypeError('Failed to fetch');
+      return {ok:mode!=='server',status:mode==='server'?503:200,url:mode==='origin'?'https://elsewhere.test/chapter/edit/story/1':mode==='path'?'https://archive.test/unexpected':mode==='login-error'?'https://archive.test/auth/login':'https://archive.test/chapter/edit/story/1',text:async()=>'<form>'};
+    }});
+    const other=storeApi.key('5','chapter:43');storeApi.write(f.store,other,'new',storeApi.fields({content:'Other chapter'}),1000);
+    if(mode==='missing')f.form.remote=null;
+    if(mode==='malformed')f.form.remote={dataset:{...f.form.dataset,writerServer:'{bad'}};
+    await f.attached.revalidate();
+    const retained=storeApi.read(f.store,f.key,1001);assert.ok(retained,mode+' retained its copy');assert.equal(retained.fields.content,'Recovery',mode);
+    assert.equal(storeApi.read(f.store,other,1001).fields.content,'Other chapter',mode);
+    assert.equal(storeApi.enabled(f.store,'5'),true,mode);
+    f.input('content','Unsaved page');f.flush();assert.equal(storeApi.read(f.store,f.key,1001).fields.content,'Recovery',mode);
+    const buttons=f.attached.host.children[1].children.map(x=>x.textContent);
+    assert.ok(buttons.includes(labels.retry),mode);assert.ok(!buttons.some(x=>[labels.restore,labels.replaceUnsaved,labels.useDraft].includes(x)),mode);
+    f.click('copy');assert.equal(f.status(),'copyFallback');f.click('discard');assert.equal(f.store.getItem(f.key),null);assert.ok(f.store.getItem(other));f.attached.destroy();
+  }
+});
+test('recovery retry resumes only after a valid matching authorized form', async () => {
+  let offline=true;const f=fixture({consent:true,record:'Recovery',fetch:async()=>{if(offline)throw Error('offline');return {ok:true,url:'https://archive.test/chapter/edit/story/1',text:async()=>'<form>'};}});
+  await f.attached.revalidate();offline=false;f.click('retry');await new Promise(resolve=>setImmediate(resolve));
+  assert.ok(f.status().startsWith('recoveryOffer'));f.click('restore');assert.equal(f.field('content').value,'Recovery');f.attached.destroy();
+});
+test('restored pages defer account and protection cleanup until identity is verified', async () => {
+  for (const protectedText of [false,true]) {
+    let offline=true;
+    const other=storeApi.key('6','chapter:42');
+    const f=fixture({consent:true,record:'Recovery',protectedText,fetch:async()=>{
+      if(offline)throw Error('offline');
+      return {ok:true,url:'https://archive.test/chapter/edit/story/1',text:async()=>'<form>'};
+    },before:({store,win})=>{
+      win.performance={getEntriesByType:()=>[{type:'back_forward'}]};
+      storeApi.write(store,other,'new',storeApi.fields({content:'Other account'}),1000);
+    }});
+    assert.ok(!f.store.reads.includes(f.key),'unverified history never reads prose');
+    assert.ok(f.store.getItem(f.key),'history keeps the current copy');
+    assert.ok(f.store.getItem(other),'history keeps the other account copy');
+    await new Promise(resolve=>setImmediate(resolve));
+    f.input('content','Unverified text');f.flush();
+    assert.equal(storeApi.read(f.store,f.key,1001).fields.content,'Recovery');
+    assert.ok(f.store.getItem(other));
+    assert.deepEqual(f.attached.host.children[1].children.map(x=>x.textContent),[labels.retry]);
+    offline=false;await f.attached.revalidate();
+    assert.equal(f.store.getItem(other),null,'verified identity clears other accounts');
+    if(protectedText)assert.equal(f.store.getItem(f.key),null,'verified protection clears this copy');
+    else assert.ok(f.store.getItem(f.key));
+    f.attached.destroy();
+  }
+});
+test('affirmative same-origin login and changed-owner forms clean only justified writer scopes', async () => {
+  for(const mode of ['login','owner']) {
+    const f=fixture({consent:true,record:'Old account',fetch:async()=>({ok:true,url:mode==='login'?'https://archive.test/auth/login':'https://archive.test/chapter/edit/story/1',text:async()=>'<form>'})});
+    f.store.setItem('theme','dark');const newOwner=storeApi.key('6','chapter:42');storeApi.write(f.store,newOwner,'new',storeApi.fields({content:'New account'}),1000);
+    if(mode==='login')f.form.loginPage=true;
+    else f.form.remote={dataset:{...f.form.dataset,writerOwner:'6'}};
+    await f.attached.revalidate();assert.equal(f.store.getItem(f.key),null);assert.equal(f.store.getItem('theme'),'dark');
+    if(mode==='owner')assert.ok(f.store.getItem(newOwner));else assert.equal(f.store.getItem(newOwner),null);
+    f.input('content','Must not persist');f.flush();assert.equal(f.store.getItem(f.key),null);f.attached.destroy();
   }
 });
 test('cleanup failures are visible and stop all recovery writes', () => {

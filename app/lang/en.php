@@ -492,6 +492,7 @@ return [
     'writer.recovery' => 'Recovery Copy',
     'writer.enable' => 'Enable Recovery in This Tab',
     'writer.disable' => 'Turn Off Recovery',
+    'writer.retry' => 'Try Recovery Again',
     'writer.restore' => 'Restore Draft',
     'writer.replaceUnsaved' => 'Replace Current Unsaved Text',
     'writer.useDraft' => 'Use Draft as New Version',

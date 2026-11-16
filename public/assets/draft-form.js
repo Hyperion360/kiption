@@ -18,6 +18,15 @@
       return true;
     } catch (_) { return false; }
   }
+  function isLogout(event, win) {
+    if (!(event.target instanceof win.HTMLFormElement)) return false;
+    try {
+      var submitter = event.submitter, form = event.target;
+      var action = new URL((submitter && submitter.getAttribute('formaction')) || form.action, win.location.href);
+      var method = (submitter && submitter.getAttribute('formmethod')) || form.method;
+      return action.origin === new URL(win.location.href).origin && action.pathname === '/auth/logout' && method.toLowerCase() === 'post';
+    } catch (_) { return false; }
+  }
   function values(form) {
     var out = {};
     names.forEach(function (name) { var el = form.elements.namedItem(name); out[name] = el ? el.value : ''; });
@@ -31,7 +40,7 @@
     var owner = form.dataset.writerOwner, id = form.dataset.writerChapter, key = api.key(owner, id);
     var server = JSON.parse(form.dataset.writerServer), currentBase = form.dataset.writerBase;
     var labels = JSON.parse(form.dataset.writerLabels), initial = {}, pending = null, timer = null;
-    var live = true, ready = true, enabled = false, armed = false, restoreReplace = false, clearFailed = false, cleanupFailed = false;
+    var live = true, ready = true, checking = false, enabled = false, armed = false, restoreReplace = false, clearFailed = false, cleanupFailed = false;
     names.forEach(function (name) { var field = form.elements.namedItem(name); initial[name] = field ? field.defaultValue : ''; });
     var password = form.elements.namedItem('access_password');
     var protectedText = form.dataset.writerProtected === '1' || !!form.kipPasswordTouched || !!(password && password.value), listeners = [], generation = 0;
@@ -50,23 +59,32 @@
     host.className = 'writer-recovery'; host.append(status, actions, compare); form.appendChild(host);
     function button(label, fn) { var el = doc.createElement('button'); el.type = 'button'; el.textContent = label; el.addEventListener('click', fn); actions.appendChild(el); return el; }
     function on(target, type, fn, opts) { target.addEventListener(type, fn, opts); listeners.push(function () { target.removeEventListener(type, fn, opts); }); }
-    function stop() { env.window.clearTimeout(timer); timer = null; generation++; }
+    function stop() { env.window.clearTimeout(timer); timer = null; checking = false; generation++; }
     function say(name) { if (status.textContent !== labels[name]) status.textContent = labels[name]; }
     function erase(){var ok=api.remove(store,key);clearFailed=!ok;return ok;}
     function show() {
       actions.replaceChildren(); compare.hidden = true;
       if(cleanupFailed){say('recoveryClearFailed');return;}
-      if (!live || !ready || !store) { say(clearFailed?'recoveryClearFailed':'recoveryUnavailable'); return; }
+      if (!live || !store) { say(clearFailed?'recoveryClearFailed':'recoveryUnavailable'); return; }
+      if (!ready) {
+        say(clearFailed ? 'recoveryClearFailed' : 'recoveryUnavailable');
+        if (pending && !protectedText) offer(false, false);
+        if (!checking) button(labels.retry, revalidate);
+        return;
+      }
       if (protectedText) { say(clearFailed?'recoveryProtectedRetained':'recoveryProtected'); return; }
       if (!enabled) { say('recoveryOff'); button(labels.enable, enable); return; }
       button(labels.disable, disable);
       if (!pending) { say('recoveryTab'); return; }
       var conflict = pending.base !== currentBase;
       say(clearFailed?'recoveryRemoveFailed':conflict ? 'recoveryConflict' : 'recoveryOffer');
+      offer(true, conflict);
+    }
+    function offer(allowRestore, conflict) {
       status.appendChild(doc.createTextNode(' ' + new Date(pending.at).toLocaleString()));
       archive.value = server.content; draft.value = pending.fields.content;
-      compare.hidden = false; compare.open = conflict;
-      button(restoreReplace ? labels.replaceUnsaved : conflict ? labels.useDraft : labels.restore, restore);
+      compare.hidden = false; compare.open = !allowRestore || conflict;
+      if (allowRestore) button(restoreReplace ? labels.replaceUnsaved : conflict ? labels.useDraft : labels.restore, restore);
       button(labels.discard, function () { stop(); if(!erase()){show();return;} pending = null; armed = false; restoreReplace = false; show(); say('recoveryDiscarded'); });
       button(labels.copy, function () {
         var fallback = function () { compare.open = true; draft.focus(); draft.select(); say('copyFallback'); };
@@ -127,41 +145,56 @@
     function resume() {
       if (enabled && (form.dataset.writerRejected === '1' || !equal(values(form), initial))) input({});
     }
+    function endSession(nextOwner) {
+      stop(); live = false; ready = false; enabled = false; armed = false; pending = null;
+      if (!cleanup(store, nextOwner)) clearFailed = true;
+      show();
+    }
     async function revalidate() {
-      stop(); ready = false; pending = null; show(); var ticket = generation;
+      if (!live) return;
+      stop(); ready = false; checking = true; show(); var ticket = generation;
       try {
         if (!env.fetch) throw Error('no fetch');
         var url = new URL(form.dataset.writerCheckUrl, env.window.location.href);
         if (url.origin !== env.window.location.origin) throw Error('origin');
         var response = await env.fetch(url.href, { credentials: 'same-origin', cache: 'no-store', redirect: 'follow' });
         var finalUrl = new URL(response.url);
-        if (!response.ok || finalUrl.origin !== url.origin || finalUrl.pathname !== url.pathname) throw Error('session');
+        if (!response.ok || finalUrl.origin !== url.origin) throw Error('response');
         var html = new env.window.DOMParser().parseFromString(await response.text(), 'text/html');
-        var found = html.querySelector('form[data-writer-owner]');
-        if (!found || found.dataset.writerOwner !== owner || found.dataset.writerChapter !== id || !/^(new|[a-f0-9]{64})$/.test(found.dataset.writerBase)) throw Error('owner');
         if (ticket !== generation || !live) return;
-        currentBase = found.dataset.writerBase; server = JSON.parse(found.dataset.writerServer);
-        protectedText = protectedText || found.dataset.writerProtected === '1'; ready = true;
-        if (protectedText) { erase(); show(); return; }
+        if (finalUrl.pathname === '/auth/login' && html.querySelector('[data-js-module~="draft-cleanup"] form[action="/auth/attempt"]')) {
+          endSession(); return;
+        }
+        if (finalUrl.pathname !== url.pathname) throw Error('path');
+        var found = html.querySelector('form[data-writer-owner]');
+        if (!found || !/^[1-9][0-9]*$/.test(found.dataset.writerOwner) || found.dataset.writerChapter !== id || !/^(new|[a-f0-9]{64})$/.test(found.dataset.writerBase)) throw Error('identity');
+        var latest = JSON.parse(found.dataset.writerServer);
+        if (!latest || Object.keys(latest).length !== names.length || !names.every(function (name) { return typeof latest[name] === 'string'; })) throw Error('fields');
+        if (found.dataset.writerOwner !== owner) { endSession(found.dataset.writerOwner); return; }
+        cleanupFailed = !!store && !cleanup(store, owner);
+        if (cleanupFailed) { ready = false; checking = false; show(); return; }
+        currentBase = found.dataset.writerBase; server = latest;
+        protectedText = protectedText || found.dataset.writerProtected === '1'; ready = true; checking = false;
+        if (protectedText) { erase(); pending = null; show(); return; }
         enabled = api.enabled(store, owner); inspect(); resume();
       } catch (_) {
-        if (ticket !== generation) return;
-        live = false; ready = false; if(!cleanup(store))clearFailed=true; show();
+        if (ticket !== generation || !live) return;
+        // An unavailable check is not evidence of logout. Keep known copies
+        // accessible, but suspend restoration and writes until a retry succeeds.
+        ready = false; checking = false; show();
       }
     }
-    if(store&&!cleanup(store, owner)){cleanupFailed=true;ready=false;}
+    if(!restoredPage&&store&&!cleanup(store, owner)){cleanupFailed=true;ready=false;}
     enabled = !!store && api.enabled(store, owner);
-    if (protectedText) { if (store) erase(); }
+    if (protectedText) { if (store && ready) erase(); }
     else if (enabled) inspect();
     show();
     on(form, 'input', input); on(form, 'change', input);
-    on(form, 'submit', function () { stop(); write(); });
+    on(form, 'submit', function () { stop(); write(); if (!ready) show(); });
     on(env.window, 'pagehide', function () { stop(); write(); });
     on(env.window, 'pageshow', function (e) { if (e.persisted) revalidate(); });
     on(doc, 'submit', function (e) {
-      if (e.target instanceof env.window.HTMLFormElement && new URL(e.target.action).pathname === '/auth/logout') {
-        stop(); live = false; enabled = false; if(!cleanup(store))clearFailed=true; show();
-      }
+      if (isLogout(e, env.window)) endSession();
     }, true);
     if (restoredPage) revalidate(); else resume();
     return { host: host, revalidate: revalidate, destroy: function () { stop(); live = false; listeners.forEach(function (off) { off(); }); host.remove(); } };
@@ -171,10 +204,10 @@
     if (!doc.kipDraftCleanup) {
       doc.kipDraftCleanup = true;
       doc.addEventListener('submit', function (event) {
-        if (event.target instanceof root.HTMLFormElement && new URL(event.target.action, root.location.href).pathname === '/auth/logout') cleanup(storage());
+        if (isLogout(event, root)) cleanup(storage());
       }, true);
     }
-    if (!root.Kip || !root.Kip.draftStore) return;
+    if (!root.Kip || !root.Kip.draftStore || root.Kip.writerLogout) return;
     doc.querySelectorAll('form[data-js-module~="draft-form"]').forEach(function (form) {
       if (form.kipDraft) return;
       try { form.kipDraft = attach(form); } catch (_) { /* Native form remains usable. */ }

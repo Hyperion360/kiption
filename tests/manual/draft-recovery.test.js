@@ -4,7 +4,7 @@ async function runDraftRecoveryDOMTests(K) {
   function assert(value,message){if(!value)throw Error(message);}
   function equal(a,b,message){assert(JSON.stringify(a)===JSON.stringify(b),message+'; got '+JSON.stringify(a));}
   async function test(name,run){try{await run();results.push({name:name,pass:true});}catch(e){results.push({name:name,pass:false,error:e.message});}finally{while(disposers.length)disposers.pop()();}}
-  var labels={words:'{n} words',selection:'{n} selected words',unsaved:'You have unsaved changes.',saved:'Changes saved.',saving:'Saving…',
+  var labels={retry:'Try Recovery Again',words:'{n} words',selection:'{n} selected words',unsaved:'You have unsaved changes.',saved:'Changes saved.',saving:'Saving…',
     text:'Chapter Text',mode:'Editing Mode',source:'Source',formatted:'Formatted',editSelection:'Edit Selection in Source',scene:'Scene Break',
     tooLarge:'Formatted mode is unavailable for this large chapter.',unavailable:'Formatted mode is unavailable.',inputFallback:'Input needs review in Source.',
     compare:'Compare Versions',archive:'Archive Version',recovery:'Recovery Copy',enable:'Enable Recovery in This Tab',disable:'Turn Off Recovery',
@@ -99,13 +99,25 @@ async function runDraftRecoveryDOMTests(K) {
     var resolve,fetch=()=>new Promise(r=>resolve=r),adapter=K.draftForm.attach(form,{store:store,window:clock,api:K.draftStore,now:()=>1001,fetch:fetch});disposers.push(()=>adapter.destroy());
     var pending=adapter.revalidate();form.elements.content.value='New local text';form.elements.content.dispatchEvent(new Event('input',{bubbles:true}));clock.flush();
     equal(K.draftStore.read(store,key,1001).fields.content,'Recovery','unverified tab cannot replace retained record');
-    resolve({ok:true,url:new URL('/auth/login',location.href).href,text:async()=>''});await pending;equal(store.getItem(key),null,'expired session clears writer data');equal(form.elements.content.value,'New local text','expired session retains page text');
+    resolve({ok:true,url:new URL('/auth/login',location.href).href,text:async()=>'<section data-js-module="draft-cleanup"><form action="/auth/attempt"></form></section>'});await pending;equal(store.getItem(key),null,'affirmative sign-in page clears writer data');equal(form.elements.content.value,'New local text','expired session retains page text');
   });
   await test('copy failures expose a labeled selectable recovery pane',function(){
     var form=fixture('Archive'),store=memory(),clock=timed();clock.navigator={clipboard:{writeText:function(){throw Error('denied');}}};K.draftStore.setEnabled(store,'5',true);
     K.draftStore.write(store,K.draftStore.key('5','chapter:42'),'a'.repeat(64),K.draftStore.fields({content:'Copy this'}),1000);
     var adapter=K.draftForm.attach(form,{store:store,window:clock,api:K.draftStore,now:()=>1001});disposers.push(()=>adapter.destroy());click(adapter.host,labels.copy);
     var box=adapter.host.querySelector('textarea[aria-label="'+labels.recovery+'"]');assert(box.readOnly,'readonly pane');assert(box.closest('label').textContent.includes(labels.recovery),'visible pane label');equal(box.value.slice(box.selectionStart,box.selectionEnd),'Copy this','fallback selection');
+  });
+  await test('offline revalidation retains every copy and exposes safe copy/discard plus retry',async function(){
+    var form=fixture('Archive'),store=memory(),clock=timed(),key=K.draftStore.key('5','chapter:42'),other=K.draftStore.key('5','chapter:43');
+    K.draftStore.setEnabled(store,'5',true);K.draftStore.write(store,key,'a'.repeat(64),K.draftStore.fields({content:'Recovery'}),1000);K.draftStore.write(store,other,'new',K.draftStore.fields({content:'Other'}),1000);
+    var fail=true,fetch=async()=>{if(fail)throw TypeError('Failed to fetch');return{ok:true,url:new URL(form.dataset.writerCheckUrl,location.href).href,text:async()=>form.outerHTML};};
+    var adapter=K.draftForm.attach(form,{store:store,window:clock,api:K.draftStore,now:()=>1001,fetch:fetch});disposers.push(()=>adapter.destroy());
+    await adapter.revalidate();assert(store.getItem(key)!==null&&store.getItem(other)!==null,'network failure retains both copies');assert(K.draftStore.enabled(store,'5'),'consent retained');
+    form.elements.content.value='Current unsaved';form.elements.content.dispatchEvent(new Event('input',{bubbles:true}));clock.flush();equal(K.draftStore.read(store,key,1001).fields.content,'Recovery','writes suspended');
+    assert(!Array.from(adapter.host.querySelectorAll('button')).some(b=>[labels.restore,labels.useDraft,labels.replaceUnsaved].includes(b.textContent)),'unsafe restore controls absent');
+    assert(Array.from(adapter.host.querySelectorAll('button')).some(b=>b.textContent===labels.copy),'copy retained');
+    fail=false;await adapter.revalidate();assert(Array.from(adapter.host.querySelectorAll('button')).some(b=>b.textContent===labels.restore),'successful retry restores recovery choice');
+    click(adapter.host,labels.discard);equal(store.getItem(key),null,'discard removes matching copy only');assert(store.getItem(other)!==null,'other chapter retained');
   });
   return results;
 }
