@@ -155,11 +155,7 @@ final class Builder
     public static function prune(string $cacheDir, string $cacheDbDsn): void
     {
         (new Cache($cacheDir))->purgeAll();
-        $cacheDbPath = self::cacheDbPath($cacheDbDsn);
-        if ($cacheDbPath === null) return;
-        foreach (['', '-wal', '-shm'] as $suffix) {
-            @unlink($cacheDbPath . $suffix);
-        }
+        self::purgeLivePageCache($cacheDbDsn);
     }
 
     /** Clear a live SQLite page cache in place so concurrent readers keep one database. */

@@ -70,22 +70,25 @@ final class BuilderTest extends TestCase
         $this->assertNull($cache->serve(new Request('GET', '/', [], [], [])));
     }
 
-    public function test_prune_removes_the_configured_cache_database_not_code(): void
+    public function test_prune_clears_configured_cache_in_place_for_open_connections(): void
     {
         $cacheDb = $this->path . '.cache';
         $codeDir = $this->path . '.code';
         mkdir($codeDir);
         file_put_contents($codeDir . '/cache.sqlite', 'immutable code sentinel');
-        foreach (['', '-wal', '-shm'] as $suffix) {
-            file_put_contents($cacheDb . $suffix, 'old cache');
-        }
+        $old = new Database('sqlite:' . $cacheDb);
+        $new = new Database('sqlite:' . $cacheDb);
+        (new \Kip\Cache\PageCache($old))->put('/stale', '', new \Kip\Http\Response('stale'), ['pages']);
         try {
             Builder::prune($this->cacheDir, 'sqlite:' . $cacheDb);
-            foreach (['', '-wal', '-shm'] as $suffix) {
-                $this->assertFileDoesNotExist($cacheDb . $suffix);
-            }
+            $this->assertFileExists($cacheDb);
+            $this->assertSame(0, (int) $old->one('SELECT COUNT(*) n FROM pages')['n']);
+            $this->assertSame(0, (int) $new->one('SELECT COUNT(*) n FROM page_tags')['n']);
+            $old->query("INSERT INTO pages (key, body, headers, etag, created_at) VALUES ('next', 'next', '{}', 'x', 1)");
+            $this->assertSame('next', $new->one("SELECT body FROM pages WHERE key = 'next'")['body']);
             $this->assertSame('immutable code sentinel', file_get_contents($codeDir . '/cache.sqlite'));
         } finally {
+            unset($old, $new);
             foreach (['', '-wal', '-shm'] as $suffix) @unlink($cacheDb . $suffix);
             @unlink($codeDir . '/cache.sqlite');
             @rmdir($codeDir);

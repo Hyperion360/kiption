@@ -37,8 +37,7 @@ final class CachePurge
         if (self::$ranFor?->get() === $app) return self::$result;
         $cacheDir = StaticCache\Cache::configuredDir($app);
         $cacheDb = (array) ($app->config('cache_db', []) ?? []);
-        StaticCache\Builder::prune($cacheDir, '');
-        StaticCache\Builder::purgeLivePageCache((string) ($cacheDb['dsn'] ?? ''));
+        StaticCache\Builder::prune($cacheDir, (string) ($cacheDb['dsn'] ?? ''));
         $publicDir = $app->config('public_dir');
         $baseUrl = rtrim((string) $app->config('base_url', ''), '/');
         if ($publicDir !== null && $baseUrl !== '') {

@@ -282,18 +282,15 @@ match ($argv[1] ?? 'help') {
         // the framework cache database below AND the static file layer in
         // public/cache, which serves anonymous traffic before App boots and
         // has no TTL at all (review: the first cut cleared only the database
-        // while its output marketed full invalidation). The cache database is
-        // disposable by contract; unlinking it (and its WAL sidecars) is the
-        // whole clear, recreated empty on the next request. db:seed and
+        // while its output marketed full invalidation). Clear cache rows in
+        // place so live workers keep using one SQLite database. db:seed and
         // pages:prune also purge both; operators rebuilding the static layer
         // afterwards run pages:build. No file-backed cache configured is a
         // clean no-op with a note.
         $cleared = [];
         $file = \App\StaticCache\Builder::cacheDbPath((string) ($config['cache_db']['dsn'] ?? ''));
         if ($file !== null) {
-            foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
-                if (is_file($f)) @unlink($f);
-            }
+            \App\StaticCache\Builder::purgeLivePageCache((string) $config['cache_db']['dsn']);
             $cleared[] = "framework page cache: {$file}";
         }
         if (!empty($config['static_cache']['enabled']) && is_string($config['static_cache']['dir'] ?? null)
