@@ -1,0 +1,5 @@
+[
+  {"name":"No-Op Toggle","source":"**Words**\n\nDon’t _change_ this.\n","selection":{"anchor":8,"focus":2},"actions":["formatted","source","formatted","source"],"expected":"**Words**\n\nDon’t _change_ this.\n"},
+  {"name":"Unknown Syntax","source":"# A Literal Heading\n\n- Dialogue.\n\n`raw` <img src=x>\n","selection":{"anchor":0,"focus":0},"actions":["formatted","source"],"expected":"# A Literal Heading\n\n- Dialogue.\n\n`raw` <img src=x>\n"},
+  {"name":"Unicode","source":"👩🏽‍💻 é café 中文\n","selection":{"anchor":8,"focus":8},"actions":["formatted","source"],"expected":"👩🏽‍💻 é café 中文\n"}
+]

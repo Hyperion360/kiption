@@ -109,3 +109,20 @@ test('browser exports expose the same source and existing paste APIs', () => {
   assert.equal(typeof context.Kip.paste?.attach, 'function');
   assert.equal(context.Kip.paste.convertNodeTree, context.Kip.pasteToMarkdown);
 });
+
+for (const file of readdirSync(fixtures).filter(name => name.endsWith('.md')).sort()) {
+  test(`${file}: formatted spans partition the exact source`, () => {
+    const projection = require('../../public/assets/rich-projection.js');
+    const text = readFileSync(new URL(file, fixtures), 'utf8');
+    const parts = projection.spans(text, subset);
+    assert.equal(parts.map(part => text.slice(part.start, part.end)).join(''), text);
+    assert.equal(parts[0].start, 0);
+    assert.equal(parts.at(-1).end, text.length);
+    const active = require('../../public/assets/rich-active.js');
+    assert.equal(active.readText({nodeType:3, data:text}), text, 'plaintext input distinguishes exact fixture source');
+    parts.slice(1).forEach((part, index) => assert.equal(part.start, parts[index].end));
+  });
+}
+test('empty source has one editable formatted span', () => {
+  assert.deepEqual(require('../../public/assets/rich-projection.js').spans('', subset), [{ type: 'gap', start: 0, end: 0 }]);
+});

@@ -189,7 +189,7 @@ final class ChapterController
         }
         $writerServer['publish_at'] = substr($writerServer['publish_at'], 0, 16);
         $writerLabels = [];
-        foreach (['words', 'selection', 'unsaved', 'saved', 'saving', 'focus', 'typewriter', 'compare', 'archive', 'recovery',
+        foreach (['text', 'mode', 'source', 'formatted', 'editSelection', 'scene', 'tooLarge', 'unavailable', 'inputFallback', 'unconverted', 'words', 'selection', 'unsaved', 'saved', 'saving', 'focus', 'typewriter', 'compare', 'archive', 'recovery',
             'enable', 'disable', 'retry', 'restore', 'replaceUnsaved', 'useDraft', 'discard', 'copy',
             'recoveryUnavailable', 'recoveryProtected', 'recoveryOff', 'recoveryTab', 'recoveryOffer',
             'recoveryConflict', 'recoveryDiscarded', 'recoveryRestored', 'recoveryWritten',
@@ -220,6 +220,7 @@ final class ChapterController
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
             'writerLabels' => $writerLabels,
+            'formattedEnabled' => $this->app->config('editor_formatted', false) === true,
             'notice' => $error === null && \App\Saved::message($this->request) === 'admin.saved_saved'
                 ? \App\Lang::t('chapter.saved') : '',
             'loggedIn' => true,

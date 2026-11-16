@@ -14,6 +14,9 @@ $publicDir = defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : ($deployment['
 $footerLinks = json_decode((string) (getenv('KIP_FOOTER_LINKS') ?: '[]'), true);
 $footerLinks = is_array($footerLinks) ? $footerLinks : [];
 return [
+    // Unreleased comparison. Enable only after required browser/device validation.
+    'editor_formatted' => false,
+
     'env'     => getenv('KIP_ENV') ?: 'prod', // prod default, D4 info-disclosure rule
     'data_dir' => $dataDir, // the private writable tree: databases, backups, nav, setup state (release layout: site/shared; flat layout: app/)
     'site_text_dir' => getenv('KIP_SITE_TEXT_DIR') ?: $dataDir . '/site-text', // compiled owner text (App\SiteText\Compiler); KIP_SITE_TEXT_DIR: tests/CLI point it at a throwaway dir

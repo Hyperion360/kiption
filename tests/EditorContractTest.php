@@ -24,7 +24,7 @@ final class EditorContractTest extends TestCase
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
-    private function client(): TestClient
+    private function client(mixed $formatted = false): TestClient
     {
         $app = new App([
             'app_dir' => dirname(__DIR__, 1) . '/app',
@@ -35,6 +35,7 @@ final class EditorContractTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->path . '.mail', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-editor-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+            'editor_formatted' => $formatted,
         ]);
         return (new TestClient($app))->actingAs(1);
     }
@@ -50,6 +51,27 @@ final class EditorContractTest extends TestCase
         $this->assertStringContainsString('required', $html, 'the plain form is unchanged');
         $this->assertStringContainsString('Ctrl or Cmd plus B', $html, 'the shortcut hint renders');
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $html, 'no inline script');
+    }
+
+    public function test_formatted_mode_requires_the_explicit_boolean_config_and_retains_native_save(): void
+    {
+        foreach ([false, 'true', 1, true] as $enabled) {
+            $html = $this->client($enabled)->get('/chapter/new/the-rabbit-hole', ['editor_formatted' => '1'])->body;
+            [$form, $xpath] = $this->writerForm($html, 'chapter-editor-form');
+            $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
+            $this->assertSame($enabled === true, str_contains($box->getAttribute('data-js-module'), 'rich-editor'));
+            $this->assertFalse($box->hasAttribute('hidden'));
+            $this->assertTrue($box->hasAttribute('required'));
+            $this->assertFalse($box->hasAttribute('disabled'));
+            $this->assertSame('Enter chapter text before saving.', $form->getAttribute('data-content-required'));
+            $labels = json_decode($box->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame('Formatted', $labels['formatted']);
+            $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $form)->length);
+        }
+        $config = (string) file_get_contents(dirname(__DIR__) . '/config.php');
+        $this->assertStringContainsString("'editor_formatted' => false", $config);
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("['rich-editor', ['subset', 'source-document', 'rich-projection', 'rich-active', 'text-edit', 'smart', 'paste', 'editor']]", $js);
     }
 
     public function test_the_loader_lists_the_editor_module_and_the_files_exist(): void

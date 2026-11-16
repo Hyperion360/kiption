@@ -1961,3 +1961,16 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .look-preview-body p { margin: 0 0 12px; }
 .look-preview-body a { color: var(--accent); }
 .look-preview-button { display: inline-block; padding: 8px 16px; background: var(--btn); color: var(--btn-ink); font: 500 14px/1.4 var(--sans); }
+
+/* Formatted comparison: exact raw text stays in the active block. */
+.writer-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
+.writer-modes button { min-height: 44px; }
+.writer-modes [aria-pressed="true"] { box-shadow: inset 0 -3px 0 currentColor; }
+.writer-surface { padding: 1rem; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
+.writer-block, .writer-active { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.65; }
+.writer-block { margin: 0; min-height: 1em; }
+.writer-active { display: block; width: 100%; min-height: 4em; resize: vertical; padding: .5rem; border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); box-sizing: border-box; }
+.writer-active:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.writer-link { text-decoration: underline; }
+.writer-surface[hidden], .writer-rich [hidden] { display: none; }
+@media (max-width: 40rem) { .writer-surface { padding: .5rem; } .writer-active { min-height: 8rem; } }

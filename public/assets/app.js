@@ -117,7 +117,8 @@
     document.head.appendChild(script);
   }
   [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['adminforms'], ['look'],
-   ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']], ['draft-form', ['draft-store']], ['writer-comfort']].forEach(function (entry) {
+   ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']], ['draft-form', ['draft-store']], ['writer-comfort'],
+   ['rich-editor', ['subset', 'source-document', 'rich-projection', 'rich-active', 'text-edit', 'smart', 'paste', 'editor']]].forEach(function (entry) {
     var m = entry[0];
     var wanted = function (el) { return (' ' + el.getAttribute('data-js-module') + ' ').indexOf(' ' + m + ' ') > -1; };
     if (Array.prototype.some.call(document.querySelectorAll('[data-js-module]'), wanted)) {
