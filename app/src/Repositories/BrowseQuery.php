@@ -21,6 +21,7 @@ final class BrowseQuery
         public readonly string $sort,
         public readonly int $page,
         public readonly TagFilter $tags,
+        public readonly array $categories = [],
     ) {}
 
     public static function fromQuery(array $q): self
@@ -28,7 +29,7 @@ final class BrowseQuery
         $status = self::text($q['status'] ?? '');
         $sort = self::text($q['sort'] ?? '');
         $language = self::text($q['language'] ?? '');
-        $cat = self::text($q['cat'] ?? '');
+        $categories = CategoryFilter::slugs($q['cat'] ?? []);
         $wmin = self::words($q['wmin'] ?? '');
         $wmax = self::words($q['wmax'] ?? '');
         if ($wmin !== null && $wmax !== null && $wmin > $wmax) {
@@ -40,10 +41,11 @@ final class BrowseQuery
             preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/', $language) === 1 ? $language : '',
             $wmin,
             $wmax,
-            preg_match('/^[a-z0-9-]{1,100}$/', $cat) === 1 ? $cat : '',
+            $categories[0] ?? '',
             in_array($sort, self::SORTS, true) ? $sort : 'updated',
             max(1, min($page, intdiv(PHP_INT_MAX, self::PER_PAGE) - 1)),
             TagFilter::fromQuery($q),
+            $categories,
         );
     }
 
@@ -56,7 +58,7 @@ final class BrowseQuery
     public function filtered(): bool
     {
         return $this->status !== 'any' || $this->language !== '' || $this->wmin !== null || $this->wmax !== null
-            || $this->cat !== '' || !$this->tags->isEmpty();
+            || $this->categories !== [] || !$this->tags->isEmpty();
     }
 
     /** The query string that restores this exact filter, for the pager links
@@ -66,12 +68,13 @@ final class BrowseQuery
         $out = [];
         if ($this->tags->include) { $out['tag'] = $this->tags->include; }
         if ($this->tags->exclude) { $out['xtag'] = $this->tags->exclude; }
+        if ($this->tags->excludeNames) { $out['xtags'] = implode(',', $this->tags->excludeNames); }
         if ($this->tags->names) { $out['tags'] = implode(',', $this->tags->names); }
         if ($this->status !== 'any') { $out['status'] = $this->status; }
         if ($this->language !== '') { $out['language'] = $this->language; }
         if ($this->wmin !== null) { $out['wmin'] = $this->wmin; }
         if ($this->wmax !== null) { $out['wmax'] = $this->wmax; }
-        if ($this->cat !== '') { $out['cat'] = $this->cat; }
+        if ($this->categories !== []) { $out['cat'] = $this->categories; }
         if ($this->sort !== 'updated') { $out['sort'] = $this->sort; }
         return $out;
     }

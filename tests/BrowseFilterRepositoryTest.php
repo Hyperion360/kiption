@@ -256,7 +256,7 @@ final class BrowseFilterRepositoryTest extends TaxonomyCase
 
     public function test_query_coerces_junk_to_defaults(): void
     {
-        $q = BrowseQuery::fromQuery(['status' => ['x'], 'sort' => 'hax', 'language' => 'x', 'wmin' => 'abc', 'wmax' => '99999999999', 'cat' => ['a'], 'page' => '-3']);
+        $q = BrowseQuery::fromQuery(['status' => ['x'], 'sort' => 'hax', 'language' => 'x', 'wmin' => 'abc', 'wmax' => '99999999999', 'cat' => [['a']], 'page' => '-3']);
         $this->assertSame(['any', 'updated', '', null, BrowseQuery::WORDS_CAP, '', 1], [$q->status, $q->sort, $q->language, $q->wmin, $q->wmax, $q->cat, $q->page]);
         $this->assertSame(1, BrowseQuery::fromQuery(['page' => '99999999999999999999999'])->page > 1 ? 1 : 0, 'a huge page stays an int');
     }

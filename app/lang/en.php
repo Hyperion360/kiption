@@ -1847,4 +1847,6 @@ return [
     'look.err_contrast_text' => 'Text and background contrast is {ratio} to 1. It needs at least 4.5 to 1.',
     'look.err_contrast_accent' => 'Accent and background contrast is {ratio} to 1. It needs at least 5 to 1.',
     'look.err_write' => 'Your choices could not be saved because the site folder is not writable. Nothing was changed.',
+    'search.categories' => 'Categories',
+    'search.categories_hint' => 'Stories may belong to any selected category.',
 ];

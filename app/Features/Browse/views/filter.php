@@ -53,12 +53,13 @@
         <?php foreach ($result['languages'] as $l): ?><option value="<?= $this->e($l) ?>"<?= $q->language === $l ? ' selected' : '' ?>><?= $this->e($l) ?></option><?php endforeach; ?>
       </select>
     </label>
-    <label><?= \App\Lang::t('browse.category') ?>
-      <select name="cat">
-        <option value=""><?= \App\Lang::t('browse.any_category') ?></option>
-        <?php foreach ($result['categories'] as $c): ?><option value="<?= $this->e($c['slug']) ?>"<?= $q->cat === $c['slug'] ? ' selected' : '' ?>><?= $this->e($c['name']) ?></option><?php endforeach; ?>
-      </select>
-    </label>
+    <fieldset>
+      <legend><?= \App\Lang::t('search.categories') ?></legend>
+      <p class="hint"><?= \App\Lang::t('search.categories_hint') ?></p>
+      <?php foreach ($result['categories'] as $c): ?>
+      <label class="inline"><input type="checkbox" name="cat[]" value="<?= $this->e($c['slug']) ?>"<?= in_array($c['slug'], $q->categories, true) ? ' checked' : '' ?>> <?= $this->e($c['name']) ?></label>
+      <?php endforeach; ?>
+    </fieldset>
     <label><?= \App\Lang::t('browse.min_words') ?> <input type="number" name="wmin" min="0" inputmode="numeric" value="<?= $q->wmin !== null ? (int) $q->wmin : '' ?>"></label>
     <label><?= \App\Lang::t('browse.max_words') ?> <input type="number" name="wmax" min="0" inputmode="numeric" value="<?= $q->wmax !== null ? (int) $q->wmax : '' ?>"></label>
     <label><?= \App\Lang::t('browse.sort') ?>

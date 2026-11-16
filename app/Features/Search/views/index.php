@@ -6,7 +6,7 @@
      // visit with nothing asked shows a hint, not an empty-result message.
      $this->layout('layout');
      $asked = $q !== '' || array_filter($filters, static fn ($v): bool => $v !== null && $v !== '' && $v !== false && $v !== []) !== [];
-     $refined = ($filters['category'] ?? null) !== null || ($filters['rating_id'] ?? null) !== null
+     $refined = ($filters['category'] ?? []) !== [] || ($filters['rating_id'] ?? null) !== null
          || ($filters['completed'] ?? null) === true || (string) ($filters['language'] ?? '') !== ''
          || ($filters['tag'] ?? null) !== null || ($filters['character'] ?? null) !== null
          || (string) ($filters['tags'] ?? '') !== '' || (string) ($filters['xtags'] ?? '') !== ''
@@ -24,14 +24,13 @@
     <details class="search-refine"<?= $refined ? ' open' : '' ?>>
       <summary><?= \App\Lang::t('search.refine') ?></summary>
       <div class="refine-grid">
-        <label><?= \App\Lang::t('search.category') ?>
-          <select name="category">
-            <option value=""><?= \App\Lang::t('search.any_category') ?></option>
-            <?php foreach ($categories as $c): ?>
-              <option value="<?= $this->e($c['slug']) ?>" <?= ($filters['category'] ?? null) === $c['slug'] ? 'selected' : '' ?>><?= $this->e($c['name']) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </label>
+        <fieldset>
+          <legend><?= \App\Lang::t('search.categories') ?></legend>
+          <p class="hint"><?= \App\Lang::t('search.categories_hint') ?></p>
+          <?php foreach ($categories as $c): ?>
+          <label class="inline"><input type="checkbox" name="category[]" value="<?= $this->e($c['slug']) ?>"<?= in_array($c['slug'], $filters['category'] ?? [], true) ? ' checked' : '' ?>> <?= $this->e($c['name']) ?></label>
+          <?php endforeach; ?>
+        </fieldset>
         <label><?= \App\Lang::t('search.rating') ?>
           <select name="rating">
             <option value=""><?= \App\Lang::t('search.any_rating') ?></option>
@@ -83,12 +82,12 @@
 // Pagination preserves the active query string (q + every filter), the
 // plan's "prev/next preserve the query string" requirement.
 $carry = ['q' => $q,
-          'category' => (string) ($filters['category'] ?? ''),
+          'category' => $filters['category'] ?? [],
           'rating' => (string) ($filters['rating_id'] ?? ''),
-          'completed' => ($filters['completed'] ?? null) === true ? '1' : '',
+          'completed' => ($filters['completed'] ?? null) === null ? '' : ($filters['completed'] ? '1' : '0'),
           'language' => (string) ($filters['language'] ?? ''),
-          'character' => (string) ($filters['character'] ?? '')];
-$keep = array_filter($carry, fn (string $v): bool => $v !== '');
+          'character' => (string) ($filters['character'] ?? ''), 'sort' => $sort];
+$keep = array_filter($carry, static fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
 // Tag ids ride the pager in the shape they arrived (one id or several), or
 // paging drops them. Leave-out ids and tag names ride too.
 $tag = $filters['tag'] ?? null;

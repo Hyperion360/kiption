@@ -71,7 +71,8 @@ final class SearchRepository
         $taxonomy = "SELECT 'r' k, r.position p, CAST(r.id AS TEXT) a, r.label b, NULL c, NULL d, NULL e, NULL f, NULL g, NULL h FROM ratings r
                      UNION ALL
                      SELECT 'c', c.position, c.slug, c.name, NULL, NULL, NULL, NULL, NULL, NULL FROM categories c";
-        if ($tokens === [] && self::tagFilter($filters)->isEmpty() && empty($filters['character'])) {
+        $filterProbe = [];
+        if ($tokens === [] && $this->filterSql($filters, $filterProbe) === '') {
             return $this->partition($this->db->all($taxonomy . ' ORDER BY k, p'), $perPage, 'none', $capped);
         }
         $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
@@ -187,10 +188,7 @@ final class SearchRepository
     private function filterSql(array $filters, array &$params): string
     {
         $sql = '';
-        if (!empty($filters['category'])) {
-            $sql .= ' AND EXISTS (SELECT 1 FROM story_categories sc JOIN categories cc ON cc.id = sc.category_id WHERE sc.story_id = s.id AND cc.slug = ?)';
-            $params[] = $filters['category'];
-        }
+        $sql .= CategoryFilter::sql(CategoryFilter::slugs($filters['category'] ?? []), $params);
         if (!empty($filters['rating_id'])) { $sql .= ' AND s.rating_id = ?'; $params[] = (int) $filters['rating_id']; }
         if (isset($filters['completed']) && $filters['completed'] !== null) { $sql .= ' AND s.completed = ?'; $params[] = $filters['completed'] ? 1 : 0; }
         if (!empty($filters['language'])) { $sql .= ' AND s.language = ?'; $params[] = $filters['language']; }

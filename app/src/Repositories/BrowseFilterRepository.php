@@ -120,10 +120,7 @@ final class BrowseFilterRepository
             $sql .= ' AND +s.word_count <= CAST(? AS INTEGER)';
             $binds[] = $q->wmax;
         }
-        if ($q->cat !== '') {
-            $sql .= ' AND EXISTS (SELECT 1 FROM story_categories sc JOIN categories cc ON cc.id = sc.category_id WHERE sc.story_id = s.id AND cc.slug = ?)';
-            $binds[] = $q->cat;
-        }
+        $sql .= CategoryFilter::sql($q->categories, $binds);
         $sql .= $q->tags->sql($binds, 's');
         if ($viewer > 0) {
             $sql .= MuteRepository::clause('s');

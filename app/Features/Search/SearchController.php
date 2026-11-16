@@ -29,7 +29,7 @@ final class SearchController
         // string; anything else becomes null and filters nothing.
         $onlyString = fn (mixed $v): ?string => is_string($v) && $v !== '' ? $v : null;
         $filters = [
-            'category' => preg_match('#^[a-z0-9-]+$#', (string) ($this->request->get['category'] ?? '')) ? (string) $this->request->get['category'] : null,
+            'category' => \App\Repositories\CategoryFilter::slugs($this->request->get['category'] ?? []),
             'rating_id' => ctype_digit((string) ($this->request->get['rating'] ?? '')) ? (int) $this->request->get['rating'] : null,
             'completed' => ($this->request->get['completed'] ?? '') === '1' ? true : null,
             'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($this->request->get['language'] ?? '')) ? (string) $this->request->get['language'] : null,
