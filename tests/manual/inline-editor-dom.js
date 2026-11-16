@@ -55,6 +55,7 @@
         var actual = f.view.readSelection();
         equal(actual.anchor, anchor, 'anchor ' + anchor + ':' + focus);
         equal(actual.focus, focus, 'focus ' + anchor + ':' + focus);
+        equal(document.getSelection().isCollapsed, anchor === focus, 'native collapsed state ' + anchor + ':' + focus);
       }
     }
   });
@@ -82,18 +83,41 @@
     }
     equal(f.model.revision, 0, 'revision');
   });
-  check('Unicode caret restoration is exact or visibly refused', function () {
+  check('Unicode caret restoration is exact at every UTF-16 boundary', function () {
     var f = fixture('👩🏽‍💻 café');
     for (var n = 0; n <= f.model.text.length; n++) {
-      try {
-        f.view.restoreSelection({anchor:n,focus:n});
-        var actual = f.view.readSelection();
-        equal(actual.anchor, n, 'caret anchor ' + n);
-        equal(actual.focus, n, 'caret focus ' + n);
-      } catch (error) {
-        if (!/unmappable|unsupported|selection/.test(error.message)) throw error;
-      }
+      f.view.restoreSelection({anchor:n,focus:n});
+      var actual = f.view.readSelection();
+      equal(actual.anchor, n, 'caret anchor ' + n);
+      equal(actual.focus, n, 'caret focus ' + n);
+      equal(document.getSelection().isCollapsed, true, 'native Unicode caret ' + n);
     }
+  });
+  check('Safari mixed forward endpoint shape preserves source range', function () {
+    var source = 'Alpha\n\nBeta', f = fixture(source), expected = {anchor:4,focus:source.length-1};
+    f.view.restoreSelection(expected);
+    equal(f.view.readSelection().anchor, expected.anchor, 'forward anchor');
+    equal(f.view.readSelection().focus, expected.focus, 'forward focus');
+    equal(f.model.text, source, 'source');
+    equal(f.model.undo(), false, 'selection has no history');
+  });
+  check('Safari mixed forward Unicode and structural endpoint shape preserves range', function () {
+    var source = 'A👩🏽‍💻\nZ\n\nBeta', f = fixture(source);
+    var expected = {anchor:source.indexOf('Z')+1,focus:source.length-1};
+    f.view.restoreSelection(expected);
+    equal(f.view.readSelection().anchor, expected.anchor, 'Unicode forward anchor');
+    equal(f.view.readSelection().focus, expected.focus, 'Unicode forward focus');
+    equal(f.model.text, source, 'source');
+    equal(f.model.undo(), false, 'selection has no history');
+  });
+  check('Safari mixed backward Unicode and structural endpoint shape preserves range', function () {
+    var source = 'A👩🏽‍💻\nZ\n\nBeta', f = fixture(source);
+    var expected = {anchor:source.length-1,focus:source.indexOf('Z')+1};
+    f.view.restoreSelection(expected);
+    equal(f.view.readSelection().anchor, expected.anchor, 'Unicode backward anchor');
+    equal(f.view.readSelection().focus, expected.focus, 'Unicode backward focus');
+    equal(f.model.text, source, 'source');
+    equal(f.model.undo(), false, 'selection has no history');
   });
   check('directed cross-line selection survives restore and capture', function () {
     var f = fixture('**one**\n\ntwo');

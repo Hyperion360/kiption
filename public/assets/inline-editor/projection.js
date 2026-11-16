@@ -160,7 +160,9 @@
     }
     function restoreSelection(selection) {
       if (!selection) selection = model.selection;
-      var anchor = toDom(selection.anchor, 'after'), focus = toDom(selection.focus, 'before');
+      var anchor = toDom(selection.anchor, 'after');
+      // One source caret must be one native DOM point, even at a span edge.
+      var focus = selection.anchor === selection.focus ? anchor : toDom(selection.focus, 'before');
       var browser = doc.getSelection();
       if (!browser) throw new RangeError('selection API unavailable');
       if (browser.setBaseAndExtent) browser.setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset);
