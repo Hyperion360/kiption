@@ -107,6 +107,13 @@ final class CoauthorController
         [$characterGroups, $selectedCharacters] = AuthoringRepository::characterGroups($rows);
         $chapters = ($story['h'] ?? null) !== null && $story['h'] !== '[]' ? json_decode((string) $story['h'], true) ?: [] : [];
         usort($chapters, static fn(array $x, array $y): int => (int) $x['position'] <=> (int) $y['position']);
+        $values = [
+            'title' => $story['b'], 'summary' => $story['c'], 'notes' => $story['d'],
+            'rating_id' => $story['f'], 'completed' => $story['g'], 'restricted' => (int) $story['i'],
+            'language' => (string) $story['j'], 'round_robin' => (int) $story['p'],
+            'is_original' => (int) ($story['r'] ?? 0), 'gift_to' => (string) ($story['q'] ?? ''),
+            'canonical_url' => (string) ($story['n'] ?? ''), 'crosspost_url' => (string) ($story['o'] ?? ''),
+        ];
         return $this->view->render('story/form', [
             'title' => \App\Lang::t('story.edit_heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('story.edit_heading'))->withCanonical('/story/edit/' . $slug)->withNoindex(),
@@ -114,12 +121,14 @@ final class CoauthorController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => '/story/edit/' . $slug,
-            'story' => [
-                'slug' => $slug, 'title' => $story['b'], 'summary' => $story['c'],
-                'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
-                'restricted' => (int) $story['i'],
-                'language' => (string) $story['j'],
-            ],
+            'story' => ['slug' => $slug] + $values,
+            'values' => $values,
+            'ratingInvalid' => false,
+            'passwordDiscarded' => false,
+            'draftSuggest' => [],
+            'draftWithdraw' => [],
+            'suggestions' => AuthoringRepository::suggestionGroups($rows),
+            'tagPolicy' => \App\Settings::get('tag_policy'),
             'selectedCategories' => array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
             'categories' => $categories,
             'ratings' => $ratings,
@@ -132,6 +141,11 @@ final class CoauthorController
             'canManageCoauthors' => $me === (int) $story['l'] || (int) $story['m'] === 1,
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
+            'writerLabels' => [
+                'unsaved' => \App\Lang::t('writer.unsaved'),
+                'saved' => \App\Lang::t('writer.saved'),
+                'saving' => \App\Lang::t('writer.saving'),
+            ],
             'loggedIn' => true,
         ]);
     }
