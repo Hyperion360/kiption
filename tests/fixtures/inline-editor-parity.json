@@ -1,0 +1,20 @@
+[
+  {"source":"Plain 👩‍💻 text.","readerHtml":"<p>Plain 👩‍💻 text.</p>\n","styledRanges":[]},
+  {"source":"Say **Words**.","readerHtml":"<p>Say <strong>Words</strong>.</p>\n","styledRanges":[{"kind":"strong","start":6,"end":11}]},
+  {"source":"*soft* and _quiet_","readerHtml":"<p><em>soft</em> and <em>quiet</em></p>\n","styledRanges":[{"kind":"em","start":1,"end":5},{"kind":"em","start":12,"end":17}]},
+  {"source":"\\*literal\\*","readerHtml":"<p>*literal*</p>\n","styledRanges":[]},
+  {"source":"[label](https://e.test/)","readerHtml":"<p><a href=\"https://e.test/\" rel=\"noopener\">label</a></p>\n","styledRanges":[{"kind":"link","start":1,"end":6}]},
+  {"source":"[a *b*](https://e.test/)","readerHtml":"<p><a href=\"https://e.test/\" rel=\"noopener\">a <em>b</em></a></p>\n","styledRanges":[{"kind":"link","start":1,"end":6},{"kind":"em","start":4,"end":5}]},
+  {"source":"**a _b_ c**","readerHtml":"<p><strong>a <em>b</em> c</strong></p>\n","styledRanges":[{"kind":"strong","start":2,"end":9},{"kind":"em","start":5,"end":6}]},
+  {"source":"**see [x](https://e.test/) now**","readerHtml":"<p><strong>see <a href=\"https://e.test/\" rel=\"noopener\">x</a> now</strong></p>\n","styledRanges":[{"kind":"strong","start":2,"end":30},{"kind":"link","start":7,"end":8}]},
+  {"source":"**see [x](https://e.test/a*b) now**","readerHtml":"<p><strong>see <a href=\"https://e.test/a*b\" rel=\"noopener\">x</a> now</strong></p>\n","styledRanges":[{"kind":"strong","start":2,"end":33},{"kind":"link","start":7,"end":8}]},
+  {"source":"*a\\*b*","readerHtml":"<p><em>a*b</em></p>\n","styledRanges":[{"kind":"em","start":1,"end":5}]},
+  {"source":"snake_case_word","readerHtml":"<p>snake_case_word</p>\n","styledRanges":[]},
+  {"source":"[label](http://e.test/)","readerHtml":"<p>[label](http://e.test/)</p>\n","styledRanges":[]},
+  {"source":"> Quoted *line*.","readerHtml":"<blockquote><p>Quoted <em>line</em>.</p></blockquote>\n","styledRanges":[{"kind":"quote","start":2,"end":16},{"kind":"em","start":10,"end":14}]},
+  {"source":"Before\n\n---\n\nAfter","readerHtml":"<p>Before</p>\n<hr>\n<p>After</p>\n","styledRanges":[{"kind":"scene","start":8,"end":11}]},
+  {"source":"# Heading","readerHtml":"<p># Heading</p>\n","styledRanges":[]},
+  {"source":"`code`","readerHtml":"<p>`code`</p>\n","styledRanges":[]},
+  {"source":"**unclosed","readerHtml":"<p>**unclosed</p>\n","styledRanges":[]},
+  {"source":"![alt](https://e.test/i.png)","readerHtml":"<p><img src=\"https://e.test/i.png\" alt=\"alt\"></p>\n","styledRanges":[]}
+]

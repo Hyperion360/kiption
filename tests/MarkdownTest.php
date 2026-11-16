@@ -5,6 +5,14 @@ use PHPUnit\Framework\TestCase;
 
 final class MarkdownTest extends TestCase
 {
+    public function test_inline_editor_parity_fixtures(): void
+    {
+        $rows = json_decode(file_get_contents(__DIR__ . '/fixtures/inline-editor-parity.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($rows as $row) {
+            $this->assertSame($row['readerHtml'], Markdown::render($row['source'], false), $row['source']);
+        }
+    }
+
     public function test_paragraphs(): void
     {
         $this->assertSame("<p>One.</p>\n<p>Two.</p>\n", Markdown::render("One.\n\nTwo."));
