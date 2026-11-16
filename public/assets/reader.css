@@ -629,6 +629,16 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .search-form .search-q { flex: 1; margin: 0; }
 .search-form .search-q input { width: 100%; max-width: none; min-height: 52px; font-size: 18px; }
 .search-row .btn-primary { min-height: 52px; }
+/* Live search uses the existing page colors and ordinary document flow. */
+.site-main [data-search-suggestions] { list-style: none; padding: 0; margin: 8px 0 0; border: 1px solid var(--line); background: var(--surface); }
+.site-main [data-search-suggestions][hidden] { display: none; }
+[data-search-suggestions] [role="option"] { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
+[data-search-suggestions] [role="option"] + [role="option"] { border-block-start: 1px solid var(--line); }
+[data-search-suggestions] [aria-selected="true"] { background: var(--hover); outline: 2px solid var(--accent); outline-offset: -2px; }
+.search-form .search-q { min-width: 0; }
+.search-form fieldset .hint { flex-basis: 100%; }
+@media (max-width: 400px) { .search-row { flex-wrap: wrap; } .search-row .search-q { flex-basis: 100%; } }
+
 .search-refine { margin-block-start: 14px; }
 .search-refine summary { cursor: pointer; font: 500 14px var(--sans); color: var(--ink-2); min-height: 32px; display: inline-flex; align-items: center; }
 .search-refine summary:hover { color: var(--ink); }

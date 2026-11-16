@@ -18,7 +18,7 @@
     <fieldset>
       <legend><?= $this->e($type['name']) ?></legend>
       <?php foreach ($result['tags'] as $t): if ((int) $t['type'] !== (int) $type['id']) continue; ?>
-      <label class="tag-pick"><input type="checkbox" <?= 'name="' . $field . '[]" value="' . (int) $t['id'] . '"' . (in_array((int) $t['id'], $on, true) ? ' checked' : '') ?>> <?= $this->e($t['name']) ?> (<?= $this->e((string) (int) $t[$field === 'xtag' ? 'excludedCount' : 'count']) ?>)</label>
+      <label class="tag-pick"><input type="checkbox" <?= 'name="' . $field . '[]" value="' . (int) $t['id'] . '"' . (in_array((int) $t['id'], $on, true) ? ' checked' : '') ?>> <span data-search-count="<?= $field ?>:<?= (int) $t['id'] ?>" data-count-label="<?= $this->e($t['name']) ?>"><?= $this->e($t['name']) ?> (<?= $this->e((string) (int) $t[$field === 'xtag' ? 'excludedCount' : 'count']) ?>)</span></label>
       <?php endforeach; ?>
     </fieldset>
     <?php endforeach; ?>
@@ -28,7 +28,7 @@
   <fieldset>
     <legend><?= \App\Lang::t('browse.also_selected') ?></legend>
     <?php foreach ($extra as $t): $isX = in_array((int) $t['id'], $xIds, true); ?>
-    <label class="tag-pick"><input type="checkbox" <?= 'name="' . ($isX ? 'xtag' : 'tag') . '[]" value="' . (int) $t['id'] . '" checked' ?>> <?= $this->e($t['name']) ?> (<?= $this->e((string) (int) $t[$isX ? 'excludedCount' : 'count']) ?>)</label>
+    <label class="tag-pick"><input type="checkbox" <?= 'name="' . ($isX ? 'xtag' : 'tag') . '[]" value="' . (int) $t['id'] . '" checked' ?>> <span data-search-count="<?= $isX ? 'xtag' : 'tag' ?>:<?= (int) $t['id'] ?>" data-count-label="<?= $this->e($t['name']) ?>"><?= $this->e($t['name']) ?> (<?= $this->e((string) (int) $t[$isX ? 'excludedCount' : 'count']) ?>)</span></label>
     <?php endforeach; ?>
   </fieldset>
   <?php endif; ?>
