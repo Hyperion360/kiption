@@ -2,7 +2,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 const root = new URL('../../', import.meta.url);
-const assets = new Set(['reader.css','subset.js','source-document.js','rich-projection.js','rich-active.js','text-edit.js','smart.js','paste.js','editor.js','rich-editor.js']);
+const assets = new Set(['reader.css','subset.js','source-document.js','rich-projection.js','rich-active.js','text-edit.js','smart.js','paste.js','editor.js','rich-editor.js','wordcount.js','writer-status.js','writer-comfort.js']);
 const manual = new Set(['editor-comparison.html','editor-environment.js','editor-comparison.js','editor-dom.test.js']);
 createServer(async (req,res) => {
   let path = new URL(req.url,'http://localhost').pathname;

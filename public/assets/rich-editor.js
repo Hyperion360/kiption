@@ -23,23 +23,34 @@
     host.append(controls, status, surface);
     var label = box.closest('label'); (label || box).insertAdjacentElement('afterend', host);
     function on(target, name, fn, capture) { target.addEventListener(name, fn, capture); cleanup.push(function () { target.removeEventListener(name, fn, capture); }); }
+    function syncSource() {
+      box.value = model.text; K.richActive.setTextSelection(box, model.selection);
+    }
     function publish(kind, inserted) {
-      syncing = true; box.value = model.text;
-      K.richActive.setTextSelection(box, model.selection);
+      syncing = true; syncSource();
       var inputType=kind==='history'?'historyUndo':inserted?'insertReplacementText':'deleteContentBackward';
-      box.dispatchEvent(new win.InputEvent('input', { bubbles: true, inputType: inputType })); syncing = false;
+      box.dispatchEvent(new win.InputEvent('input', { bubbles: true, inputType: inputType }));
+      if (formatted && active) box.dispatchEvent(new win.CustomEvent('writer-commit', {
+        bubbles: true, detail: { control: active.element, inserted: inserted, kind: kind }
+      }));
+      syncing = false;
     }
     function modeState() {
       box.hidden = formatted; surface.hidden = !formatted; selectionButton.hidden = !formatted;
       sourceButton.setAttribute('aria-pressed', String(!formatted)); formattedButton.setAttribute('aria-pressed', String(formatted));
     }
+    function selectSource(selection) {
+      model.select(selection);
+      var submitted = K.richActive.textSelection(box);
+      if (submitted.anchor !== selection.anchor || submitted.focus !== selection.focus) K.richActive.setTextSelection(box, selection);
+    }
     function capture() {
       if (composing) return;
       if (!formatted) model.select(K.richActive.textSelection(box));
       else if (active && doc.activeElement === active.element) {
-        var s = active.selection(); model.select({ anchor: region.start + s.anchor, focus: region.start + s.focus });
-        var submitted = K.richActive.textSelection(box), selected = model.selection;
-        if (submitted.anchor !== selected.anchor || submitted.focus !== selected.focus) K.richActive.setTextSelection(box, selected);
+        var dom = doc.getSelection();
+        if (dom && (!active.element.contains(dom.anchorNode) || !active.element.contains(dom.focusNode)) && captureProjectionSelection()) return;
+        var s = active.selection(); selectSource({ anchor: region.start + s.anchor, focus: region.start + s.focus });
       }
     }
     function localSelection() { var s = model.selection; return { anchor: s.anchor - region.start, focus: s.focus - region.start }; }
@@ -53,7 +64,7 @@
         var oldEnd=region.end,delta=text.length-(end-start);
         region.end+=delta;rendered.forEach(function(part){if(part.start>=oldEnd)part.shift(delta);});
       }
-      publish(kind, text.length > 0);
+      if (change) publish(kind, text.length > 0); else syncSource();
       if(formatted&&model.text.length>2000000){formatted=false;modeState();box.focus();K.richActive.setTextSelection(box,model.selection);status.textContent=labels.tooLarge;}
       return change;
     }
@@ -95,8 +106,9 @@
     }
     function replaceSelection(text, kind) {
       capture(); var s = model.selection, a = Math.min(s.anchor, s.focus), b = Math.max(s.anchor, s.focus);
+      var inside = formatted && a >= region.start && b <= region.end;
       apply(a, b, text, { anchor: a + text.length, focus: a + text.length }, kind);
-      if (formatted) render(); else repaint();
+      if (formatted && !inside) render(); else repaint();
     }
     function beforeInput(e) {
       if (syncing || composing || e.isComposing) return;
@@ -134,12 +146,24 @@
         if (edit) { e.preventDefault(); e.stopImmediatePropagation(); apply(edit.from, edit.to, edit.text, {anchor:edit.from+edit.text.length,focus:edit.from+edit.text.length}, 'smart'); if(formatted)render();else repaint(); }
       }
       if (formatted && !e.ctrlKey && !e.metaKey && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
-        capture(); var selection = model.selection, left = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
-        if ((e.shiftKey || selection.anchor === selection.focus) && ((left && selection.focus === region.start && region.start > 0) || (!left && selection.focus === region.end && region.end < model.text.length))) {
-          e.preventDefault(); var next = selection.focus + (left ? -1 : 1);
-          model.select({anchor:e.shiftKey ? selection.anchor : next,focus:next}); render();
-        }
+        capture();
+        var selection = model.selection;
+        if (selection.focus === region.start || selection.focus === region.end) expandForNavigation();
       }
+    }
+    function expandForNavigation() {
+      // Extend the raw context before the browser moves the caret. The browser
+      // owns visual bidi direction, Shift selection, and grapheme boundaries.
+      var before = rendered.filter(function (part) { return part.end <= region.start; }).pop();
+      var after = rendered.find(function (part) { return part.start >= region.end; });
+      if (!before && !after) return;
+      if (before) region.start = before.start;
+      if (after) region.end = after.end;
+      rendered = rendered.filter(function (part) {
+        if (part.start >= region.start && part.end <= region.end) { part.element.remove(); return false; }
+        return true;
+      });
+      repaint();
     }
     var plainNext = false;
     function paste(e) {
@@ -157,7 +181,13 @@
       listen('drop', function (e) { e.preventDefault(); if (e.dataTransfer) replaceSelection(e.dataTransfer.getData('text/plain'), 'drop'); });
       listen('compositionstart', function () { capture(); composing = true;  });
       listen('compositionend', flush);
-      listen('select', capture); listen('keyup', capture);
+      listen('select', function () {
+        // A hidden source-selection update is a mirror, not a new selection in
+        // the active textarea. Its asynchronous select event must not undo a
+        // range the author just accepted in the inactive projection.
+        if (control !== box || !formatted) capture();
+      });
+      listen('keyup', capture);
       listen('blur', function () {
         if (control === (formatted && active ? active.element : box)) capture();
       });
@@ -186,9 +216,7 @@
     function projectPoint(node, offset) {
       if (active && (node === active.element || active.element.contains(node))) {
         if (candidate === 'a') return region.start + active.selection().focus;
-        var selection = doc.getSelection();
-        var isAnchor = node === selection.anchorNode && offset === selection.anchorOffset;
-        return region.start + active.selection()[isAnchor ? 'anchor' : 'focus'];
+        return region.start + K.richActive.offset(active.element, node, offset);
       }
       for (var i = 0; i < rendered.length; i++) { var p = rendered[i].point(node, offset); if (p !== null) return p; }
       return null;
@@ -197,7 +225,7 @@
       var s = doc.getSelection(); if (!s) return false;
       var anchor = projectPoint(s.anchorNode, s.anchorOffset), focus = projectPoint(s.focusNode, s.focusOffset);
       if (anchor === null || focus === null) return false;
-      model.select({anchor:anchor,focus:focus}); return true;
+      selectSource({anchor:anchor,focus:focus}); return true;
     }
     function showSource(preserveSelection) { flush(); if(preserveSelection!==true)capture(); formatted = false; modeState(); box.value = model.text; box.focus(); K.richActive.setTextSelection(box,model.selection); status.textContent = labels.source; }
     function showFormatted() {

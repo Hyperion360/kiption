@@ -83,6 +83,12 @@
       if (!e.isComposing && /^insert/.test(e.inputType || '')) schedule();
       else if (!e.isComposing) pause();
     });
+    // Formatted edits synchronize the named source input, then identify the
+    // committed active control without sending a second form input event.
+    on(form, 'writer-commit', function (e) {
+      if (e.target !== box || !box.kipWriter || !e.detail || e.detail.control !== current()) return;
+      if (e.detail.inserted && e.detail.kind !== 'history') schedule(); else pause();
+    });
     on(form, 'compositionstart', function (e) { if (e.target === current()) { pause(); composition = { target: e.target, before: text(e.target) }; } });
     on(form, 'compositionend', function (e) {
       if (!composition || e.target !== composition.target) return;

@@ -126,3 +126,9 @@ for (const file of readdirSync(fixtures).filter(name => name.endsWith('.md')).so
 test('empty source has one editable formatted span', () => {
   assert.deepEqual(require('../../public/assets/rich-projection.js').spans('', subset), [{ type: 'gap', start: 0, end: 0 }]);
 });
+
+test('formatted adapter exports retain a safe initializer without a browser environment', () => {
+  const rich = require('../../public/assets/rich-editor.js');
+  assert.equal(typeof rich.attach, 'function');
+  assert.doesNotThrow(() => rich.init({}));
+});

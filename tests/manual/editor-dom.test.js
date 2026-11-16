@@ -54,6 +54,32 @@ async function runEditorDOMTests(K, actions) {
     var scene = K.richProjection.renderSpan(document,'---',{type:'break',start:0,end:3},K.subset,labels);
     equal(scene.element.getAttribute('aria-label'),'Scene Break','scene label');
   });
+  await test('projection maps nested element boundaries and compact quote prefixes', function() {
+    var part=K.richProjection.renderSpan(document,'**Bold** tail',{type:'p',start:0,end:13},K.subset,labels);
+    equal(part.point(part.element,1),2,'boundary before nested bold label');equal(part.point(part.element,2),8,'boundary after closing delimiter');
+    var quote=K.richProjection.renderSpan(document,'>compact\n>',{type:'quote',start:0,end:10},K.subset,labels);
+    equal(quote.element.textContent,'compact\n','compact and empty quote prefixes stay display-only');
+    var node=quote.element.lastChild;equal(quote.point(node,0),10,'empty quote boundary');
+  });
+  await test('plaintext mapping rejects outside endpoints and retains saved selections', function() {
+    var holder=document.createElement('div');holder.append(document.createComment('IME annotation'),document.createTextNode('Text'));
+    equal(K.richActive.readText(holder),'Text','non-text annotation does not invent input');
+    var failed=false;try{K.richActive.offset(holder,document.body,0);}catch(_){failed=true;}assert(failed,'outside selection rejected');
+    failed=false;try{K.richActive.create({createElement:document.createElement.bind(document),getSelection:()=>null},'b',labels);}catch(_){failed=true;}assert(failed,'missing selection API rejects B');
+    var focus=document.getElementById('fixture');focus.focus();
+    for(var candidate of ['a','b']) {
+      var control=K.richActive.create(document,candidate,labels);document.body.append(control.element);disposers.push(()=>control.element.remove());
+      control.set('Text',{anchor:3,focus:1},candidate==='b');if(candidate==='a')assert(document.activeElement===focus,'nonfocused textarea update does not steal focus');focus.focus();
+      if(candidate==='b')document.getSelection().removeAllRanges();equal(control.selection(),{anchor:3,focus:1},'saved selection available after focus leaves');
+    }
+  });
+  await test('initialization rejects invalid forms and labels without replacing native Source', function() {
+    var standalone=document.createElement('textarea'),failed=false;
+    try{K.richEditor.attach(standalone,{candidate:'a',labels:labels});}catch(_){failed=true;}assert(failed,'form required before adding controls');
+    var form=document.createElement('form'),box=document.createElement('textarea');box.name='content';box.required=true;box.dataset.jsModule='rich-editor';box.dataset.writerLabels='{invalid';form.append(box);document.body.append(form);disposers.push(()=>{if(box.kipWriter)box.kipWriter.destroy();form.remove();});
+    K.richEditor.init(document);assert(!box.hidden&&!box.kipWriter&&!form.querySelector('.writer-rich'),'invalid labels retain plain form');
+    box.dataset.writerLabels=JSON.stringify(labels);K.richEditor.init(document);assert(!!box.kipWriter,'valid config initializes');K.richEditor.init(document);equal(form.querySelectorAll('.writer-rich').length,1,'duplicate init is inert');
+  });
   await test('plaintext walker and selection use identical structural newline boundaries', function() {
     var el = document.createElement('div'); document.body.append(el); disposers.push(()=>el.remove());
     for (var pair of [['<div><br></div>',''],['A<br>B','A\nB'],['<div>A</div><div>B</div>','A\nB'],['<div>A</div>B','A\nB'],['A<div>B</div>','A\nB'],['<div>A</div><div><br></div>','A\n'],['<span>日<span>本</span></span>','日本'],['A<br><br>','A\n\n']]) {el.innerHTML=pair[0]; equal(K.richActive.readText(el),pair[1],pair[0]);}
@@ -73,6 +99,31 @@ async function runEditorDOMTests(K, actions) {
     finally {selection.setBaseAndExtent=saved;}
     var failed=false;try{K.richActive.create(document,'unknown',labels);}catch(_){failed=true;}assert(failed,'unknown adapter rejected');
   });
+  for (var backward of [false,true]) {
+    for (var structural of [false,true]) {
+      await test('b: mixed ' + (backward?'backward':'forward') + ' endpoints map independently' + (structural?' with Unicode and structural newlines':''), function() {
+        var text=structural?'A👩🏽‍💻\nZ\n\nBeta':'Alpha\n\nBeta',f=fixture(text,'b');f.box.setSelectionRange(2,2);f.editor.showFormatted();
+        var active=f.editor.activeControl,inside=4,node=active.firstChild,local=4;
+        if(structural){active.replaceChildren();var first=document.createElement('div'),last=document.createElement('div');first.textContent='A👩🏽‍💻';last.textContent='Z';active.append(first,last);node=last.firstChild;local=1;inside=text.indexOf('Z')+1;}
+        var outside=f.form.querySelector('.writer-p').firstChild,end=text.length-1;
+        if(backward)document.getSelection().setBaseAndExtent(outside,3,node,local);else document.getSelection().setBaseAndExtent(node,local,outside,3);
+        Array.from(f.form.querySelectorAll('button')).find(b=>b.textContent===labels.editSelection).click();
+        equal(f.editor.model.selection,backward?{anchor:end,focus:inside}:{anchor:inside,focus:end},'mixed source range');
+        equal(f.box.value,text,'source identity');equal(f.editor.model.undo(),false,'selection has no history');
+      });
+    }
+  }
+  await test('b: consecutive Enter and Backspace retain the active control and shared history', function() {
+    var f=fixture('Alpha','b');f.box.setSelectionRange(2,2);f.editor.showFormatted();var control=f.editor.activeControl;
+    for(var type of ['insertParagraph','insertLineBreak']) {
+      control.dispatchEvent(new InputEvent('beforeinput',{inputType:type,bubbles:true,cancelable:true}));
+      assert(f.editor.activeControl===control,'Enter retains active region');
+    }
+    equal(f.box.value,'Al\n\npha','consecutive newline source');equal(f.editor.model.selection,{anchor:4,focus:4},'newline caret');
+    input(f,'Al\npha',{anchor:3,focus:3},'deleteContentBackward');assert(f.editor.activeControl===control,'Backspace retains active region');
+    key(control,'z',{ctrlKey:true});equal(f.box.value,'Al\n\npha','one Undo restores Backspace');
+    key(f.editor.activeControl,'z',{ctrlKey:true});equal(f.box.value,'Alpha','journal groups adjacent typing');
+  });
   for (var candidate of ['a','b']) {
     await test(candidate + ': action fixtures preserve exact source and backward selection', function() {
       for (var action of actions) {
@@ -82,6 +133,37 @@ async function runEditorDOMTests(K, actions) {
         equal(f.editor.model.undo(),false,'toggles have no history');
         assert(!f.form.querySelector('.writer-modes').closest('label'),'controls outside content label');
       }
+    });
+    await test(candidate + ': inactive ranges reach the actual Count Selection consumer', async function() {
+      var f=fixture('Active\n\nOne\n\nTwo',candidate);f.form.dataset.writerLabels=JSON.stringify({words:'{n} words',selection:'{n} selected words',unsaved:'Unsaved'});
+      var button=document.createElement('button'),status=document.createElement('span');button.type='button';button.dataset.writerCountSelection='';status.dataset.writerSelection='';f.form.append(button,status);
+      var counter=K.writerStatus.attach(f.form);disposers.push(()=>counter.destroy());f.editor.showFormatted();
+      var blocks=f.form.querySelectorAll('.writer-p');document.getSelection().setBaseAndExtent(blocks[1].firstChild,3,blocks[0].firstChild,0);
+      blocks[0].dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));await new Promise(resolve=>setTimeout(resolve,0));button.click();
+      equal(status.textContent,'2 selected words','actual selection count');equal(K.richActive.textSelection(f.box),{anchor:16,focus:8},'named control selection');
+      equal(f.editor.model.selection,{anchor:16,focus:8},'model selection');equal(f.editor.model.undo(),false,'no history');
+    });
+    await test(candidate + ': committed insertions reach actual typewriter scheduling once', function() {
+      var f=fixture('Alpha',candidate),frames=new Map(),queued=0,moves=[];
+      f.form.dataset.writerLabels=JSON.stringify({focus:'Focus Mode',typewriter:'Typewriter Scrolling'});
+      var title=document.createElement('input'),notes=document.createElement('textarea');title.name='title';notes.name='notes_before';f.form.append(title,notes);
+      var env={getComputedStyle:window.getComputedStyle.bind(window),innerHeight:900,scrollY:0,visualViewport:null,
+        addEventListener:window.addEventListener.bind(window),removeEventListener:window.removeEventListener.bind(window),
+        requestAnimationFrame:fn=>{var id=++queued;frames.set(id,fn);return id;},cancelAnimationFrame:id=>frames.delete(id),scrollTo:value=>moves.push(value)};
+      var comfort=K.writerComfort.attach(f.form,env);disposers.push(()=>comfort.destroy());f.form.querySelector('.writer-comfort').lastChild.click();
+      f.editor.showFormatted();input(f,'AlphaQ',{anchor:6,focus:6});equal(frames.size,1,'typing queues one frame');
+      function flush(){var work=Array.from(frames.values());frames.clear();work.forEach(fn=>fn());}
+      flush();equal(moves.length,1,'typing scrolls once');
+      input(f,'Alpha',{anchor:5,focus:5},'deleteContentBackward');equal(frames.size,0,'deletion pauses');
+      input(f,'AlphaR',{anchor:6,focus:6});key(f.editor.activeControl,'z',{ctrlKey:true});equal(frames.size,0,'history cancels pending movement');
+      input(f,'AlphaS',{anchor:6,focus:6});window.dispatchEvent(new WheelEvent('wheel'));equal(frames.size,0,'manual scrolling cancels');
+      var dt=new DataTransfer();dt.setData('text/plain',' pasted');f.editor.activeControl.dispatchEvent(transferEvent('paste',dt));equal(frames.size,1,'paste resumes once');flush();
+      var c=f.editor.activeControl,before=f.editor.model.text;c.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));
+      input(f,before+'日',{anchor:before.length+1,focus:before.length+1},'insertCompositionText',true);equal(frames.size,0,'partial composition deferred');
+      c.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));equal(frames.size,1,'completed composition queues one frame');
+      input(f,before+'日',{anchor:before.length+1,focus:before.length+1});equal(frames.size,1,'final no-op input cannot cancel the committed composition');flush();
+      for(var field of [title,notes]) {field.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));field.value='Unrelated';field.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText'}));field.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));}
+      equal(frames.size,0,'title and notes excluded');equal(moves.length,3,'exactly three committed edit scrolls');
     });
     await test(candidate + ': active selection stays available to the existing selection counter', function() {
       var f=fixture('Alpha',candidate);f.editor.showFormatted();var c=f.editor.activeControl;
@@ -135,6 +217,13 @@ async function runEditorDOMTests(K, actions) {
       key(f.editor.activeControl,'z',{ctrlKey:true});f.editor.activeControl.dispatchEvent(transferEvent('drop',dt));equal(f.box.value,'BoldEnd','drop plain');
       key(f.editor.activeControl,'z',{ctrlKey:true});equal(f.box.value,'End','drop one undo');
     });
+    await test(candidate + ': cancelable history and smart punctuation share the same journal', function() {
+      var f=fixture('Word ',candidate);f.box.setSelectionRange(5,5);f.editor.showFormatted();key(f.editor.activeControl,'"');
+      equal(f.box.value,'Word “','formatted smart insertion');
+      for(var type of ['historyUndo','historyRedo']) {var e=new InputEvent('beforeinput',{inputType:type,bubbles:true,cancelable:true});f.editor.activeControl.dispatchEvent(e);assert(e.defaultPrevented,'native history intercepted once');}
+      equal(f.box.value,'Word “','native history redo');f.editor.showSource();key(f.box,'z',{ctrlKey:true});key(f.box,'"');equal(f.box.value,'Word “','source smart uses same command path');
+      var e=new Event('paste',{bubbles:true,cancelable:true});f.box.dispatchEvent(e);assert(!e.defaultPrevented,'missing clipboard keeps native path');
+    });
     await test(candidate + ': noncancelable native Undo reconciles once', function() {
       var f=fixture('Original',candidate);f.editor.showFormatted();input(f,'OriginalQ',{anchor:9,focus:9});var c=f.editor.activeControl;
       c.dispatchEvent(new InputEvent('beforeinput',{inputType:'historyUndo',cancelable:false}));input(f,'Original',{anchor:8,focus:8},'historyUndo');equal(f.box.value,'Original','one undo result');
@@ -165,8 +254,11 @@ async function runEditorDOMTests(K, actions) {
       f.editor.showSource();f.box.setSelectionRange(0,0);f.editor.showFormatted();key(f.editor.activeControl,'ArrowRight',{ctrlKey:false});
       f.editor.showSource();f.box.setSelectionRange(0,0);f.editor.showFormatted();
       if(candidate==='a')f.editor.activeControl.setSelectionRange(3,3);else document.getSelection().setBaseAndExtent(f.editor.activeControl.firstChild,3,f.editor.activeControl.firstChild,3);
-      key(f.editor.activeControl,'ArrowRight',{shiftKey:true});
-      equal(f.editor.model.selection,{anchor:3,focus:4},'shift boundary extends without collapse');
+      var arrow=new KeyboardEvent('keydown',{key:'ArrowRight',shiftKey:true,bubbles:true,cancelable:true});f.editor.activeControl.dispatchEvent(arrow);
+      assert(!arrow.defaultPrevented,'browser retains native Shift direction');
+      equal(f.editor.model.selection,{anchor:3,focus:3},'expansion alone does not move selection');
+      // The native keyboard runner checks this same Shift movement against Source.
+      assert((f.editor.activeControl.tagName==='TEXTAREA'?f.editor.activeControl.value:K.richActive.readText(f.editor.activeControl)).includes('\n'),'adjacent context is editable');
     });
     await test(candidate + ': two-instance refocus preserves the last intentional caret', async function() {
       var one=fixture('First paragraph',candidate),two=fixture('Second paragraph',candidate);one.box.setSelectionRange(6,6);one.editor.showFormatted();two.editor.showFormatted();
@@ -190,6 +282,9 @@ async function runEditorDOMTests(K, actions) {
     var broken=Object.assign({},K,{richProjection:{spans:function(){throw Error('projection unavailable');}}});
     var f=fixture('Source','a',{Kip:broken});f.editor.showFormatted();assert(!f.box.hidden,'source fallback');equal(f.box.value,'Source','source retained');
     f.editor.destroy();assert(!f.form.querySelector('.writer-rich'),'destroy removes controls');assert(f.box.required,'required retained');
+  });
+  await test('an initially oversized chapter stays available in Source', function() {
+    var f=fixture('x'.repeat(2000001),'a');f.editor.showFormatted();assert(!f.box.hidden&&f.box.required&&!f.box.disabled,'native large chapter remains editable and saveable');equal(f.editor.model.text,f.box.value,'source retained');
   });
   await test('rich limit preserves source, native Save, and history',function(){
     var f=fixture('Short','a');f.editor.showFormatted();f.editor.replace('x'.repeat(2000001),'paste');assert(!f.box.hidden,'limit switches to source');equal(f.box.value.length,2000001,'large source retained');key(f.box,'z',{ctrlKey:true});equal(f.box.value,'Short','large edit undo');
