@@ -47,6 +47,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/assets/reader.css">
+  <?= $this->render('_look_link') ?>
   <script src="/assets/app.js" defer></script>
 </head>
 <body<?= ($focus ?? false) ? ' class="focus"' : '' ?>>

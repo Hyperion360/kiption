@@ -89,6 +89,27 @@ working under the skin. Set reading-posture defaults (`--read-width`,
 preference selectors (`html[data-width=...]` and friends) must keep winning
 over the skin default.
 
+## Owner Colors and Layout
+
+The archive owner can pick colors and layout choices on the Colors and
+Layout admin page. Once a look is saved, the site links one more
+stylesheet, `/look/css`, through the partial `app/views/_look_link.php`. It
+loads after the skin's sheet, so the owner's colors win over a skin's
+`:root` palette by cascade order. A member's own reading preferences
+(`html[data-width=...]` and friends) still win over both, and the sepia
+theme keeps its own colors.
+
+A skin that overrides `layout.php` must render the partial right after its
+own stylesheet line, or the owner's choices silently skip that skin:
+
+    <link rel="stylesheet" href="/assets/skins/nightwriter.css">
+    <?= $this->render('_look_link') ?>
+
+Define the standard custom properties in your skin (the full list is the
+`:root` block in the worked example below). The owner's palette is
+derived for those names, so a skin that invents its own color variables
+will not follow the owner's choices.
+
 ## Safe-to-override views
 
 Any view is overridable; not every view is safe to rewrite freely. Three
@@ -113,7 +134,7 @@ Layouts and ordinary page views (`browse/index`, `browse/recent`,
 `story/view`, `home/index`, `series/*`, `news/*`, `page/*`) carry no such
 contracts: copy, edit, and the worst case is your own markup.
 
-A skin that overrides `layout.php` must render `admin_main` with `content`, `isAdmin`, `staff`, `request` and `csrf`, and include `menu_post` and `menu_staff` in its menu. Without them, admin screens lose their side menu, the Saved line and Undo, and the site menu loses Post a story and the staff links.
+A skin that overrides `layout.php` must also render `_look_link` after its stylesheet line (see Owner Colors and Layout). It must render `admin_main` with `content`, `isAdmin`, `staff`, `request` and `csrf`, and include `menu_post` and `menu_staff` in its menu. Without them, admin screens lose their side menu, the Saved line and Undo, and the site menu loses Post a story and the staff links.
 
 Two rules from the app's hard constraints apply to skins verbatim: no
 inline `<script>` and no JavaScript dependency for anything the skin's
@@ -127,11 +148,12 @@ layout:
 
 1. `mkdir -p app/skins/nightwriter/views public/assets/skins`
 2. `cp app/views/layout.php app/skins/nightwriter/views/layout.php`, then
-   edit the copy: add the stylesheet line after reader.css and a body hook
-   class:
+   edit the copy: add the stylesheet line after reader.css, the owner look line, and a
+   body hook class:
 
        <link rel="stylesheet" href="/assets/reader.css">
        <link rel="stylesheet" href="/assets/skins/nightwriter.css">
+       <?= $this->render('_look_link') ?>
        <body class="skin-nightwriter">
 
 3. Write `public/assets/skins/nightwriter.css`:

@@ -69,6 +69,9 @@ layer against the new code.
   password hashes across an import.
 - Member accounts, passwords, and sessions survive an upgrade; nobody
   needs to reset anything or log in twice.
+- The colors and layout the owner saved live in the database and in
+  `app/site-look/`. They survive upgrades and rebuild themselves if the
+  file is missing (`php bin/kip look:compile` does it on demand).
 - After the swap, run `php bin/kip pages:prune` and
   `php bin/kip pages:build` if pages look stale (the browser and CLI
   routes handle their own swap, but a manual rebuild is always safe).

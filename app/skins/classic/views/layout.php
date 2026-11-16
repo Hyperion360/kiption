@@ -38,6 +38,7 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/assets/reader.css">
   <link rel="stylesheet" href="/assets/skins/classic.css">
+  <?= $this->render('_look_link') ?>
   <script src="/assets/app.js" defer></script>
 </head>
 <body class="skin-classic<?= ($focus ?? false) ? ' focus' : '' ?>">

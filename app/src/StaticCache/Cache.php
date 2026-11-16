@@ -97,7 +97,7 @@ final class Cache
      *  cache is off. The front controller stamps every sent response with this. */
     public static function stamp(?self $static, Request $request, Response $response): Response
     {
-        $cc = $static?->cacheControlFor($request, $response) ?? self::feedControl($request, $response) ?? 'private, no-store';
+        $cc = $static?->cacheControlFor($request, $response) ?? self::feedControl($request, $response) ?? self::lookControl($request, $response) ?? 'private, no-store';
         $response = $response->withHeader('Cache-Control', $cc);
         if ($cc === self::PUBLIC_CC) {
             foreach (self::edgeHeaders() as $name => $value) $response = $response->withHeader($name, $value);
@@ -128,7 +128,7 @@ final class Cache
             // revalidation. The remaining guards mirror storable()'s.
             return self::PUBLIC_CC;
         }
-        return self::feedControl($request, $response) ?? 'private, no-store';
+        return self::feedControl($request, $response) ?? self::lookControl($request, $response) ?? 'private, no-store';
     }
 
     /** The syndication XML's Cache-Control: the one app-served response shape
@@ -159,6 +159,24 @@ final class Cache
         }
         if (!self::headersShareable($response)) return null;
         return self::FEED_CC;
+    }
+
+    /** The owner stylesheet's own Cache-Control, kept as the route set it: the
+     *  one app-served response whose lifetime the app decides (a year when the
+     *  address carries the current revision, five minutes otherwise). Every
+     *  reader gets the same bytes. Only a cookieless 200 to GET or HEAD on
+     *  exactly /look/css whose header already names a public lifetime keeps
+     *  it; anything else falls back to private. Null = not that shape. */
+    public static function lookControl(Request $request, Response $response): ?string
+    {
+        if (!in_array($request->method, ['GET', 'HEAD'], true)
+            || $response->status !== 200
+            || $request->path !== '/look/css'
+            || !self::headersShareable($response)) {
+            return null;
+        }
+        $cc = (string) ($response->headers['Cache-Control'] ?? '');
+        return preg_match('/^public, max-age=\d{1,9}(, immutable)?$/D', $cc) === 1 ? $cc : null;
     }
 
     /** The header shape every public policy demands, shared by the store

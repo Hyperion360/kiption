@@ -39,6 +39,7 @@ final class ManageController extends AdminScreen
         ['look', '/text/group/msg', 'manage.messages'],
         ['look', '/text', 'manage.site_text'],
         ['look', '/nav', 'manage.nav'],
+        ['look', '/look', 'manage.look'],
         ['look', '/templates', 'manage.templates'],
         ['settings', '/settings', 'manage.settings'],
         ['settings', '/features', 'manage.features'],
