@@ -30,7 +30,7 @@
     <?php if ($tagGroups !== []): ?>
     <fieldset>
       <legend><?= \App\Lang::t('story.tags') ?></legend>
-      <?php foreach ($tagGroups as $group): ?>
+      <?php foreach ($tagGroups as $typeId => $group): ?>
         <p class="chapter-meta"><?= $this->e($group['name']) ?></p>
         <?php foreach ($group['tags'] as $tagId => $tagName): ?>
         <label class="inline">
@@ -38,8 +38,28 @@
           <?= $this->e($tagName) ?>
         </label>
         <?php endforeach; ?>
+        <?php if (($tagPolicy ?? 'off') !== 'off'): ?>
+        <label><?= \App\Lang::t('story.suggest_label') ?> <input name="suggest[<?= (int) $typeId ?>]" maxlength="300"></label>
+        <?php endif; ?>
+        <?php $pending = $suggestions[$typeId]['pending'] ?? []; $rejected = $suggestions[$typeId]['rejected'] ?? []; ?>
+        <?php if ($pending !== [] || $rejected !== []): ?>
+        <p class="chapter-meta"><?= \App\Lang::t('story.suggest_pending') ?></p>
+        <?php foreach ($pending as $s): ?>
+        <label class="inline">
+          <input type="checkbox" name="withdraw[]" value="<?= (int) $s['id'] ?>"> <?= $this->e($s['name']) ?> (<?= \App\Lang::t('story.suggest_withdraw') ?>)
+        </label>
+        <?php endforeach; ?>
+        <?php foreach ($rejected as $s): ?>
+        <p class="hint"><?= $this->e($s['name']) ?>: <?= \App\Lang::t('story.suggest_rejected') ?></p>
+        <?php endforeach; ?>
+        <?php endif; ?>
       <?php endforeach; ?>
+      <?php $hint = ($tagPolicy ?? 'off') === 'free' ? 'story.suggest_hint_free' : 'story.suggest_hint'; ?>
+      <p class="hint"><?= \App\Lang::t($hint) ?></p>
     </fieldset>
+    <?php endif; ?>
+    <?php if (($suggestRefused ?? []) !== []): ?>
+    <p class="error"><?= \App\Lang::t('story.suggest_refused', ['names' => $this->e(implode(', ', $suggestRefused))]) ?></p>
     <?php endif; ?>
     <?php if (($characterGroups ?? []) !== []): ?>
     <fieldset>

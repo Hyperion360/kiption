@@ -65,7 +65,8 @@ final class Markdown
 
     private static function inlineText(string $text): string
     {
-        // Protect the link/image constructs, then escape everything, then
+        // Protect the link/image constructs (their addresses must never see
+        // emphasis), then format and escape everything else, then
         // re-materialize them: this ordering is what makes raw HTML impossible.
         $tokens = [];
         $text = preg_replace_callback(
@@ -76,30 +77,52 @@ final class Markdown
             },
             $text
         ) ?? $text;
-        $safe = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+        $safe = self::format($text);
         foreach ($tokens as $i => $m) {
-            $label = htmlspecialchars($m[2], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+            $label = self::format($m[2]);
             $url = htmlspecialchars($m[3], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
             $replacement = $m[1] === '!'
-                ? '<img src="' . $url . '" alt="' . $label . '">'
+                ? '<img src="' . $url . '" alt="' . strip_tags($label) . '">'
                 : (str_starts_with($m[3], 'https://')
                     ? '<a href="' . $url . '" rel="noopener">' . $label . '</a>'
                     : '[' . $label . '](' . $url . ')');
             $safe = str_replace("\x00{$i}\x00", $replacement, $safe);
         }
-        $safe = preg_replace('/\*\*([^*\n]+)\*\*/', '<strong>$1</strong>', $safe) ?? $safe;
-        $safe = preg_replace('/(?<!\*)\*([^*\n]+)\*(?!\*)/', '<em>$1</em>', $safe) ?? $safe;
-        $safe = preg_replace('/(?<!_)_([^_\n]+)_(?!_)/', '<em>$1</em>', $safe) ?? $safe;
         return $safe;
     }
 
-    /** Words in the markdown source, markup syntax and scene breaks excluded. */
+    /** Escape one run of text and apply the emphasis markers. A backslash
+     *  before *, _ or another backslash makes that character literal. An
+     *  underscore only marks emphasis at a word edge, so snake_case_word
+     *  stays as written. */
+    private static function format(string $text): string
+    {
+        $literal = [];
+        $text = preg_replace_callback('/\\\\([*_\\\\])/', static function (array $m) use (&$literal): string {
+            $literal[] = $m[1];
+            return "\x01" . (count($literal) - 1) . "\x01";
+        }, $text) ?? $text;
+        $safe = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+        $safe = preg_replace('/\*\*([^*\n]+)\*\*/', '<strong>$1</strong>', $safe) ?? $safe;
+        $safe = preg_replace('/(?<!\*)\*([^*\n]+)\*(?!\*)/', '<em>$1</em>', $safe) ?? $safe;
+        $safe = preg_replace('/(?<![\p{L}\p{N}_])_(?!\s)([^_\n]*[^_\s])_(?![\p{L}\p{N}_])/u', '<em>$1</em>', $safe) ?? $safe;
+        foreach ($literal as $i => $ch) {
+            $safe = str_replace("\x01{$i}\x01", $ch, $safe);
+        }
+        return $safe;
+    }
+
+    /** Words in the markdown source, markup syntax and scene breaks excluded.
+     *  A word is a run of letters, digits and marks, joined across an
+     *  apostrophe (straight or curly) or hyphen, so "don’t" is one word and
+     *  Cyrillic or accented text counts like English. public/assets/wordcount.js
+     *  is the same rule; tests/fixtures/wordcount.json keeps the two equal. */
     public static function wordCount(string $md): int
     {
         $t = str_replace(["\r\n", "\r"], "\n", $md);
         $t = preg_replace('/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/m', ' ', $t) ?? $t;
         $t = preg_replace('/(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/', '$2', $t) ?? $t;
-        $t = str_replace(['*', '_', '`'], ' ', $t);
-        return str_word_count(trim($t));
+        $n = preg_match_all('/[\p{L}\p{N}\p{M}]+(?:[\'\x{2019}\-][\p{L}\p{N}\p{M}]+)*/u', $t);
+        return $n === false ? str_word_count(trim(str_replace(['*', '_', '`'], ' ', $t))) : $n;
     }
 }

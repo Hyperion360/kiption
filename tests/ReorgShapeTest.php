@@ -95,8 +95,9 @@ final class ReorgShapeTest extends TestCase
         // 60 with Help, Manage, Rules, Terms and Wordfilter; 54 with Adminstories and Mailusers; 52 with Contact, Signupcheck, Profilefields and Activity; 48 with the Categories, Ratings, Tags and Characters managers; 44 since the site text editor (Text); 43 since the Compare feature left (marketing copy is documentation
         // now; Cloud and Dmca remain from the marketing top paths batch;
         // 41 since the invite-code surface, 40 since recommendations;
-        // 60 since the colors and layout editor (Look)).
-        $this->assertCount(60, $features, 'exactly 60 feature folders expected');
+        // 60 since the colors and layout editor (Look);
+        // 61 since Tagqueue joined (the owner's tag suggestion queue).
+        $this->assertCount(61, $features, 'exactly 61 feature folders expected');
     }
 
     public function test_no_test_files_outside_the_tests_directory(): void

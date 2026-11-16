@@ -75,8 +75,20 @@
       }
     });
   });
-  ['prefs', 'position', 'keys', 'infinite', 'toggle', 'chips', 'confirm', 'adminnav', 'saved', 'listfilter', 'adminforms', 'look'].forEach(function (m) {
-    if (document.querySelector('[data-js-module="' + m + '"]')) {
+  /* [module, helpers to load before it] - the helpers load first, in
+   * order, when the page asks for the module. A box can carry several
+   * modules: data-js-module splits on spaces. */
+  [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['adminforms'], ['look'],
+   ['paste'], ['editor', ['subset', 'text-edit', 'smart']]].forEach(function (entry) {
+    var m = entry[0];
+    var wanted = function (el) { return (' ' + el.getAttribute('data-js-module') + ' ').indexOf(' ' + m + ' ') > -1; };
+    if (Array.prototype.some.call(document.querySelectorAll('[data-js-module]'), wanted)) {
+      (entry.slice(1)[0] || []).forEach(function (helper) {
+        var h = document.createElement('script');
+        h.src = '/assets/' + helper + '.js';
+        h.defer = true;
+        document.head.appendChild(h);
+      });
       var s = document.createElement('script');
       s.src = '/assets/' + m + '.js';
       s.defer = true;

@@ -611,7 +611,7 @@ final class StoryController
     public function create(): Response|string
     {
         if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds, $suggest, $withdraw] = $this->storyInput();
         if ($title === '') {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_title'), null), 422);
         }
@@ -621,12 +621,13 @@ final class StoryController
         if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, null)) {
             return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_locked_category'), null), 422);
         }
-        [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->createStory(
+        [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds,
-            $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds, $completed);
+            $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $characterIds, $completed, $suggest, $withdraw);
         $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
         $this->staticCache()->purgeAuthors(); // a self-published story changes the directory's story counts (delete's rider)
         \App\ActivityLog::record($this->db, $this->uid(), 'story.create', $title);
+        $this->flashSuggestRefused($suggestOut);
         $heard = \App\Notices::has('msg.thanks') || \App\Notices::has('msg.held'); // only carry the flag when the owner wrote a message
         return Response::redirect('/story/edit/' . $slug . ($heard ? '?submitted=' . ($this->autoValidates() ? 'live' : 'held') : ''));
     }
@@ -646,7 +647,7 @@ final class StoryController
     #[AuthAttr] #[Post]
     public function update(string $slug): Response|string
     {
-        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds] = $this->storyInput();
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds, $suggest, $withdraw] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
         if (!$this->validRating($ratingId)) {
             return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, \App\Lang::t('story.err_rating'), null), 422);
@@ -667,9 +668,9 @@ final class StoryController
             $wasOpen = ($old['access_hash'] ?? null) === null || (string) $old['access_hash'] === '';
         }
         try {
-            [$newSlug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->authoring()->updateStory(
+            [$newSlug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut] = $this->authoring()->updateStory(
                 $slug, $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
-                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds, $accessPassword, $accessClear, $characterIds);
+                $roundRobin, $giftTo, $canonicalUrl, $crosspostUrl, $isOriginal, $tagIds, $accessPassword, $accessClear, $characterIds, $suggest, $withdraw);
         } catch (\RuntimeException) {
             return new Response(\App\Lang::t('error.not_found'), 404);
         }
@@ -696,7 +697,30 @@ final class StoryController
             });
         }
         \App\ActivityLog::record($this->db, $this->uid(), 'story.update', $newSlug);
+        $this->flashSuggestRefused($suggestOut);
         return \App\Saved::to('/story/edit/' . $newSlug); // the edit page answers "Saved." so the owner knows it took
+    }
+
+    /** Carry the save's refused names across the redirect, one line per
+     *  name with its reason. A pending row's own listing covers attached and
+     *  parked names, so only the refusals need the trip. */
+    private function flashSuggestRefused(array $suggestOut): void
+    {
+        $refused = $suggestOut['refused'] ?? [];
+        if ($refused === []) return;
+        $lines = [];
+        foreach ($refused as $name => $reason) {
+            $lines[] = $name . ' (' . \App\Lang::t('story.suggest_refused_' . $reason) . ')';
+        }
+        $this->session->set('suggest_refused', $lines);
+    }
+
+    /** Read-and-forget the refusal flash for the form's next render. */
+    private function suggestRefusedFlash(): array
+    {
+        $lines = $this->session->get('suggest_refused', []);
+        if ($lines !== []) { $this->session->forget('suggest_refused'); }
+        return is_array($lines) ? $lines : [];
     }
 
     #[AuthAttr] #[Post]
@@ -773,6 +797,8 @@ final class StoryController
         $categories = \App\Repositories\AuthoringRepository::visibleCategories($rows, $selectedCats);
         [$tagGroups, $selectedTags] = \App\Repositories\AuthoringRepository::tagGroups($rows);
         [$characterGroups, $selectedCharacters] = \App\Repositories\AuthoringRepository::characterGroups($rows);
+        $suggestions = \App\Repositories\AuthoringRepository::suggestionGroups($rows);
+        $tagPolicy = \App\Settings::get('tag_policy');
         $chapters = [];
         if ($story !== null && ($story['h'] ?? null) !== null && $story['h'] !== '[]') {
             $chapters = json_decode((string) $story['h'], true) ?: [];
@@ -803,6 +829,9 @@ final class StoryController
             'ratings' => $ratings,
             'tagGroups' => $tagGroups,
             'selectedTags' => $selectedTags,
+            'suggestions' => $suggestions,
+            'tagPolicy' => $tagPolicy,
+            'suggestRefused' => $this->suggestRefusedFlash(),
             'characterGroups' => $characterGroups,
             'selectedCharacters' => $selectedCharacters,
             'chapters' => $chapters,
@@ -911,7 +940,29 @@ final class StoryController
             isset($post['characters_shown'])
                 ? array_values(array_filter((array) ($post['characters'] ?? []), 'is_numeric'))
                 : null,
+            // The suggest pair (slice 4): suggestions keyed by tag type id
+            // (string values are the typed comma lists; a non-array or junk
+            // key drops), withdrawals as the member's own pending ids. Both
+            // ride the save's transaction; the tag_policy setting decides
+            // whether a name parks pending or goes live.
+            $this->suggestInput(),
+            array_values(array_filter((array) ($post['withdraw'] ?? []), 'is_numeric')),
         ];
+    }
+
+    /** @return array<int, string> tag type id => typed comma list. A scalar,
+     *  a nested array, or a non-numeric key is ignored entirely (the policy
+     *  decides nothing for junk input; TagSuggestionRepository owns the rest). */
+    private function suggestInput(): array
+    {
+        $raw = $this->request->post['suggest'] ?? [];
+        if (!is_array($raw)) return [];
+        $out = [];
+        foreach ($raw as $typeId => $list) {
+            if (!is_numeric($typeId) || (int) $typeId <= 0 || !is_string($list)) continue;
+            $out[(int) $typeId] = $list;
+        }
+        return $out;
     }
 
     /** The signed-in viewer's role, for the owner and moderator tools on the

@@ -1,0 +1,17 @@
+[
+  {"md": "don’t stop", "words": 2},
+  {"md": "don't stop", "words": 2},
+  {"md": "Привет мир", "words": 2},
+  {"md": "café naïve résumé", "words": 3},
+  {"md": "well-known fact", "words": 2},
+  {"md": "Falling *down* the **hole**, [past](https://e.test/) shelves of nothing.", "words": 8},
+  {"md": "Four *short* words.", "words": 3},
+  {"md": "", "words": 0},
+  {"md": "---", "words": 0},
+  {"md": "One\n\n---\n\nTwo", "words": 2},
+  {"md": "5 \\* 3 and 7 \\* 2", "words": 5},
+  {"md": "snake_case_word", "words": 3},
+  {"md": "“Hello,” she said and left.", "words": 5},
+  {"md": "日本語 テスト", "words": 2},
+  {"md": "![alt text](https://e.test/a.png) after", "words": 3}
+]

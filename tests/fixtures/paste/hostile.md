@@ -1,0 +1,3 @@
+before trap after
+
+kept

@@ -9,30 +9,29 @@
 | Name | Columns | Comment | Type |
 | ---- | ------- | ------- | ---- |
 | [_migrations](_migrations.md) | 3 |  | table |
-| [users](users.md) | 17 |  | table |
+| [users](users.md) | 18 |  | table |
 | [categories](categories.md) | 7 |  | table |
-| [characters](characters.md) | 5 |  | table |
-| [tag_types](tag_types.md) | 2 |  | table |
+| [tag_types](tag_types.md) | 3 |  | table |
 | [tags](tags.md) | 4 |  | table |
 | [ratings](ratings.md) | 5 |  | table |
-| [stories](stories.md) | 22 |  | table |
+| [stories](stories.md) | 24 |  | table |
 | [story_categories](story_categories.md) | 2 |  | table |
 | [story_tags](story_tags.md) | 2 |  | table |
 | [story_characters](story_characters.md) | 2 |  | table |
 | [coauthors](coauthors.md) | 2 |  | table |
-| [chapters](chapters.md) | 12 |  | table |
-| [series](series.md) | 7 |  | table |
+| [chapters](chapters.md) | 13 |  | table |
+| [series](series.md) | 8 |  | table |
 | [series_items](series_items.md) | 6 |  | table |
 | [reviews](reviews.md) | 13 |  | table |
 | [favorites](favorites.md) | 6 |  | table |
 | [news](news.md) | 5 |  | table |
 | [news_comments](news_comments.md) | 5 |  | table |
-| [pages](pages.md) | 4 |  | table |
+| [pages](pages.md) | 5 |  | table |
 | [mail_templates](mail_templates.md) | 3 |  | table |
 | [page_stats](page_stats.md) | 4 |  | table |
 | [login_attempts](login_attempts.md) | 5 |  | table |
 | [password_resets](password_resets.md) | 3 |  | table |
-| [import_runs](import_runs.md) | 6 |  | table |
+| [import_runs](import_runs.md) | 7 |  | table |
 | [import_map](import_map.md) | 5 |  | table |
 | [legacy_urls](legacy_urls.md) | 4 |  | table |
 | [legacy_log](legacy_log.md) | 5 |  | table |
@@ -44,7 +43,6 @@
 | [reading_history](reading_history.md) | 5 |  | table |
 | [reports](reports.md) | 7 |  | table |
 | [contact_log](contact_log.md) | 4 |  | table |
-| [stories_fts](stories_fts.md) | 2 |  | virtual table |
 | [chapters_fts](chapters_fts.md) | 3 |  | virtual table |
 | [nav_links](nav_links.md) | 5 |  | table |
 | [reading_lists](reading_lists.md) | 8 |  | table |
@@ -58,6 +56,26 @@
 | [rate_limits](rate_limits.md) | 4 |  | table |
 | [user_prefs](user_prefs.md) | 10 |  | table |
 | [bookmarks](bookmarks.md) | 5 |  | table |
+| [settings](settings.md) | 2 |  | table |
+| [recommendations](recommendations.md) | 5 |  | table |
+| [legacy_page_urls](legacy_page_urls.md) | 2 |  | table |
+| [epub_imports](epub_imports.md) | 3 |  | table |
+| [mail_sends](mail_sends.md) | 2 |  | table |
+| [login_links](login_links.md) | 6 |  | table |
+| [site_languages](site_languages.md) | 4 |  | table |
+| [site_text](site_text.md) | 4 |  | table |
+| [characters](characters.md) | 5 |  | table |
+| [mass_mail_log](mass_mail_log.md) | 5 |  | table |
+| [email_changes](email_changes.md) | 6 |  | table |
+| [signup_check](signup_check.md) | 4 |  | table |
+| [profile_fields](profile_fields.md) | 4 |  | table |
+| [profile_field_values](profile_field_values.md) | 3 |  | table |
+| [activity_log](activity_log.md) | 6 |  | table |
+| [word_filter](word_filter.md) | 2 |  | table |
+| [profile_slug_history](profile_slug_history.md) | 3 |  | table |
+| [stories_fts](stories_fts.md) | 3 |  | virtual table |
+| [tag_suggestions](tag_suggestions.md) | 9 |  | table |
+| [stories_trigram](stories_trigram.md) | 2 |  | virtual table |
 
 ## Relations
 
@@ -115,6 +133,62 @@ CREATE TABLE _migrations (name TEXT PRIMARY KEY, batch INTEGER NOT NULL, run_at 
 
 ---
 
+# activity_log
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            actor_name TEXT NOT NULL DEFAULT '',
+            action TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| id | INTEGER |  | true |  |  |  |
+| actor_id | INTEGER |  | true |  | [users](users.md) |  |
+| actor_name | TEXT | '' | false |  |  |  |
+| action | TEXT |  | false |  |  |  |
+| detail | TEXT | '' | false |  |  |  |
+| created_at | TEXT | CURRENT_TIMESTAMP | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| id | PRIMARY KEY | PRIMARY KEY (id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (actor_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| idx_activity_log_actor | CREATE INDEX idx_activity_log_actor ON activity_log (actor_id, action, created_at) |
+| idx_activity_log_created | CREATE INDEX idx_activity_log_created ON activity_log (id DESC) |
+
+## Relations
+
+![er](activity_log.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
 # bookmarks
 
 ## Description
@@ -161,8 +235,8 @@ CREATE TABLE "bookmarks" (
 
 | Name | Definition |
 | ---- | ---------- |
-| idx_bookmarks_chapter | CREATE INDEX idx_bookmarks_chapter ON bookmarks (chapter_id) |
 | idx_bookmarks_story | CREATE INDEX idx_bookmarks_story ON bookmarks (story_id) |
+| idx_bookmarks_chapter | CREATE INDEX idx_bookmarks_chapter ON bookmarks (chapter_id) |
 | idx_bookmarks_user_story | CREATE INDEX idx_bookmarks_user_story ON bookmarks (user_id, story_id, created_at, chapter_id) |
 | sqlite_autoindex_bookmarks_1 | PRIMARY KEY (user_id, story_id, chapter_id) |
 
@@ -202,7 +276,7 @@ CREATE TABLE categories (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | INTEGER |  | true | [categories](categories.md) [characters](characters.md) [story_categories](story_categories.md) |  |  |
+| id | INTEGER |  | true | [categories](categories.md) [story_categories](story_categories.md) [characters](characters.md) |  |  |
 | parent_id | INTEGER |  | true |  | [categories](categories.md) |  |
 | name | TEXT |  | false |  |  |  |
 | slug | TEXT |  | false |  |  |  |
@@ -427,7 +501,7 @@ CREATE TABLE chapters (
             validated INTEGER NOT NULL DEFAULT 0,
             word_count INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), publish_at TEXT,
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), publish_at TEXT, access_hash TEXT,
             UNIQUE (story_id, position)
         )
 ```
@@ -438,7 +512,7 @@ CREATE TABLE chapters (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | INTEGER |  | true | [reviews](reviews.md) |  |  |
+| id | INTEGER |  | true | [reviews](reviews.md) [bookmarks](bookmarks.md) |  |  |
 | story_id | INTEGER |  | false |  | [stories](stories.md) |  |
 | position | INTEGER |  | false |  |  |  |
 | title | TEXT | '' | false |  |  |  |
@@ -450,6 +524,7 @@ CREATE TABLE chapters (
 | created_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
 | updated_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
 | publish_at | TEXT |  | true |  |  |  |
+| access_hash | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -525,9 +600,9 @@ CREATE VIRTUAL TABLE chapters_fts USING fts5(title, content, story_id UNINDEXED,
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
-CREATE TABLE characters (
+CREATE TABLE "characters" (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category_id INTEGER NOT NULL REFERENCES categories (id) ON DELETE CASCADE,
+            category_id INTEGER REFERENCES categories (id) ON DELETE CASCADE,
             name TEXT NOT NULL,
             slug TEXT NOT NULL UNIQUE,
             description TEXT NOT NULL DEFAULT ''
@@ -541,7 +616,7 @@ CREATE TABLE characters (
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
 | id | INTEGER |  | true | [story_characters](story_characters.md) |  |  |
-| category_id | INTEGER |  | false |  | [categories](categories.md) |  |
+| category_id | INTEGER |  | true |  | [categories](categories.md) |  |
 | name | TEXT |  | false |  |  |  |
 | slug | TEXT |  | false |  |  |  |
 | description | TEXT | '' | false |  |  |  |
@@ -675,6 +750,62 @@ CREATE TABLE contact_log (
 
 ---
 
+# email_changes
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE email_changes (
+            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            new_email TEXT NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            pwd_epoch TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| user_id | INTEGER |  | true |  | [users](users.md) |  |
+| new_email | TEXT |  | false |  |  |  |
+| token_hash | TEXT |  | false |  |  |  |
+| pwd_epoch | TEXT |  | false |  |  |  |
+| expires_at | TEXT |  | false |  |  |  |
+| created_at | TEXT |  | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| user_id | PRIMARY KEY | PRIMARY KEY (user_id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| sqlite_autoindex_email_changes_1 | UNIQUE | UNIQUE (token_hash) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_email_changes_1 | UNIQUE (token_hash) |
+
+## Relations
+
+![er](email_changes.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
 # email_verifications
 
 ## Description
@@ -718,6 +849,53 @@ CREATE TABLE email_verifications (
 ## Relations
 
 ![er](email_verifications.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# epub_imports
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE epub_imports (sha256 TEXT PRIMARY KEY, story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE, imported_at TEXT NOT NULL)
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| sha256 | TEXT |  | true |  |  |  |
+| story_id | INTEGER |  | false |  | [stories](stories.md) |  |
+| imported_at | TEXT |  | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| sha256 | PRIMARY KEY | PRIMARY KEY (sha256) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (story_id) REFERENCES stories (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| sqlite_autoindex_epub_imports_1 | PRIMARY KEY | PRIMARY KEY (sha256) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| idx_epub_imports_story | CREATE INDEX idx_epub_imports_story ON epub_imports (story_id) |
+| sqlite_autoindex_epub_imports_1 | PRIMARY KEY (sha256) |
+
+## Relations
+
+![er](epub_imports.svg)
 
 ---
 
@@ -968,7 +1146,7 @@ CREATE TABLE import_runs (
             options_hash TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'running',
             checkpoints TEXT NOT NULL DEFAULT '{}'
-        )
+        , importer TEXT NOT NULL DEFAULT 'efiction')
 ```
 
 </details>
@@ -983,6 +1161,7 @@ CREATE TABLE import_runs (
 | options_hash | TEXT |  | false |  |  |  |
 | status | TEXT | 'running' | false |  |  |  |
 | checkpoints | TEXT | '{}' | false |  |  |  |
+| importer | TEXT | 'efiction' | false |  |  |  |
 
 ## Constraints
 
@@ -1104,6 +1283,51 @@ CREATE TABLE legacy_log (
 
 ---
 
+# legacy_page_urls
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE legacy_page_urls (legacy_name TEXT PRIMARY KEY, page_slug TEXT NOT NULL REFERENCES pages(slug) ON DELETE CASCADE ON UPDATE CASCADE)
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| legacy_name | TEXT |  | true |  |  |  |
+| page_slug | TEXT |  | false |  | [pages](pages.md) |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| legacy_name | PRIMARY KEY | PRIMARY KEY (legacy_name) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (page_slug) REFERENCES pages (slug) ON UPDATE CASCADE ON DELETE CASCADE MATCH NONE |
+| sqlite_autoindex_legacy_page_urls_1 | PRIMARY KEY | PRIMARY KEY (legacy_name) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_legacy_page_urls_1 | PRIMARY KEY (legacy_name) |
+
+## Relations
+
+![er](legacy_page_urls.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
 # legacy_urls
 
 ## Description
@@ -1212,6 +1436,111 @@ CREATE TABLE login_attempts (
 
 ---
 
+# login_links
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE login_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token_hash TEXT NOT NULL UNIQUE,
+            pwd_epoch TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| id | INTEGER |  | true |  |  |  |
+| user_id | INTEGER |  | false |  | [users](users.md) |  |
+| token_hash | TEXT |  | false |  |  |  |
+| pwd_epoch | TEXT |  | false |  |  |  |
+| expires_at | TEXT |  | false |  |  |  |
+| created_at | TEXT |  | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| id | PRIMARY KEY | PRIMARY KEY (id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| sqlite_autoindex_login_links_1 | UNIQUE | UNIQUE (token_hash) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| idx_login_links_user | CREATE INDEX idx_login_links_user ON login_links (user_id) |
+| sqlite_autoindex_login_links_1 | UNIQUE (token_hash) |
+
+## Relations
+
+![er](login_links.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# mail_sends
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE mail_sends (
+            day TEXT NOT NULL,
+            sent INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (day)
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| day | TEXT |  | false |  |  |  |
+| sent | INTEGER | 0 | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| day | PRIMARY KEY | PRIMARY KEY (day) |
+| sqlite_autoindex_mail_sends_1 | PRIMARY KEY | PRIMARY KEY (day) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_mail_sends_1 | PRIMARY KEY (day) |
+
+## Relations
+
+![er](mail_sends.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
 # mail_templates
 
 ## Description
@@ -1253,6 +1582,59 @@ CREATE TABLE mail_templates (
 ## Relations
 
 ![er](mail_templates.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# mass_mail_log
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE mass_mail_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            subject TEXT NOT NULL,
+            recipients INTEGER NOT NULL,
+            sent_at TEXT NOT NULL
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| id | INTEGER |  | true |  |  |  |
+| admin_id | INTEGER |  | true |  | [users](users.md) |  |
+| subject | TEXT |  | false |  |  |  |
+| recipients | INTEGER |  | false |  |  |  |
+| sent_at | TEXT |  | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| id | PRIMARY KEY | PRIMARY KEY (id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (admin_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| idx_mass_mail_log_sent | CREATE INDEX idx_mass_mail_log_sent ON mass_mail_log (sent_at) |
+
+## Relations
+
+![er](mass_mail_log.svg)
 
 ---
 
@@ -1655,7 +2037,7 @@ CREATE TABLE pages (
             title TEXT NOT NULL,
             body TEXT NOT NULL,
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-        )
+        , noindex INTEGER NOT NULL DEFAULT 0)
 ```
 
 </details>
@@ -1664,10 +2046,11 @@ CREATE TABLE pages (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| slug | TEXT |  | true |  |  |  |
+| slug | TEXT |  | true | [legacy_page_urls](legacy_page_urls.md) |  |  |
 | title | TEXT |  | false |  |  |  |
 | body | TEXT |  | false |  |  |  |
 | updated_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
+| noindex | INTEGER | 0 | false |  |  |  |
 
 ## Constraints
 
@@ -1735,6 +2118,154 @@ CREATE TABLE password_resets (
 ## Relations
 
 ![er](password_resets.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# profile_field_values
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE profile_field_values (
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            field_id INTEGER NOT NULL REFERENCES profile_fields(id) ON DELETE CASCADE,
+            value TEXT NOT NULL,
+            PRIMARY KEY (user_id, field_id)
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| user_id | INTEGER |  | false |  | [users](users.md) |  |
+| field_id | INTEGER |  | false |  | [profile_fields](profile_fields.md) |  |
+| value | TEXT |  | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| user_id | PRIMARY KEY | PRIMARY KEY (user_id) |
+| field_id | PRIMARY KEY | PRIMARY KEY (field_id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (field_id) REFERENCES profile_fields (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| sqlite_autoindex_profile_field_values_1 | PRIMARY KEY | PRIMARY KEY (user_id, field_id) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| idx_profile_field_values_field | CREATE INDEX idx_profile_field_values_field ON profile_field_values (field_id) |
+| sqlite_autoindex_profile_field_values_1 | PRIMARY KEY (user_id, field_id) |
+
+## Relations
+
+![er](profile_field_values.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# profile_fields
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE profile_fields (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            label TEXT NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('text', 'url', 'yesno')),
+            position INTEGER NOT NULL DEFAULT 0
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| id | INTEGER |  | true | [profile_field_values](profile_field_values.md) |  |  |
+| label | TEXT |  | false |  |  |  |
+| type | TEXT |  | false |  |  |  |
+| position | INTEGER | 0 | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| id | PRIMARY KEY | PRIMARY KEY (id) |
+| - | CHECK | CHECK (type IN ('text', 'url', 'yesno')) |
+
+## Relations
+
+![er](profile_fields.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# profile_slug_history
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE profile_slug_history (
+            old_slug TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            changed_at INTEGER NOT NULL
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| old_slug | TEXT |  | true |  |  |  |
+| user_id | INTEGER |  | false |  |  |  |
+| changed_at | INTEGER |  | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| old_slug | PRIMARY KEY | PRIMARY KEY (old_slug) |
+| sqlite_autoindex_profile_slug_history_1 | PRIMARY KEY | PRIMARY KEY (old_slug) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_profile_slug_history_1 | PRIMARY KEY (old_slug) |
+
+## Relations
+
+![er](profile_slug_history.svg)
 
 ---
 
@@ -1888,6 +2419,7 @@ CREATE TABLE reading_history (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_reading_user_updated | CREATE INDEX idx_reading_user_updated ON reading_history (user_id, updated_at) |
 | idx_reading_story | CREATE INDEX idx_reading_story ON reading_history (story_id) |
 | sqlite_autoindex_reading_history_1 | PRIMARY KEY (user_id, story_id) |
 
@@ -2022,6 +2554,63 @@ CREATE TABLE reading_lists (
 
 ---
 
+# recommendations
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE recommendations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+            story_id INTEGER NOT NULL REFERENCES stories (id) ON DELETE CASCADE,
+            note TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            UNIQUE (user_id, story_id)
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| id | INTEGER |  | true |  |  |  |
+| user_id | INTEGER |  | false |  | [users](users.md) |  |
+| story_id | INTEGER |  | false |  | [stories](stories.md) |  |
+| note | TEXT | '' | false |  |  |  |
+| created_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| id | PRIMARY KEY | PRIMARY KEY (id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (story_id) REFERENCES stories (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| sqlite_autoindex_recommendations_1 | UNIQUE | UNIQUE (user_id, story_id) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| idx_rec_story | CREATE INDEX idx_rec_story ON recommendations (story_id) |
+| sqlite_autoindex_recommendations_1 | UNIQUE (user_id, story_id) |
+
+## Relations
+
+![er](recommendations.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
 # reports
 
 ## Description
@@ -2070,6 +2659,7 @@ CREATE TABLE reports (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_reports_story | CREATE INDEX idx_reports_story ON reports (story_id) |
 | idx_reports_open | CREATE INDEX idx_reports_open ON reports (resolved_at) |
 | idx_reports_open_review | CREATE UNIQUE INDEX idx_reports_open_review ON reports (review_id, reporter_id) WHERE resolved_at IS NULL AND review_id IS NOT NULL |
 | idx_reports_open_story | CREATE UNIQUE INDEX idx_reports_open_story ON reports (story_id, reporter_id) WHERE resolved_at IS NULL AND story_id IS NOT NULL |
@@ -2181,7 +2771,7 @@ CREATE TABLE series (
             owner_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
             membership TEXT NOT NULL DEFAULT 'closed' CHECK (membership IN ('open', 'moderated', 'closed')),
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-        )
+        , cover_path TEXT)
 ```
 
 </details>
@@ -2197,6 +2787,7 @@ CREATE TABLE series (
 | owner_id | INTEGER |  | false |  | [users](users.md) |  |
 | membership | TEXT | 'closed' | false |  |  |  |
 | created_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
+| cover_path | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -2211,6 +2802,7 @@ CREATE TABLE series (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_series_title | CREATE INDEX idx_series_title ON series (title) |
 | idx_series_owner | CREATE INDEX idx_series_owner ON series (owner_id) |
 | sqlite_autoindex_series_1 | UNIQUE (slug) |
 
@@ -2287,6 +2879,202 @@ CREATE TABLE series_items (
 
 ---
 
+# settings
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| key | TEXT |  | true |  |  |  |
+| value | TEXT |  | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| key | PRIMARY KEY | PRIMARY KEY (key) |
+| sqlite_autoindex_settings_1 | PRIMARY KEY | PRIMARY KEY (key) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_settings_1 | PRIMARY KEY (key) |
+
+## Relations
+
+![er](settings.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# signup_check
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE signup_check (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            enabled INTEGER NOT NULL DEFAULT 0,
+            question TEXT NOT NULL DEFAULT '',
+            answer TEXT NOT NULL DEFAULT ''
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| id | INTEGER |  | true |  |  |  |
+| enabled | INTEGER | 0 | false |  |  |  |
+| question | TEXT | '' | false |  |  |  |
+| answer | TEXT | '' | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| id | PRIMARY KEY | PRIMARY KEY (id) |
+| - | CHECK | CHECK (id = 1) |
+
+## Relations
+
+![er](signup_check.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# site_languages
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE site_languages (
+            code TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            dir TEXT NOT NULL DEFAULT 'ltr',
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| code | TEXT |  | true |  |  |  |
+| name | TEXT |  | false |  |  |  |
+| dir | TEXT | 'ltr' | false |  |  |  |
+| created_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| code | PRIMARY KEY | PRIMARY KEY (code) |
+| sqlite_autoindex_site_languages_1 | PRIMARY KEY | PRIMARY KEY (code) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_site_languages_1 | PRIMARY KEY (code) |
+
+## Relations
+
+![er](site_languages.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# site_text
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE site_text (
+            lang TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            PRIMARY KEY (lang, key)
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| lang | TEXT |  | false |  |  |  |
+| key | TEXT |  | false |  |  |  |
+| value | TEXT |  | false |  |  |  |
+| updated_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| lang | PRIMARY KEY | PRIMARY KEY (lang) |
+| key | PRIMARY KEY | PRIMARY KEY (key) |
+| sqlite_autoindex_site_text_1 | PRIMARY KEY | PRIMARY KEY (lang, key) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_site_text_1 | PRIMARY KEY (lang, key) |
+
+## Relations
+
+![er](site_text.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
 # stories
 
 ## Description
@@ -2311,7 +3099,7 @@ CREATE TABLE stories (
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
             deleted_at TEXT
-        , meta_description TEXT, is_restricted INTEGER NOT NULL DEFAULT 0, language TEXT NOT NULL DEFAULT '', cover_path TEXT, canonical_url TEXT, crosspost_url TEXT, gift_to TEXT)
+        , meta_description TEXT, is_restricted INTEGER NOT NULL DEFAULT 0, language TEXT NOT NULL DEFAULT '', cover_path TEXT, canonical_url TEXT, crosspost_url TEXT, gift_to TEXT, is_original INTEGER NOT NULL DEFAULT 0, access_hash TEXT)
 ```
 
 </details>
@@ -2320,7 +3108,7 @@ CREATE TABLE stories (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | INTEGER |  | true | [story_categories](story_categories.md) [story_tags](story_tags.md) [story_characters](story_characters.md) [coauthors](coauthors.md) [chapters](chapters.md) [series_items](series_items.md) [reviews](reviews.md) [favorites](favorites.md) [page_stats](page_stats.md) [notifications](notifications.md) [story_kudos](story_kudos.md) [reading_history](reading_history.md) [reports](reports.md) [reading_list_items](reading_list_items.md) [challenge_items](challenge_items.md) |  |  |
+| id | INTEGER |  | true | [story_categories](story_categories.md) [story_tags](story_tags.md) [story_characters](story_characters.md) [coauthors](coauthors.md) [chapters](chapters.md) [series_items](series_items.md) [reviews](reviews.md) [favorites](favorites.md) [page_stats](page_stats.md) [notifications](notifications.md) [story_kudos](story_kudos.md) [reading_history](reading_history.md) [reports](reports.md) [reading_list_items](reading_list_items.md) [challenge_items](challenge_items.md) [bookmarks](bookmarks.md) [recommendations](recommendations.md) [epub_imports](epub_imports.md) [tag_suggestions](tag_suggestions.md) |  |  |
 | title | TEXT |  | false |  |  |  |
 | slug | TEXT |  | false |  |  |  |
 | summary | TEXT | '' | false |  |  |  |
@@ -2342,6 +3130,8 @@ CREATE TABLE stories (
 | canonical_url | TEXT |  | true |  |  |  |
 | crosspost_url | TEXT |  | true |  |  |  |
 | gift_to | TEXT |  | true |  |  |  |
+| is_original | INTEGER | 0 | false |  |  |  |
+| access_hash | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -2356,6 +3146,10 @@ CREATE TABLE stories (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_stories_language | CREATE INDEX idx_stories_language ON stories(validated, language) |
+| idx_stories_title | CREATE INDEX idx_stories_title    ON stories(validated, title COLLATE NOCASE, id) |
+| idx_stories_words | CREATE INDEX idx_stories_words    ON stories(validated, word_count DESC, id DESC) |
+| idx_stories_created | CREATE INDEX idx_stories_created  ON stories(validated, created_at DESC, id DESC) |
 | idx_stories_recency | CREATE INDEX idx_stories_recency ON stories (validated, updated_at DESC, id DESC) |
 | idx_stories_rating | CREATE INDEX idx_stories_rating ON stories (rating_id) |
 | idx_stories_validated | CREATE INDEX idx_stories_validated ON stories (validated) |
@@ -2367,9 +3161,12 @@ CREATE TABLE stories (
 
 | Name | Definition |
 | ---- | ---------- |
-| stories_fts_ins | CREATE TRIGGER stories_fts_ins AFTER INSERT ON stories BEGIN<br />            INSERT INTO stories_fts (rowid, title, summary) VALUES (new.id, new.title, new.summary); END |
-| stories_fts_upd | CREATE TRIGGER stories_fts_upd AFTER UPDATE OF title, summary ON stories BEGIN<br />            DELETE FROM stories_fts WHERE rowid = old.id;<br />            INSERT INTO stories_fts (rowid, title, summary) VALUES (new.id, new.title, new.summary); END |
 | stories_fts_del | CREATE TRIGGER stories_fts_del AFTER DELETE ON stories BEGIN<br />            DELETE FROM stories_fts WHERE rowid = old.id; END |
+| stories_fts_ins | CREATE TRIGGER stories_fts_ins AFTER INSERT ON stories BEGIN<br />            INSERT INTO stories_fts (rowid, title, summary, tags) VALUES (new.id, new.title, new.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = new.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = new.id))); END |
+| stories_fts_upd | CREATE TRIGGER stories_fts_upd AFTER UPDATE OF title, summary ON stories BEGIN<br />            DELETE FROM stories_fts WHERE rowid = old.id;<br />            INSERT INTO stories_fts (rowid, title, summary, tags) VALUES (new.id, new.title, new.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = new.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = new.id))); END |
+| stories_tri_ins | CREATE TRIGGER stories_tri_ins AFTER INSERT ON stories BEGIN<br />            INSERT INTO stories_trigram (rowid, title, tags) VALUES (new.id, new.title, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = new.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = new.id))); END |
+| stories_tri_upd | CREATE TRIGGER stories_tri_upd AFTER UPDATE OF title, summary ON stories BEGIN<br />            DELETE FROM stories_trigram WHERE rowid = old.id;<br />            INSERT INTO stories_trigram (rowid, title, tags) VALUES (new.id, new.title, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = new.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = new.id))); END |
+| stories_tri_del | CREATE TRIGGER stories_tri_del AFTER DELETE ON stories BEGIN<br />            DELETE FROM stories_trigram WHERE rowid = old.id; END |
 
 ## Relations
 
@@ -2390,7 +3187,7 @@ CREATE TABLE stories (
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
-CREATE VIRTUAL TABLE stories_fts USING fts5(title, summary, tokenize = 'porter unicode61')
+CREATE VIRTUAL TABLE stories_fts USING fts5(title, summary, tags, tokenize = 'porter unicode61', prefix = '2 3')
 ```
 
 </details>
@@ -2401,10 +3198,42 @@ CREATE VIRTUAL TABLE stories_fts USING fts5(title, summary, tokenize = 'porter u
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
 | title |  |  | true |  |  |  |
 | summary |  |  | true |  |  |  |
+| tags |  |  | true |  |  |  |
 
 ## Relations
 
 ![er](stories_fts.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# stories_trigram
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE VIRTUAL TABLE stories_trigram USING fts5(title, tags, tokenize = 'trigram')
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| title |  |  | true |  |  |  |
+| tags |  |  | true |  |  |  |
+
+## Relations
+
+![er](stories_trigram.svg)
 
 ---
 
@@ -2612,12 +3441,91 @@ CREATE TABLE story_tags (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_story_tags_rev | CREATE INDEX idx_story_tags_rev   ON story_tags(tag_id, story_id) |
 | idx_story_tags_tag | CREATE INDEX idx_story_tags_tag ON story_tags (tag_id) |
 | sqlite_autoindex_story_tags_1 | PRIMARY KEY (story_id, tag_id) |
+
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| stories_fts_tag_ins | CREATE TRIGGER stories_fts_tag_ins AFTER INSERT ON story_tags BEGIN DELETE FROM stories_fts WHERE rowid IN (new.story_id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (new.story_id); END |
+| stories_fts_tag_del | CREATE TRIGGER stories_fts_tag_del AFTER DELETE ON story_tags BEGIN DELETE FROM stories_fts WHERE rowid IN (old.story_id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (old.story_id); END |
+| stories_tri_tag_ins | CREATE TRIGGER stories_tri_tag_ins AFTER INSERT ON story_tags BEGIN DELETE FROM stories_trigram WHERE rowid IN (new.story_id);<br />                INSERT INTO stories_trigram (rowid, title, tags)<br />                  SELECT s.id, s.title, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (new.story_id); END |
+| stories_tri_tag_del | CREATE TRIGGER stories_tri_tag_del AFTER DELETE ON story_tags BEGIN DELETE FROM stories_trigram WHERE rowid IN (old.story_id);<br />                INSERT INTO stories_trigram (rowid, title, tags)<br />                  SELECT s.id, s.title, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (old.story_id); END |
 
 ## Relations
 
 ![er](story_tags.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)
+
+
+---
+
+# tag_suggestions
+
+## Description
+
+<details>
+<summary><strong>Table Definition</strong></summary>
+
+```sql
+CREATE TABLE tag_suggestions (
+            id INTEGER PRIMARY KEY,
+            tag_type_id INTEGER NOT NULL REFERENCES tag_types (id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            suggested_by INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+            story_id INTEGER NOT NULL REFERENCES stories (id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'rejected')),
+            created_at TEXT NOT NULL,
+            resolved_at TEXT,
+            resolved_by INTEGER REFERENCES users (id) ON DELETE SET NULL,
+            UNIQUE (story_id, tag_type_id, name COLLATE NOCASE)
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| id | INTEGER |  | true |  |  |  |
+| tag_type_id | INTEGER |  | false |  | [tag_types](tag_types.md) |  |
+| name | TEXT |  | false |  |  |  |
+| suggested_by | INTEGER |  | false |  | [users](users.md) |  |
+| story_id | INTEGER |  | false |  | [stories](stories.md) |  |
+| status | TEXT | 'pending' | false |  |  |  |
+| created_at | TEXT |  | false |  |  |  |
+| resolved_at | TEXT |  | true |  |  |  |
+| resolved_by | INTEGER |  | true |  | [users](users.md) |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| id | PRIMARY KEY | PRIMARY KEY (id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (resolved_by) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (story_id) REFERENCES stories (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 2) | FOREIGN KEY | FOREIGN KEY (suggested_by) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 3) | FOREIGN KEY | FOREIGN KEY (tag_type_id) REFERENCES tag_types (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| sqlite_autoindex_tag_suggestions_1 | UNIQUE | UNIQUE (story_id, tag_type_id, name) |
+| - | CHECK | CHECK (status IN ('pending', 'rejected')) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| idx_tag_sugg_user | CREATE INDEX idx_tag_sugg_user ON tag_suggestions(suggested_by, status) |
+| idx_tag_sugg_queue | CREATE INDEX idx_tag_sugg_queue ON tag_suggestions(status, tag_type_id, name COLLATE NOCASE) |
+| sqlite_autoindex_tag_suggestions_1 | UNIQUE (story_id, tag_type_id, name) |
+
+## Relations
+
+![er](tag_suggestions.svg)
 
 ---
 
@@ -2637,7 +3545,7 @@ CREATE TABLE story_tags (
 CREATE TABLE tag_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE
-        )
+        , position INTEGER NOT NULL DEFAULT 0)
 ```
 
 </details>
@@ -2646,8 +3554,9 @@ CREATE TABLE tag_types (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | INTEGER |  | true | [tags](tags.md) |  |  |
+| id | INTEGER |  | true | [tags](tags.md) [tag_suggestions](tag_suggestions.md) |  |  |
 | name | TEXT |  | false |  |  |  |
+| position | INTEGER | 0 | false |  |  |  |
 
 ## Constraints
 
@@ -2713,8 +3622,22 @@ CREATE TABLE tags (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_tags_type_name | CREATE INDEX idx_tags_type_name   ON tags(tag_type_id, name COLLATE NOCASE) |
+| idx_tags_canonical | CREATE INDEX idx_tags_canonical   ON tags(canonical_id) |
+| idx_tags_name | CREATE INDEX idx_tags_name        ON tags(name COLLATE NOCASE) |
 | idx_tags_type | CREATE INDEX idx_tags_type ON tags (tag_type_id) |
 | sqlite_autoindex_tags_1 | UNIQUE (tag_type_id, name) |
+
+## Triggers
+
+| Name | Definition |
+| ---- | ---------- |
+| stories_fts_tags_ins | CREATE TRIGGER stories_fts_tags_ins AFTER INSERT ON tags BEGIN DELETE FROM stories_fts WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id = new.canonical_id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id = new.canonical_id); END |
+| stories_fts_tags_upd | CREATE TRIGGER stories_fts_tags_upd AFTER UPDATE OF name, canonical_id ON tags BEGIN DELETE FROM stories_fts WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id IN (old.id, new.id, old.canonical_id, new.canonical_id));<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id IN (old.id, new.id, old.canonical_id, new.canonical_id)); END |
+| stories_fts_tags_del | CREATE TRIGGER stories_fts_tags_del BEFORE DELETE ON tags BEGIN DELETE FROM stories_fts WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id = old.id);<br />                INSERT INTO stories_fts (rowid, title, summary, tags)<br />                  SELECT s.id, s.title, s.summary, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id AND t.id <> old.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id AND syn.canonical_id <> old.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id = old.id); END |
+| stories_tri_tags_upd | CREATE TRIGGER stories_tri_tags_upd AFTER UPDATE OF name, canonical_id ON tags BEGIN DELETE FROM stories_trigram WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id IN (old.id, new.id, old.canonical_id, new.canonical_id));<br />                INSERT INTO stories_trigram (rowid, title, tags)<br />                  SELECT s.id, s.title, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id IN (old.id, new.id, old.canonical_id, new.canonical_id)); END |
+| stories_tri_tags_ins | CREATE TRIGGER stories_tri_tags_ins AFTER INSERT ON tags BEGIN DELETE FROM stories_trigram WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id = new.canonical_id);<br />                INSERT INTO stories_trigram (rowid, title, tags)<br />                  SELECT s.id, s.title, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id = new.canonical_id); END |
+| stories_tri_tags_del | CREATE TRIGGER stories_tri_tags_del BEFORE DELETE ON tags BEGIN DELETE FROM stories_trigram WHERE rowid IN (SELECT story_id FROM story_tags WHERE tag_id = old.id);<br />                INSERT INTO stories_trigram (rowid, title, tags)<br />                  SELECT s.id, s.title, (SELECT COALESCE(group_concat(n, ' '), '') FROM (<br />                    SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id AND t.id <> old.id<br />                    UNION<br />                    SELECT syn.name FROM story_tags st JOIN tags syn ON syn.canonical_id = st.tag_id WHERE st.story_id = s.id AND syn.canonical_id <> old.id)) FROM stories s WHERE s.id IN (SELECT story_id FROM story_tags WHERE tag_id = old.id); END |
 
 ## Relations
 
@@ -2808,7 +3731,7 @@ CREATE TABLE users (
             is_locked INTEGER NOT NULL DEFAULT 0,
             age_consented_at TEXT,
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-        , email_verified_at TEXT, approved_at TEXT, support_url TEXT, profile_slug TEXT)
+        , email_verified_at TEXT, approved_at TEXT, support_url TEXT, profile_slug TEXT, legacy_bcrypt TEXT)
 ```
 
 </details>
@@ -2817,7 +3740,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | INTEGER |  | true | [stories](stories.md) [coauthors](coauthors.md) [series](series.md) [reviews](reviews.md) [favorites](favorites.md) [news](news.md) [news_comments](news_comments.md) [invites](invites.md) [notifications](notifications.md) [story_kudos](story_kudos.md) [follows](follows.md) [reading_history](reading_history.md) [reports](reports.md) [contact_log](contact_log.md) [reading_lists](reading_lists.md) [challenges](challenges.md) [muted](muted.md) [messages](messages.md) [user_prefs](user_prefs.md) |  |  |
+| id | INTEGER |  | true | [stories](stories.md) [coauthors](coauthors.md) [series](series.md) [reviews](reviews.md) [favorites](favorites.md) [news](news.md) [news_comments](news_comments.md) [invites](invites.md) [notifications](notifications.md) [story_kudos](story_kudos.md) [follows](follows.md) [reading_history](reading_history.md) [reports](reports.md) [contact_log](contact_log.md) [reading_lists](reading_lists.md) [challenges](challenges.md) [muted](muted.md) [messages](messages.md) [user_prefs](user_prefs.md) [bookmarks](bookmarks.md) [recommendations](recommendations.md) [login_links](login_links.md) [mass_mail_log](mass_mail_log.md) [email_changes](email_changes.md) [profile_field_values](profile_field_values.md) [activity_log](activity_log.md) [tag_suggestions](tag_suggestions.md) |  |  |
 | email | TEXT |  | false |  |  |  |
 | password_hash | TEXT |  | false |  |  |  |
 | penname | TEXT |  | true |  |  |  |
@@ -2834,6 +3757,7 @@ CREATE TABLE users (
 | approved_at | TEXT |  | true |  |  |  |
 | support_url | TEXT |  | true |  |  |  |
 | profile_slug | TEXT |  | true |  |  |  |
+| legacy_bcrypt | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -2848,6 +3772,7 @@ CREATE TABLE users (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_users_lower_email | CREATE INDEX idx_users_lower_email ON users (lower(email)) |
 | idx_users_profile_slug | CREATE UNIQUE INDEX idx_users_profile_slug ON users (profile_slug) |
 | idx_users_pending_approval | CREATE INDEX idx_users_pending_approval ON users (approved_at) WHERE approved_at IS NULL |
 | idx_users_role | CREATE INDEX idx_users_role ON users (role) |
@@ -2862,66 +3787,49 @@ CREATE TABLE users (
 
 > Generated by [tbls](https://github.com/k1LoW/tbls)
 
-## Index Analysis
 
-Scope note: this app enforces a one-query-per-page budget with a written
-index discipline (every index shape must match a real WHERE/ORDER BY it
-serves; page queries must show no SCAN and no TEMP B-TREE under EXPLAIN
-QUERY PLAN, verified by QueryBudgetTest and /db-optimize at every phase
-gate). The analysis below honors that standard: an index is recommended
-only where a real query pattern needs it.
+---
 
-### Issues Found
-None requiring action.
+# word_filter
 
-- FTS5 virtual tables (stories_fts, chapters_fts) report no conventional
-  PRIMARY KEY: structural to FTS5 (rowid-backed shadow tables), not a
-  defect. Do not "fix."
-- Ten foreign key columns carry no dedicated index (categories.parent_id,
-  challenges.owner_id, contact_log.target_id, invites.created_by,
-  invites.used_by, news.author_id, news_comments.user_id,
-  notifications.actor_id, notifications.story_id, tags.canonical_id).
-  Verified acceptable: each is a join-for-display column whose lookup runs
-  parent-side on the parent's PRIMARY KEY inside the single folded page
-  query; none is a filter or sort key. Indexing them would add write cost
-  with no query to serve, violating the app's own index rule. If any
-  becomes a WHERE/ORDER BY key in future work, index it in that feature's
-  migration at that time.
+## Description
 
-### Migration notes (025-027, reader redesign)
-- rate_limits (025): the Kip fixed-window limiter's store. PK (prefix, ip,
-  window_start) serves the per-window upsert as a single index seek;
-  idx_rate_limits_window serves the expired-window prune as a range seek.
-  No foreign keys by design (IPs and route prefixes are not entities).
-- user_prefs (026): REBUILT, not UPDATED, because 001's CHECK (theme IN
-  ('dark','light')) cannot be altered in SQLite. The rebuild carried all
-  ten columns and mapped light to paper, dark to night. Stored theme
-  values are paper/sepia/night only; auto is a cookie-level choice (the
-  settings route clears the theme cookie) and never reaches a row.
-- user_prefs (029): REBUILT again so theme is nullable, NULL meaning Auto.
-  001's DEFAULT 'dark' had given every prefs row created for another reason
-  a theme nobody chose (night after 026), which the login sync applied; all
-  stored themes reset to NULL. Auto now stores NULL and the login sync sets
-  no theme cookie for it.
-- categories (031): idx_categories_order (position, name) serves both
-  category listings (/browse and /feed/subscribe) in the operator's order
-  with no TEMP B-TREE.
-- bookmarks (027): PK (user_id, story_id, chapter_id) makes re-bookmarking
-  an upsert; idx_bookmarks_user_story (user_id, story_id, created_at,
-  chapter_id) serves the reader envelope's fold with no TEMP B-TREE;
-  idx_bookmarks_chapter (chapter_id) serves the chapter hard-delete
-  paths' cleanup and the chapter cascade as a seek. Since 030 all three
-  ids carry FOREIGN KEY ... ON DELETE CASCADE, so deleting a user, story
-  or chapter removes its bookmarks (030 dropped pre-existing orphans).
-  idx_bookmarks_story (032) makes the story cascade a seek. Notes are capped at 500 characters by the
-  controller (mb_substr, scrubbed to valid UTF-8), not the schema.
-- reading_progress does NOT exist and must not be added: member reading
-  progress lives in reading_history.last_position (furthest-read,
-  never-backwards, written by EngagementRepository::recordProgress). The
-  comp-era draft table was cut in review as duplicate state.
+<details>
+<summary><strong>Table Definition</strong></summary>
 
-### Summary
-60 tables (including FTS5 shadow tables), 93 indexes in sqlite_master
-(automatic PK indexes included), complete primary key coverage on all
-conventional tables, zero missing indexes justified by actual query
-patterns.
+```sql
+CREATE TABLE word_filter (
+            word TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        )
+```
+
+</details>
+
+## Columns
+
+| Name | Type | Default | Nullable | Children | Parents | Comment |
+| ---- | ---- | ------- | -------- | -------- | ------- | ------- |
+| word | TEXT |  | true |  |  |  |
+| created_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
+
+## Constraints
+
+| Name | Type | Definition |
+| ---- | ---- | ---------- |
+| word | PRIMARY KEY | PRIMARY KEY (word) |
+| sqlite_autoindex_word_filter_1 | PRIMARY KEY | PRIMARY KEY (word) |
+
+## Indexes
+
+| Name | Definition |
+| ---- | ---------- |
+| sqlite_autoindex_word_filter_1 | PRIMARY KEY (word) |
+
+## Relations
+
+![er](word_filter.svg)
+
+---
+
+> Generated by [tbls](https://github.com/k1LoW/tbls)

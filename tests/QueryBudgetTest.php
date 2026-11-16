@@ -145,8 +145,14 @@ final class QueryBudgetTest extends TestCase
                 // paths only, so ?beta=/?sort= variants always render live.
                 ['/browse/authors?beta=1'], ['/user/stories/demo-author?sort=alpha'],
                 // The search fold carries the filter taxonomies AND the results
-                // in ONE compound statement, query string and all.
+                // in ONE compound statement, query string and all. The slice-3
+                // tag fields ride TagFilter inside that same compound.
                 ['/search?q=wonderland'],
+                ['/search?q=wonderland&tags=Slow+Burn&xtags=gore&tag[]=1&sort=updated'],
+                // The filter page: the tag picker, taxonomies and the results are
+                // arms of ONE compound statement, bare and fully filtered.
+                ['/browse/filter'],
+                ['/browse/filter?tag[]=1&xtag[]=2&status=complete&sort=words&wmin=1000&language=en'],
                 // The toplists hub: all four sections ride one zero-bind compound.
                 ['/top'],
                 ['/feed'], ['/rss'],

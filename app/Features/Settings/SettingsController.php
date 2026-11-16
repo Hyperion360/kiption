@@ -27,7 +27,7 @@ final class SettingsController
         'basics' => ['site_name', 'slogan', 'items_per_page'],
         'stories' => ['submissions_open', 'validation_required', 'min_words', 'max_words', 'coauthors_on', 'series_on', 'uploads_on', 'default_sort', 'adult_rta'],
         'reviews' => ['reviews_on', 'guest_reviews', 'rating_only'],
-        'members' => ['registration_mode', 'profiles_public'],
+        'members' => ['registration_mode', 'profiles_public', 'tag_policy'],
         'look' => ['skin', 'ui_lang', 'date_format', 'time_format', 'powered_by'],
         'footer' => ['footer_copyright', 'footer_copyright_url', 'footer_links', 'og_image'],
         'maintenance' => ['maintenance_on'],

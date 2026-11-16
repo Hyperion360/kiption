@@ -5,10 +5,12 @@
      // cards (the shared _story_cards partial), and the outline pager. A bare
      // visit with nothing asked shows a hint, not an empty-result message.
      $this->layout('layout');
-     $asked = $q !== '' || array_filter($filters, static fn ($v): bool => $v !== null && $v !== '' && $v !== false) !== [];
+     $asked = $q !== '' || array_filter($filters, static fn ($v): bool => $v !== null && $v !== '' && $v !== false && $v !== []) !== [];
      $refined = ($filters['category'] ?? null) !== null || ($filters['rating_id'] ?? null) !== null
          || ($filters['completed'] ?? null) === true || (string) ($filters['language'] ?? '') !== ''
-         || ($filters['tag'] ?? null) !== null || ($filters['character'] ?? null) !== null; ?>
+         || ($filters['tag'] ?? null) !== null || ($filters['character'] ?? null) !== null
+         || (string) ($filters['tags'] ?? '') !== '' || (string) ($filters['xtags'] ?? '') !== ''
+         || ($filters['xtag'] ?? null) !== null; ?>
 <div class="page page-search">
   <header class="page-head">
     <h1><?= \App\Lang::t('search.heading') ?></h1>
@@ -40,8 +42,28 @@
         </label>
         <label><?= \App\Lang::t('common.language_hint') ?> <input name="language" maxlength="10" value="<?= $this->e($filters['language'] ?? '') ?>"></label>
         <label class="inline"><input type="checkbox" name="completed" value="1" <?= ($filters['completed'] ?? null) === true ? 'checked' : '' ?>> <?= \App\Lang::t('search.completed_only') ?></label>
-        <?php if (($filters['tag'] ?? null) !== null): ?>
-        <input type="hidden" name="tag" value="<?= (int) $filters['tag'] ?>"><p class="hint"><?= \App\Lang::t('search.filtered_tag') ?> <a href="/search?<?= $this->e(http_build_query(array_filter(['q' => $q, 'character' => $filters['character'] ?? '']))) ?>"><?= \App\Lang::t('search.clear_filter') ?></a></p>
+        <label><?= \App\Lang::t('search.tags') ?> <input name="tags" maxlength="520" value="<?= $this->e((string) ($filters['tags'] ?? '')) ?>"></label>
+        <label><?= \App\Lang::t('search.xtags') ?> <input name="xtags" maxlength="520" value="<?= $this->e((string) ($filters['xtags'] ?? '')) ?>"></label>
+        <label><?= \App\Lang::t('search.sort') ?>
+          <select name="sort">
+            <option value="" <?= ($sort ?? 'relevance') !== 'updated' ? 'selected' : '' ?>><?= \App\Lang::t('search.sort_relevance') ?></option>
+            <option value="updated" <?= ($sort ?? 'relevance') === 'updated' ? 'selected' : '' ?>><?= \App\Lang::t('search.sort_updated') ?></option>
+          </select>
+        </label>
+        <p class="hint"><?= \App\Lang::t('search.tags_hint') ?></p>
+        <p class="hint"><a href="/browse/filter<?php
+            $browseQ = http_build_query(array_filter([
+                'tag' => $filters['tag'] ?? null,
+                'xtag' => $filters['xtag'] ?? null,
+            ], static fn ($v): bool => $v !== null && $v !== '' && $v !== []));
+            echo $browseQ === '' ? '' : '?' . $this->e($browseQ); ?>"><?= \App\Lang::t('search.try_browse') ?></a></p>
+        <?php if (!empty($filters['tag'])): ?>
+        <?php if (is_array($filters['tag'])): ?>
+        <?php foreach ($filters['tag'] as $tagId): ?><input type="hidden" name="tag[]" value="<?= (int) $tagId ?>"><?php endforeach; ?>
+        <?php else: ?>
+        <input type="hidden" name="tag" value="<?= (int) $filters['tag'] ?>">
+        <?php endif; ?>
+        <p class="hint"><?= \App\Lang::t('search.filtered_tag') ?> <a href="/search?<?= $this->e(http_build_query(array_filter(['q' => $q, 'character' => $filters['character'] ?? '']))) ?>"><?= \App\Lang::t('search.clear_filter') ?></a></p>
         <?php endif; ?>
         <?php if (($filters['character'] ?? null) !== null): ?>
         <input type="hidden" name="character" value="<?= (int) $filters['character'] ?>"><p class="hint"><?= \App\Lang::t('search.filtered_character') ?> <a href="/search?<?= $this->e(http_build_query(array_filter(['q' => $q, 'tag' => $filters['tag'] ?? '']))) ?>"><?= \App\Lang::t('search.clear_filter') ?></a></p>
@@ -65,9 +87,21 @@ $carry = ['q' => $q,
           'rating' => (string) ($filters['rating_id'] ?? ''),
           'completed' => ($filters['completed'] ?? null) === true ? '1' : '',
           'language' => (string) ($filters['language'] ?? ''),
-          'tag' => (string) ($filters['tag'] ?? ''),
           'character' => (string) ($filters['character'] ?? '')];
 $keep = array_filter($carry, fn (string $v): bool => $v !== '');
+// Tag ids ride the pager in the shape they arrived (one id or several), or
+// paging drops them. Leave-out ids and tag names ride too.
+$tag = $filters['tag'] ?? null;
+if (is_array($tag)) {
+    $tag = array_values(array_filter($tag, fn ($v): bool => is_string($v) || is_int($v)));
+    $tag = array_values(array_filter($tag, fn ($v): bool => (string) $v !== '' && ctype_digit((string) $v)));
+    if ($tag !== []) { $keep['tag'] = $tag; }
+} elseif ($tag !== null) { $keep['tag'] = (string) $tag; }
+$xtag = array_values(array_filter((array) ($filters['xtag'] ?? []), 'is_string'));
+$xtag = array_values(array_filter($xtag, 'ctype_digit'));
+if ($xtag !== []) { $keep['xtag'] = $xtag; }
+if (is_string($filters['tags'] ?? null) && $filters['tags'] !== '') { $keep['tags'] = $filters['tags']; }
+if (is_string($filters['xtags'] ?? null) && $filters['xtags'] !== '') { $keep['xtags'] = $filters['xtags']; }
 $prevQ = http_build_query($keep + ['page' => max(1, $page - 1)]);
 $nextQ = http_build_query($keep + ['page' => $page + 1]);
 ?>

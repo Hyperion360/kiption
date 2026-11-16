@@ -65,9 +65,23 @@ final class AuthoringRepository
                             ch.category_id AS f,
                             NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
                      FROM characters ch LEFT JOIN categories cc ON cc.id = ch.category_id";
+        // The 'sug' branch rides last (its three binds are the last three):
+        // this viewer's own pending and rejected suggestions for the story,
+        // or every row of the story when the viewer is an admin. Pending
+        // names live only in tag_suggestions, so a coauthor sees their own
+        // rows and nobody else's, and no reader of tags ever sees one.
+        $suggestions = " UNION ALL
+                     SELECT 'sug' AS k, ts.id AS a, ts.name AS b, tt.name AS c, tt.id AS d, ts.status AS e,
+                            NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
+                     FROM tag_suggestions ts
+                     JOIN tag_types tt ON tt.id = ts.tag_type_id
+                     JOIN stories s5 ON s5.id = ts.story_id
+                     WHERE s5.slug = ?
+                       AND (ts.suggested_by = ?
+                            OR (SELECT COUNT(*) FROM users sadm WHERE sadm.id = ? AND sadm.role = 'admin') = 1)";
         if ($slug === null) {
             // The NULL slug binds make the selected concats yield NULL.
-            return $this->db->all($taxonomy . $tags . $characters . ' ORDER BY k, d', [$userId, null, null]);
+            return $this->db->all($taxonomy . $tags . $characters . $suggestions . ' ORDER BY k, d', [$userId, null, null, null, $userId, $userId]);
         }
         return $this->db->all(
             "SELECT 's' AS k, s.id AS a, s.title AS b, s.summary AS c, s.notes AS d,
@@ -90,14 +104,15 @@ final class AuthoringRepository
              SELECT 'co' AS k, cu.id AS a, cu.penname AS b, NULL AS c, cu.id AS d,
                      NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
              FROM coauthors c2 JOIN stories s2 ON s2.id = c2.story_id JOIN users cu ON cu.id = c2.user_id
-             WHERE s2.slug = ?" . $tags . $characters . "
+             WHERE s2.slug = ?" . $tags . $characters . $suggestions . "
              ORDER BY k, d",
-            // SEVEN binds in text order: the 's' branch's SELECT-list admin scalar
+            // TWELVE binds in text order: the 's' branch's SELECT-list admin scalar
             // first (SELECT-list binds precede WHERE binds), then the 's' WHERE
             // (slug + three gate binds), then the 'cat' branch's admin scalar, then the 'co' branch's slug, then the
-            // 'tag' branch's slug, then the 'ch' branch's slug (appended LAST).
+            // 'tag' branch's slug, then the 'ch' branch's slug, then the 'sug'
+            // branch's slug, viewer and admin probe (appended LAST).
             // Count the ?s before touching this array.
-            [$userId, $slug, $userId, $userId, $userId, $userId, $slug, $slug, $slug]);
+            [$userId, $slug, $userId, $userId, $userId, $userId, $slug, $slug, $slug, $slug, $userId, $userId]);
     }
 
     /** The story form's category choices: a locked category (eFiction: admins
@@ -132,15 +147,16 @@ final class AuthoringRepository
         return $this->db->one('SELECT 1 AS x FROM stories WHERE slug = ?', [$slug]) !== null;
     }
 
-    /** @return array{0: int, 1: string, 2: array, 3: array, 4: string, 5: array} id,
+    /** @return array{0: int, 1: string, 2: array, 3: array, 4: string, 5: array, 6: array} id,
      *  slug, category slugs, series slugs, author profile slug, challenge slugs
-     *  (purge coordinates). $accessHash arrives pre-hashed (the controller
+     *  (purge coordinates), the suggest outcome (empty when nothing was
+     *  suggested). $accessHash arrives pre-hashed (the controller
      *  hashes the form's raw input; a NULL means open). */
     public function createStory(int $userId, string $title, string $summary, string $notes, int $ratingId,
                                 array $categoryIds, bool $validated, bool $restricted, string $language,
                                 bool $roundRobin = false, string $giftTo = '', bool $isOriginal = false,
                                 array $tagIds = [], ?string $accessHash = null, ?array $characterIds = null,
-                                bool $completed = false): array
+                                bool $completed = false, array $suggest = [], array $withdraw = []): array
     {
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
@@ -152,18 +168,20 @@ final class AuthoringRepository
             $this->writeCategories($storyId, $categoryIds);
             $this->writeTags($storyId, $tagIds);
             $this->writeCharacters($storyId, $characterIds);
+            $suggestOut = $this->writeSuggestions($storyId, $userId, $suggest, $withdraw);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData($storyId, $userId);
-            return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug, $challengeSlugs];
+            return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
     }
 
-    /** @return array{0: string, 1: array, 2: array, 3: string, 4: array} new slug,
+    /** @return array{0: string, 1: array, 2: array, 3: string, 4: array, 5: array} new slug,
      *  category slugs before+after, series slugs, author profile slug, challenge
-     *  slugs (purge coordinates). The syndication pair arrives pre-validated by
+     *  slugs (purge coordinates), the suggest outcome (empty when nothing was
+     *  suggested). The syndication pair arrives pre-validated by
      *  the controller (http(s) only, 200 chars max, never both set); empty
      *  strings clear the state. The post-password trio (Fictioneer parity):
      *  the clear checkbox wins; a non-empty password is hashed here (raw
@@ -173,7 +191,7 @@ final class AuthoringRepository
                                 bool $roundRobin = false, string $giftTo = '',
                                 string $canonicalUrl = '', string $crosspostUrl = '', bool $isOriginal = false,
                                 array $tagIds = [], ?string $accessPassword = null, bool $accessClear = false,
-                                ?array $characterIds = null): array
+                                ?array $characterIds = null, array $suggest = [], array $withdraw = []): array
     {
         $story = $this->ownStory($slug, $userId);
         $accessValue = $this->accessValue($accessClear, $accessPassword, $story['access_hash'] ?? null);
@@ -198,9 +216,10 @@ final class AuthoringRepository
             $this->writeCategories((int) $story['id'], $categoryIds);
             $this->writeTags((int) $story['id'], $tagIds);
             $this->writeCharacters((int) $story['id'], $characterIds);
+            $suggestOut = $this->writeSuggestions((int) $story['id'], $userId, $suggest, $withdraw);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id'])))), $seriesSlugs, $authorSlug, $challengeSlugs];
+            return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id'])))), $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
@@ -277,6 +296,22 @@ final class AuthoringRepository
         $this->db->query(
             'INSERT OR IGNORE INTO story_tags (story_id, tag_id) SELECT ?, COALESCE(t.canonical_id, t.id) FROM tags t WHERE t.id IN (' . implode(',', $ids) . ')',
             [$storyId]);
+    }
+
+    /** The suggest/withdraw half of a story save, inside the save's own
+     *  transaction. Policy off ignores both entirely (the form never offers
+     *  the inputs); empty input costs nothing. The outcome rides back to the
+     *  controller so it can tell the author what was not added.
+     *  @return array{attached: list<string>, pending: list<string>, created: list<string>, refused: array<string, string>} */
+    private function writeSuggestions(int $storyId, int $userId, array $suggest, array $withdraw): array
+    {
+        if ($suggest === [] && $withdraw === []) {
+            return ['attached' => [], 'pending' => [], 'created' => [], 'refused' => []];
+        }
+        $repo = new \App\Repositories\TagSuggestionRepository($this->db);
+        $out = $repo->submit($storyId, $userId, $suggest, \App\Settings::get('tag_policy'));
+        $repo->withdraw($userId, $withdraw);
+        return $out;
     }
 
     /** Replace the story's character rows. NULL means the form did not offer
@@ -357,6 +392,23 @@ final class AuthoringRepository
         // The owner's tag type order (position), then id for a stable tie.
         uksort($groups, static fn (int $a, int $b): int => [$groups[$a]['pos'], $a] <=> [$groups[$b]['pos'], $b]);
         return [$groups, array_values($selected)];
+    }
+
+    /** View-shaping fold over formData's 'sug' rows: this viewer's pending
+     *  and rejected suggestions for the story, keyed by tag type id so the
+     *  view can look a type's rows up beside its tagGroups checkboxes.
+     *  @return array<int, array{pending: list<array{id: int, name: string}>, rejected: list<array{id: int, name: string}>}> */
+    public static function suggestionGroups(array $rows): array
+    {
+        $groups = [];
+        foreach ($rows as $r) {
+            if ($r['k'] !== 'sug') continue;
+            $typeId = (int) $r['d'];
+            $groups[$typeId] ??= ['pending' => [], 'rejected' => []];
+            $row = ['id' => (int) $r['a'], 'name' => (string) $r['b']];
+            $groups[$typeId][$r['e'] === 'rejected' ? 'rejected' : 'pending'][] = $row;
+        }
+        return $groups;
     }
 
     /** @return string[] */
