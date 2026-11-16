@@ -37,6 +37,33 @@ final class TagqueueTest extends TaxonomyCase
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $body, 'no inline script');
     }
 
+    public function test_every_suggestion_gets_its_own_types_live_merge_choices(): void
+    {
+        $story = $this->makeStory('merge-choice-groups');
+        $this->pendingRow($story, $this->memberId, 'Alpha Proposal');
+        $this->pendingRow($story, $this->memberId, 'Zulu Proposal');
+        $this->pendingRow($story, $this->memberId, 'Content Proposal', 'content');
+        $fantasy = (int) $this->row("SELECT id FROM tags WHERE name = 'Fantasy'")['id'];
+        $this->db->query('INSERT INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)',
+            [$this->typeId('genre'), 'Retired Fantasy', $fantasy]);
+
+        $response = $this->admin()->get('/tagqueue');
+        $this->assertSame(200, $response->status);
+        $doc = new \DOMDocument();
+        @$doc->loadHTML($response->body);
+        $xpath = new \DOMXPath($doc);
+        $choices = [];
+        foreach ($xpath->query('//form[@action="/tagqueue/merge"]') as $form) {
+            $name = $xpath->evaluate('string(.//input[@name="name"]/@value)', $form);
+            foreach ($xpath->query('.//select[@name="target_id"]/option[@value!=""]', $form) as $option) {
+                $choices[$name][] = $option->textContent;
+            }
+        }
+        $this->assertSame(['Adventure', 'Fantasy', 'Found family'], $choices['Alpha Proposal'] ?? []);
+        $this->assertSame($choices['Alpha Proposal'], $choices['Zulu Proposal'] ?? []);
+        $this->assertSame(['Coming of age', 'Maritime'], $choices['Content Proposal'] ?? []);
+    }
+
     /** Titles ride the queue row as one GROUP_CONCAT string split on a
      *  separator. A title carrying the separator itself must come back as
      *  one title, not two. */
@@ -73,17 +100,7 @@ final class TagqueueTest extends TaxonomyCase
     public function test_queue_is_one_query(): void
     {
         $this->suggest($this->makeStory('queue-budget'), $this->memberId, 'Budget Marker');
-        $app = new \Kip\App([
-            'app_dir' => dirname(__DIR__, 4) . '/app',
-            'env' => 'prod',
-            'views' => dirname(__DIR__, 4) . '/app/views',
-            'db' => ['dsn' => 'sqlite:' . $this->path],
-            'log_db' => ['dsn' => 'sqlite::memory:'],
-            'mail' => ['transport' => 'log', 'log_path' => $this->path . '.mail', 'from' => 'noreply@localhost'],
-            'uploads' => [sys_get_temp_dir() . '/kiption-tax-upl'],
-            'static_cache' => ['dir' => $this->cacheDir],
-            'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-        ]);
+        $app = $this->application();
         $client = (new \Kip\Testing\TestClient($app))->actingAs($this->adminId);
         $queries = 0;
         \App\Tests\Support\QueryTap::on($app->container->make(\Kip\Database::class), function (string $sql) use (&$queries): void {
@@ -94,6 +111,21 @@ final class TagqueueTest extends TaxonomyCase
         \App\Tests\Support\QueryTap::off($app->container->make(\Kip\Database::class));
         $this->assertSame(200, $res->status);
         $this->assertLessThanOrEqual(1, $queries, "the queue ran {$queries} queries, budget is 1");
+    }
+
+    private function application(): \Kip\App
+    {
+        return new \Kip\App([
+            'app_dir' => dirname(__DIR__, 4) . '/app',
+            'env' => 'prod',
+            'views' => dirname(__DIR__, 4) . '/app/views',
+            'db' => ['dsn' => 'sqlite:' . $this->path],
+            'log_db' => ['dsn' => 'sqlite::memory:'],
+            'mail' => ['transport' => 'log', 'log_path' => $this->path . '.mail', 'from' => 'noreply@localhost'],
+            'uploads' => [sys_get_temp_dir() . '/kiption-tax-upl'],
+            'static_cache' => ['dir' => $this->cacheDir],
+            'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+        ]);
     }
 
     // ---- Task 4.5: approve, merge into existing, reject ----
@@ -193,6 +225,64 @@ final class TagqueueTest extends TaxonomyCase
         $this->pendingRow($this->makeStory('reject-quiet'), $this->memberId, 'Quiet Reject');
         $this->admin()->postWithToken('/tagqueue/reject', ['type_id' => (string) $this->typeId('genre'), 'name' => 'Quiet Reject']);
         $this->assertFileExists($file, 'reject changes nothing public, so it purges nothing');
+    }
+
+    public function test_competing_decisions_cannot_send_stale_rejection_notices(): void
+    {
+        foreach (['approve', 'reject'] as $winner) {
+            $name = 'Competing ' . $winner;
+            $story = $this->makeStory('competing-' . $winner);
+            $this->pendingRow($story, $this->memberId, $name);
+            $post = ['type_id' => (string) $this->typeId('genre'), 'name' => $name];
+            $app = $this->application();
+            $client = (new \Kip\Testing\TestClient($app))->actingAs($this->adminId);
+            $db = $app->container->make(\Kip\Database::class);
+            $fired = false;
+            $winningStatus = null;
+            $db->onQuery(function (string $sql) use (&$fired, &$winningStatus, $winner, $post): void {
+                if ($fired || !str_starts_with($sql, "UPDATE tag_suggestions SET status = 'rejected'")) return;
+                $fired = true;
+                // A separate request and connection commit just before this decision writes.
+                $winningStatus = $this->admin()->postWithToken('/tagqueue/' . $winner, $post)->status;
+            });
+            try {
+                $response = $client->postWithToken('/tagqueue/reject', $post);
+            } finally {
+                $db->onQuery(static fn (string $sql) => null);
+            }
+            $this->assertTrue($fired);
+            $this->assertSame(302, $winningStatus);
+            $this->assertSame(404, $response->status, 'the losing decision has no pending rows');
+            $kind = $winner === 'approve' ? 'tag_suggestion_approved' : 'tag_suggestion_rejected';
+            $this->assertSame([['kind' => $kind]], $this->db->all(
+                "SELECT kind FROM notifications WHERE story_id = ? AND kind LIKE 'tag_suggestion_%'", [$story]));
+            $this->assertSame($winner === 'approve' ? 1 : 0, $this->n(
+                'SELECT COUNT(*) c FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = ? AND t.name = ?', [$story, $name]));
+            $this->assertSame(404, $client->postWithToken('/tagqueue/reject', $post)->status, 'a retry stays resolved');
+            $this->assertSame(1, $this->n("SELECT COUNT(*) c FROM notifications WHERE story_id = ? AND kind LIKE 'tag_suggestion_%'", [$story]));
+            $this->assertSame(1, $this->n("SELECT COUNT(*) c FROM activity_log WHERE action = ? AND detail = ?",
+                ['tag_suggestion.' . $winner, 'type ' . $this->typeId('genre') . ': ' . $name]));
+        }
+    }
+
+    public function test_failed_rejection_leaves_every_row_pending_and_sends_no_notice(): void
+    {
+        $first = $this->makeStory('reject-rollback-first');
+        $second = $this->makeStory('reject-rollback-second');
+        $this->pendingRow($first, $this->memberId, 'Rollback Proposal');
+        $last = $this->pendingRow($second, $this->authorId, 'Rollback Proposal');
+        $this->db->query("CREATE TRIGGER reject_failure BEFORE UPDATE ON tag_suggestions
+            WHEN NEW.status = 'rejected' AND OLD.id = {$last}
+            BEGIN SELECT RAISE(ABORT, 'forced rejection failure'); END");
+        $post = ['type_id' => (string) $this->typeId('genre'), 'name' => 'Rollback Proposal'];
+        $this->assertSame(500, $this->admin()->postWithToken('/tagqueue/reject', $post)->status);
+        $this->assertSame(2, $this->n("SELECT COUNT(*) c FROM tag_suggestions WHERE name = 'Rollback Proposal' AND status = 'pending' AND resolved_at IS NULL"));
+        $this->assertSame(0, $this->n("SELECT COUNT(*) c FROM notifications WHERE kind = 'tag_suggestion_rejected'"));
+        $this->assertSame(0, $this->n("SELECT COUNT(*) c FROM activity_log WHERE action = 'tag_suggestion.reject'"));
+        $this->db->query('DROP TRIGGER reject_failure');
+        $this->assertSame(302, $this->admin()->postWithToken('/tagqueue/reject', $post)->status);
+        $this->assertSame(2, $this->n("SELECT COUNT(*) c FROM tag_suggestions WHERE name = 'Rollback Proposal' AND status = 'rejected'"));
+        $this->assertSame(2, $this->n("SELECT COUNT(*) c FROM notifications WHERE kind = 'tag_suggestion_rejected'"));
     }
 
     public function test_actions_require_the_csrf_token(): void

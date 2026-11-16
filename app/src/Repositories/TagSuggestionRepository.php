@@ -204,17 +204,18 @@ final class TagSuggestionRepository
         return $this->attachAndClear($real, $typeId, $name);
     }
 
-    /** Mark the rows rejected with who decided. Nothing attaches, nothing
-     *  public changes, so the caller purges nothing. */
+    /** Mark pending rows rejected and return only those this decision changed.
+     *  A competing decision must never produce stale rejection recipients.
+     *  Nothing attaches or changes publicly, so the caller purges nothing. */
     public function reject(int $typeId, string $name, int $adminId): array
     {
-        $rows = $this->pending($typeId, $name);
-        if ($rows === []) { return []; }
-        $this->db->query(
+        $rows = $this->db->all(
             "UPDATE tag_suggestions SET status = 'rejected', resolved_at = ?, resolved_by = ?
-             WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE",
+             WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE
+             RETURNING id, suggested_by, story_id",
             [date('c'), $adminId, $typeId, $name]
         );
+        usort($rows, fn (array $a, array $b): int => (int) $a['id'] <=> (int) $b['id']);
         return array_map(fn (array $r): array => ['user' => (int) $r['suggested_by'], 'story' => (int) $r['story_id']], $rows);
     }
 
