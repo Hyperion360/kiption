@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const status = require('../../public/assets/writer-status.js');
 const { wordCount } = require('../../public/assets/wordcount.js');
 const source = () => readFileSync(new URL('../../public/assets/writer-status.js', import.meta.url), 'utf8');
-const field = (name, value = '', type = 'text') => ({ name, value, type, disabled: false });
+const field = (name, value = '', type = 'text') => ({ name, value, defaultValue: value, type, disabled: false });
 const labels = { words: '{n} words', selection: '{n} selected words', unsaved: 'You have unsaved changes.', saved: 'All changes shown here are saved.', saving: 'Saving…' };
 
 class Target extends EventTarget {
@@ -16,7 +16,7 @@ class Target extends EventTarget {
   removeEventListener(type, fn) { super.removeEventListener(type, fn); this.listeners.get(type)?.delete(fn); }
   count(type) { return this.listeners.get(type)?.size || 0; }
 }
-function fixture({ content = "don't stop", saved = false, rejected = false } = {}) {
+function fixture({ content = "don't stop", saved = false, rejected = false, beforeAttach = () => {} } = {}) {
   const env = new Target(), timers = new Map();
   let nextTimer = 0;
   env.setTimeout = fn => { timers.set(++nextTimer, fn); return nextTimer; };
@@ -32,11 +32,12 @@ function fixture({ content = "don't stop", saved = false, rejected = false } = {
   const button = box ? Object.assign(new Target(), { hidden: true }) : null;
   const nodes = { '[data-writer-state]': state, '[data-writer-count]': count, '[data-writer-selection]': selected, '[data-writer-count-selection]': button };
   form.querySelector = selector => nodes[selector];
-  form.getAttribute = () => JSON.stringify(labels);
+  form.getAttribute = name => name === 'data-writer-labels' ? JSON.stringify(labels) : name === 'data-js-module' ? 'writer-status' : null;
   form.requestSubmit = () => { form.submits = (form.submits || 0) + 1; form.dispatchEvent(new Event('submit')); };
   const root = Object.assign(env, { Kip: { wordCount, init() {} }, document: {} });
   vm.runInNewContext(source(), { window: root }, { filename: new URL('../../public/assets/writer-status.js', import.meta.url).pathname });
   const api = root.Kip.writerStatus;
+  beforeAttach(form);
   const attached = api.attach(form, env);
   function change(target = box, type = 'input') {
     const event = new Event(type); Object.defineProperty(event, 'target', { value: target }); form.dispatchEvent(event);
@@ -143,4 +144,71 @@ test('module loader appends ordered classic scripts and loads shared helpers onc
   assert.deepEqual(scripts.map(script => script.src), ['/assets/subset.js', '/assets/text-edit.js', '/assets/smart.js', '/assets/editor.js', '/assets/wordcount.js', '/assets/writer-status.js']);
   assert.ok(scripts.every(script => script.async === false));
   assert.equal(new Set(scripts.map(script => script.src)).size, scripts.length);
+});
+
+
+test('delayed attachment uses server defaults, preserving early text and checkbox edits as unsaved', () => {
+  const f = fixture({ saved: true, beforeAttach(form) {
+    form.elements.namedItem('content').value = 'Early writing while helpers load';
+    form.elements.push({ ...field('completed', '1', 'checkbox'), defaultChecked: false, checked: true });
+  } });
+  assert.equal(f.attached.dirty(), true); assert.equal(f.state.textContent, labels.unsaved);
+  assert.equal(f.env.count('beforeunload'), 1); assert.equal(f.count.textContent, '5 words');
+  f.box.value = "don't stop"; f.change(); assert.equal(f.attached.dirty(), true);
+  f.form.elements.at(-1).checked = false; f.change(f.form.elements.at(-1), 'change');
+  assert.equal(f.attached.dirty(), false); assert.equal(f.state.textContent, labels.saved); f.attached.destroy();
+});
+
+test('default snapshots preserve checkbox/radio defaults and complete multi-select choices', () => {
+  const option = (value, defaultSelected, selected = defaultSelected, disabled = false) => ({ value, defaultSelected, selected, disabled });
+  const check = { ...field('completed', '1', 'checkbox'), defaultChecked: false, checked: true };
+  const radio = { ...field('status', 'draft', 'radio'), defaultChecked: true, checked: false };
+  const multi = { ...field('tags', 'b', 'select-multiple'), options: [option('a', true, false), option('b', false, true), option('c', true, true)] };
+  const single = { ...field('rating', 'b', 'select-one'), size: 0, options: [option('a', true, false), option('b', false, true)] };
+  const form = { elements: [check, radio, multi, single] };
+  assert.deepEqual(JSON.parse(status.snapshot(form, true)), [['completed', false], ['status', true], ['tags', ['a', 'c']], ['rating', 'a']]);
+  assert.deepEqual(JSON.parse(status.snapshot(form)), [['completed', true], ['status', false], ['tags', ['b', 'c']], ['rating', 'b']]);
+  const original = status.snapshot(form); multi.options[2].selected = false;
+  assert.notEqual(status.snapshot(form), original, 'changing a later selected option cannot hide behind select.value');
+  single.options.forEach(item => { item.defaultSelected = false; });
+  single.options[0].disabled = true;
+  assert.equal(JSON.parse(status.snapshot({ elements: [single] }, true))[0][1], 'b', 'single select defaults to the first enabled option');
+  single.options[0].disabled = false; single.options[0].parentElement = { tagName: 'OPTGROUP', disabled: true };
+  assert.equal(JSON.parse(status.snapshot({ elements: [single] }, true))[0][1], 'b', 'disabled optgroup is skipped for implicit selection');
+  single.size = 2;
+  assert.equal(JSON.parse(status.snapshot({ elements: [single] }, true))[0][1], '', 'listbox with no default has no implicit selection');
+  single.options[0].defaultSelected = single.options[1].defaultSelected = true;
+  assert.equal(JSON.parse(status.snapshot({ elements: [single] }, true))[0][1], 'b', 'last explicit single-select default wins');
+  assert.deepEqual(JSON.parse(status.snapshot({ elements: [{ ...multi, options: [] }, { ...single, options: [] }] }, true)), [['tags', []], ['rating', '']]);
+});
+
+test('passwords present before delayed attachment trigger only boolean dirty state', () => {
+  const f = fixture({ saved: true, beforeAttach(form) { form.elements.namedItem('access_password').value = 'early-secret'; } });
+  assert.equal(f.attached.dirty(), true); assert.equal(f.state.textContent, labels.unsaved);
+  assert.equal(status.snapshot(f.form).includes('early-secret'), false);
+  assert.equal(status.snapshot(f.form, true).includes('early-secret'), false);
+  f.form.elements.namedItem('access_password').value = ''; f.change(f.form.elements.namedItem('access_password'));
+  assert.equal(f.attached.dirty(), true); f.attached.destroy();
+});
+
+test('core records only a password-touched boolean if typing is cleared before status loads', () => {
+  const f = fixture({ saved: true, beforeAttach(form) {
+    const document = Object.assign(new Target(), {
+      readyState: 'loading', documentElement: { classList: { add() {} } },
+      querySelectorAll: () => [form], createElement: () => ({}), head: { appendChild() {} }
+    });
+    vm.runInNewContext(readFileSync(new URL('../../public/assets/app.js', import.meta.url), 'utf8'), { window: {}, document });
+    const password = form.elements.namedItem('access_password'); password.form = form;
+    for (const value of ['early-secret', '']) {
+      password.value = value;
+      const event = new Event('input'); Object.defineProperty(event, 'target', { value: password }); document.dispatchEvent(event);
+    }
+    assert.equal(form.kipPasswordTouched, true);
+    assert.equal(JSON.stringify(form.kipPasswordTouched), 'true');
+    const unrelated = { getAttribute: () => 'other-module' };
+    const event = new Event('input'); Object.defineProperty(event, 'target', { value: { type: 'password', form: unrelated } }); document.dispatchEvent(event);
+    assert.equal(unrelated.kipPasswordTouched, undefined);
+  } });
+  assert.equal(f.attached.dirty(), true); assert.equal(f.state.textContent, labels.unsaved);
+  assert.equal(f.env.count('beforeunload'), 1); f.attached.destroy();
 });

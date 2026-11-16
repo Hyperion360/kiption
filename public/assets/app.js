@@ -49,6 +49,14 @@
   };
   window.Kip = Kip;
   document.documentElement.classList.add('js'); /* CSS reveals JS-only affordances */
+  // Remember password edits while writer helpers load, even if the author
+  // clears the field again. Only this boolean is retained, never its value.
+  document.addEventListener('input', function (e) {
+    var field = e.target, form = field.form;
+    if (field.type === 'password' && form && (' ' + form.getAttribute('data-js-module') + ' ').indexOf(' writer-status ') > -1) {
+      form.kipPasswordTouched = true;
+    }
+  });
   /* Double-submission guard, core rather than a module because it serves
    * every form on the site (stories, chapters, reviews, kudos): on submit
    * the clicked button disables until the POST navigates away, so a double

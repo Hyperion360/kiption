@@ -6,17 +6,36 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (root.Kip) { root.Kip.writerStatus = api; root.Kip.init(function () { api.init(root.document); }); }
 })(typeof window !== 'undefined' ? window : globalThis, function (root) {
-  function snapshot(form) {
+  function value(el, defaults) {
+    if (['checkbox', 'radio'].includes(el.type)) return defaults ? el.defaultChecked : el.checked;
+    if (el.type === 'select-multiple' || (defaults && el.type === 'select-one')) {
+      var options = Array.from(el.options);
+      var selected = options.filter(function (option) { return defaults ? option.defaultSelected : option.selected; });
+      if (el.type === 'select-multiple') return selected.map(function (option) { return option.value; });
+      // A single select uses the last explicit default, or its first enabled
+      // option when rendered as a dropdown with no explicit selection.
+      var option = selected[selected.length - 1];
+      if (!option && el.size <= 1) option = options.find(function (item) {
+        return !item.disabled && !(item.parentElement && item.parentElement.tagName === 'OPTGROUP' && item.parentElement.disabled);
+      });
+      return option ? option.value : '';
+    }
+    return defaults ? el.defaultValue : el.value;
+  }
+  function snapshot(form, defaults) {
     return JSON.stringify(Array.from(form.elements).filter(function (el) {
       return el.name && !el.disabled && !['hidden', 'password', 'submit', 'button'].includes(el.type);
     }).map(function (el) {
-      return [el.name, ['checkbox', 'radio'].includes(el.type) ? el.checked : el.value];
+      return [el.name, value(el, defaults)];
     }));
   }
   function summary(current, initial, count) { return { dirty: current !== initial, count: count }; }
   function attach(form, env) {
     env = env || root;
-    var initial = snapshot(form), touchedPassword = false, submitting = false, timer, rejected = form.dataset.writerRejected === '1';
+    var initial = snapshot(form, true), submitting = false, timer, rejected = form.dataset.writerRejected === '1';
+    var touchedPassword = form.kipPasswordTouched === true || Array.from(form.elements).some(function (el) {
+      return el.type === 'password' && el.value !== '';
+    });
     var box = form.elements.namedItem('content'), state = form.querySelector('[data-writer-state]');
     var count = form.querySelector('[data-writer-count]'), selected = form.querySelector('[data-writer-selection]');
     var button = form.querySelector('[data-writer-count-selection]'), bound = false;
@@ -24,6 +43,7 @@
     var listeners = [];
     function on(target, type, fn) { target.addEventListener(type, fn); listeners.push(function () { target.removeEventListener(type, fn); }); }
     function unload(e) { e.preventDefault(); e.returnValue = ''; }
+    function say(message) { if (state && state.textContent !== message) state.textContent = message; }
     function dirty() { return rejected || touchedPassword || snapshot(form) !== initial; }
     function protect() {
       var needed = dirty() && !submitting;
@@ -37,11 +57,11 @@
     function update(e) {
       if (e && e.target.type === 'password') touchedPassword = true;
       submitting = false; protect();
-      if (state) state.textContent = dirty() ? labels.unsaved : (form.dataset.writerSaved === '1' ? labels.saved : '');
+      say(dirty() ? labels.unsaved : (form.dataset.writerSaved === '1' ? labels.saved : ''));
       env.clearTimeout(timer); timer = env.setTimeout(words, 150);
     }
     on(form, 'input', update); on(form, 'change', update);
-    on(form, 'submit', function () { submitting = true; protect(); if (state) state.textContent = labels.saving; });
+    on(form, 'submit', function () { submitting = true; protect(); say(labels.saving); });
     on(form, 'keydown', function (e) {
       if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault(); if (!submitting) form.requestSubmit();
