@@ -465,7 +465,7 @@ final class SearchTest extends TestCase
         $this->assertStringContainsString('/browse/filter', $c->get('/search', ['tag' => (string) $tag])->body);
     }
 
-    public function test_the_tag_name_constraint_builds_one_uncorrelated_membership_set(): void
+    public function test_tag_name_membership_is_indexed_in_the_page_and_count_base(): void
     {
         $db = $this->db();
         $this->storyRow('Embers', 'embers', 'A quiet night in the north.');
@@ -480,11 +480,14 @@ final class SearchTest extends TestCase
         $plan = $db->query('EXPLAIN QUERY PLAN ' . $stmt[0])->fetchAll();
         $details = array_column($plan, 'detail', 'id');
         $tagAccess = array_values(array_filter($plan, fn (array $row): bool => preg_match('/^(?:SCAN|SEARCH) (?:x|story_tags)(?: |$)/', $row['detail']) === 1));
-        $this->assertCount(1, $tagAccess, 'one access builds the included tag set');
+        $this->assertCount(2, $tagAccess, 'one membership set per inline page and materialized count base');
         // Resolve matching tag IDs once, then seek their story attachments.
         // Never repeat this work in a correlated predicate per candidate story.
-        $this->assertStringStartsWith('LIST SUBQUERY', $details[$tagAccess[0]['parent']] ?? '', implode(' | ', $details));
-        $this->assertStringContainsString('SEARCH x USING COVERING INDEX idx_story_tags_rev', $tagAccess[0]['detail']);
+        foreach ($tagAccess as $access) {
+            $this->assertStringStartsWith('LIST SUBQUERY', $details[$access['parent']] ?? '', implode(' | ', $details));
+            $this->assertStringContainsString('SEARCH x USING COVERING INDEX idx_story_tags_rev', $access['detail']);
+        }
+        $this->assertDoesNotMatchRegularExpression('/SCAN (?:x|story_tags)(?: |$)/m', implode("\n", $details));
         $this->assertStringContainsString('SEARCH tags USING INDEX idx_tags_name (name=?)', implode(' | ', $details));
         $this->assertSame(['embers'], array_column($result['rows'], 'slug'));
     }

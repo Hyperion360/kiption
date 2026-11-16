@@ -41,97 +41,48 @@ final class SearchRepository
     {
         $tokens = self::sanitizedTokens($q);
         $capped = count($tokens) > self::MAX_TOKENS;
-        $taxonomy = "SELECT 'r' k, r.position p, CAST(r.id AS TEXT) a, r.label b, NULL c, NULL d, NULL e, NULL f, NULL g, NULL h FROM ratings r
-                     UNION ALL
-                     SELECT 'c', c.position, c.slug, c.name, NULL, NULL, NULL, NULL, NULL, NULL FROM categories c";
-        $filterProbe = [];
-        if ($tokens === [] && $this->filterSql($filters, $filterProbe) === '') {
-            return $this->partition($this->db->all($taxonomy . ' ORDER BY k, p'), $perPage, 'none', $capped);
+        if ($tokens !== []) {
+            $rows = $this->ftsRows($q, $filters, $perPage, $offset, $me, $viewer, $sort);
+            if ($rows !== null) return $this->partition($rows, $perPage, 'fts', $capped, $filters);
         }
-        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
-        if ($tokens === []) {
-            // A tag or character link with no words: list the filtered stories,
-            // newest first. Same gates as the LIKE arm, minus the text match.
-            $params = [$me];
-            if ($viewer > 0) $params[] = $viewer;
-            $filter = $this->filterSql($filters, $params);
-            $params[] = $perPage + 1; $params[] = $offset;
-            $rows = $this->db->all(
-                $taxonomy . " UNION ALL
-                SELECT 's', ROW_NUMBER() OVER (ORDER BY st.updated_at DESC, st.id DESC), st.slug, st.title, st.summary,
-                       st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-                FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$mute}{$filter}
-                      AND s.access_hash IS NULL
-                      ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?) st
-                ORDER BY k, p",
-                $params
-            );
-            return $this->partition($rows, $perPage, 'filter', $capped);
-        }
-        $rows = $this->ftsRows($q, $filters, $perPage, $offset, $me, $viewer, $sort, $taxonomy);
-        if ($rows !== null) return $this->partition($rows, $perPage, 'fts', $capped);
-        $like = self::likePattern($q);
-        $params = [$me];
-        if ($viewer > 0) $params[] = $viewer;
-        $filter = $this->filterSql($filters, $params);
-        $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
-        $params[] = $perPage + 1; $params[] = $offset;
-        $rows = $this->db->all(
-            $taxonomy . " UNION ALL
-            SELECT 's', ROW_NUMBER() OVER (ORDER BY st.updated_at DESC, st.id DESC), st.slug, st.title, st.summary,
-                   st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-            FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$mute}{$filter}
-                  AND s.access_hash IS NULL AND {$this->likeGroup()}
-                 ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?) st
-            ORDER BY k, p",
-            $params
-        );
-        return $this->partition($rows, $perPage, 'like', $capped);
+        [$filter] = DiscoveryFilter::sql($filters);
+        $mode = $tokens !== [] ? 'like' : ($filter !== '' ? 'filter' : 'none');
+        [$sql, $binds] = $this->plainStatement($tokens !== [] ? $q : '', $filters, $perPage, $offset,
+            $me, $viewer, $mode !== 'none');
+        return $this->partition($this->db->all($sql, $binds), $perPage, $mode, $capped, $filters);
     }
 
-    /** Split the fold into its sections; result rows normalize to the browse
-     *  listing shape so the views share the row markup. The perPage+1 probe
-     *  row rides the 's' rows and is sliced off here (hasMore). */
-    private function partition(array $rows, int $perPage, string $mode, bool $capped): array
+    private function partition(array $rows, int $perPage, string $mode, bool $capped, array $filters, bool $ranked = false): array
     {
-        $ratings = [];
-        $categories = [];
-        $stories = [];
-        foreach ($rows as $r) {
-            if ($r['k'] === 'r') { $ratings[] = ['id' => (int) $r['a'], 'label' => (string) $r['b'], 'position' => (int) $r['p']]; continue; }
-            if ($r['k'] === 'c') { $categories[] = ['slug' => (string) $r['a'], 'name' => (string) $r['b'], 'position' => (int) $r['p']]; continue; }
-            $stories[] = [
-                'slug' => (string) $r['a'], 'title' => (string) $r['b'], 'summary' => (string) $r['c'],
-                'completed' => (int) $r['d'], 'word_count' => (int) $r['e'], 'updated_at' => (string) $r['f'],
-                'penname' => (string) $r['g'], 'rating_label' => (string) $r['h'],
-            ];
-        }
-        foreach ([&$ratings, &$categories] as &$group) {
-            usort($group, static fn (array $a, array $b): int => $a['position'] <=> $b['position']);
-            foreach ($group as &$row) unset($row['position']);
+        $tags = $filters['tag_filter'] ?? TagFilter::fromQuery($filters);
+        $result = DiscoveryFold::partition($rows, $perPage, array_merge($tags->include, $tags->exclude));
+        if (!$ranked) {
+            foreach ($result['rows'] as &$row) unset($row['rank']);
             unset($row);
         }
-        unset($group);
-        return [
-            'rows' => array_slice($stories, 0, $perPage),
-            'hasMore' => count($stories) > $perPage,
-            'mode' => $mode,
-            'capped' => $capped,
-            'ratings' => $ratings,
-            'categories' => $categories,
-        ];
-    }
-
-    private function filterSql(array $filters, array &$params): string
-    {
-        [$sql, $binds] = DiscoveryFilter::sql($filters);
-        array_push($params, ...$binds);
-        return $sql;
+        return $result + ['mode' => $mode, 'capped' => $capped];
     }
 
     private function selectList(): string
     {
-        return 's.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label AS rating_label';
+        return 's.id,s.slug,s.title,s.summary,s.completed,s.word_count,s.updated_at,s.created_at,
+            s.author_id,s.rating_id,s.language,u.penname,u.profile_slug,r.label AS rating_label';
+    }
+
+    /** The text and visibility binds precede the shared facet binds. */
+    private function plainStatement(string $q, array $filters, int $perPage, int $offset,
+        int $me, int $viewer, bool $listStories = true): array
+    {
+        $source = "SELECT {$this->selectList()},0 tier,0 distance,0 field_rank,0.0 rank
+            FROM stories s {$this->fromGates()}";
+        $binds = [$me];
+        if ($viewer > 0) { $source .= MuteRepository::clause('s'); $binds[] = $viewer; }
+        $source .= ' AND s.access_hash IS NULL';
+        if ($q !== '') {
+            $source .= ' AND ' . $this->likeGroup();
+            array_push($binds, ...array_fill(0, 4, self::likePattern($q)));
+        }
+        return DiscoveryFold::statement($source, $binds, $filters, 'updated', $perPage, $offset, false, $listStories);
     }
 
     private function fromGates(): string
@@ -158,13 +109,14 @@ final class SearchRepository
     {
         $rows = $this->ftsRows($q, $filters, $perPage, $offset, $me, $viewer, $sort);
         if ($rows === null) return $this->searchLike($q, $filters, $perPage, $offset, $me, $viewer);
-        return ['rows' => array_slice($rows, 0, $perPage), 'hasMore' => count($rows) > $perPage, 'mode' => 'fts'];
+        $result = $this->partition($rows, $perPage, 'fts', false, $filters, true);
+        return ['rows' => $result['rows'], 'hasMore' => $result['hasMore'], 'mode' => 'fts'];
     }
 
     /** The spelling JSON binds precede the two MATCH binds, then visibility,
      *  mute, filters, and pagination. A failed optional prepare is its probe. */
     private function ftsRows(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer,
-        string $sort, string $taxonomy = ''): ?array
+        string $sort): ?array
     {
         if ($this->fts === false) return null;
         for ($attempt = 0; $attempt < 2; $attempt++) {
@@ -174,15 +126,8 @@ final class SearchRepository
             array_push($params, $match, $match, $me);
             $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
             if ($viewer > 0) $params[] = $viewer;
-            $filter = $this->filterSql($filters, $params);
-            array_push($params, $perPage + 1, $offset);
-            $sql = $this->ftsStatement($mute, $filter, $sort, $spell);
-            if ($taxonomy !== '') {
-                $sql = $taxonomy . " UNION ALL
-                    SELECT 's', 0, st.slug, st.title, st.summary, st.completed,
-                           st.word_count, st.updated_at, st.penname, st.rating_label
-                    FROM ({$sql}) st";
-            }
+            [$sql, $params] = DiscoveryFold::statement($this->ftsSource($mute, $spell), $params,
+                $filters, $sort === 'updated' ? 'updated' : 'relevance', $perPage, $offset, true);
             try {
                 return $this->db->all($sql, $params);
             } catch (\PDOException $e) {
@@ -235,10 +180,8 @@ final class SearchRepository
     /** Rank exact matches before spelling matches, with a stable ID tie-break.
      *  The per-story FTS aggregate stays outside the stories primary-key seek;
      *  chapter validation and access checks remain inside that aggregate. */
-    private function ftsStatement(string $mute, string $filter, string $sort = 'relevance', string $spell = ''): string
+    private function ftsSource(string $mute, string $spell = ''): string
     {
-        $order = $sort === 'updated' ? 's.updated_at DESC, s.id DESC'
-            : 'm.tier ASC, m.distance ASC, m.field_rank ASC, m.rank ASC, s.id ASC';
         $prefix = $spell === '' ? '' : $spell . ', ';
         $spelling = $spell === '' ? ''
             : ' UNION ALL SELECT p.story_id, 0.0, 1, p.distance, p.field_rank FROM spell_matches p';
@@ -250,39 +193,19 @@ final class SearchRepository
                 ) f{$this->chapterGate()}
                 GROUP BY f.story_id
             )
-            SELECT {$this->selectList()}, s.id AS id, m.rank AS rank, m.tier, m.distance, m.field_rank FROM (
+            SELECT {$this->selectList()}, m.rank AS rank, m.tier, m.distance, m.field_rank FROM (
                 SELECT m.story_id, m.rank, 0 AS tier, 0 AS distance, 0 AS field_rank FROM fts_matches m{$spelling}
             ) m
             CROSS JOIN stories s
             JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
-            WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND s.access_hash IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}{$filter}
-            ORDER BY {$order} LIMIT ? OFFSET ?";
+            WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND s.access_hash IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}";
     }
 
     public function searchLike(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
     {
-        $like = self::likePattern($q);
-        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
-        // Bind order (finding 7, probed): fromGates' CAST ? first, then the
-        // Task 2 mute viewer (the clause rides immediately after the CAST in
-        // text), then the filter ?s, then the four LIKE ?s of likeGroup(),
-        // then LIMIT/OFFSET - strictly the SQL text order. The draft's
-        // [$me, $like xN] + filters misbinds whenever any filter is set and
-        // fails SILENTLY (empty results); the viewer bind must not reopen
-        // that trap.
-        $params = [$me];
-        if ($viewer > 0) $params[] = $viewer;
-        $filter = $this->filterSql($filters, $params);
-        $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
-        $params[] = $perPage + 1; $params[] = $offset;
-        $rows = $this->db->all(
-            "SELECT {$this->selectList()} FROM stories s {$this->fromGates()}{$mute}{$filter}
-              AND s.access_hash IS NULL AND {$this->likeGroup()}
-             ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?",
-            $params
-        );
-        $hasMore = count($rows) > $perPage;
-        return ['rows' => array_slice($rows, 0, $perPage), 'hasMore' => $hasMore, 'mode' => 'like'];
+        [$sql, $binds] = $this->plainStatement($q, $filters, $perPage, $offset, $me, $viewer);
+        $result = $this->partition($this->db->all($sql, $binds), $perPage, 'like', false, $filters);
+        return ['rows' => $result['rows'], 'hasMore' => $result['hasMore'], 'mode' => 'like'];
     }
 
     /** Quote-stripped, whitespace-split tokens of the query, empties dropped:
