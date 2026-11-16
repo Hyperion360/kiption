@@ -495,6 +495,43 @@
     equal(box.hidden,false,'native field visible');
     equal(handle.detach(),true,'detach after validation');
   });
+  check('Source remains available after browser clears selection on blur', function () {
+    var box = document.getElementById('chapter');
+    box.value = '**Words**';
+    var handle = KipInline.editor.attach(box);
+    document.getSelection().removeAllRanges();
+    equal(handle.showSource(),true,'Source opens after selection escape');
+    equal(box.value,'**Words**','exact source retained');
+    equal(box.hidden,false,'native source shown');
+    equal(box.nextElementSibling.querySelector('[data-editor-control="live"]').disabled,false,'Formatted remains available');
+    equal(handle.showLive(),true,'Formatted reopens');
+    equal(handle.detach(),true,'clean detach');
+  });
+  check('Source keeps the last caret when browser clears selection on blur', function () {
+    var box = document.getElementById('chapter');
+    box.value = '**Words**';
+    var handle = KipInline.editor.attach(box);
+    var text = box.nextElementSibling.querySelector('.ki-strong').firstChild;
+    document.getSelection().setBaseAndExtent(text,2,text,2);
+    document.dispatchEvent(new Event('selectionchange'));
+    document.getSelection().removeAllRanges();
+    equal(handle.showSource(),true,'Source opens');
+    equal(box.selectionStart,4,'last source caret retained');
+    equal(box.selectionEnd,4,'last source caret stays collapsed');
+    equal(handle.detach(),true,'clean detach');
+  });
+  check('escaped selection cannot hide an unconverted DOM mutation', function () {
+    var box = document.getElementById('chapter');
+    box.value = 'plain';
+    var handle = KipInline.editor.attach(box);
+    var surface = box.nextElementSibling.querySelector('.ki-document');
+    surface.appendChild(document.createTextNode('unconverted'));
+    document.getSelection().removeAllRanges();
+    equal(handle.showSource(),false,'unsafe Source switch blocked');
+    equal(box.value,'plain','authoritative source preserved');
+    equal(box.nextElementSibling.querySelector('[data-editor-control="live"]').disabled,true,'Formatted disabled');
+    equal(handle.detach(),false,'unsafe detach blocked');
+  });
 
   if (!new URLSearchParams(location.search).has('run')) {
     fixture('**Words** remain styled while this line is active.\nA second *paragraph* stays readable.');

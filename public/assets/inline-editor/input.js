@@ -235,7 +235,9 @@
       listen(control,'compositionend',onCompositionEnd);
     }
     if (source) source.value = model.text;
-    return {get failed() {return failed;}, detach:function () {
+    return {get failed() {return failed;},
+      domMatchesSource:function () { return nativeBlockChange(model,view) === null; },
+      detach:function () {
       for (var off of listeners) off(); listeners.length = 0;
     }};
   }

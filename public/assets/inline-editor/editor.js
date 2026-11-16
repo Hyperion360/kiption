@@ -66,7 +66,14 @@
       }
       if (mode === 'source') return true;
       try { model.select(view.readSelection()); }
-      catch (_) { fail(view.element.textContent || ''); return false; }
+      catch (_) {
+        // WebKit can clear the DOM selection when focus leaves the editable
+        // region. Reuse the last model selection only if no native edit is
+        // waiting to be reconciled.
+        try {
+          if (!controller.domMatchesSource()) throw new RangeError('unconverted DOM');
+        } catch (_) { fail(view.element.textContent || ''); return false; }
+      }
       box.value = model.text;
       mode = 'source'; updateModes();
       setSelection(box,model.selection);
@@ -113,6 +120,16 @@
     } catch (_) { if (controller && controller.detach) controller.detach(); return null; }
     listen(sourceButton,'click',showSource);
     listen(liveButton,'click',showLive);
+    // WebKit may clear the native Selection as focus leaves contenteditable.
+    // Retain the last mapped caret before that happens so Source mode can
+    // restore it without guessing from an escaped DOM endpoint.
+    if (doc.addEventListener && doc.removeEventListener) listen(doc,'selectionchange',function () {
+      if (mode !== 'live' || blocked || sourceOnly) return;
+      var nativeSelection = doc.getSelection && doc.getSelection();
+      if (!nativeSelection || !view.element.contains(nativeSelection.anchorNode) ||
+          !view.element.contains(nativeSelection.focusNode)) return;
+      try { model.select(view.readSelection()); } catch (_) { /* Unsafe selection is handled on the next action. */ }
+    });
     listen(box,'invalid',function () { showSource(); });
     listen(box,'input',function () {
       if (!blocked || box.value === blockedSourceValue) return;
