@@ -503,7 +503,7 @@ final class SearchTest extends TestCase
         $db->onQuery(fn () => null);
         $fts = array_values(array_filter($sqls, fn (string $s): bool => str_contains($s, 'bm25(')));
         $this->assertCount(1, $fts, 'exactly one FTS ranking statement per search');
-        $this->assertStringContainsString('WITH fts_matches', $fts[0], 'the per-story aggregate rides a CTE');
+        $this->assertStringContainsString('fts_matches AS (', $fts[0], 'the per-story aggregate rides a CTE after spelling bindings');
         $this->assertStringContainsString('CROSS JOIN stories s', $fts[0], 'the CTE is pinned as the outer loop');
         $st = $db->query('EXPLAIN QUERY PLAN ' . $fts[0]);
         $details = array_column($st->fetchAll(), 'detail');
