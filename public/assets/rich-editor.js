@@ -7,7 +7,7 @@
   function attach(box, options) {
     var K = options.Kip || root.Kip, doc = box.ownerDocument, win = doc.defaultView, form = box.form;
     if (!form) throw Error('chapter form required');
-    var labels = options.labels, candidate = options.candidate || 'a', failed = false;
+    var labels = options.labels, candidate = options.candidate || 'a', failed = false, saveBlocked = false;
     // Probe the candidate before adding controls or hiding the native form.
     K.richActive.create(doc, candidate, labels, box);
     var model = K.sourceDocument.create(box.value, K.richActive.textSelection(box));
@@ -60,6 +60,7 @@
     }
     function apply(start, end, text, selection, kind) {
       var change = model.apply(start, end, text, selection, kind, Date.now());
+      if (!formatted && change) saveBlocked = false;
       if (formatted) {
         var oldEnd=region.end,delta=text.length-(end-start);
         region.end+=delta;rendered.forEach(function(part){if(part.start>=oldEnd)part.shift(delta);});
@@ -83,8 +84,8 @@
     }
     function fallback() {
       var emergency = doc.createElement('textarea'); emergency.readOnly = true; emergency.setAttribute('aria-label', labels.unconverted);
-      emergency.value = active ? active.element.innerText : box.value; host.appendChild(emergency);
-      failed = true; composing = false; host.dataset.candidateFailed = '1';
+      emergency.value = active ? (candidate === 'a' ? active.element.value : active.element.innerText) : box.value; host.appendChild(emergency);
+      failed = true; saveBlocked = true; composing = false; host.dataset.candidateFailed = '1';
       showSource(true); formattedButton.disabled = true; status.textContent = labels.inputFallback;
     }
     function history(redo) {
@@ -265,8 +266,8 @@
     });
     on(box, 'invalid', function () { if (box.hidden) { showSource(); box.focus(); status.textContent = form.dataset.contentRequired; } });
     on(form, 'submit', function (e) {
-      var previouslyFailed = failed; flush(); box.value = model.text;
-      if (failed && !previouslyFailed) { e.preventDefault(); e.stopImmediatePropagation(); }
+      flush(); box.value = model.text;
+      if (saveBlocked) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);
     on(controls, 'pointerdown', function () { capture(); });
     cleanup.push(wire(box)); modeState();

@@ -322,6 +322,22 @@ async function runEditorDOMTests(K, actions) {
     f.editor.activeControl.dispatchEvent(new InputEvent('input',{bubbles:true}));assert(!f.box.hidden,'source fallback');equal(f.box.value,'Original','previous source preserved');
     equal(f.form.querySelector('[aria-label="Unconverted Input"]').value,'Changed','unconverted text available');f.editor.showFormatted();assert(!f.box.hidden,'failed candidate remains off');
   });
+  await test('failed textarea reconciliation keeps the latest unconverted input available', function() {
+    var failOnce=true;
+    var broken=Object.assign({},K,{sourceDocument:Object.assign({},K.sourceDocument,{difference:function(before,after){
+      if(failOnce){failOnce=false;throw Error('reconciliation failed');}
+      return K.sourceDocument.difference(before,after);
+    }})});
+    var f=fixture('Original','a',{Kip:broken});f.editor.showFormatted();
+    f.editor.activeControl.value='Changed';
+    f.editor.activeControl.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText'}));
+    assert(!f.box.hidden,'source fallback is visible');equal(f.box.value,'Original','last committed source survives');
+    equal(f.form.querySelector('[aria-label="Unconverted Input"]').value,'Changed','latest unconverted input remains copyable');
+    f.form.requestSubmit();equal(f.posts(),0,'stale source cannot be saved after fallback');
+    f.box.value='Changed';f.box.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText'}));
+    equal(f.editor.model.text,'Changed','source recovery commits the chosen text');
+    f.form.requestSubmit();equal(f.posts(),1,'recovered source can be saved');
+  });
   await test('unsupported composing structure prevents a stale Save and leaves a source fallback', function() {
     var f=fixture('Original','b');f.editor.showFormatted();var c=f.editor.activeControl;
     c.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));c.innerHTML='<strong>Changed</strong>';
