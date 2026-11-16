@@ -119,6 +119,23 @@
     equal(f.model.text, source, 'source');
     equal(f.model.undo(), false, 'selection has no history');
   });
+  check('exact prior Safari mixed endpoint pairs retain source and direction', function () {
+    var cases = [
+      {source:'Alpha\n\nBeta',anchor:4,focus:5},
+      {source:'A👩🏽‍💻\nZ\n\nBeta',anchor:10,focus:10},
+      {source:'A👩🏽‍💻\nZ\n\nBeta',anchor:10,focus:5}
+    ];
+    for (var item of cases) {
+      var f = fixture(item.source);
+      f.view.restoreSelection({anchor:item.anchor,focus:item.focus});
+      var actual = f.view.readSelection();
+      equal(actual.anchor, item.anchor, 'historical anchor ' + item.anchor + ':' + item.focus);
+      equal(actual.focus, item.focus, 'historical focus ' + item.anchor + ':' + item.focus);
+      equal(document.getSelection().isCollapsed, item.anchor === item.focus, 'native collapsed state');
+      equal(f.model.text, item.source, 'historical source identity');
+      equal(f.model.undo(), false, 'selection has no history');
+    }
+  });
   check('directed cross-line selection survives restore and capture', function () {
     var f = fixture('**one**\n\ntwo');
     for (var pair of [[1, 12], [12, 1]]) {
