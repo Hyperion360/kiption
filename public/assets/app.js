@@ -4,7 +4,7 @@
  * pager links). Feature modules live in their own files (prefs.js,
  * position.js, keys.js, infinite.js, toggle.js) and load only when their
  * module marker is present in the markup; the loader below appends them with
- * defer so helpers exist before any module runs. Wiring travels in
+ * async=false so dynamic classic scripts execute in dependency order. Wiring travels in
  * data-js-* attributes set by the views; this file contains no content. */
 'use strict';
 (function () {
@@ -78,21 +78,22 @@
   /* [module, helpers to load before it] - the helpers load first, in
    * order, when the page asks for the module. A box can carry several
    * modules: data-js-module splits on spaces. */
+  var loaded = Object.create(null);
+  function load(name) {
+    if (loaded[name]) return;
+    loaded[name] = true;
+    var script = document.createElement('script');
+    script.src = '/assets/' + name + '.js';
+    script.async = false;
+    document.head.appendChild(script);
+  }
   [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['adminforms'], ['look'],
-   ['paste'], ['editor', ['subset', 'text-edit', 'smart']]].forEach(function (entry) {
+   ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']]].forEach(function (entry) {
     var m = entry[0];
     var wanted = function (el) { return (' ' + el.getAttribute('data-js-module') + ' ').indexOf(' ' + m + ' ') > -1; };
     if (Array.prototype.some.call(document.querySelectorAll('[data-js-module]'), wanted)) {
-      (entry.slice(1)[0] || []).forEach(function (helper) {
-        var h = document.createElement('script');
-        h.src = '/assets/' + helper + '.js';
-        h.defer = true;
-        document.head.appendChild(h);
-      });
-      var s = document.createElement('script');
-      s.src = '/assets/' + m + '.js';
-      s.defer = true;
-      document.head.appendChild(s);
+      (entry[1] || []).forEach(load);
+      load(m);
     }
   });
 })();

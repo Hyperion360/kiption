@@ -200,6 +200,13 @@ final class ChapterController
             'position' => $position,
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
+            'writerLabels' => [
+                'words' => \App\Lang::t('writer.words'),
+                'selection' => \App\Lang::t('writer.selection'),
+                'unsaved' => \App\Lang::t('writer.unsaved'),
+                'saved' => \App\Lang::t('writer.saved'),
+                'saving' => \App\Lang::t('writer.saving'),
+            ],
             'notice' => $error === null && \App\Saved::message($this->request) === 'admin.saved_saved'
                 ? \App\Lang::t('chapter.saved') : '',
             'loggedIn' => true,

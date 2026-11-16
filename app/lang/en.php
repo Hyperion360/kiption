@@ -481,6 +481,14 @@ return [
     'chapter.editor_hint' => 'The buttons above the box and Ctrl or Cmd plus B, I, and K work while you type.',
     'chapter.save' => 'Save Chapter',
     'chapter.saved' => 'Chapter saved.',
+
+    'writer.words' => '{n} words',
+    'writer.selection' => '{n} selected words',
+    'writer.count_selection' => 'Count Selection',
+    'writer.unsaved' => 'You have unsaved changes.',
+    'writer.saved' => 'All changes shown here are saved.',
+    'writer.saving' => 'Saving…',
+
     'chapter.changed' => 'This chapter changed after you opened it. Your text is still here. Compare it with the current version before saving.',
     'chapter.reload_before_save' => 'This editing page is out of date. Keep a copy of your text, then reopen the chapter before saving.',
     'chapter.busy' => 'The archive is busy. Your text is still here. Try Save again.',

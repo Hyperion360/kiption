@@ -840,6 +840,11 @@ final class StoryController
             'canManageCoauthors' => $story !== null && ($this->uid() === (int) $story['l'] || (int) $story['m'] === 1),
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
+            'writerLabels' => [
+                'unsaved' => \App\Lang::t('writer.unsaved'),
+                'saved' => \App\Lang::t('writer.saved'),
+                'saving' => \App\Lang::t('writer.saving'),
+            ],
             'notice' => $story === null ? '' : ($this->submitNotice() ?: (\App\Saved::message($this->request) === 'admin.saved_saved' ? \App\Lang::t('admin.saved_saved') : '')),
             'loggedIn' => true,
         ]);
