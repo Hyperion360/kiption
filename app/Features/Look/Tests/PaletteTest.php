@@ -1,6 +1,7 @@
 <?php // app/Features/Look/Tests/PaletteTest.php
 namespace App\Features\Look\Tests;
-use App\Look\{Color, Palette};
+use App\Look\{Color, Compiler, Palette, Rules};
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class PaletteTest extends TestCase
@@ -18,6 +19,39 @@ final class PaletteTest extends TestCase
     private function p(array $row): array
     {
         return Palette::derive(Color::parse($row[0]), Color::parse($row[1]), Color::parse($row[2]));
+    }
+
+    public static function secondaryInkPalettes(): iterable
+    {
+        foreach (self::GRID as $i => $row) yield 'existing palette ' . $i => [$row];
+        yield 'minimum ink on white' => [['#004400', '#ffffff', '#767676']];
+        yield 'light ink with a bright pill' => [['#ffffff', '#6d6d6d', '#f0f0f0']];
+        yield 'dark ink with a dark pill' => [['#000000', '#7c7c7c', '#000000']];
+    }
+
+    #[DataProvider('secondaryInkPalettes')]
+    public function test_secondary_ink_is_readable_on_every_text_surface(array $row): void
+    {
+        $values = array_combine(Rules::COLORS, $row) + Compiler::defaults();
+        $this->assertSame([], Rules::check($values)['errors'], 'the owner colors are accepted');
+        foreach ($this->p($row) as $slot => $set) {
+            foreach (['--bg', '--surface', '--pill-bg'] as $surface) {
+                $this->assertGreaterThanOrEqual(4.5,
+                    Color::contrast(Color::parse($set['--ink-2']), Color::parse($set[$surface])),
+                    $slot . ' secondary ink on ' . $surface);
+            }
+        }
+    }
+
+    public function test_readable_default_secondary_colors_stay_unchanged(): void
+    {
+        $p = $this->p(self::GRID[0]);
+        $this->assertSame('#535855', $p['light']['--ink-2']);
+        $this->assertSame('#a8adaa', $p['night']['--ink-2']);
+        $this->assertSame('#fcfbfa', $p['light']['--surface']);
+        $this->assertSame('#23221e', $p['night']['--surface']);
+        $this->assertSame('#dee3de', $p['light']['--pill-bg']);
+        $this->assertSame('#1c2721', $p['night']['--pill-bg']);
     }
 
     public function test_derive_returns_exactly_the_allowed_variables(): void

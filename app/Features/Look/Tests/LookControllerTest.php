@@ -205,6 +205,53 @@ final class LookControllerTest extends TestCase
         $this->assertNull(Store::get());
     }
 
+    public function test_boundary_palette_preview_matches_the_saved_stylesheet(): void
+    {
+        $c = $this->client($this->adminId);
+        foreach ([['#004400', '#ffffff', '#767676'], ['#ffffff', '#6d6d6d', '#f0f0f0']] as $colors) {
+            $values = $this->form(array_combine(['accent', 'bg', 'ink'], $colors));
+            $before = Store::get();
+            $preview = $c->postWithToken('/look/preview', $values + ['fragment' => '1']);
+            $this->assertSame(200, $preview->status);
+            $vars = json_decode($preview->body, true, flags: JSON_THROW_ON_ERROR)['vars'];
+            $this->assertSame($before, Store::get(), 'preview does not save');
+            foreach ($vars as $set) {
+                foreach (['--bg', '--surface', '--pill-bg'] as $surface) {
+                    $this->assertGreaterThanOrEqual(4.5, \App\Look\Color::contrast(
+                        \App\Look\Color::parse($set['--ink-2']), \App\Look\Color::parse($set[$surface])));
+                }
+            }
+            $this->assertSame(302, $c->postWithToken('/look/save', $values)->status);
+            $sheet = $this->client()->get('/look/css', ['v' => Compiler::revision($values)]);
+            $this->assertSame(200, $sheet->status);
+            $this->assertSame('public, max-age=31536000, immutable', $sheet->headers['Cache-Control']);
+            foreach (['light' => ':root', 'night' => 'html[data-theme="night"]'] as $slot => $selector) {
+                preg_match('~' . preg_quote($selector, '~') . '\{([^}]+)\}~', $sheet->body, $matches);
+                $saved = [];
+                foreach (explode(';', rtrim($matches[1], ';')) as $declaration) {
+                    [$name, $value] = explode(':', $declaration, 2);
+                    $saved[$name] = $value;
+                }
+                $this->assertSame($vars[$slot], $saved, 'preview and saved ' . $slot . ' colors agree');
+            }
+        }
+    }
+
+    public function test_upgrade_replaces_a_version_one_palette_and_cache_key(): void
+    {
+        $values = $this->form(['accent' => '#004400', 'bg' => '#ffffff', 'ink' => '#767676']);
+        $this->client($this->adminId)->postWithToken('/look/save', $values);
+        $old = Compiler::revision($values, 1);
+        $current = Compiler::revision($values);
+        $this->assertNotSame($old, $current, 'changed palette output needs a new immutable URL');
+        file_put_contents($this->lookDir() . '/look.css', '/* look ' . $old . " */\n:root{--ink-2:#989898;}");
+        $sheet = $this->client()->get('/look/css', ['v' => $current]);
+        $this->assertSame(200, $sheet->status);
+        $this->assertSame(Compiler::css($values), $sheet->body);
+        $this->assertStringNotContainsString('--ink-2:#989898;', $sheet->body);
+        $this->assertSame($sheet->body, file_get_contents($this->lookDir() . '/look.css'));
+    }
+
     public function test_reset_asks_first_then_removes_the_row_and_file(): void
     {
         $c = $this->client($this->adminId);
