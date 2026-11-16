@@ -297,7 +297,9 @@
   }
 
   function init() {
-    Array.prototype.forEach.call(document.querySelectorAll('textarea[data-js-module="paste"]'), function (box) {
+    /* Word match (~=), not an exact match: the chapter box carries several
+       modules ("paste editor"), and an exact selector would find no box. */
+    Array.prototype.forEach.call(document.querySelectorAll('textarea[data-js-module~="paste"]'), function (box) {
       attach(box, htmlToMarkdown, insertText);
     });
   }

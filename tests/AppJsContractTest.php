@@ -375,4 +375,14 @@ final class AppJsContractTest extends TestCase
         $plain = $this->client()->get('/story/read/the-rabbit-hole/1')->body;
         $this->assertStringNotContainsString('data-js-module="paste"', $plain, 'the marker lives only on the chapter text box');
     }
+
+    /** The chapter box carries several modules ("paste editor"), so the paste
+     *  module's own init selector must word-match (~=). An exact match finds
+     *  no box, and the converter silently never attaches in the browser. */
+    public function test_paste_init_attaches_with_a_word_match_not_an_exact_match(): void
+    {
+        $paste = (string) file_get_contents(dirname(__DIR__) . '/public/assets/paste.js');
+        $this->assertStringContainsString('data-js-module~="paste"', $paste, 'the init selector is the word-match operator');
+        $this->assertStringNotContainsString('data-js-module="paste"', $paste, 'no exact-match selector left');
+    }
 }
