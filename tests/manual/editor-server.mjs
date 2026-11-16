@@ -7,7 +7,7 @@ const manual = new Set(['editor-comparison.html','editor-environment.js','editor
 createServer(async (req,res) => {
   let path = new URL(req.url,'http://localhost').pathname;
   if(path === '/') path = '/tests/manual/editor-comparison.html';
-  const allowed = path.startsWith('/assets/') && assets.has(path.slice(8)) || path.startsWith('/tests/manual/') && manual.has(path.slice(14)) || path === '/tests/fixtures/editor-actions.json';
+  const allowed = path.startsWith('/assets/') && assets.has(path.slice(8)) || path.startsWith('/tests/manual/') && manual.has(path.slice(14)) || ['/tests/fixtures/editor-actions.json', '/tests/fixtures/editor-navigation.json'].includes(path);
   if(req.method !== 'GET' || !allowed){res.writeHead(404);res.end();return;}
   try { const data=await readFile(new URL(path.startsWith('/assets/')?'public'+path:path.slice(1),root));res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':path.endsWith('.json')?'application/json':'text/html');res.end(data); }
   catch {res.writeHead(404);res.end();}

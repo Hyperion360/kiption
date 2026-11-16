@@ -87,16 +87,23 @@
       else {sel.collapse(a[0],a[1]);sel.extend(f[0],f[1]);}
     }
     if (candidate === 'b') el.addEventListener('focus', restore);
+    function resize() {
+      if (candidate !== 'a') return;
+      el.style.height = 'auto';
+      // Include the border in the border-box height. A spurious scrollbar
+      // would narrow the wrapped text when a longer region becomes active.
+      el.style.height = (el.scrollHeight + el.offsetHeight - el.clientHeight) + 'px';
+    }
     function set(text, next, focus) {
       saved = {anchor:next.anchor, focus:next.focus};
       if (candidate === 'a') {
         el.value = text; if (focus) el.focus(); setTextSelection(el, next);
-        el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px';
+        resize();
       } else {
         el.replaceChildren(doc.createTextNode(text)); if (focus) el.focus(); restore();
       }
     }
-    return {element:el, value:value, selection:selection, set:set};
+    return {element:el, value:value, selection:selection, set:set, resize:resize};
   }
   return {create:create, readText:readText, offset:offset, textSelection:textSelection, setTextSelection:setTextSelection};
 });

@@ -76,7 +76,7 @@
       var difference = K.sourceDocument.difference(before, value);
       apply(start + difference.start, start + difference.end, difference.insert,
         { anchor: start + selection.anchor, focus: start + selection.focus }, kind);
-      if (formatted && candidate === 'a') { active.element.style.height = 'auto'; active.element.style.height = active.element.scrollHeight + 'px'; }
+      if (formatted) active.resize();
     }
     function flush() {
       if (composing) { composing = false; try { reconcile('composition'); } catch (_) { fallback(); } }
@@ -148,17 +148,24 @@
       if (formatted && !e.ctrlKey && !e.metaKey && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
         capture();
         var selection = model.selection;
-        if (selection.focus === region.start || selection.focus === region.end) expandForNavigation();
+        var vertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+        if (vertical || selection.focus === region.start || selection.focus === region.end) expandForNavigation(vertical);
       }
     }
-    function expandForNavigation() {
+    function expandForNavigation(vertical) {
       // Extend the raw context before the browser moves the caret. The browser
       // owns visual bidi direction, Shift selection, and grapheme boundaries.
       var before = rendered.filter(function (part) { return part.end <= region.start; }).pop();
       var after = rendered.find(function (part) { return part.start >= region.end; });
       if (!before && !after) return;
-      if (before) region.start = before.start;
-      if (after) region.end = after.end;
+      // Vertical movement can leave a visual line at any column. Keep complete
+      // context until repartitioning so repeated movement through short/blank
+      // lines does not reset the browser's preferred column by rewriting input.
+      if (vertical) { region.start = 0; region.end = model.text.length; }
+      else {
+        if (before) region.start = before.start;
+        if (after) region.end = after.end;
+      }
       rendered = rendered.filter(function (part) {
         if (part.start >= region.start && part.end <= region.end) { part.element.remove(); return false; }
         return true;

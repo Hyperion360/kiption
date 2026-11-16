@@ -36,6 +36,16 @@ async function runEditorDOMTests(K, actions) {
     else {control.replaceChildren(document.createTextNode(text)); document.getSelection().setBaseAndExtent(control.firstChild, selection.anchor, control.firstChild, selection.focus);}
     control.dispatchEvent(new InputEvent('input', {bubbles:true, inputType:type || 'insertText', isComposing:!!composing}));
   }
+  await test('textarea expansion and input keep the wrapping width without a scrollbar', function() {
+    var original='Many words wrap across several lines. '.repeat(30)+'\n\nLast line',f=fixture(original,'a');
+    f.form.style.width='340px';f.box.setSelectionRange(original.length-3,original.length-3);f.editor.showFormatted();
+    var control=f.editor.activeControl,width=control.clientWidth;
+    key(control,'ArrowUp');equal(control.clientWidth,width,'expansion keeps the original content width');
+    assert(control.scrollHeight<=control.clientHeight,'expanded source fits the textarea');
+    input(f,original+original,{anchor:original.length*2,focus:original.length*2});
+    equal(control.clientWidth,width,'input keeps the original content width');
+    assert(control.scrollHeight<=control.clientHeight,'inserted source fits the textarea');
+  });
   await test('projection preserves source, uses inert nodes, and exposes exact visible boundaries', function() {
     for (var raw of ['**bold** and _word_ [site](https://example.org/a_b)', '**outer _inner_**', '*outer **inner** outer*', '[**bold**](https://example.org)', '\\*literal*', '![image](https://example.org/x)', '<img src=x onerror=alert(1)>']) {
       var part = K.richProjection.renderSpan(document, raw, {type:'p', start:0, end:raw.length}, K.subset, labels);
@@ -259,6 +269,20 @@ async function runEditorDOMTests(K, actions) {
       equal(f.editor.model.selection,{anchor:3,focus:3},'expansion alone does not move selection');
       // The native keyboard runner checks this same Shift movement against Source.
       assert((f.editor.activeControl.tagName==='TEXTAREA'?f.editor.activeControl.value:K.richActive.readText(f.editor.activeControl)).includes('\n'),'adjacent context is editable');
+    });
+    await test(candidate + ': vertical navigation retains complete raw context and the composing control', function() {
+      var original='First long line\n\nx\n\nThird long line',f=fixture(original,candidate);f.box.setSelectionRange(original.indexOf('Third')+3,original.indexOf('Third')+3);f.editor.showFormatted();
+      var control=f.editor.activeControl,selection=f.editor.model.selection;
+      control.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));key(control,'ArrowUp',{isComposing:true});
+      assert(f.editor.activeControl===control,'composition retains the active control');
+      equal(candidate==='a'?control.value:K.richActive.readText(control),'Third long line','composing navigation does not expand');
+      control.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
+      var event=new KeyboardEvent('keydown',{key:'ArrowUp',shiftKey:true,bubbles:true,cancelable:true});control.dispatchEvent(event);
+      assert(!event.defaultPrevented&&f.editor.activeControl===control,'native vertical action keeps the control');
+      equal(candidate==='a'?control.value:K.richActive.readText(control),original,'complete source context for native vertical movement');
+      equal(f.editor.model.selection,selection,'context expansion alone preserves direction');equal(f.editor.model.undo(),false,'navigation creates no history');
+      var textNode=control.firstChild;key(control,'ArrowUp');assert(f.editor.activeControl===control,'repeated movement retains control');
+      if(candidate==='b')assert(control.firstChild===textNode,'repeated movement retains text and native preferred column');
     });
     await test(candidate + ': two-instance refocus preserves the last intentional caret', async function() {
       var one=fixture('First paragraph',candidate),two=fixture('Second paragraph',candidate);one.box.setSelectionRange(6,6);one.editor.showFormatted();two.editor.showFormatted();
