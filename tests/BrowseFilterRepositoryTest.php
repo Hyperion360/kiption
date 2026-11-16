@@ -68,6 +68,19 @@ final class BrowseFilterRepositoryTest extends TaxonomyCase
         $this->assertSame(['A'], $this->titles(['tag' => [$this->tag('Fantasy'), $this->tag('Adventure')]]));
     }
 
+    public function test_boundary_name_inclusions_and_exclusions_preserve_the_normalized_query(): void
+    {
+        $prefix = str_repeat('x', 63);
+        $type = (int) $this->row('SELECT id FROM tag_types LIMIT 1')['id'];
+        foreach (['Short' => $prefix, 'Boundary' => $prefix . ' '] as $title => $name) {
+            $story = $this->story($title);
+            $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$type, $name]);
+            $this->tagStory($story, (int) $this->db->lastInsertId());
+        }
+        $this->assertSame(['Boundary'], $this->titles(['tags' => $prefix . ' suffix']));
+        $this->assertSame(['Short'], $this->titles(['xtags' => $prefix . ' suffix']));
+    }
+
     public function test_exclude_removes_stories(): void
     {
         $a = $this->story('A', ['updated' => '2026-02-01T00:00:00Z']);

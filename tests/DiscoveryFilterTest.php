@@ -4,6 +4,7 @@ namespace App\Tests;
 use App\Repositories\BrowseQuery;
 use App\Repositories\DiscoveryFilter;
 use PDO;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class DiscoveryFilterTest extends TestCase
@@ -75,11 +76,49 @@ final class DiscoveryFilterTest extends TestCase
         $query = ['cat' => ['fiction', 'poetry'], 'language' => 'en', 'wmin' => '100', 'wmax' => '1000',
             'tag' => [1], 'xtag' => [4], 'tags' => 'Adventure', 'xtags' => 'Gore'];
         foreach (['any' => [1, 3, 4, 9], 'complete' => [1, 3, 9], 'wip' => [4]] as $status => $expected) {
-            $filters = DiscoveryFilter::fromBrowse(BrowseQuery::fromQuery($query + ['status' => $status]));
+            $browse = BrowseQuery::fromQuery($query + ['status' => $status]);
+            $filters = DiscoveryFilter::fromBrowse($browse);
             $this->assertSame($expected, $this->ids($filters), $status);
             $this->assertSame(['fiction', 'poetry'], $filters['category']);
-            $this->assertSame('Adventure', $filters['tags']);
-            $this->assertSame('Gore', $filters['xtags']);
+            $this->assertSame($browse->tags, $filters['tag_filter']);
+            $this->assertSame(['Adventure'], $filters['tag_filter']->names);
+            $this->assertSame(['Gore'], $filters['tag_filter']->excludeNames);
         }
+    }
+
+    #[DataProvider('boundaryNames')]
+    public function test_browse_preserves_names_truncated_after_a_space(string $field, array $expected): void
+    {
+        $prefix = str_repeat('x', 63);
+        $this->db->prepare('INSERT INTO tags VALUES (5, ?, NULL), (6, ?, NULL)')->execute([$prefix, $prefix . ' ']);
+        $this->db->exec('INSERT INTO story_tags VALUES (1, 5), (2, 6)');
+        $query = BrowseQuery::fromQuery([$field => $prefix . ' suffix']);
+        $originalBinds = [];
+        $originalSql = $query->tags->sql($originalBinds);
+        $statement = $this->db->prepare('SELECT s.id FROM stories s WHERE 1=1' . $originalSql . ' ORDER BY s.id');
+        $statement->execute($originalBinds);
+        $this->assertSame($expected, $statement->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame([$prefix . ' '], $originalBinds);
+        $filters = DiscoveryFilter::fromBrowse($query);
+        $this->assertSame($originalBinds, DiscoveryFilter::sql($filters)[1]);
+        $this->assertSame($expected, $this->ids($filters));
+    }
+
+    public static function boundaryNames(): array
+    {
+        return ['included' => ['tags', [2]], 'excluded' => ['xtags', [1, 3, 4, 5, 6, 7, 8, 9, 10]]];
+    }
+
+    public function test_omitting_exclusions_preserves_the_normalized_included_boundary_name(): void
+    {
+        $prefix = str_repeat('x', 63);
+        $this->db->prepare('INSERT INTO tags VALUES (5, ?, NULL), (6, ?, NULL)')->execute([$prefix, $prefix . ' ']);
+        $this->db->exec('INSERT INTO story_tags VALUES (1, 5), (2, 6), (2, 3), (2, 4)');
+        $raw = ['tag' => [1], 'tags' => $prefix . ' suffix', 'xtag' => [4], 'xtags' => 'Gore'];
+        $filters = DiscoveryFilter::fromBrowse(BrowseQuery::fromQuery($raw));
+        $this->assertSame([], $this->ids($filters));
+        $this->assertSame([1, $prefix . ' '], DiscoveryFilter::sql($filters, 'exclusions')[1]);
+        $this->assertSame([2], $this->ids($filters, 'exclusions'));
+        $this->assertSame($this->ids($raw, 'exclusions'), $this->ids($filters, 'exclusions'), 'Raw Search and normalized Browse agree');
     }
 }

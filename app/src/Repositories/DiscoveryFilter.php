@@ -26,10 +26,15 @@ final class DiscoveryFilter
         // Unary plus preserves Browse's sort index; CAST restores numeric comparison.
         if (isset($f['wmin'])) { $sql .= ' AND +s.word_count>=CAST(? AS INTEGER)'; $binds[] = $f['wmin']; }
         if (isset($f['wmax'])) { $sql .= ' AND +s.word_count<=CAST(? AS INTEGER)'; $binds[] = $f['wmax']; }
-        $tags = ['tag' => $f['tag'] ?? [], 'tags' => $f['tags'] ?? '',
-            'xtag' => $omit === 'exclusions' ? [] : ($f['xtag'] ?? []),
-            'xtags' => $omit === 'exclusions' ? '' : ($f['xtags'] ?? '')];
-        $sql .= TagFilter::fromQuery($tags)->sql($binds, 's', true);
+        $tags = $f['tag_filter'] ?? null;
+        if ($tags instanceof TagFilter) {
+            if ($omit === 'exclusions') $tags = $tags->withoutExclusions();
+        } else {
+            $tags = TagFilter::fromQuery(['tag' => $f['tag'] ?? [], 'tags' => $f['tags'] ?? '',
+                'xtag' => $omit === 'exclusions' ? [] : ($f['xtag'] ?? []),
+                'xtags' => $omit === 'exclusions' ? '' : ($f['xtags'] ?? '')]);
+        }
+        $sql .= $tags->sql($binds, 's', true);
         if (!empty($f['character'])) {
             $sql .= ' AND EXISTS (SELECT 1 FROM story_characters ch WHERE ch.story_id=s.id AND ch.character_id=CAST(? AS INTEGER))';
             $binds[] = (int) $f['character'];
@@ -37,11 +42,11 @@ final class DiscoveryFilter
         return [$sql, $binds];
     }
 
+    /** Carry normalized names intact: parsing again can trim a truncated boundary space. */
     public static function fromBrowse(BrowseQuery $q): array
     {
         return ['category' => $q->categories, 'completed' => $q->status === 'any' ? null : $q->status === 'complete',
             'language' => $q->language, 'wmin' => $q->wmin, 'wmax' => $q->wmax,
-            'tag' => $q->tags->include, 'xtag' => $q->tags->exclude,
-            'tags' => implode(',', $q->tags->names), 'xtags' => implode(',', $q->tags->excludeNames)];
+            'tag_filter' => $q->tags];
     }
 }

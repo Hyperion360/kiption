@@ -37,6 +37,12 @@ final class TagFilter
         return !$this->include && !$this->exclude && !$this->names && !$this->excludeNames;
     }
 
+    /** Preserve already-normalized inclusions when omitting the exclusion dimension. */
+    public function withoutExclusions(): self
+    {
+        return new self($this->include, [], $this->names);
+    }
+
     /** Leading AND predicates, or '' when empty. Appends binds in SQL order.
      *  Membership resolves matching tag IDs once, then seeks their attachments.
      *  Unary plus keeps the outer sort index eligible; the null guard makes NOT IN safe. */
