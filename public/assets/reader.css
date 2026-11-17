@@ -2198,18 +2198,51 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 @media (min-width: 900px) { .queue-split { grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); align-items: start; } }
 .site-main .queue-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: var(--surface); }
 .queue-list li + li { border-block-start: 1px solid var(--line); }
-.queue-list a { display: flex; flex-direction: column; gap: 2px; min-height: 44px; padding: 10px 14px 10px 11px; border-inline-start: 3px solid transparent; color: var(--ink); text-decoration: none; font: 15px/1.35 var(--sans); }
+.queue-list a { display: flex; flex-direction: column; gap: 4px; min-height: 44px; padding: 14px 16px 14px 13px; border-inline-start: 3px solid transparent; color: var(--ink); text-decoration: none; font: 15px/1.35 var(--sans); }
 .queue-list a:hover { background: var(--hover); }
 .queue-list a[aria-current="true"] { background: var(--pill-bg); border-inline-start-color: var(--accent); }
-.queue-list-meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.queue-list-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.queue-list-top strong { font: 400 18px/1.25 var(--serif); overflow-wrap: anywhere; }
+.queue-when { flex: none; color: var(--muted); font-size: 13px; }
+.queue-list-meta { color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
+.queue-list-meta strong { color: var(--ink); font-weight: 600; }
+.queue-list-facts { display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.queue-list-facts .ctx-warn { font-weight: 600; }
+.queue-keys { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-block: 0 12px; color: var(--muted); font: 13px/1.4 var(--sans); }
+.queue-keys[hidden] { display: none; }
+.queue-keys kbd, .queue-cap { padding: 1px 5px; border: 1px solid var(--line-strong); color: var(--ink-2); font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; }
+.queue-cap { display: none; padding: 0 4px; font-size: 11px; border-color: currentcolor; color: inherit; opacity: .8; }
+.has-keys .queue-cap { display: inline-block; }
 .queue-detail { padding: 20px; border: 1px solid var(--line); background: var(--surface); }
 .queue-detail h2 { margin-block-start: 0; }
 .queue-excerpt { max-width: 62ch; white-space: pre-line; color: var(--ink-2); }
 .queue-detail .queue-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-block-start: 16px; }
-.queue-remove > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; }
+.queue-remove > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; }
 .queue-remove > summary::-webkit-details-marker { display: none; }
-.queue-remove[open] { flex-basis: 100%; padding: 14px; border: 1px solid var(--line-strong); }
-.queue-remove form { display: grid; gap: 8px; max-width: 420px; margin-block-start: 12px; }
+.queue-remove[open] { flex-basis: 100%; }
+.queue-remove[open] > summary { margin-block-end: 10px; }
+.queue-remove-panel { display: grid; gap: 12px; max-width: 640px; padding: 16px 18px; border: 1px solid var(--danger-line); background: var(--danger-bg); }
+.queue-remove-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin: 0; font: 15px/1.4 var(--sans); }
+.queue-remove-note { color: var(--ink-2); font-size: 13px; }
+.queue-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.queue-reasons label { position: relative; display: inline-flex; }
+.queue-reasons input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.queue-reasons span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); font: 13.5px/1.2 var(--sans); }
+.queue-reasons input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
+.queue-reasons input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.queue-remove-panel textarea { width: 100%; min-height: 44px; padding: 10px 12px; box-sizing: border-box; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 14px/1.5 var(--sans); }
+.queue-remove-go { display: flex; gap: 8px; margin: 0; }
+.queue-remove-go .btn-danger { min-height: 44px; padding-inline: 16px; background: var(--danger); border: 1px solid var(--danger); color: var(--bg); font-weight: 600; }
+.queue-remove-go .btn-danger:hover { background: var(--danger); filter: brightness(.9); }
+.queue-remove-go .btn { min-height: 44px; }
+.queue-remove-go [hidden] { display: none; }
+.queue-open { margin-inline-start: auto; display: inline-flex; align-items: center; min-height: 44px; padding-inline: 6px; font: 14px var(--sans); }
+.queue-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 640px; margin: 16px 0 0; border: 1px solid var(--line); }
+.queue-stats > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 12px 14px; }
+.queue-stats > div + div { border-inline-start: 1px solid var(--line); }
+.queue-stats dt { color: var(--muted); font: 12px var(--sans); }
+.queue-stats dd { margin: 0; font: 600 14px var(--sans); overflow-wrap: anywhere; }
+.queue-stats dd.ctx-warn { color: var(--danger); }
 
 /* Admin redesign, members: filters with counts, a role select, one status word and a row menu. */
 .member-filters { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-block: 14px 4px; border-block-end: 1px solid var(--line); }
@@ -2231,20 +2264,26 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .member-menu-list button:hover, .member-menu-list a:hover { background: var(--hover); }
 @media (min-width: 900px) { .member-menu[open] .member-menu-list { position: absolute; inset-inline-end: 0; z-index: 5; box-shadow: 0 8px 24px -8px var(--scrim); } }
 
-/* Admin redesign, delete a member: a panel with the facts first and the danger button last. */
-.member-delete-panel { max-width: 560px; padding: 24px; border: 1px solid var(--line-strong); background: var(--surface); }
-.member-delete-panel h1 { margin-block-start: 0; }
-.delete-facts { margin: 0 0 16px; border-block-start: 1px solid var(--line); }
-.delete-facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-block-end: 1px solid var(--line); font: 15px/1.4 var(--sans); }
-.delete-facts dt { color: var(--muted); }
-.delete-facts dd { margin: 0; text-align: end; overflow-wrap: anywhere; }
-.delete-warning { color: var(--danger); }
-.member-delete-panel fieldset { margin-block: 16px; padding: 12px 14px; border: 1px solid var(--line); }
-.member-delete-panel .delete-choice, .member-delete-panel .delete-heir { display: flex; align-items: center; gap: 8px; min-height: 44px; }
-.member-delete-panel .delete-heir { padding-inline-start: 26px; }
-.delete-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.delete-actions .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); }
-.queue-remove > summary.btn { padding-inline: 16px; border: 1px solid var(--line-strong); }
+/* Admin redesign, delete a member: the card from the design, alone on its page. The two choices are cards, the danger button is last. */
+.member-delete-panel { max-width: 580px; margin-inline: auto; padding: 30px 32px 26px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 30px 80px -40px var(--scrim); }
+.delete-eyebrow { margin: 0 0 8px; color: var(--danger); font: 600 12px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+.member-delete-panel h1 { margin: 0 0 8px; font: 400 30px/1.15 var(--serif); overflow-wrap: anywhere; }
+.delete-warning { margin: 0 0 8px; color: var(--ink-2); font: 15px/1.55 var(--sans); }
+.delete-meta { margin: 0 0 18px; color: var(--muted); font: 13.5px/1.5 var(--sans); overflow-wrap: anywhere; }
+.delete-choices { display: grid; gap: 10px; margin: 0 0 12px; padding: 0; border: 0; }
+.delete-choices legend { padding: 0 0 10px; font: 600 15px/1.4 var(--sans); }
+.delete-card { display: grid; gap: 6px; padding: 14px 16px; border: 1px solid var(--line-strong); }
+.delete-card:has(input[type="radio"]:checked) { border: 2px solid var(--accent); padding: 13px 15px; }
+.member-delete-panel .delete-choice { display: flex; align-items: center; gap: 12px; min-height: 44px; font: 15px/1.4 var(--sans); }
+.member-delete-panel .delete-heir { padding-inline-start: 30px; color: var(--muted); font: 13px var(--sans); }
+.delete-card input[name="penname"] { margin-inline-start: 30px; min-height: 44px; max-width: calc(100% - 30px); box-sizing: border-box; }
+.delete-note { padding-inline-start: 30px; color: var(--muted); font: 13px/1.45 var(--sans); }
+.delete-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; align-items: center; margin: 0; padding-block-start: 4px; }
+.delete-actions .btn, .delete-actions .btn-danger { min-height: 44px; padding-inline: 16px; }
+.delete-actions .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); font-weight: 600; }
+.delete-actions .btn-danger:hover { background: var(--danger); filter: brightness(.9); }
+@media (max-width: 560px) { .member-delete-panel { padding: 22px 18px 20px; } .delete-actions .btn, .delete-actions .btn-danger { flex: 1 1 100%; justify-content: center; } }
+.queue-remove > summary.btn { padding-inline: 16px; border: 1px solid var(--danger); color: var(--danger); font-weight: 600; }
 .member-role { flex-wrap: nowrap; }
 .member-role select { min-width: 0; max-width: 100%; }
 @media (min-width: 900px) { .member-role button { padding-inline: 10px; } }
@@ -2342,6 +2381,14 @@ html:not([data-theme]) .theme-seg [value="auto"],
 #menu .sheet-profile small { display: block; color: var(--muted); font: 13px var(--sans); }
 #menu .sheet-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-block: 8px; }
 #menu .sheet-tiles a { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 14px; border: 1px solid var(--line-strong); text-decoration: none; color: var(--ink); font: 500 15px var(--sans); }
+#menu .sheet-tiles a > span { display: flex; flex-direction: column; gap: 2px; }
+#menu .sheet-tiles small { color: var(--muted); font: 12.5px var(--sans); }
+#menu .sheet-more > summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--ink); font: 16px var(--sans); border-block-end: 1px solid var(--line); list-style: none; }
+#menu .sheet-more > summary::-webkit-details-marker { display: none; }
+#menu .sheet-more > summary::after { content: "+"; margin-inline-start: auto; color: var(--muted); }
+#menu .sheet-more[open] > summary::after { content: "\2212"; }
+#menu .sheet-more > a { display: flex; align-items: center; min-height: 44px; padding-inline-start: 12px; border-block-end: 1px solid var(--line); color: var(--ink); text-decoration: none; font: 16px var(--sans); }
+#menu .sheet-more > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 #menu .sheet-post { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-block: 8px; border: 1px solid var(--accent); color: var(--accent); text-decoration: none; font: 600 15px var(--sans); }
 .sheet:target nav a small { margin-inline-start: auto; color: var(--muted); font-size: 13px; }
 #menu .sheet-staff { display: flex; flex-direction: column; margin-block-start: 8px; border-block-start: 1px solid var(--line); }
@@ -2399,7 +2446,8 @@ body:has(.reader) .site-foot { display: none; }
   .nav-me-head strong { display: block; font: 600 15px var(--sans); }
   .nav-me-head a { font: 13px var(--sans); color: var(--muted); }
   .nav-me-list { list-style: none; margin: 0; padding: 8px 0; border-block-end: 1px solid var(--line); }
-  .nav-me-list a { display: flex; align-items: center; justify-content: space-between; min-height: 40px; color: var(--ink); font: 15px var(--sans); }
+  .nav-me-list a { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; color: var(--ink); font: 15px var(--sans); }
+  .nav-me-note { color: var(--muted); font: 12.5px var(--sans); }
   .nav-me-list a:hover, .nav-me-logout .link-btn:hover { color: var(--accent); }
   .nav-me-theme { padding-block: 12px; border-block-end: 1px solid var(--line); }
   .nav-me-theme .bp-label { display: block; margin-block-end: 6px; }

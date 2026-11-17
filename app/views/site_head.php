@@ -59,7 +59,7 @@ $initial = $penname !== '' ? mb_strtoupper(mb_substr($penname, 0, 1)) : '•';
         <ul class="nav-me-list">
           <li><a href="/account"><?= \App\Lang::t('nav.library') ?></a></li>
           <li><a href="/account#your-stories"><?= \App\Lang::t('account.your_stories') ?></a></li>
-          <?php if (\App\Features::on('pms')): ?><li><a href="/messages"><?= \App\Lang::t('nav.messages') ?></a></li><?php endif; ?>
+          <?php if (\App\Features::on('pms')): ?><li><a href="/messages"><span><?= \App\Lang::t('nav.messages') ?></span><?php $unreadMsgs = \App\SessionGuard::unreadMessages(); if ($unreadMsgs > 0): ?><small class="nav-me-note"><?= \App\Lang::t('nav.new_n', ['n' => $unreadMsgs]) ?></small><?php endif; ?></a></li><?php endif; ?>
           <li><a href="/account/settings"><?= \App\Lang::t('account.settings') ?></a></li>
         </ul>
         <div class="nav-me-theme"><span class="bp-label"><?= \App\Lang::t('nav.theme_toggle') ?></span>

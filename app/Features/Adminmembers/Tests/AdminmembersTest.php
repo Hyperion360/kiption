@@ -199,9 +199,23 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('name="stories" value="move"', $body);
         $this->assertStringContainsString('name="stories" value="remove"', $body);
         $this->assertStringContainsString('name="penname"', $body);
-        $this->assertStringContainsString('<dt>Stories</dt><dd>1</dd>', $body, 'the facts come first');
-        $this->assertStringContainsString('<dt>Email</dt><dd>leaving-member@e.test</dd>', $body);
+        $this->assertStringContainsString('<h1>Delete leaving-member?</h1>', $body, 'the title names who is going');
+        $this->assertStringContainsString('leaving-member@e.test · 1 story · 0 open reports · member since ', $body, 'the facts come first');
+        $this->assertStringContainsString('What should happen to their 1 story?', $body);
+        $this->assertStringContainsString('>Delete leaving-member</button>', $body, 'the button says what it deletes');
         $this->assertStringContainsString('href="/adminmembers">Cancel</a>', $body);
+    }
+
+    public function test_delete_page_counts_what_removing_the_stories_would_take(): void
+    {
+        $storyId = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'leaving-tale'")['id'];
+        foreach ([1, 2] as $n) {
+            $this->db->query("INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, ?, 'C', 'x', 1, 1)", [$storyId, $n]);
+        }
+        $this->db->query("INSERT INTO reports (reporter_id, story_id, reason) VALUES (?, ?, 'Spam')", [$this->heirId, $storyId]);
+        $body = $this->client($this->adminId)->get('/adminmembers/remove/' . $this->targetId)->body;
+        $this->assertStringContainsString('1 story, 2 chapters and their reviews leave the archive.', $body);
+        $this->assertStringContainsString('1 open report', $body);
     }
 
     public function test_delete_and_keep_moves_the_stories_to_another_member(): void

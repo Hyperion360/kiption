@@ -181,11 +181,12 @@ final class AdminmembersController
     #[AuthAttr]
     public function remove(string $id): Response|string
     {
-        $gate = Adminness::requireAdmin($this->db, $this->session);
-        if ($gate instanceof Response) return $gate;
-        $target = $this->target($id);
-        if ($target === null) return new Response(\App\Lang::t('error.not_found'), 404);
-        return $this->removeForm($target, null);
+        // The live-session check already read the viewer's role; the card is the one content query.
+        $refused = Adminness::adminFromSession($this->db, $this->session);
+        if ($refused !== null) return $refused;
+        $card = $this->card($id);
+        if ($card === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        return $this->removeForm($card, null);
     }
 
     /** Delete a member. The account row is scrubbed and locked rather than
@@ -262,6 +263,18 @@ final class AdminmembersController
         return $this->db->one('SELECT id, penname, email, role, is_locked, profile_slug, avatar_path FROM users WHERE id = ?', [(int) $id]);
     }
 
+    /** The member and what deleting them would touch, in one statement. */
+    private function card(string $id): ?array
+    {
+        if (preg_match('#^[1-9][0-9]{0,9}$#', $id) !== 1) return null;
+        return $this->db->one(
+            'SELECT u.id, u.penname, u.email, u.role, u.is_locked, u.profile_slug, u.avatar_path, u.created_at,
+                    (SELECT COUNT(*) FROM stories s WHERE s.author_id = u.id AND s.deleted_at IS NULL) AS stories,
+                    (SELECT COUNT(*) FROM chapters c JOIN stories s ON s.id = c.story_id WHERE s.author_id = u.id AND s.deleted_at IS NULL) AS chapters,
+                    (SELECT COUNT(*) FROM reports r JOIN stories s ON s.id = r.story_id WHERE s.author_id = u.id AND r.resolved_at IS NULL) AS open_reports
+             FROM users u WHERE u.id = ?', [(int) $id]);
+    }
+
     private function isDeleted(array $target): bool
     {
         return \App\AccountSecurity::isDeletedEmail((string) $target['email']);
@@ -283,6 +296,7 @@ final class AdminmembersController
         \App\CachePurge::run($this->app, $this->db); // the edge holds public pages for hours; lockouts must reach it too
     }
 
+    /** The delete card; a target loaded by target() gets its counts here, the page's own card already has them. */
     private function removeForm(array $target, ?string $error): string
     {
         $title = \App\Lang::t('adminmembers.remove_heading');
@@ -293,8 +307,7 @@ final class AdminmembersController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
-            'member' => $target,
-            'storyCount' => (int) $this->db->one('SELECT COUNT(*) c FROM stories WHERE author_id = ? AND deleted_at IS NULL', [(int) $target['id']])['c'],
+            'member' => isset($target['stories']) ? $target : ($this->card((string) $target['id']) ?? $target),
             'error' => $error,
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
