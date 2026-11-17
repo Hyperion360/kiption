@@ -25,6 +25,7 @@ if ((string) ($info['members']['c'] ?? '0') === '1') $memberPreview = rtrim($mem
 $reportBits = [];
 foreach (array_filter(explode("\x1e", (string) ($info['reports']['c'] ?? ''))) as $packed) {
     [$kind, $what, $why] = array_pad(explode("\x1f", $packed), 3, '');
+    $why = mb_strimwidth(trim($why), 0, 24, '…');
     $reportBits[] = \App\Lang::t($kind === 'r' ? 'manage.preview_report_review' : 'manage.preview_report_story', ['title' => $what]) . ($why !== '' ? ' (' . $why . ')' : '');
 }
 $reportPreview = $reportBits === []

@@ -146,7 +146,7 @@ final class ManageController extends AdminScreen
              SELECT '1members', COUNT(*), COALESCE((SELECT us2.penname FROM users us2 WHERE " . str_replace('us.', 'us2.', \App\Repositories\AuthoringRepository::WAITING_MEMBER) . " ORDER BY us2.created_at DESC, us2.id DESC LIMIT 1), ''), COALESCE(MIN(us.created_at), ''), COALESCE((SELECT 1 FROM signup_check sc WHERE sc.id = 1 AND sc.enabled = 1 AND sc.question <> '' AND sc.answer <> ''), 0), COALESCE(MAX(us.created_at), '') FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "
              UNION ALL
              SELECT '1reports', COUNT(*), COALESCE(MIN(created_at), ''), '',
-                    (SELECT GROUP_CONCAT(x, char(30)) FROM (SELECT CASE WHEN r.story_id IS NOT NULL THEN 's' ELSE 'r' END || char(31) || COALESCE(st.title, rs.title, '') || char(31) || substr(r.reason, 1, 30) AS x
+                    (SELECT GROUP_CONCAT(x, char(30)) FROM (SELECT CASE WHEN r.story_id IS NOT NULL THEN 's' ELSE 'r' END || char(31) || COALESCE(st.title, rs.title, '') || char(31) || substr(r.reason, 1, 60) AS x
                         FROM reports r LEFT JOIN stories st ON st.id = r.story_id LEFT JOIN reviews rv ON rv.id = r.review_id LEFT JOIN stories rs ON rs.id = rv.story_id
                         WHERE r.resolved_at IS NULL ORDER BY r.created_at, r.id LIMIT 2)), '' FROM reports WHERE resolved_at IS NULL
              UNION ALL
