@@ -34,6 +34,12 @@ final class Posting
         return Settings::on('submissions_open') && self::$mode !== 'closed';
     }
 
+    /** Whether a visitor can still create an account (the Join button's gate). */
+    public static function registrationOpen(): bool
+    {
+        return self::$mode !== 'closed';
+    }
+
     public static function paused(Database $db, int $userId): bool
     {
         if (Settings::on('submissions_open')) return false;

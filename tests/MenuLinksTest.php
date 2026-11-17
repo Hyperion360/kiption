@@ -100,14 +100,14 @@ final class MenuLinksTest extends TestCase
         $this->assertStringNotContainsString('href="/manage"', $html);
     }
 
-    public function test_member_sees_post_a_story_before_account_and_no_staff_links(): void
+    public function test_member_sees_post_a_story_and_no_staff_links(): void
     {
         $html = $this->page('/story/view/the-rabbit-hole', $this->memberId);
         $this->assertStringContainsString('href="/story/new"', $html);
         $this->assertStringNotContainsString('href="/queue"', $html);
         $this->assertStringNotContainsString('href="/manage"', $html);
         $menu = substr($html, (int) strpos($html, 'id="menu"'));
-        $this->assertLessThan(strpos($menu, 'href="/account"'), strpos($menu, 'href="/story/new"'), 'first link of the signed-in block');
+        $this->assertStringContainsString('class="sheet-post"', $menu, 'the Post button sits in the phone sheet');
     }
 
     public function test_post_link_hidden_from_members_while_posting_is_paused_but_not_from_admins(): void

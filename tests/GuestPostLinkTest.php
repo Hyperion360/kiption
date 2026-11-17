@@ -81,18 +81,18 @@ final class GuestPostLinkTest extends TestCase
         foreach (['/', '/browse'] as $path) {
             $html = $this->client()->get($path)->body;
             $this->assertStringContainsString('href="/story/new"', $html, $path);
-            $this->assertLessThan(strpos($html, 'href="/auth/login"', (int) strpos($html, 'id="menu"')), strpos($html, 'href="/story/new"', (int) strpos($html, 'id="menu"')), 'before Sign in');
+            $this->assertStringContainsString('class="sheet-post"', substr($html, (int) strpos($html, 'id="menu"')), 'the phone sheet carries it');
         }
     }
 
-    public function test_the_desktop_header_carries_the_guest_link_because_guests_have_no_menu_there(): void
+    public function test_the_desktop_header_leaves_guests_theme_log_in_and_join_not_a_post_button(): void
     {
         $html = $this->client()->get('/browse')->body;
         $head = substr($html, 0, (int) strpos($html, '</header>'));
-        $this->assertStringContainsString('<a href="/story/new" class="nav-post">', $head);
-        $this->assertLessThan(strpos($head, 'class="nav-account"'), strpos($head, 'class="nav-post"'), 'before Log in');
+        $this->assertStringNotContainsString('/story/new', $head, 'the guest header offers Join, the sheet and footer offer Post a story');
+        $this->assertStringContainsString('href="/story/new"', substr($html, (int) strpos($html, '<footer')), 'the footer Write column carries it');
         $id = (int) $this->db->one("SELECT id FROM users WHERE email = 'gp@e.test'")['id'];
-        $this->assertStringNotContainsString('nav-post', $this->client()->actingAs($id)->get('/browse')->body);
+        $this->assertStringContainsString('class="head-post"', $this->client()->actingAs($id)->get('/browse')->body, 'a member gets the outlined Post button');
     }
 
     public function test_no_guest_link_when_posting_is_paused(): void
