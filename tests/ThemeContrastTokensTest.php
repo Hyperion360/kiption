@@ -103,7 +103,7 @@ final class ThemeContrastTokensTest extends TestCase
     public function test_field_rules_use_the_field_edge(): void
     {
         $css = self::css('public/assets/reader.css');
-        foreach (['input, select, textarea', '.nav-search input', '.admin-nav-filter', '#menu .sheet-search', '.hd2 .nav-search'] as $sel) {
+        foreach (['input, select, textarea', '.nav-search input', '.admin-nav-filter', '#menu .sheet-search', '.hd2 .nav-search', '.queue-remove-panel textarea'] as $sel) {
             $this->assertMatchesRegularExpression('~(^|[{}])\s*' . preg_quote($sel, '~') . '\s*\{[^}]*border:\s*1px solid var\(--field-line\)~', $css, $sel);
         }
         $this->assertMatchesRegularExpression('~::placeholder\s*\{[^}]*color:\s*var\(--muted\)~', $css);
