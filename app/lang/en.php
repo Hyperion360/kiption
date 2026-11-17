@@ -82,7 +82,7 @@ return [
     'theme.auto' => 'Auto',
 
     // The default meta description (Head's fallback) and the home page.
-    'site.meta_description' => 'A self-hosted fiction archive.',
+    'site.meta_description' => 'An open source fiction archive, built with Kip.',
     'home.intro' => 'Original stories and fan fiction, read a chapter at a time or all at once.',
     // Long messages the owner writes in Markdown (Site text, group "msg"). Empty means not shown.
     'msg.welcome' => '',
@@ -818,6 +818,7 @@ return [
     'page.slug' => 'Address',
     'page.slug_placeholder' => 'about',
     'page.body_placeholder' => 'Markdown welcome',
+    'cloud.learn_more' => 'Learn More About Kiption Cloud',
     'page.last_updated' => 'Last updated {date}',
 
     // The validation queue.

@@ -160,7 +160,7 @@ final class SitemapTest extends TestCase
         // sitemaps stay files, not cache pages; the content-policy page rides
         // the seeded-pages set, and Task 2's dmca page rides it too, at its
         // top-level spelling)
-        $this->assertSame(25, $count);
+        $this->assertSame(26, $count); // the seeded /cloud page (migration 072) rides the seeded-pages set
         $this->assertFileExists($this->publicDir() . '/sitemap.xml');
         $this->assertStringContainsString(
             'https://archive.example/story/view/the-rabbit-hole',

@@ -79,9 +79,10 @@ return [
     'cdn' => ['enabled' => false, 'zone_id' => '', 'api_token' => '', 'purge_host' => ''],   // optional CDN purge (Cloudflare-compatible purge_cache endpoint), default-off; purge_host is the host prefix purged on every cache-purging write. Leave empty on a plain install: nothing changes until all four keys are set
     'items_per_page' => 20,
     'skin' => 'default',   // operator skin: app/skins/{name}/views overrides the app views when not 'default'; the /settings board writes this key
-    // Optional marketing bands for a hosted-service landing page (the /cloud
-    // shape: hero CTA, plan cards, offer callout, close band). All pricing and
-    // offer copy lives in config.marketing.php (gitignored), never in this
-    // file; absent, the page renders hero + body only.
+    // Where the simplified /cloud page links ("Want Kiption hosted for you?").
+    'cloud_url' => 'https://kiption.com/cloud',
+    // The official site's full /cloud landing (hero, features, plans, FAQ).
+    // All copy, links, and pricing live in config.marketing.php (gitignored),
+    // never in this file; absent, /cloud renders the simplified page.
     'cloud_marketing' => is_file(__DIR__ . '/config.marketing.php') ? (array) require __DIR__ . '/config.marketing.php' : [],
 ];

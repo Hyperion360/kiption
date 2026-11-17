@@ -7,10 +7,11 @@ use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
-/** The /cloud landing template: the title's colon split (kicker + display
- *  heading), the body's first paragraph lifted as the lede, and the
- *  cloud_marketing config bands (CTA, plan cards, offer callout, close).
- *  Without the config the page degrades to hero + body with no bands. */
+/** The simplified /cloud tier every install ships: a seeded, editable Page
+ *  row with short default copy and one link to a configurable URL. It carries
+ *  no plan names, prices, or limits. Admins edit, hide, or delete it like any
+ *  page, and a deleted row is never seeded again (the migration runs once).
+ *  The full flagship landing is CloudLandingTest's business. */
 #[Medium]
 final class CloudPageTest extends TestCase
 {
@@ -21,9 +22,6 @@ final class CloudPageTest extends TestCase
         $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-landing-');
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        $db->query('INSERT INTO pages (slug, title, body) VALUES (?, ?, ?)',
-            ['cloud', 'Kiption Cloud: your archive, hosted and maintained',
-             "Kiption Cloud is the hosted way to run a fiction archive.\n\nThe dated record behind the offer.\n\nSecond closing paragraph."]);
     }
 
     protected function tearDown(): void
@@ -46,59 +44,111 @@ final class CloudPageTest extends TestCase
         return new TestClient($app);
     }
 
-    private function marketing(): array
+    private function db(): Database
     {
-        return [
-            'cta_label' => 'Start your archive', 'cta_url' => 'https://cloud.example/start',
-            'proof' => 'This archive runs on the same build.',
-            'plans_label' => 'The plans',
-            'plans' => [
-                ['name' => 'Standard', 'blurb' => 'For an archive finding a new home.', 'price' => '$9', 'period' => '/ month',
-                 'alt' => 'or $90 a year', 'rows' => ['2 GB storage'], 'cta' => 'Start Standard', 'url' => 'https://cloud.example/start?plan=standard'],
-                ['name' => 'Pro', 'blurb' => 'For a community.', 'price' => '$19', 'period' => '/ month',
-                 'rows' => ['10 GB storage'], 'cta' => 'Start Pro', 'url' => 'https://cloud.example/start?plan=pro',
-                 'featured' => true, 'badge' => 'Recommended', 'note' => 'Migration included.'],
-            ],
-            'offer' => 'Every yearly plan includes the migration. [Read the terms](https://archive.example/cloud)',
-            'close' => ['heading' => 'Start your archive', 'body' => 'Pick a plan, monthly or yearly.'],
-        ];
+        return new Database('sqlite:' . $this->path);
     }
 
-    public function test_cloud_renders_kicker_lede_and_body_without_config(): void
+    public function test_a_fresh_install_serves_the_short_default_page_with_the_default_link(): void
     {
         $r = $this->client()->get('/cloud');
         $this->assertSame(200, $r->status);
-        $this->assertStringContainsString('cloud-kicker', $r->body, 'kicker renders from the colon split');
-        $this->assertStringContainsString('cloud-lede', $r->body, 'the first paragraph lifts into the lede');
-        $this->assertStringContainsString('Kiption Cloud is the hosted way', $r->body, 'lede text present');
-        $this->assertStringContainsString('cloud-body', $r->body, 'the remaining body renders below');
-        $this->assertStringContainsString('The dated record behind the offer.', $r->body, 'body keeps its paragraphs');
-        $this->assertStringNotContainsString('plans-band', $r->body, 'no plans band without the config');
-        $this->assertStringNotContainsString('cta-primary', $r->body, 'no CTA button without the config');
-        $this->assertStringNotContainsString('close-band', $r->body, 'no close band without the config');
+        $this->assertStringContainsString('Want Kiption hosted for you? We run it, back it up, and keep it updated.', $r->body);
+        $this->assertStringContainsString('href="https://kiption.com/cloud"', $r->body);
+        $this->assertStringContainsString('<h1>Kiption Cloud</h1>', $r->body);
     }
 
-    public function test_cloud_renders_the_marketing_bands_from_config(): void
+    public function test_the_default_page_names_no_plans_prices_or_limits(): void
     {
-        $r = $this->client(['cloud_marketing' => $this->marketing()])->get('/cloud');
+        $r = $this->client()->get('/cloud');
+        preg_match('#<article.*?</article>#s', $r->body, $a);
+        $this->assertNotEmpty($a);
+        $this->assertDoesNotMatchRegularExpression('/\$\d|Standard|Pro\b|\bGB\b|refund|plan-card|plans-band|cloud\.kiption\.com/i', $a[0]);
+    }
+
+    public function test_the_link_target_is_configurable(): void
+    {
+        $r = $this->client(['cloud_url' => 'https://host.example/hosted'])->get('/cloud');
+        $this->assertStringContainsString('href="https://host.example/hosted"', $r->body);
+        $this->assertStringNotContainsString('href="https://kiption.com/cloud"', $r->body);
+    }
+
+    public function test_an_empty_link_setting_drops_the_button_but_keeps_the_text(): void
+    {
+        $r = $this->client(['cloud_url' => ''])->get('/cloud');
+        $this->assertStringContainsString('We run it, back it up, and keep it updated.', $r->body);
+        $this->assertStringNotContainsString('cloud-link', $r->body);
+    }
+
+    public function test_an_admin_edit_changes_the_text(): void
+    {
+        $this->db()->query("UPDATE pages SET title = 'Hosting', body = 'Our own words.' WHERE slug = 'cloud'");
+        $r = $this->client()->get('/cloud');
+        $this->assertStringContainsString('<h1>Hosting</h1>', $r->body);
+        $this->assertStringContainsString('Our own words.', $r->body);
+        $this->assertStringNotContainsString('Want Kiption hosted for you?', $r->body);
+    }
+
+    public function test_hiding_from_search_engines_sets_noindex(): void
+    {
+        $this->db()->query("UPDATE pages SET noindex = 1 WHERE slug = 'cloud'");
+        $r = $this->client()->get('/cloud');
         $this->assertSame(200, $r->status);
-        $this->assertStringContainsString('href="https://cloud.example/start"', $r->body, 'hero CTA link');
-        $this->assertStringContainsString('This archive runs on the same build.', $r->body, 'proof line');
-        $this->assertStringContainsString('id="plans"', $r->body, 'plans band anchors for the See-the-plans link');
-        $this->assertStringContainsString('Standard', $r->body);
-        $this->assertStringContainsString('href="https://cloud.example/start?plan=pro"', $r->body, 'card CTA carries its own URL');
-        $this->assertStringContainsString('Recommended', $r->body, 'badge renders');
-        $this->assertStringContainsString('Migration included.', $r->body, 'card note renders');
-        $this->assertStringContainsString('Every yearly plan includes the migration.', $r->body, 'offer callout renders');
-        $this->assertStringContainsString('href="https://archive.example/cloud"', $r->body, 'offer markdown link renders as a link');
-        $this->assertStringContainsString('close-band', $r->body, 'close band renders');
-        $this->assertStringContainsString('Pick a plan, monthly or yearly.', $r->body, 'close body renders');
+        $this->assertSame('noindex', $r->headers['X-Robots-Tag'] ?? '');
+    }
+
+    public function test_the_page_is_not_protected_so_an_admin_can_delete_it(): void
+    {
+        $this->assertNotContains('cloud', \App\Features\Page\PageController::PROTECTED);
+    }
+
+    public function test_a_deleted_page_is_gone_and_a_later_migrate_never_brings_it_back(): void
+    {
+        $this->db()->query("DELETE FROM pages WHERE slug = 'cloud'");
+        $this->assertSame(404, $this->client()->get('/cloud')->status);
+        (new Migrator($this->db(), \App\Tests\Support\AppLayout::migrations()))->migrate();
+        $this->assertNull($this->db()->one("SELECT slug FROM pages WHERE slug = 'cloud'"));
+        $this->assertSame(404, $this->client()->get('/cloud')->status);
+    }
+
+    public function test_an_existing_operator_page_survives_the_seed(): void
+    {
+        $db = new Database('sqlite:' . $this->path);
+        $db->query("UPDATE pages SET body = 'Mine.' WHERE slug = 'cloud'");
+        (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
+        $this->assertSame('Mine.', $db->one("SELECT body FROM pages WHERE slug = 'cloud'")['body']);
+    }
+
+    public function test_plans_in_the_config_without_a_landing_do_not_reach_the_page(): void
+    {
+        $m = ['cta_label' => 'Start', 'cta_url' => 'https://cloud.example/start',
+              'plans' => [['name' => 'Zeta', 'price' => '$7', 'period' => '/ month']]];
+        $r = $this->client(['cloud_marketing' => $m])->get('/cloud');
+        $this->assertStringNotContainsString('Zeta', $r->body);
+        $this->assertStringContainsString('We run it, back it up', $r->body);
     }
 
     public function test_page_view_spelling_redirects_to_the_top_path(): void
     {
-        $r = $this->client(['cloud_marketing' => $this->marketing()])->get('/page/view/cloud');
-        $this->assertSame(301, $r->status, 'the mapped slug redirects to its top-level spelling');
-        $this->assertSame('/cloud', $r->headers['Location'] ?? '', 'the redirect names the canonical path');
+        $r = $this->client()->get('/page/view/cloud');
+        $this->assertSame(301, $r->status);
+        $this->assertSame('/cloud', $r->headers['Location'] ?? '');
+    }
+
+    public function test_the_simplified_page_stays_inside_the_one_query_budget(): void
+    {
+        $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod', 'views' => dirname(__DIR__) . '/app/views',
+            'db' => ['dsn' => 'sqlite:' . $this->path], 'log_db' => ['dsn' => 'sqlite::memory:'],
+            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-landing.log', 'from' => 'noreply@localhost'],
+            'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+        ]);
+        $db = $app->container->make(Database::class);
+        $n = 0;
+        \App\Tests\Support\QueryTap::on($db, function () use (&$n): void { $n++; });
+        $res = $app->handle(new \Kip\Http\Request('GET', '/cloud', [], [], []));
+        \App\Tests\Support\QueryTap::off($db);
+        $this->assertSame(200, $res->status);
+        $this->assertSame(1, $n, '/cloud runs exactly one content query');
     }
 }

@@ -69,7 +69,7 @@ then choose inbox, immediate email, or digest themselves.
 
 ## How Kiption compares to eFiction
 
-eFiction is the grandparent of self-hosted fiction archives; it has run
+eFiction is the grandparent of open source fiction archives; it has run
 fandom sites since 2003, and Kiption's author was on its original 2005
 development team. The comparison is not a rivalry. If your eFiction
 archive is healthy and you enjoy running PHP software, the maintained
