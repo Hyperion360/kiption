@@ -261,7 +261,8 @@ final class AdminToolsTest extends TestCase
         $this->assertStringContainsString('demo@example.test', $body);
         $this->assertStringContainsString('validated_author', $body, 'role badge');
         $this->assertStringContainsString('Locked', $body, 'status badge');
-        $this->assertStringContainsString('action="/adminmembers/role/' . $this->memberId() . '/admin"', $body, 'role-select form');
+        $this->assertStringContainsString('action="/adminmembers/setrole/' . $this->memberId() . '"', $body, 'role-select form');
+        $this->assertStringContainsString('<option value="admin">Admin</option>', $body);
         // the admin's own row is flagged, and offers no way to change its own role
         $this->assertStringContainsString('(you)', $body);
         $this->assertStringNotContainsString('action="/adminmembers/role/' . $this->adminId() . '/', $body);
