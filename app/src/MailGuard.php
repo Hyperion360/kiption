@@ -8,7 +8,7 @@ use Kip\Mailer;
  *  'mail_daily_cap' and the optional 'mail_monthly_cap', 0 = off, the
  *  default). Wraps the transport so every outbound path (verification,
  *  password resets, the publish notification fan-out, the digest, member
- *  contact, coauthor adds, mail:users) counts against a hosting operator's
+ *  contact, coauthor adds, mail:users) counts against the site administrator's
  *  caps: a free tier that rejects at 300/day would otherwise eat a
  *  verification mail mid-fan-out.
  *

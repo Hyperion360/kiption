@@ -1834,7 +1834,7 @@ return [
     'images.err_in_use' => 'File is in use by an avatar, story cover, or series cover.',
     'images.storage_used' => 'Storage used: {used} of {total}.',
     'images.storage_warn' => 'The archive is close to its storage limit. Delete images you no longer use.',
-    'images.storage_full' => 'Your archive has reached its storage limit. Delete images you no longer use, or contact support to upgrade.',
+    'images.storage_full' => 'Your archive has reached its storage limit. Delete images you no longer use, or ask your site administrator to raise the limit.',
     'admin.err_flag' => 'Unknown feature flag',
     'chapter.err_text' => 'Chapter text is required.',
     'news.err_comment_rate' => 'You already commented on this post within the last hour.',

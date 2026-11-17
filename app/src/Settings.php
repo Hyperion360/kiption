@@ -58,7 +58,7 @@ final class Settings
         $out = [];
         foreach (self::all() as $k => $v) {
             if ($k === 'maintenance_on') { $out[$k] = ($v === '1'); continue; } // the owner's switch has no config.php key
-            if (!\array_key_exists($k, self::KEYS)) continue; // never board-writable: a hosting operator's cap keys stay config
+            if (!\array_key_exists($k, self::KEYS)) continue; // never board-writable: the site administrator's cap keys stay config
             $current = $config[$k] ?? null;
             if ($current === null && !\in_array($k, ['skin'], true)) continue; // unknown keys stay config.php territory
             if ($current === true || $current === false) { $out[$k] = ($v === '1' || $v === 'on'); continue; }

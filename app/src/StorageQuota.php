@@ -5,7 +5,7 @@ use Kip\Database;
 use Kip\Storage;
 
 /** The upload-bytes quota (config 'storage_cap_bytes', 0 = off, the default:
- *  a hosting operator may cap total upload bytes). What counts is the bytes
+ *  the site administrator may cap total upload bytes). What counts is the bytes
  *  under the uploads directory and nothing else: text growth (stories,
  *  chapters, messages) is never counted and never blocked.
  *

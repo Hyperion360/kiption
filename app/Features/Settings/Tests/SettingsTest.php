@@ -227,7 +227,7 @@ final class SettingsTest extends TestCase
     }
 
     /** Pin: the sending and storage caps are operator config, never board
-     *  rows. A hosting operator may cap outbound mail and uploads; the
+     *  rows. A site administrator may cap outbound mail and uploads; the
      *  settings board must never be able to move those keys. */
     public function test_the_cap_keys_are_never_board_settings(): void
     {
