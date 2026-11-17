@@ -6,6 +6,8 @@
  *     itself;
  *   - a field with a length limit shows how much of it is used while the
  *     owner is in it (the wording comes from data-count-text).
+ *   - a select inside a form marked data-autosubmit saves when it changes
+ *     (the members role picker; without scripting its Set button shows).
  * With scripting off the forms work as they always did. */
 'use strict';
 (function (Kip) {
@@ -32,6 +34,12 @@
     }
     main.addEventListener('input', function (e) { mark(e.target); });
     main.addEventListener('change', function (e) { mark(e.target); });
+    main.addEventListener('change', function (e) {
+      var form = e.target && e.target.form;
+      if (e.target.tagName === 'SELECT' && form && form.hasAttribute('data-autosubmit')) {
+        if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+      }
+    });
     document.addEventListener('submit', function (e) {
       var i = dirty.indexOf(e.target);
       if (i >= 0) { dirty.splice(i, 1); }

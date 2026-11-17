@@ -25,7 +25,8 @@ final class HeadlineCaseTest extends TestCase
         'look.sample_link', // the sample anchor's text on the Colors and Layout screen, not a link in running copy
         // "Sign In" is a phrasal verb and "On and Off" are adverbs, so they keep their capitals.
         'auth.link.title', 'auth.link.heading', 'features.heading', 'text.group.features',
-        'auth.login.heading', 'auth.link.magic_heading', 'auth.link.magic_submit']; // "Log In" and "Sign In" are phrasal verbs too (see PHRASAL)
+        'auth.login.heading', 'auth.link.magic_heading', 'auth.link.magic_submit',
+        'adminmembers.column_signed_in']; // "Signed In" is the same phrasal verb // "Log In" and "Sign In" are phrasal verbs too (see PHRASAL)
 
     /** Header, menu, footer, admin sidebar, queue and roster strings whose keys the pattern above cannot see.
      *  Each is a link, button, heading, label or option, so each follows headline case. */
@@ -37,7 +38,9 @@ final class HeadlineCaseTest extends TestCase
         'account.your_stories', 'account.settings', 'auth.back_to_login',
         'adminmembers.profile', 'adminmembers.remove_move_to', 'adminmembers.role.validated_author', 'adminmembers.make.member',
         'adminmembers.make.validated_author', 'adminmembers.make.moderator', 'adminmembers.make.admin',
-        'adminmembers.filter.waiting', 'adminmembers.status.unapproved',
+        'adminmembers.filter.waiting', 'adminmembers.status.unapproved', 'adminmembers.filter.validated_author', 'adminmembers.filter.unverified',
+        'adminmembers.view_profile', 'adminmembers.see_reports', 'adminmembers.see_reports_one', 'adminmembers.lock_account', 'adminmembers.unlock_account',
+        'adminmembers.delete_member', 'adminmembers.approve', 'adminmembers.column_stories',
         'queue.members', 'queue.opening', 'queue.report_text', 'queue.remove_why', 'queue.reason_none', 'queue.reason_more', 'queue.remove_content',
         'queue.preset_policy_label', 'queue.preset_content_label', 'queue.preset_spam_label', 'queue.preset_quality_label', 'queue.remove_confirm_btn',
         'search.nomatch_drop', 'settings.chapter_images_on', 'cloud.learn_more',

@@ -79,18 +79,30 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->targetId . '"', $this->client($this->adminId)->get('/adminmembers')->body);
     }
 
-    public function test_each_row_says_when_they_last_signed_in_and_what_they_have_posted(): void
+    public function test_each_row_has_stories_and_last_signed_in_columns_and_the_email_under_the_name(): void
     {
         $writer = $this->user('roster-writer', 'member');
         $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES ('Only One', 'only-one', 'S.', ?, 2, 1)", [$writer]);
         $this->db->query("INSERT INTO reports (reporter_id, story_id, reason) VALUES (?, ?, 'Spam')", [$this->adminId, (int) $this->db->lastInsertId()]);
         $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail, created_at) VALUES (?, 'roster-writer', 'auth.signin', '', '2026-03-04 10:00:00')", [$writer]);
         $body = $this->client($this->adminId)->get('/adminmembers', ['q' => 'roster-w'])->body;
-        $this->assertStringContainsString(\App\Lang::t('adminmembers.last_signin', ['date' => \App\Dates::format('2026-03-04 10:00:00')]), $body);
-        $this->assertStringContainsString(\App\Lang::t('adminmembers.stories_one', ['n' => 1]), $body);
-        $this->assertStringContainsString(\App\Lang::t('adminmembers.open_reports_one', ['n' => 1]), $body);
+        $this->assertMatchesRegularExpression('#<th scope="col"[^>]*>Stories</th><th scope="col"[^>]*>Last Signed In</th>#', $body);
+        $this->assertStringNotContainsString('<th scope="col">Email</th>', $body, 'the email sits under the name now');
+        $this->assertStringContainsString('<td class="member-num" data-label="Stories">1</td>', $body);
+        $this->assertStringContainsString('>' . \App\Dates::format('2026-03-04 10:00:00', false) . '</td>', $body);
+        $this->assertStringContainsString('<span class="member-reports">' . \App\Lang::t('adminmembers.open_reports_one', ['n' => 1]) . '</span>', $body);
+        $this->assertMatchesRegularExpression('#<span class="member-name">roster-writer</span>.*<span class="member-email">roster-writer@e.test</span>#s', $body);
         $quiet = $this->client($this->adminId)->get('/adminmembers', ['q' => 'roster-admin'])->body;
-        $this->assertStringContainsString(\App\Lang::t('adminmembers.no_signin'), $quiet);
+        $this->assertStringContainsString(\App\Lang::t('adminmembers.never_signed_in'), $quiet);
+    }
+
+    public function test_a_recent_sign_in_reads_today_or_yesterday(): void
+    {
+        $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail, created_at) VALUES (?, 'x', 'auth.signin', '', ?)", [$this->targetId, date('Y-m-d H:i:s')]);
+        $this->db->query("INSERT INTO activity_log (actor_id, actor_name, action, detail, created_at) VALUES (?, 'x', 'auth.signin', '', ?)", [$this->heirId, date('Y-m-d H:i:s', strtotime('-1 day'))]);
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        $this->assertMatchesRegularExpression('#leaving-member.*?data-label="Last Signed In">Today</td>#s', $body);
+        $this->assertMatchesRegularExpression('#heir-member.*?data-label="Last Signed In">Yesterday</td>#s', $body);
     }
 
     public function test_roster_shows_role_names_people_can_read(): void
@@ -396,13 +408,49 @@ final class AdminmembersTest extends TestCase
         $body = $c->get('/adminmembers')->body;
         $this->assertStringContainsString('Moderators <span class="queue-tab-n">1</span>', $body);
         $this->assertStringContainsString('Locked <span class="queue-tab-n">1</span>', $body);
-        $this->assertStringContainsString('Waiting for Approval <span class="queue-tab-n">1</span>', $body);
+        $this->assertStringContainsString('Waiting <span class="queue-tab-n">1</span>', $body);
         $locked = $c->get('/adminmembers', ['filter' => 'locked'])->body;
         $this->assertStringContainsString('leaving-member', $locked);
         $this->assertStringNotContainsString('roster-mod@', $locked);
-        $this->assertStringContainsString('1 member', $locked, 'the total follows the filter');
+        $this->assertStringContainsString('class="member-range">1' . "\u{2013}" . '1 of 1<', $locked, 'the total follows the filter');
         $this->assertStringContainsString('<a href="/adminmembers?filter=locked" aria-current="page">', $locked);
         $this->assertStringContainsString('roster-admin@', $c->get('/adminmembers', ['filter' => 'bogus'])->body, 'an unknown filter means everyone');
+    }
+
+    public function test_the_chips_are_all_admins_moderators_trusted_authors_waiting_locked_and_email_unverified(): void
+    {
+        $trusted = $this->user('roster-trusted', 'validated_author');
+        $unverified = $this->user('roster-unverified', 'member');
+        $this->db->query('UPDATE users SET email_verified_at = NULL, approved_at = NULL WHERE id = ?', [$unverified]);
+        $c = $this->client($this->adminId);
+        $body = $c->get('/adminmembers')->body;
+        preg_match('#<nav class="member-filters".*?</nav>#s', $body, $nav);
+        preg_match_all('#<a href="[^"]*"(?: aria-current="page")?>([^<]*) <span class="queue-tab-n">([^<]*)</span></a>#', $nav[0], $m, PREG_SET_ORDER);
+        $this->assertSame(['All', 'Admins', 'Moderators', 'Trusted Authors', 'Waiting', 'Locked', 'Email Unverified'], array_column($m, 1));
+        $this->assertSame(['8', '1', '1', '2', '0', '0', '1'], array_column($m, 2));
+        $only = $c->get('/adminmembers', ['filter' => 'validated_author'])->body;
+        $this->assertStringContainsString('roster-trusted@', $only);
+        $this->assertStringNotContainsString('roster-mod@', $only);
+        $this->assertStringContainsString('<a href="/adminmembers?filter=validated_author" aria-current="page">', $only);
+        $un = $c->get('/adminmembers', ['filter' => 'unverified'])->body;
+        $this->assertStringContainsString('roster-unverified@', $un);
+        $this->assertStringNotContainsString('roster-trusted@', $un);
+    }
+
+    public function test_the_header_shows_the_total_beside_the_title_and_the_two_owner_shortcuts(): void
+    {
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        $this->assertStringContainsString('<h1>Members</h1> <span class="member-count">6</span>', $body);
+        $this->assertStringContainsString('<a class="btn" href="/invites">Invite Codes</a>', $body);
+        $this->assertStringContainsString('<a class="btn" href="/mailusers">Email All Members</a>', $body);
+    }
+
+    public function test_the_pager_names_the_range_and_disables_the_ends(): void
+    {
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        $this->assertStringContainsString('class="member-range">1' . "\u{2013}" . '6 of 6<', $body);
+        $this->assertStringContainsString('<span class="pager-off" aria-disabled="true">Previous</span>', $body);
+        $this->assertStringContainsString('<span class="pager-off" aria-disabled="true">Next</span>', $body);
     }
 
     public function test_search_finds_a_member_by_the_start_of_their_email_and_keeps_the_filter(): void
@@ -417,10 +465,67 @@ final class AdminmembersTest extends TestCase
     public function test_each_account_shows_one_plain_status_word_and_a_menu_that_works_without_scripts(): void
     {
         $this->db->query("UPDATE users SET is_locked = 1 WHERE id = ?", [$this->targetId]);
+        $this->db->query("UPDATE users SET approved_at = NULL WHERE id = ?", [$this->heirId]);
         $body = $this->client($this->adminId)->get('/adminmembers')->body;
         $this->assertStringContainsString('<span class="member-status is-locked">Locked</span>', $body);
         $this->assertStringContainsString('<span class="member-status is-active">Active</span>', $body);
+        $this->assertStringContainsString('<span class="member-status is-unapproved">Waiting</span>', $body);
+        $this->assertStringContainsString('<a class="member-approve" href="/queue?tab=members">Approve</a>', $body);
         $this->assertStringContainsString('<details class="member-menu">', $body);
         $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->targetId . '"', $body, 'inside the menu, a plain form');
+    }
+
+    public function test_the_row_menu_holds_profile_reports_lock_and_delete_and_nothing_loose_beside_it(): void
+    {
+        $writer = $this->user('menu-writer', 'member');
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES ('Menu Tale', 'menu-tale', 'S.', ?, 2, 1)", [$writer]);
+        $this->db->query("INSERT INTO reports (reporter_id, story_id, reason) VALUES (?, ?, 'Spam')", [$this->adminId, (int) $this->db->lastInsertId()]);
+        $body = $this->client($this->adminId)->get('/adminmembers', ['q' => 'menu-writer'])->body;
+        preg_match('#<details class="member-menu">.*?</details>#s', $body, $menu);
+        $this->assertStringContainsString('<a href="/user/view/menu-writer">View Profile</a>', $menu[0]);
+        $this->assertStringContainsString('<a href="/queue?tab=reports">See Their 1 Open Report</a>', $menu[0]);
+        $this->assertStringContainsString('<button type="submit">Lock Account</button>', $menu[0]);
+        $this->assertStringContainsString('name="_token"', $menu[0], 'the lock form carries the CSRF token');
+        $this->assertStringContainsString('<a href="/adminmembers/remove/' . $writer . '" class="member-delete">Delete Member&hellip;</a>', str_replace('…', '&hellip;', $menu[0]));
+        $outside = preg_replace('#<details class="member-menu">.*?</details>#s', '', $body);
+        $this->assertStringNotContainsString('>More<', $outside);
+        $this->assertStringNotContainsString('class="member-facts"', $body);
+        $quiet = $this->client($this->adminId)->get('/adminmembers', ['q' => 'roster-mod'])->body;
+        $this->assertStringNotContainsString('Open Report', $quiet, 'no reports, no reports entry');
+    }
+
+    public function test_your_own_row_and_deleted_accounts_have_no_menu(): void
+    {
+        $own = $this->client($this->adminId)->get('/adminmembers', ['q' => 'roster-admin'])->body;
+        $this->assertStringNotContainsString('<details class="member-menu">', $own);
+        $this->assertStringContainsString('<span class="member-you">(you)</span>', $own);
+    }
+
+    public function test_moderators_cannot_open_the_roster_or_use_its_menu_actions(): void
+    {
+        $mod = $this->client($this->moderatorId);
+        $this->assertSame(403, $mod->get('/adminmembers')->status);
+        $this->assertSame(403, $mod->get('/adminmembers', ['filter' => 'locked'])->status);
+        $this->assertSame(403, $mod->postWithToken('/adminmembers/setrole/' . $this->targetId, ['role' => 'moderator'])->status);
+        $this->assertSame('member', $this->db->one('SELECT role FROM users WHERE id = ?', [$this->targetId])['role']);
+    }
+
+    public function test_every_mutating_form_on_the_roster_carries_the_token_and_posts(): void
+    {
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        preg_match_all('#<form method="post"[^>]*>.*?</form>#s', $body, $forms);
+        $this->assertNotEmpty($forms[0]);
+        foreach ($forms[0] as $f) $this->assertStringContainsString('name="_token"', $f);
+        $this->assertSame(403, $this->client($this->adminId)->post('/adminmembers/setrole/' . $this->targetId, ['role' => 'moderator'])->status, 'no token, no change');
+    }
+
+    public function test_a_filtered_search_still_costs_one_content_query(): void
+    {
+        $n = 0;
+        \App\Tests\Support\QueryTap::on($this->db, function (string $sql) use (&$n): void {
+            if ($sql !== \App\SessionGuard::SQL && $sql !== 'SELECT password_hash FROM users WHERE id = ?') $n++;
+        });
+        $this->assertSame(200, $this->client($this->adminId)->get('/adminmembers', ['filter' => 'validated_author', 'q' => 'a', 'page' => '1'])->status);
+        $this->assertLessThanOrEqual(1, $n, 'counts, rows, stories, reports and sign-ins arrive in one statement');
     }
 }

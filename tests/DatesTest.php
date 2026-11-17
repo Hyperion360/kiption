@@ -23,4 +23,19 @@ final class DatesTest extends TestCase
         $this->assertNotSame('', \App\Dates::time('2026-03-04 10:00:00'));
         $this->assertMatchesRegularExpression('/^\d{1,2}:\d{2}/', \App\Dates::time('2026-03-04 10:00:00'));
     }
+
+    public function test_span_and_ago_read_in_the_largest_whole_unit(): void
+    {
+        $now = strtotime('2026-03-10 12:00:00');
+        $this->assertSame('less than a minute', \App\Dates::span('2026-03-10 11:59:40', $now));
+        $this->assertSame('5 minutes', \App\Dates::span('2026-03-10 11:55:00', $now));
+        $this->assertSame('1 hour', \App\Dates::span('2026-03-10 11:00:00', $now));
+        $this->assertSame('6 hours', \App\Dates::span('2026-03-10 06:00:00', $now));
+        $this->assertSame('1 day', \App\Dates::span('2026-03-09 11:00:00', $now));
+        $this->assertSame('2 days', \App\Dates::span('2026-03-08 11:00:00', $now));
+        $this->assertSame('6 hours ago', \App\Dates::ago('2026-03-10 06:00:00', $now));
+        $this->assertSame('just now', \App\Dates::ago('2026-03-10 11:59:50', $now));
+        $this->assertSame('', \App\Dates::ago('garbage', $now));
+        $this->assertSame('', \App\Dates::span(null, $now));
+    }
 }

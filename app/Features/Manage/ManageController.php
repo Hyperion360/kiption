@@ -92,12 +92,19 @@ final class ManageController extends AdminScreen
         if (\App\SessionGuard::role() !== 'admin') return new Response(\App\Lang::t('error.forbidden'), 403);
         $waiting = ['stories' => 0, 'chapters' => 0, 'members' => 0, 'reports' => 0, 'tags' => 0, 'new' => 0];
         $recent = [];
+        $info = [];
         $admin = false;
         $stillOwner = false;
         foreach ($this->homeRows($uid) as $row) {
             if ($row['k'] === '0gate') { $admin = true; $stillOwner = (string) $row['a'] === 'Owner'; }
             elseif ($row['k'] === '2log') $recent[] = $row;
-            else $waiting[substr($row['k'], 1)] = (int) $row['n'];
+            else { $waiting[substr($row['k'], 1)] = (int) $row['n']; $info[substr($row['k'], 1)] = $row; }
+        }
+        // The oldest thing that has waited, across everything that needs a decision.
+        $oldest = null;
+        foreach (['stories' => 'a', 'chapters' => 'a', 'members' => 'b', 'reports' => 'a'] as $k => $col) {
+            $stamp = (string) ($info[$k][$col] ?? '');
+            if ($waiting[$k] > 0 && $stamp !== '' && ($oldest === null || strtotime($stamp) < strtotime($oldest))) $oldest = $stamp;
         }
         if (!$admin) return new Response(\App\Lang::t('error.forbidden'), 403);
         $groups = [];
@@ -112,6 +119,8 @@ final class ManageController extends AdminScreen
         $database = (bool) (((array) $this->app->config('admin', []))['enabled'] ?? true);
         return $this->page('manage/index', 'manage.heading', '/manage', [
             'waiting' => $waiting,
+            'info' => $info,
+            'oldest' => $oldest,
             'recent' => $recent,
             'groups' => $groups,
             'groupNames' => self::GROUPS,
@@ -129,18 +138,18 @@ final class ManageController extends AdminScreen
         return $this->db->all(
             "SELECT '0gate' AS k, u.id AS n, u.penname AS a, '' AS b, '' AS c, '' AS d FROM users u WHERE u.id = ? AND u.role = 'admin'
              UNION ALL
-             SELECT '1stories', COUNT(*), '', '', '', '' FROM stories s WHERE " . \App\Repositories\AuthoringRepository::WAITING_STORY . "
+             SELECT '1stories', COUNT(*), MIN(s.created_at), '', (SELECT GROUP_CONCAT(title, char(31)) FROM (SELECT s2.title FROM stories s2 WHERE " . str_replace('s.', 's2.', \App\Repositories\AuthoringRepository::WAITING_STORY) . " ORDER BY s2.created_at, s2.id LIMIT 3)), '' FROM stories s WHERE " . \App\Repositories\AuthoringRepository::WAITING_STORY . "
              UNION ALL
-             SELECT '1chapters', COUNT(*), '', '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
+             SELECT '1chapters', COUNT(*), MIN(ch.created_at), '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
              WHERE " . \App\Repositories\AuthoringRepository::WAITING_CHAPTER . "
              UNION ALL
-             SELECT '1members', COUNT(*), '', '', '', '' FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "
+             SELECT '1members', COUNT(*), COALESCE((SELECT us2.penname FROM users us2 WHERE " . str_replace('us.', 'us2.', \App\Repositories\AuthoringRepository::WAITING_MEMBER) . " ORDER BY us2.created_at DESC, us2.id DESC LIMIT 1), ''), COALESCE(MIN(us.created_at), ''), '', COALESCE(MAX(us.created_at), '') FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "
              UNION ALL
-             SELECT '1reports', COUNT(*), '', '', '', '' FROM reports WHERE resolved_at IS NULL
+             SELECT '1reports', COUNT(*), COALESCE(MIN(created_at), ''), '', '', '' FROM reports WHERE resolved_at IS NULL
              UNION ALL
              SELECT '1tags', COUNT(DISTINCT s.tag_type_id || ':' || lower(s.name)), '', '', '', '' FROM tag_suggestions s WHERE s.status = 'pending'
              UNION ALL
-             SELECT '1new', COUNT(*), '', '', '', '' FROM users WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 days')
+             SELECT '1new', COUNT(*), COALESCE(SUM(EXISTS (SELECT 1 FROM stories sn WHERE sn.author_id = users.id AND sn.deleted_at IS NULL)), 0), '', '', '' FROM users WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 days')
              UNION ALL
              SELECT * FROM (SELECT '2log', actor_id, actor_name, action, detail, created_at FROM activity_log ORDER BY id DESC LIMIT 6)",
             [$userId]);
