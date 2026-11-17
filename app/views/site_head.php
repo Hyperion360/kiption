@@ -47,7 +47,7 @@ $initial = $penname !== '' ? mb_strtoupper(mb_substr($penname, 0, 1)) : '•';
        affordance; members also keep their Inbox count in the phone bar. */ ?>
     <a class="nav-search-link" href="/search"><?= \App\Lang::t('nav.search') ?></a>
 <?php if ($member): ?>
-    <a class="nav-inbox" href="/notifications"<?= $inbox > 0 ? ' aria-label="' . $this->e(\App\Lang::t('nav.inbox_unread', ['n' => $inbox])) . '"' : '' ?>><?= \App\Lang::t('nav.inbox') ?><?php if ($inbox > 0): ?> <b class="nav-count"><?= $inbox > 99 ? '99+' : $inbox ?></b><?php endif; ?></a>
+    <a class="nav-inbox" href="/notifications"<?php if ($inbox > 0): ?> aria-label="<?= $this->e(\App\Lang::t('nav.inbox_unread', ['n' => $inbox])) ?>"<?php endif; ?>><?= \App\Lang::t('nav.inbox') ?><?php if ($inbox > 0): ?> <b class="nav-count"><?= $inbox > 99 ? '99+' : $inbox ?></b><?php endif; ?></a>
     <details class="nav-me" name="site-menus">
       <summary aria-label="<?= $this->e(\App\Lang::t('nav.account_label')) ?>"><span class="nav-av"><?= $this->e($initial) ?></span></summary>
       <div class="nav-pop nav-me-pop">

@@ -105,7 +105,7 @@ return [
     'nav.way_lists_note' => 'Collections readers made',
     'nav.way_challenges_note' => 'Prompts with a deadline',
     'nav.start_heading' => 'Not sure where to start?',
-    'nav.start_link' => 'Read a complete story under 20,000 words',
+    'nav.start_story' => 'Read a complete story under 20,000 words',
     'nav.search_hint' => 'Press / to search',
     'foot.legal' => 'Legal',
     'foot.blurb' => 'A self-hosted fiction archive, built with',
