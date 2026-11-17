@@ -183,6 +183,42 @@ final class QueueTest extends TestCase
         $this->assertStringContainsString('Pending Work', $c->get('/queue', ['tab' => 'nonsense', 'item' => '99999'])->body, 'an unknown tab or item falls back to the first with something waiting');
     }
 
+    /** The story pane carries what the design shows (eyebrow, byline with
+     *  genre, status, words and chapters, rating, tag chips with the new-tag
+     *  dashed chip, and a chapter preview), and the whole queue page still
+     *  runs ONE content statement: every extra is a subselect in it. */
+    public function test_the_story_pane_shows_its_details_from_the_same_one_statement(): void
+    {
+        $tags = $this->db->all('SELECT id, name, tag_type_id FROM tags ORDER BY id LIMIT 2');
+        $this->assertCount(2, $tags, 'seeded tags');
+        foreach ($tags as $t) $this->db->query('INSERT INTO story_tags (story_id, tag_id) VALUES (?, ?)', [$this->pendingStoryId, $t['id']]);
+        $this->db->query("INSERT INTO tag_suggestions (tag_type_id, name, suggested_by, story_id, status, created_at) VALUES (?, 'lighthouse', ?, ?, 'pending', ?)",
+            [$tags[0]['tag_type_id'], $this->memberId, $this->pendingStoryId, date('c')]);
+        $this->db->query("INSERT INTO story_categories (story_id, category_id) SELECT ?, id FROM categories ORDER BY id LIMIT 1", [$this->pendingStoryId]);
+        $this->db->query('UPDATE stories SET updated_at = ?, completed = 0 WHERE id = ?', [date('c', time() - 2 * 86400 - 600), $this->pendingStoryId]);
+        $this->db->query("UPDATE chapters SET title = 'The Ledger', content = 'The ledger was the only tidy thing.' WHERE id = ?", [$this->pendingChapterId]);
+        $this->db->query("INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 2, 'Two', 'More.', 0, 1)", [$this->pendingStoryId]);
+        $c = $this->clientAs(1);
+        $db = $this->db;
+        $queries = 0;
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return;
+            $queries++;
+        });
+        $body = $c->get('/queue')->body;
+        \App\Tests\Support\QueryTap::off($db);
+        $this->assertLessThanOrEqual(1, $queries, "the queue ran {$queries} content statements, budget is 1");
+        $this->assertStringContainsString('New Story', $body);
+        $this->assertStringContainsString('Sent 2 days ago', $body);
+        $this->assertStringContainsString('In Progress', $body);
+        $this->assertStringContainsString('2 chapters', $body);
+        $this->assertStringContainsString($this->db->one('SELECT label FROM ratings WHERE id = 2')['label'], $body);
+        foreach ($tags as $t) $this->assertStringContainsString('<span class="queue-tag">' . htmlspecialchars($t['name']) . '</span>', $body);
+        $this->assertStringContainsString('<span class="queue-tag queue-tag-new">lighthouse', $body, 'a suggested tag shows as the dashed chip');
+        $this->assertStringContainsString('Chapter 1 · The Ledger', $body);
+        $this->assertStringContainsString('The ledger was the only tidy thing.', $body);
+    }
+
     public function test_an_admin_viewing_the_queue_sees_its_count_in_the_sidebar_without_a_second_query(): void
     {
         \App\Adminness::setRole($this->db, 1, 'admin');

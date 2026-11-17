@@ -2268,6 +2268,12 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .queue-detail { padding: 20px; border: 1px solid var(--line); background: var(--surface); }
 .queue-detail h2 { margin-block-start: 0; }
 .queue-excerpt { max-width: 62ch; white-space: pre-line; color: var(--ink-2); }
+.queue-eyebrow { margin: 0 0 4px; font: 600 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.queue-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.queue-tag { display: inline-block; padding: 3px 10px; border: 1px solid var(--line); font: 13px var(--sans); color: var(--ink-2); overflow-wrap: anywhere; }
+.queue-tag-new { border-style: dashed; color: var(--muted); }
+.queue-preview-head { margin: 20px 0 6px; font: 600 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.queue-preview { max-width: 62ch; margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
 .queue-detail .queue-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-block-start: 16px; }
 .queue-remove > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; }
 .queue-remove > summary::-webkit-details-marker { display: none; }

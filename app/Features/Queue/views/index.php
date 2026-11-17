@@ -62,9 +62,34 @@
     </ul>
     <?php $r = $current; ?>
     <article class="queue-detail" aria-label="<?= $this->e(\App\Lang::t('queue.detail_aria')) ?>">
+      <?php if ($r['k'] === 'story'): ?>
+      <p class="queue-eyebrow"><?= \App\Lang::t('queue.eyebrow_story') ?> · <?= \App\Lang::t('queue.sent', ['when' => $this->e(\App\Dates::ago((string) $r['e']))]) ?></p>
+      <?php endif; ?>
       <h2><?= $this->e($name($r)) ?></h2>
       <?php if ($r['k'] === 'story' || $r['k'] === 'chapter'): ?>
-      <p class="queue-what"><?php if ($r['k'] === 'chapter'): ?><?= \App\Lang::t('queue.in') ?> <a class="tap-link" href="/story/edit/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a> <?php endif; ?><?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?><?php if ((int) $r['h'] > 0): ?>, <?= \App\Lang::t('queue.words', ['n' => number_format((int) $r['h'])]) ?><?php endif; ?></p>
+      <?php
+      $bits = [];
+      if ($r['k'] === 'story') {
+          foreach (explode("\x1f", (string) $r['p']) as $genre) { if ($genre !== '') $bits[] = $this->e($genre); }
+          $bits[] = \App\Lang::t((int) $r['n'] === 1 ? 'story.complete' : 'story.wip');
+      }
+      if ((int) $r['h'] > 0) $bits[] = \App\Lang::t('queue.words', ['n' => number_format((int) $r['h'])]);
+      if ($r['k'] === 'story') {
+          $bits[] = \App\Lang::t((int) $r['o'] === 1 ? 'queue.chapters_n_one' : 'queue.chapters_n', ['n' => (int) $r['o']]);
+          if ((string) $r['m'] !== '') $bits[] = $this->e((string) $r['m']);
+      }
+      ?>
+      <p class="queue-what"><?php if ($r['k'] === 'chapter'): ?><?= \App\Lang::t('queue.in') ?> <a class="tap-link" href="/story/edit/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a> <?php endif; ?><?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?><?= $bits === [] ? '' : ' · ' . implode(' · ', $bits) ?></p>
+      <?php
+      $tagNames = array_filter(explode("\x1f", (string) $r['i']), 'strlen');
+      $newTags = array_filter(explode("\x1f", (string) $r['j']), 'strlen');
+      ?>
+      <?php if ($tagNames !== [] || $newTags !== []): ?>
+      <ul class="queue-tags" aria-label="<?= $this->e(\App\Lang::t('queue.tags_aria')) ?>">
+        <?php foreach ($tagNames as $tg): ?><li><span class="queue-tag"><?= $this->e($tg) ?></span></li><?php endforeach; ?>
+        <?php foreach ($newTags as $tg): ?><li><span class="queue-tag queue-tag-new"><?= $this->e($tg) ?> · <?= \App\Lang::t('queue.new_tag_note') ?></span></li><?php endforeach; ?>
+      </ul>
+      <?php endif; ?>
       <?php if ((string) $r['g'] !== ''): ?>
       <h3><?= \App\Lang::t($r['k'] === 'story' ? 'queue.summary' : 'queue.opening') ?></h3>
       <p class="queue-excerpt"><?= $this->e((string) $r['g']) ?></p>
@@ -75,6 +100,10 @@
         <div><dt><?= \App\Lang::t('queue.stat_posted') ?></dt><dd><?= $k['posted'] === 0 ? \App\Lang::t('queue.stat_nothing') : $k['posted'] ?></dd></div>
         <div><dt><?= \App\Lang::t('queue.stat_reports') ?></dt><dd<?= $k['reports'] !== 0 ? ' class="ctx-warn"' : '' ?>><?= $k['reports'] === 0 ? \App\Lang::t('queue.stat_none') : $k['reports'] ?></dd></div>
       </dl>
+      <?php endif; ?>
+      <?php if ($r['k'] === 'story' && (string) $r['q'] !== ''): [$pt, $pb] = array_pad(explode("\x1f", (string) $r['q'], 2), 2, ''); ?>
+      <h3 class="queue-preview-head"><?= \App\Lang::t($pt !== '' ? 'queue.chapter_preview' : 'queue.chapter_preview_bare', ['n' => 1, 'title' => $this->e($pt)]) ?></h3>
+      <p class="queue-preview"><?= $this->e(trim($pb)) ?><?= mb_strlen($pb) >= 500 ? '...' : '' ?></p>
       <?php endif; ?>
       <div class="queue-actions">
         <form method="post" action="/queue/<?= $r['k'] ?>/<?= (int) $r['a'] ?>/approve" class="inline">
