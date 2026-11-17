@@ -52,6 +52,7 @@ final class CloudLandingTest extends TestCase
             'plans' => [
                 ['name' => 'Alpha', 'blurb' => 'For one.', 'price' => '$9', 'period' => '/ month', 'rows' => ['Row one'], 'cta' => 'Start Alpha', 'url' => $base . '/start?plan=alpha'],
             ],
+            'offer' => 'Callout that the landing replaces.',
             'close' => ['heading' => 'Close Here', 'body' => 'Closing words.'],
             'landing' => [
                 'meta' => ['title' => 'Meta Title Here', 'description' => 'Meta description here.'],
@@ -73,7 +74,8 @@ final class CloudLandingTest extends TestCase
                     ['id' => 'exit', 'title' => 'Exit Block', 'body' => 'Body.', 'objection' => 'Objection?', 'answer' => 'Answer.',
                      'mock' => ['type' => 'file', 'title' => 'archive.sqlite', 'sub' => 'One file', 'downloads' => ['EPUB', 'HTML']]],
                 ]],
-                'offer' => ['heading' => 'Offer Heading', 'body' => 'Offer body.'],
+                'offer' => ['heading' => 'Offer Heading', 'body' => 'Offer body.', 'link' => ['Read the Terms', 'https://cloud.example/terms']],
+
                 'pricing' => ['label' => 'Pricing', 'h2' => 'Pricing Heading', 'sub' => 'Pricing sub.'],
                 'faq' => ['label' => 'Questions', 'h2' => 'FAQ Heading', 'sub' => 'FAQ sub.', 'items' => [['Q one?', 'A one.'], ['Q two?', 'A two.']]],
                 'close_note' => 'Refund note',
@@ -125,6 +127,8 @@ final class CloudLandingTest extends TestCase
         $this->assertSame(5, substr_count($r->body, 'class="lp-feature-mock" aria-hidden="true"'));
         $this->assertSame(2, substr_count($r->body, '<details class="lp-faq">'), 'the FAQ is native details, no script');
         $this->assertStringContainsString('Offer Heading', $r->body);
+        $this->assertStringContainsString('href="https://cloud.example/terms">Read the Terms</a>', $r->body);
+        $this->assertStringNotContainsString('Callout that the landing replaces.', $r->body, 'the offer lives in its band, not twice');
         $this->assertStringContainsString('Pricing Heading', $r->body);
         $this->assertStringContainsString('href="https://cloud.example/start?plan=alpha"', $r->body);
         $this->assertStringContainsString('Refund note', $r->body);

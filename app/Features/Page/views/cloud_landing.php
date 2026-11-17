@@ -141,7 +141,7 @@ $themes = $arr($ed['themes'] ?? []);
 <?php if ($offer !== []): ?>
   <section class="lp-offer">
     <h2><?= $this->e($str($offer['heading'] ?? '')) ?></h2>
-    <p><?= $this->e($str($offer['body'] ?? '')) ?></p>
+    <p><?= $this->e($str($offer['body'] ?? '')) ?><?php $ol = $arr($offer['link'] ?? []); if (count($ol) >= 2): ?> <a href="<?= $this->e($str($ol[1])) ?>"><?= $this->e($str($ol[0])) ?></a><?php endif; ?></p>
 <?php if ($ctaUrl !== ''): ?>
     <p><a class="cta-primary" href="<?= $this->e($ctaUrl) ?>"><?= $this->e($ctaLabel) ?></a></p>
 <?php endif; ?>
@@ -154,7 +154,7 @@ $themes = $arr($ed['themes'] ?? []);
     <h2 id="lp-pricing-h"><?= $this->e($str($pricing['h2'] ?? '')) ?></h2>
     <p class="lp-lead"><?= $this->e($str($pricing['sub'] ?? '')) ?></p>
     <div class="plans-band" id="plans">
-<?= $this->render('page/_cloud_plans', ['m' => ['plans_label' => ''] + $m, 'plans' => $plans, 'ctaUrl' => $ctaUrl, 'tag' => 'h3']) ?>
+<?= $this->render('page/_cloud_plans', ['m' => ['plans_label' => '', 'offer' => ''] + $m, 'plans' => $plans, 'ctaUrl' => $ctaUrl, 'tag' => 'h3']) ?>
     </div>
   </section>
 <?php endif; ?>
