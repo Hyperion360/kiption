@@ -665,7 +665,8 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .site-main .filter-form .tag-pick:has(input:checked) { border-color: var(--accent); }
 .site-main .filter-form .tag-pick input { flex: none; }
 .filter-form .refine-grid { margin-block: 14px 8px; }
-.filter-form .refine-grid :is(input, select) { width: 100%; max-width: none; min-height: 44px; }
+/* Text fields and selects only: a checkbox or radio keeps its 18px box. */
+.filter-form .refine-grid :is(input:not([type="checkbox"]):not([type="radio"]), select) { width: 100%; max-width: none; min-height: 44px; }
 .filter-form .queue-actions a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 8px; }
 @media (max-width:767px) {
   .filter-form .refine-grid { grid-template-columns: 1fr; }
