@@ -20,7 +20,9 @@ final class SessionGuard
     /** The one session-check statement. Beyond the password epoch, lock flag
      *  and role it carries what the site header shows beside a signed-in name:
      *  pen name, profile slug, unread Inbox counts, and for staff the waiting
-     *  count. Scalar subqueries on indexed columns keep it one statement, and
+     *  count, plus the two numbers the account menu shows: stories in
+     *  progress in the Library (the same rows the account page lists) and the
+     *  member's own stories. Scalar subqueries on indexed columns keep it one statement, and
      *  tests exempt it from the content-query budget by comparing to this
      *  constant. */
     public const SQL = "SELECT password_hash, is_locked, role, penname, profile_slug,
@@ -31,7 +33,10 @@ final class SessionGuard
           + (SELECT COUNT(*) FROM chapters ch JOIN stories s ON s.id = ch.story_id WHERE " . \App\Repositories\AuthoringRepository::WAITING_CHAPTER . ")
           + (SELECT COUNT(*) FROM reports WHERE resolved_at IS NULL)
           + CASE WHEN role = 'admin' THEN (SELECT COUNT(*) FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . ") ELSE 0 END
-        ELSE 0 END AS waiting
+        ELSE 0 END AS waiting,
+        (SELECT COUNT(*) FROM reading_history rh JOIN stories rs ON rs.id = rh.story_id
+          WHERE rh.user_id = users.id AND rh.marked_at IS NULL AND rs.deleted_at IS NULL) AS in_progress,
+        (SELECT COUNT(*) FROM stories ms WHERE ms.author_id = users.id AND ms.deleted_at IS NULL) AS my_stories
         FROM users WHERE id = ?";
 
     private static string $role = '';
@@ -40,11 +45,17 @@ final class SessionGuard
     private static int $notes = 0;
     private static int $msgs = 0;
     private static int $waiting = 0;
+    private static int $progress = 0;
+    private static int $mine = 0;
 
     public static function penname(): string { return self::$penname; }
     public static function profileSlug(): string { return self::$slug; }
     public static function unreadNotifications(): int { return self::$notes; }
     public static function unreadMessages(): int { return self::$msgs; }
+    /** Library stories the member is part-way through (account menu note). */
+    public static function inProgress(): int { return self::$progress; }
+    /** Stories the member has written, not counting deleted ones. */
+    public static function ownStories(): int { return self::$mine; }
     /** Staff only: stories, chapters, reports (and for admins, members) waiting. */
     public static function waiting(): int { return self::$waiting; }
 
@@ -60,7 +71,7 @@ final class SessionGuard
     public static function valid(Database $db, Session $session): bool
     {
         self::$role = self::$penname = self::$slug = '';
-        self::$notes = self::$msgs = self::$waiting = 0;
+        self::$notes = self::$msgs = self::$waiting = self::$progress = self::$mine = 0;
         $id = $session->get('user_id');
         $epoch = $session->get('pwd_epoch');
         if ($id === null || !is_string($epoch)) return false;
@@ -80,6 +91,8 @@ final class SessionGuard
         self::$notes = (int) $user['unread_notes'];
         self::$msgs = (int) $user['unread_msgs'];
         self::$waiting = (int) $user['waiting'];
+        self::$progress = (int) $user['in_progress'];
+        self::$mine = (int) $user['my_stories'];
         return true;
     }
 }
