@@ -17,7 +17,36 @@ final class SessionGuard
         if ($session->get('user_id') !== null) self::valid($db, $session);
     }
 
+    /** The one session-check statement. Beyond the password epoch, lock flag
+     *  and role it carries what the site header shows beside a signed-in name:
+     *  pen name, profile slug, unread Inbox counts, and for staff the waiting
+     *  count. Scalar subqueries on indexed columns keep it one statement, and
+     *  tests exempt it from the content-query budget by comparing to this
+     *  constant. */
+    public const SQL = "SELECT password_hash, is_locked, role, penname, profile_slug,
+        (SELECT COUNT(*) FROM notifications WHERE user_id = users.id AND read_at IS NULL) AS unread_notes,
+        (SELECT COUNT(*) FROM messages WHERE recipient_id = users.id AND read_at IS NULL) AS unread_msgs,
+        CASE WHEN role IN ('admin', 'moderator') THEN
+            (SELECT COUNT(*) FROM stories s WHERE " . \App\Repositories\AuthoringRepository::WAITING_STORY . ")
+          + (SELECT COUNT(*) FROM chapters ch JOIN stories s ON s.id = ch.story_id WHERE " . \App\Repositories\AuthoringRepository::WAITING_CHAPTER . ")
+          + (SELECT COUNT(*) FROM reports WHERE resolved_at IS NULL)
+          + CASE WHEN role = 'admin' THEN (SELECT COUNT(*) FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . ") ELSE 0 END
+        ELSE 0 END AS waiting
+        FROM users WHERE id = ?";
+
     private static string $role = '';
+    private static string $penname = '';
+    private static string $slug = '';
+    private static int $notes = 0;
+    private static int $msgs = 0;
+    private static int $waiting = 0;
+
+    public static function penname(): string { return self::$penname; }
+    public static function profileSlug(): string { return self::$slug; }
+    public static function unreadNotifications(): int { return self::$notes; }
+    public static function unreadMessages(): int { return self::$msgs; }
+    /** Staff only: stories, chapters, reports (and for admins, members) waiting. */
+    public static function waiting(): int { return self::$waiting; }
 
     /** The role of the member the last valid() call approved, '' otherwise. It
      *  rides the row valid() already read, so pages that only show role-based
@@ -30,12 +59,13 @@ final class SessionGuard
     /** The kernel does the same epoch compare, so this stands in for Auth::sessionValid(). */
     public static function valid(Database $db, Session $session): bool
     {
-        self::$role = '';
+        self::$role = self::$penname = self::$slug = '';
+        self::$notes = self::$msgs = self::$waiting = 0;
         $id = $session->get('user_id');
         $epoch = $session->get('pwd_epoch');
         if ($id === null || !is_string($epoch)) return false;
         try {
-            $user = $db->one('SELECT password_hash, is_locked, role FROM users WHERE id = ?', [$id]);
+            $user = $db->one(self::SQL, [$id]);
         } catch (\PDOException) {
             return false;
         }
@@ -45,6 +75,11 @@ final class SessionGuard
             return false;
         }
         self::$role = (string) $user['role'];
+        self::$penname = (string) ($user['penname'] ?? '');
+        self::$slug = (string) ($user['profile_slug'] ?? '');
+        self::$notes = (int) $user['unread_notes'];
+        self::$msgs = (int) $user['unread_msgs'];
+        self::$waiting = (int) $user['waiting'];
         return true;
     }
 }

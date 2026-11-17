@@ -30,7 +30,7 @@
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>
-  <h2 class="section-label"><?= \App\Lang::t('account.your_stories') ?></h2>
+  <h2 class="section-label" id="your-stories"><?= \App\Lang::t('account.your_stories') ?></h2>
   <?php if ($stories === []): ?><p class="empty-state"><?= \App\Lang::t('common.none_yet') ?></p>
   <?php else: ?>
   <ul class="row-list">

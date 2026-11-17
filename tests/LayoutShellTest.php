@@ -78,86 +78,85 @@ final class LayoutShellTest extends TestCase
     public function test_header_renders_brand_nav_search_link_and_menu_control(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertStringContainsString('<header class="site-head">', $body);
+        $this->assertStringContainsString('<header class="site-head hd2" data-js-module="sitehead">', $body);
         $this->assertStringContainsString('<a class="brand" href="/">Kiption</a>', $body);
-        $this->assertStringContainsString('href="/browse"', $body);
+        // Browse is a native <details> panel, so it opens with scripting off.
+        $this->assertStringContainsString('<details class="nav-browse" name="site-menus">', $body);
         $this->assertStringContainsString('href="/browse/recent"', $body);
-        // The search affordance on small screens is the plain /search link.
-        $this->assertStringContainsString('<a href="/search">Search</a>', $body);
-        // The below-1024px search link sits between the nav and the Menu
-        // control; the stylesheet swaps it for the input form from 1024px.
+        // The phone bar's search affordance is the plain /search link.
         $this->assertStringContainsString('<a class="nav-search-link" href="/search">Search</a>', $body);
-        // The Menu control is a plain anchor (CSS-only :target pattern, no
-        // aria-expanded to maintain without scripting).
+        // The Menu control is a plain anchor (CSS-only :target pattern).
         $this->assertStringContainsString('<a class="nav-menu-link" href="#menu">Menu</a>', $body);
         $this->assertStringNotContainsString('aria-expanded', $body);
-        // The hidden-below-1024px inline search form.
         $this->assertStringContainsString('<form class="nav-search" role="search" action="/search" method="get">', $body);
         $this->assertStringContainsString('name="q"', $body);
-        // A cookieless guest sees the login spelling, not the account link.
-        $this->assertStringContainsString('href="/auth/login"', $body);
+        // A cookieless guest sees Log in and Join, not the account link.
+        $this->assertStringContainsString('<a class="nav-account" href="/auth/login">Log in</a>', $body);
+        $this->assertStringContainsString('<a class="nav-join" href="/auth/register">Join</a>', $body);
         $this->assertStringNotContainsString('href="/account"', $body);
     }
 
-    /** The site footer (owner decision 2026-10-02 reverses the comp's
-     *  no-footer call for site pages): secondary destinations and the
-     *  credit, identical for every visitor, hidden under the reader by CSS. */
+    /** The footer: brand line plus Read, Write, site-name and Legal columns,
+     *  identical for every visitor, hidden under the reader by CSS. */
     public function test_site_footer_carries_secondary_destinations(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertStringContainsString('<footer class="site-foot">', $body);
-        preg_match('#<footer class="site-foot">.*?</footer>#s', $body, $m);
+        $this->assertStringContainsString('<footer class="site-foot ft2">', $body);
+        preg_match('#<footer class="site-foot ft2">.*?</footer>#s', $body, $m);
         $foot = $m[0] ?? '';
-        foreach (['href="/news"', 'href="/top"', 'href="/lists"', 'href="/challenges"', 'href="/feed/subscribe"'] as $href) {
+        foreach (['href="/news"', 'href="/top"', 'href="/lists"', 'href="/challenges"', 'href="/feed/subscribe"', 'href="/story/new"'] as $href) {
             $this->assertStringContainsString($href, $foot);
         }
-        $this->assertStringNotContainsString('href="/browse"', $foot, 'header destinations are not repeated');
-        $this->assertSame($foot, (preg_match('#<footer class="site-foot">.*?</footer>#s', $this->client($this->memberId)->get('/')->body, $mm) ? $mm[0] : ''),
+        foreach (['Read', 'Write', 'Kiption'] as $col) {
+            $this->assertStringContainsString('<h2 class="foot-label">' . $col . '</h2>', $foot);
+        }
+        $this->assertSame($foot, (preg_match('#<footer class="site-foot ft2">.*?</footer>#s', $this->client($this->memberId)->get('/')->body, $mm) ? $mm[0] : ''),
             'one footer for guests and members: cached bytes stay stable');
         $css = str_replace(' ', '', (string) file_get_contents(dirname(__DIR__) . '/public/assets/reader.css'));
         $this->assertStringContainsString('body:has(.reader).site-foot{display:none', $css, 'the reader keeps its own chrome');
         $this->assertStringNotContainsString('href="/theme/', $body, 'the legacy theme routes lost their only links');
     }
 
-    /** The header theme quick toggle (plan Task 7): a real button between the
-     *  search affordance and the Menu control, labeled from the shared
-     *  nav.theme_toggle key. Scripting off it stays hidden (the Text sheet
-     *  still switches themes); with scripting it flips light/dark on the
-     *  spot, device-locally, its label naming the next state. */
-    public function test_header_carries_the_theme_quick_toggle(): void
+    /** The theme control is a plain form of four submit buttons (so it works
+     *  with scripting off) in the header popover for guests, the account menu
+     *  for members and the phone sheet. It posts the theme alone. */
+    public function test_header_carries_the_theme_form_without_scripting(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme" data-label-dark="Switch to the Night theme" data-label-light="Switch to the Paper theme">', $body,
-            'the exact button shape the toggle module keys off, with the nav.theme_toggle label');
-        // DOM order: the search affordance, then the toggle, then the Menu control.
-        $this->assertMatchesRegularExpression('/class="nav-search-link"[^>]*>.*?class="theme-toggle".*?class="nav-menu-link"/s', $body,
-            'the toggle sits between the search affordance and the Menu link');
-        // No member state and no URL: the button is identical markup for a
-        // guest and a member, so cached guest bytes stay stable.
-        $this->assertStringContainsString('<button type="button" class="theme-toggle" data-js-module="toggle" aria-label="Theme" data-label-dark="Switch to the Night theme" data-label-light="Switch to the Paper theme">', $this->client($this->memberId)->get('/')->body);
+        $this->assertStringContainsString('<details class="nav-theme" name="site-menus">', $body);
+        $this->assertSame(2, substr_count($body, '<form class="theme-seg" method="post" action="/reader/settings"'), 'header popover and phone sheet');
+        foreach (['paper', 'sepia', 'night', 'auto'] as $theme) {
+            $this->assertStringContainsString('<button type="submit" name="theme" value="' . $theme . '">', $body);
+        }
+        $this->assertStringContainsString('<input type="hidden" name="return_to" value="/">', $body);
+        $this->assertStringNotContainsString('data-js-module="toggle"', $body, 'the default header no longer needs the toggle module');
+        // Signed in, the form rides the account menu and carries the token.
+        $member = $this->client($this->memberId)->get('/')->body;
+        $this->assertStringContainsString('<details class="nav-me" name="site-menus">', $member);
+        $this->assertMatchesRegularExpression('/class="theme-seg".*?name="_token"/s', $member);
     }
 
-    /** The Menu sheet is grouped (You / Read / Operator), never lists a
-     *  destination twice (operator nav links that repeat a built-in are
-     *  skipped), and for members it carries Settings, a Log out form, and
-     *  the is-member flag that keeps Menu visible on desktop. */
+    /** The phone sheet is grouped, never lists a destination twice, and for
+     *  members carries the profile row, tiles, Settings and a Log out form. */
     public function test_menu_sheet_is_grouped_deduped_and_member_aware(): void
     {
         $guest = $this->client()->get('/')->body;
-        preg_match('#<div id="menu".*?</div>#s', $guest, $m);
+        preg_match('#<div id="menu".*?\n  </div>#s', $guest, $m);
         $sheet = $m[0] ?? '';
         $this->assertSame(1, substr_count($sheet, 'href="/browse"'), 'each destination once');
         $this->assertSame(1, substr_count($sheet, 'href="/browse/recent"'));
         $this->assertStringContainsString('href="/auth/login"', $sheet);
+        $this->assertStringContainsString('class="sheet-join-go" href="/auth/register"', $sheet);
         $this->assertStringNotContainsString('sheet-logout', $sheet);
         $this->assertStringContainsString('<a class="nav-menu-link" href="#menu">', $guest, 'guests: Menu stays a sub-desktop control');
         $member = $this->client($this->memberId)->get('/')->body;
-        preg_match('#<div id="menu".*?</div>#s', $member, $m);
+        preg_match('#<div id="menu".*?\n  </div>#s', $member, $m);
         $msheet = $m[0] ?? '';
         $this->assertStringContainsString('<a class="nav-menu-link is-member" href="#menu">', $member);
         $this->assertStringContainsString('href="/account/settings"', $msheet);
         $this->assertStringContainsString('<form method="post" action="/auth/logout" class="sheet-logout">', $msheet);
-        $this->assertLessThan(strpos($msheet, 'href="/browse"'), strpos($msheet, 'href="/account"'), 'the member group leads');
+        $this->assertStringNotContainsString('sheet-join', $msheet, 'members get no Join card');
+        $this->assertLessThan(strpos($msheet, 'href="/browse"'), strpos($msheet, 'href="/account"'), 'the member tiles lead');
     }
 
     public function test_theme_toggle_is_hidden_without_scripting_and_revealed_under_html_js(): void

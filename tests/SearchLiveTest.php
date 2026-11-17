@@ -22,7 +22,7 @@ final class SearchLiveTest extends TaxonomyCase
         $db=$app->container->make(Database::class); $queries=0;
         QueryTap::on($db,static function(string $sql)use(&$queries){
             if (!in_array($sql,['SELECT password_hash FROM users WHERE id = ?',
-                'SELECT password_hash, is_locked, role FROM users WHERE id = ?'],true)) $queries++;
+                \App\SessionGuard::SQL],true)) $queries++;
         });
         try {
             $client = new TestClient($app);

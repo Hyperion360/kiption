@@ -118,7 +118,7 @@
     script.async = false;
     document.head.appendChild(script);
   }
-  [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['adminforms'], ['look'],
+  [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['sitehead'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['adminforms'], ['look'],
    ['search'], ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']], ['draft-form', ['draft-store']], ['writer-comfort'],
    ['rich-editor', ['subset', 'source-document', 'rich-projection', 'rich-active', 'text-edit', 'smart', 'paste', 'editor']], ['epigraph-boot', ['paste', 'epigraph']]].forEach(function (entry) {
     var m = entry[0];

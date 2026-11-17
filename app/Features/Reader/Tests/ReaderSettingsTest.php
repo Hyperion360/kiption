@@ -85,6 +85,18 @@ final class ReaderSettingsTest extends TestCase
             'guests stay cookie-only: no row is written');
     }
 
+    /** The header's theme control posts the theme alone. Typography the reader
+     *  chose on this device must survive it: no typography field means keep. */
+    public function test_a_theme_only_post_keeps_the_typography_cookie(): void
+    {
+        $client = $this->client();
+        $client->cookie('reader', '22-sans-airy-spaced-wide-pages');
+        $res = $client->post('/reader/settings', ['theme' => 'night', 'return_to' => '/browse']);
+        $leaves = implode(';', $this->cookieLeaves($res));
+        $this->assertStringContainsString('theme=night;', $leaves);
+        $this->assertStringContainsString('reader=22-sans-airy-spaced-wide-pages;', $leaves);
+    }
+
     public function test_garbage_theme_falls_back_to_auto_and_clears_the_theme_cookie(): void
     {
         $res = $this->client()->post('/reader/settings', ['theme' => 'hotdog']);

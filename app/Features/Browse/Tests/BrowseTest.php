@@ -55,13 +55,19 @@ final class BrowseTest extends TestCase
         $this->assertStringContainsString('/story/view/the-rabbit-hole', $res->body);
     }
 
+    /** The theme forms in the site header echo the request URL; mask it so bodies compare on content. */
+    private function withoutReturnTo(string $body): string
+    {
+        return preg_replace('/name="return_to" value="[^"]*"/', 'name="return_to" value=""', $body);
+    }
+
     public function test_recent_page_param_coerced_to_page_one(): void
     {
         $default = $this->app->handle(new Request('GET', '/browse/recent', [], [], []));
         foreach (['banana', '-3', '0'] as $junk) {
             $res = $this->app->handle(new Request('GET', '/browse/recent', ['page' => $junk], [], []));
             $this->assertSame(200, $res->status);
-            $this->assertSame($default->body, $res->body, "page={$junk} must coerce to page 1");
+            $this->assertSame($this->withoutReturnTo($default->body), $this->withoutReturnTo($res->body), "page={$junk} must coerce to page 1");
         }
     }
 
@@ -209,7 +215,7 @@ final class BrowseTest extends TestCase
         $this->seedFilterFixture();
         $plain = $this->app->handle(new Request('GET', '/browse/recent', [], [], []))->body;
         $junk = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'banana'], [], []))->body;
-        $this->assertSame($plain, $junk, 'an off-whitelist filter is the unfiltered page');
+        $this->assertSame($this->withoutReturnTo($plain), $this->withoutReturnTo($junk), 'an off-whitelist filter is the unfiltered page');
         $this->assertStringContainsString('The Long Finish', $junk);
         $this->assertStringContainsString('The Rabbit Hole', $junk);
     }

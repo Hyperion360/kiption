@@ -14,6 +14,7 @@ final class NavLinks
         $tmp = $file . '.' . uniqid('', true) . '.tmp';
         file_put_contents($tmp, json_encode($rows, JSON_UNESCAPED_SLASHES));
         @rename($tmp, $file); // atomic swap (the Cache::maybeStore idiom); readers never see a torn file
+        BrowsePanel::rebuild($db, BrowsePanel::fileFor($file)); // the header's Browse panel data rides every nav rebuild
     }
 
     /** @return array<int, array{label: string, url: string}> */
