@@ -1934,7 +1934,11 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .cloud-landing .cloud-nav a:hover { color: var(--accent); }
 .cloud-landing .cloud-nav .cloud-nav-cta { min-height: 40px; margin-inline-start: auto; padding: 8px 20px; font-size: 14.5px; color: var(--btn-ink); }
 .cloud-landing .cloud-nav .cloud-nav-cta:hover { color: var(--btn-ink); }
-@media (max-width: 640px) { .cloud-landing .cloud-nav .cloud-nav-cta { margin-inline-start: 0; margin-block-start: 8px; } }
+@media (max-width: 640px) {
+  .cloud-landing .cloud-nav .cloud-nav-cta { min-height: 44px; margin-inline-start: 0; margin-block-start: 8px; }
+  /* Widen the short text links to a 44px tap target without moving them. */
+  .cloud-landing .cloud-nav a:not(.cloud-nav-cta) { padding-inline: 7px; margin-inline: -7px; }
+}
 .cloud-landing .lp-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; align-items: center; padding-block: 8px 40px; }
 @media (min-width: 960px) { .cloud-landing .lp-hero { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; } }
 .cloud-landing .lp-hero h1 { font-size: clamp(32px, 5.4vw, 50px); line-height: 1.08; margin: 0 0 20px; }
