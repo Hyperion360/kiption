@@ -25,6 +25,8 @@ final class QueueController
             if ($r['k'] === '0gate') { $moderator = $r; break; }
         }
         if ($moderator === null) return new Response(\App\Lang::t('error.forbidden'), 403);
+        // The admin sidebar and phone tab carry what this page already counted.
+        \App\AdminNav::waiting(['/queue' => count($rows) - 1]);
         return $this->view->render('queue/index', [
             'title' => \App\Lang::t('queue.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('queue.heading'))->withCanonical('/queue')->withNoindex(),

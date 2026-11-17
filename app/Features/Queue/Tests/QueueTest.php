@@ -181,4 +181,10 @@ final class QueueTest extends TestCase
         $this->assertStringNotContainsString('name="reason_preset"', $ch, 'a chapter removal sends no reason');
         $this->assertStringContainsString('Pending Work', $c->get('/queue', ['tab' => 'nonsense', 'item' => '99999'])->body, 'an unknown tab or item falls back to the first with something waiting');
     }
+
+    public function test_an_admin_viewing_the_queue_sees_its_count_in_the_sidebar_without_a_second_query(): void
+    {
+        \App\Adminness::setRole($this->db, 1, 'admin');
+        $this->assertStringContainsString('<span class="admin-nav-count">1</span>', $this->clientAs(1)->get('/queue')->body);
+    }
 }

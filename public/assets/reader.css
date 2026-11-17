@@ -2071,3 +2071,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .member-delete-panel .delete-heir { padding-inline-start: 26px; }
 .delete-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .delete-actions .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); }
+.queue-remove > summary.btn { padding-inline: 16px; border: 1px solid var(--line-strong); }
+.member-role { flex-wrap: nowrap; }
+.member-role select { min-width: 0; max-width: 100%; }
+@media (min-width: 900px) { .member-role button { padding-inline: 10px; } }

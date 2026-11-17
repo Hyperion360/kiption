@@ -1672,6 +1672,7 @@ return [
     'manage.ratings' => 'Ratings',
     'manage.tags' => 'Tags and tag types',
     'manage.tagqueue' => 'Tag Suggestions',
+    'manage.tagqueue_what' => 'Tags authors have suggested, waiting for you to add or turn down.',
     'manage.characters' => 'Characters',
     'manage.wordfilter' => 'Word filter',
     'manage.wrangling' => 'Tag merging',
