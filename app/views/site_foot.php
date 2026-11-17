@@ -53,6 +53,7 @@ $legalKeys = ['/rules', '/terms'];
        copyright holder and legal links from the boot config, absent when
        unconfigured. The year is baked at render time. Only https and
        site-relative urls link; anything else renders as plain text. */ ?>
+    <div class="foot-base">
     <?php if (\App\FooterLegal::has()): ?>
     <p class="foot-legal"><?php foreach (\App\FooterLegal::links() as $l): ?><?php if (\App\FooterLegal::linkable($l['url'])): ?><a href="<?= $this->e($l['url']) ?>"><?= $this->e($l['label']) ?></a><?php else: ?><?= $this->e($l['label']) ?><?php endif; ?> <?php endforeach; ?><?php if (\App\FooterLegal::copyright() !== ''): ?><span>© <?= date('Y') ?> <?php if (\App\FooterLegal::linkable(\App\FooterLegal::copyrightUrl())): ?><a href="<?= $this->e(\App\FooterLegal::copyrightUrl()) ?>" rel="noopener"><?= $this->e(\App\FooterLegal::copyright()) ?></a><?php else: ?><?= $this->e(\App\FooterLegal::copyright()) ?><?php endif; ?></span><?php endif; ?></p>
     <?php endif; ?>
@@ -61,4 +62,5 @@ $legalKeys = ['/rules', '/terms'];
     <?php if (\App\Attribution::on()): ?>
     <p class="poweredby"><a href="<?= $this->e(\App\Attribution::url()) ?>"><?= \App\Lang::t('foot.powered_by') ?></a></p>
     <?php endif; ?>
+    </div>
   </footer>
