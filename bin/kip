@@ -265,6 +265,7 @@ match ($argv[1] ?? 'help') {
     'pages:build' => (function () use ($config) {
         $dir = $config['static_cache']['dir'] ?? null;
         if ($dir === null) { fwrite(STDERR, "static_cache not configured.\n"); exit(1); }
+        \App\BrowsePanel::rebuild(new Kip\Database($config['db']['dsn']), \App\BrowsePanel::fileFor((string) ($config['nav_file'] ?? '')));
         $n = \App\StaticCache\Builder::build($config, $dir);
         echo "Built {$n} static pages into {$dir}.\n";
     })(),

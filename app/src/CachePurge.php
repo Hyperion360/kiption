@@ -35,6 +35,7 @@ final class CachePurge
     public static function run(\Kip\App $app, \Kip\Database $db): bool
     {
         if (self::$ranFor?->get() === $app) return self::$result;
+        BrowsePanel::rebuild($db, BrowsePanel::fileFor((string) $app->config('nav_file', ''))); // counts and tags in the header panel follow the same saves that purge pages
         $cacheDir = StaticCache\Cache::configuredDir($app);
         $cacheDb = (array) ($app->config('cache_db', []) ?? []);
         StaticCache\Builder::prune($cacheDir, (string) ($cacheDb['dsn'] ?? ''));
