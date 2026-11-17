@@ -2243,9 +2243,10 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .hd2 .brand {
   font-family: var(--serif); font-variant: small-caps; letter-spacing: .08em;
   font-size: 22px; color: var(--ink); text-decoration: none; white-space: nowrap;
-  /* A 44px tap target, and free to give up the last half pixel when the
-     phone bar (brand, Search, Inbox, Menu) runs exactly 390px wide. */
-  line-height: 44px; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  /* A 44px tap target. The negative end margin cancels the letter spacing
+     after the last letter, which had pushed the 390px phone bar (brand,
+     Search, Inbox, Menu) half a pixel past the screen edge. */
+  line-height: 44px; margin-inline-end: -.08em;
 }
 .hd2 .tagline { display: none; color: var(--muted); font: 14px/1.2 var(--sans); }
 .hd2 .site-nav, .hd2 .nav-search, .hd2 .nav-theme, .hd2 > .nav-account, .hd2 .nav-join, .hd2 .nav-me, .site-head.hd2 .head-post { display: none; }
