@@ -86,4 +86,28 @@ final class AdminNavTest extends TestCase
         $other = AdminNav::shell('/tags');
         $this->assertSame([], array_filter($other['tabs'], static fn (array $t): bool => $t['current']), 'a screen with no tab marks none');
     }
+
+    public function test_only_the_group_holding_the_current_screen_is_open(): void
+    {
+        $open = static fn (array $shell): array => array_column(array_filter($shell['groups'], static fn (array $g): bool => $g['open']), 'label');
+        $this->assertSame(['manage.group_members'], $open(AdminNav::shell('/adminmembers')));
+        $this->assertSame(['manage.group_members'], $open(AdminNav::shell('/adminmembers/remove/4')), 'a sub-screen opens its list\'s group');
+        $this->assertSame(['manage.group_stories'], $open(AdminNav::shell('/manage')), 'the home opens the first group');
+        $this->assertSame(['manage.group_advanced'], $open(AdminNav::shell('/admin')));
+    }
+
+    public function test_a_folded_group_carries_the_count_of_what_waits_inside_it(): void
+    {
+        AdminNav::waiting(['/queue' => 5, '/tagqueue' => 2]);
+        $shell = AdminNav::shell('/adminmembers');
+        $this->assertSame(7, $shell['groups'][0]['badge']);
+        $this->assertFalse($shell['groups'][0]['open']);
+        $this->assertSame(0, $shell['groups'][2]['badge']);
+        $counts = array_column($shell['groups'][0]['links'], 'count', 'url');
+        $this->assertSame(5, $counts['/queue']);
+        $this->assertSame(2, $counts['/tagqueue']);
+        $this->assertSame(5, array_column($shell['tabs'], 'count', 'url')['/queue'], 'the phone Queue tab carries the same number');
+        AdminNav::reset();
+        $this->assertSame(0, AdminNav::shell('/adminmembers')['groups'][0]['badge'], 'no counts handed over means no badge, and never a query');
+    }
 }

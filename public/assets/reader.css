@@ -1988,3 +1988,20 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .writer-link { color: var(--accent); text-decoration: underline; }
 .writer-surface[hidden], .writer-rich [hidden] { display: none; }
 @media (max-width: 40rem) { .writer-surface { padding: 1rem .5rem; } }
+
+/* Admin redesign: the sidebar folds. Only the group holding the current
+   screen is open; a folded group shows what waits inside it. */
+.admin-nav-section { margin: 0; }
+.admin-nav-section > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin: 6px -12px 0; padding-inline: 12px; }
+.admin-nav-section > summary::-webkit-details-marker { display: none; }
+.admin-nav-section > summary::after { content: "+"; width: 12px; text-align: center; font: 400 15px/1 var(--sans); letter-spacing: 0; }
+.admin-nav-section[open] > summary::after { content: "\2212"; }
+.admin-nav-section > summary:hover { color: var(--ink); }
+.admin-nav-section > summary > span:first-child { flex: 1; }
+.admin-nav-badge, .admin-nav-count, .admin-tabs .tab-count { padding: 1px 6px; background: var(--accent); color: var(--on-accent); font: 600 11.5px/1.4 var(--sans); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.admin-nav-section[open] > summary .admin-nav-badge { display: none; }
+.admin-nav li a { justify-content: space-between; gap: 8px; }
+.admin-nav li a[aria-current="page"] .admin-nav-count { background: none; color: var(--accent); padding-inline: 0; }
+.admin-tabs a { position: relative; }
+.admin-tabs .tab-count { position: absolute; top: 6px; left: calc(50% + 6px); }
+@media (min-width:1024px) { .admin-nav-section > summary { min-height: 34px; margin-block-start: 6px; } }

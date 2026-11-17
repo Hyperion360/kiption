@@ -1592,6 +1592,7 @@ return [
     'manage.tab_menu' => 'Menu',
     'manage.find' => 'Find a screen',
     'manage.find_key' => 'Find a screen (press /)',
+    'manage.waiting_inside' => 'Waiting in this group',
     'manage.find_none' => 'No screen has that name.',
     'manage.pick_penname' => 'You are still called "Owner".',
     'manage.pick_penname_link' => 'Pick the name readers will see.',
