@@ -1831,6 +1831,7 @@ return [
     'text.group.page' => 'Page Editor',
     'text.group.navlinks' => 'Menu Links',
     'text.group.images' => 'Image Library',
+    'text.group.authorimages' => 'Chapter Images',
     'text.group.invites' => 'Invite Codes',
     'text.group.signupcheck' => 'Signup Question',
     'text.group.profilefields' => 'Profile Fields',
