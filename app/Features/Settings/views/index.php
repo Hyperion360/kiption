@@ -58,6 +58,7 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <?= $check('coauthors_on', \App\Lang::t('settings.coauthors_on'), \App\Lang::t('settings.coauthors_on_note')) ?>
   <?= $check('series_on', \App\Lang::t('settings.series_on'), \App\Lang::t('settings.series_on_note')) ?>
   <?= $check('uploads_on', \App\Lang::t('settings.uploads_on'), \App\Lang::t('settings.uploads_on_note')) ?>
+  <?= $check('chapter_images_on', \App\Lang::t('settings.chapter_images_on'), \App\Lang::t('settings.chapter_images_on_note')) ?>
   <label><?= \App\Lang::t('settings.default_sort') ?>
     <select name="default_sort">
       <?php foreach (['recent', 'alpha'] as $sort): ?>
