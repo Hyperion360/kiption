@@ -9,7 +9,7 @@ final class ActiveFilters
 {
     /**
      * @param array<string,mixed> $filters  as built by SearchController
-     * @param array{category?: array<string,string>, rating?: array<int,string>, tag?: array<int,string>} $names
+     * @param array{category?: array<string,string>, rating?: array<int,string>, status?: array<int,string>, tag?: array<int,string>} $names
      * @return list<array{label: string, kind: string, remove: string}>
      */
     public static function chips(string $q, array $filters, string $sort, array $names): array
@@ -32,7 +32,7 @@ final class ActiveFilters
                 'remove' => $url(['category' => array_values(array_diff($base['category'], [$slug]))])];
         }
         if ($base['rating'] !== null) $out[] = ['label' => $names['rating'][$base['rating']] ?? (string) $base['rating'], 'kind' => 'include', 'remove' => $url(['rating' => null])];
-        if ($base['completed'] !== null) $out[] = ['label' => $base['completed'] === 1 ? 'Complete' : 'In Progress', 'kind' => 'include', 'remove' => $url(['completed' => null])];
+        if ($base['completed'] !== null) $out[] = ['label' => $names['status'][$base['completed']] ?? ($base['completed'] === 1 ? 'Complete' : 'In Progress'), 'kind' => 'include', 'remove' => $url(['completed' => null])];
         if ($base['language'] !== null) $out[] = ['label' => (string) $base['language'], 'kind' => 'include', 'remove' => $url(['language' => null])];
         foreach (['tag' => 'include', 'xtag' => 'exclude'] as $key => $kind) {
             foreach ($base[$key] ?? [] as $id) {

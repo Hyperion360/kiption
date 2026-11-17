@@ -1989,3 +1989,39 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .writer-link { color: var(--accent); text-decoration: underline; }
 .writer-surface[hidden], .writer-rich [hidden] { display: none; }
 @media (max-width: 40rem) { .writer-surface { padding: 1rem .5rem; } }
+
+/* Search: filter rail beside the results, active-filter chips, start page.
+ * No scripting needed. On a phone the rail is a sheet opened by the
+ * Filters link (:target), the same pattern as the mobile Menu. */
+.page.page-search { max-width: 1040px; }
+.page-search { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 32px; }
+.page-search > .page-head, .page-search > .search-form, .page-search > #search-results { grid-column: 1 / -1; }
+.search-rail .refine-grid { grid-template-columns: 1fr; }
+.search-rail .rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.search-rail .rail-head h2 { font: 600 16px var(--sans); margin: 0; }
+.search-rail .rail-apply { margin-block: 14px; width: 100%; min-height: 44px; }
+.rail-open, .rail-close { font: 500 14px var(--sans); }
+.rail-open { display: inline-flex; align-items: center; min-height: 44px; margin-block-start: 8px; }
+@media (max-width: 859px) {
+  .search-rail { display: none; }
+  .search-rail:target { display: block; position: fixed; inset: 0; z-index: 40; overflow-y: auto; background: var(--bg, var(--surface)); padding: 16px; }
+}
+@media (min-width: 860px) {
+  .page-search { grid-template-columns: 280px minmax(0, 1fr); }
+  .page-search > .search-form { display: contents; }
+  .page-search > .search-form > :not(.search-rail):not(.rail-open) { grid-column: 1 / -1; }
+  .page-search > .search-form > .search-rail { grid-column: 1; align-self: start; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; }
+  .page-search > #search-results { grid-column: 2; }
+  .rail-open, .rail-close { display: none; }
+}
+.chip-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); font: 500 14px var(--sans); }
+.chip-exclude { border-style: dashed; }
+.chip-kind { color: var(--ink-2); }
+.chip a { color: var(--ink); }
+.chip-x { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
+.active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-block: 8px 16px; }
+.chip-clear { font: 500 14px var(--sans); }
+.passage mark { background: var(--hover); color: inherit; font-weight: 600; border-radius: 2px; padding-inline: 1px; }
+.search-rail .live-filter input[type="search"] { width: 100%; max-width: none; box-sizing: border-box; }
+.search-rail .live-filter label { display: block; }
