@@ -42,3 +42,62 @@ test('a failed mount leaves the textarea visible and the others still mount', ()
   assert.equal(init(doc, win), 1);
   assert.equal(bad.hidden, false);
 });
+
+/* A tiny element stand-in: enough DOM for the mode note. */
+const el = (tag) => ({
+  tagName: tag, hidden: false, textContent: '', className: '', attrs: {}, children: [], listeners: {},
+  setAttribute(n, v) { this.attrs[n] = v; },
+  append(...c) { this.children.push(...c); },
+  replaceChildren(...c) { this.children = c; },
+  after(n) { this.next = n; },
+  addEventListener(t, f) { (this.listeners[t] ??= []).push(f); },
+  click() { (this.listeners.click ?? []).forEach((f) => f()); },
+});
+const modePage = (api) => {
+  const button = el('button');
+  const wrap = { querySelector: (sel) => (sel === '.epigraph-mode' ? button : null) };
+  const labels = { modeBlocked: 'Stays in Source.', modeReview: 'Rewrite the markup?', convert: 'Convert', keepSource: 'Keep Source' };
+  const b = box({ 'data-writer-labels': JSON.stringify(labels) });
+  b.nextElementSibling = wrap;
+  const doc = { querySelectorAll: () => [b], createElement: el };
+  const win = { EpigraphAuthor: { mount: () => { button.listeners.click = [() => api.showRich()]; return api; } }, Event: class { constructor(t) { this.type = t; } } };
+  init(doc, win);
+  return button;
+};
+
+test('a chapter the editor would rewrite asks before switching instead of doing nothing', () => {
+  let state = 'source', review = { original: 'a\n\n* * *\n\nb', candidate: 'a\n\n---\n\nb' }, accepted = 0;
+  const api = { mode: () => state, blocker: () => null, review: () => review, showRich: () => 'review',
+    acceptConversion: () => { accepted++; state = 'rich'; review = null; }, cancelConversion: () => { review = null; }, focus() {} };
+  const button = modePage(api);
+  button.click();
+  const note = button.next;
+  assert.ok(note, 'a note follows the mode button');
+  assert.equal(note.hidden, false);
+  assert.equal(note.attrs.role, 'status');
+  assert.match(note.children[0].textContent, /Rewrite the markup/);
+  const [convert, keep] = note.children.slice(1);
+  assert.equal(convert.textContent, 'Convert');
+  assert.equal(keep.textContent, 'Keep Source');
+  convert.click();
+  assert.equal(accepted, 1);
+  assert.equal(note.hidden, true);
+});
+
+test('a chapter the editor cannot show says why it stays in Source', () => {
+  const api = { mode: () => 'source', blocker: () => 'raw-html', review: () => null, showRich: () => 'blocked', acceptConversion() {}, cancelConversion() {}, focus() {} };
+  const button = modePage(api);
+  button.click();
+  assert.equal(button.next.hidden, false);
+  assert.match(button.next.children[0].textContent, /Stays in Source/);
+});
+
+test('keeping the source dismisses the question', () => {
+  let cancelled = 0;
+  const api = { mode: () => 'source', blocker: () => null, review: () => ({ original: 'x', candidate: 'y' }), showRich: () => 'review', acceptConversion() {}, cancelConversion: () => { cancelled++; }, focus() {} };
+  const button = modePage(api);
+  button.click();
+  button.next.children[2].click();
+  assert.equal(cancelled, 1);
+  assert.equal(button.next.hidden, true);
+});

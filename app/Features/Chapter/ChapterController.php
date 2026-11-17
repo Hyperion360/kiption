@@ -302,7 +302,8 @@ final class ChapterController
             'enable', 'disable', 'retry', 'restore', 'replaceUnsaved', 'useDraft', 'discard', 'copy',
             'recoveryUnavailable', 'recoveryProtected', 'recoveryOff', 'recoveryTab', 'recoveryOffer',
             'recoveryConflict', 'recoveryDiscarded', 'recoveryRestored', 'recoveryWritten',
-            'recoveryClearFailed', 'recoveryRemoveFailed', 'recoveryProtectedRetained', 'copyFallback', 'copied'] as $label) {
+            'recoveryClearFailed', 'recoveryRemoveFailed', 'recoveryProtectedRetained', 'copyFallback', 'copied',
+            'modeBlocked', 'modeReview', 'convert', 'keepSource'] as $label) {
             $writerLabels[$label] = \App\Lang::t('writer.' . $label);
         }
         $html = $this->view->render('chapter/form', [

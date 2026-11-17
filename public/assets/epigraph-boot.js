@@ -12,6 +12,52 @@
     if (root.document.readyState === 'loading') { root.document.addEventListener('DOMContentLoaded', run); } else { run(); }
   }
 })(typeof window !== 'undefined' ? window : globalThis, function () {
+  /* The editor's mode button asks for Formatted mode and drops the answer.
+   * A chapter that holds markup Formatted mode cannot show is "blocked", and
+   * one whose markup it would rewrite (a "* * *" scene break becomes "---")
+   * waits for "review". Either way the click did nothing visible, so say why
+   * and, for a rewrite, let the writer choose. Nothing converts unasked. */
+  function explainMode(doc, box, api) {
+    if (!api || typeof api.mode !== 'function' || typeof api.review !== 'function') { return; }
+    var wrap = box.nextElementSibling;
+    var button = wrap && wrap.querySelector ? wrap.querySelector('.epigraph-mode') : null;
+    if (!button) { return; }
+    var labels = {};
+    try { labels = JSON.parse(box.getAttribute('data-writer-labels') || '{}') || {}; } catch (e) { labels = {}; }
+    var note = doc.createElement('div');
+    note.className = 'epigraph-mode-note';
+    note.setAttribute('role', 'status');
+    note.hidden = true;
+    button.after(note);
+    var clear = function () { note.hidden = true; note.replaceChildren(); };
+    var action = function (text, cls, run) {
+      var b = doc.createElement('button');
+      b.type = 'button';
+      b.className = cls;
+      b.textContent = text;
+      b.addEventListener('click', function () { run(); clear(); });
+      return b;
+    };
+    /* Registered after the editor's own handler, so the mode is settled. */
+    button.addEventListener('click', function () {
+      clear();
+      if (api.mode() === 'rich') { return; }
+      var text = doc.createElement('p');
+      if (typeof api.blocker === 'function' && api.blocker()) {
+        text.textContent = labels.modeBlocked || '';
+        note.append(text);
+      } else if (api.review()) {
+        text.textContent = labels.modeReview || '';
+        note.append(text,
+          action(labels.convert || '', 'btn-primary', function () { api.acceptConversion(); if (typeof api.focus === 'function') { api.focus(); } }),
+          action(labels.keepSource || '', 'btn-secondary', function () { api.cancelConversion(); }));
+      } else {
+        return;
+      }
+      note.hidden = false;
+    });
+  }
+
   function init(doc, win) {
     var editor = win.EpigraphAuthor;
     if (!editor || typeof editor.mount !== 'function') { return 0; }
@@ -29,8 +75,9 @@
           onChange: function () { box.dispatchEvent(new win.Event('input', { bubbles: true })); }
         };
         if (images) { options.imageLibrary = { uploadUrl: uploadUrl, csrfToken: token }; }
-        editor.mount(box, options);
+        var api = editor.mount(box, options);
         mounted += 1;
+        explainMode(doc, box, api);
       } catch (e) {
         box.hidden = false;
       }

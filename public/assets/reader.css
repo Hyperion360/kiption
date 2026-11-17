@@ -47,6 +47,9 @@ html[data-theme="night"]{
    OS setting, so a Night or Sepia choice left dark ink on a dark page. Hand
    it the site's tokens instead; the higher specificity beats its own block. */
 :root .epigraph{ --ink:inherit; --bg:inherit; --muted:inherit; --accent:inherit; --line:var(--field-line); width:100%; }
+.epigraph-mode-note { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 14px/1.5 var(--sans); }
+.epigraph-mode-note p { margin: 0 0 10px; }
+.epigraph-mode-note button { margin-inline-end: 8px; }
 
 /* Component layer (C6). Every rule reads the token blocks above; class
    names are the pre-redesign vocabulary so screens not yet redesigned
