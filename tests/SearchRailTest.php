@@ -63,4 +63,68 @@ final class SearchRailTest extends TaxonomyCase
         $this->assertMatchesRegularExpression('~<form[^>]*action="/search".*<aside id="search-rail".*</aside>.*</form>~s', $body);
         $this->assertStringContainsString('href="#search-rail"', $body);
     }
+
+    public function test_status_is_a_segmented_radio_group_with_counts_under_each_label(): void
+    {
+        $this->a->story('River Done', ['completed' => 1]);
+        $this->a->story('River Open A');
+        $this->a->story('River Open B');
+        $body = $this->body(['q' => 'river', 'completed' => '1']);
+        $this->assertMatchesRegularExpression('~<input type="radio" name="completed" value=""[^>]*>\s*<span class="seg-label">Any</span>\s*<span class="count" data-search-count="status:any">3</span>~', $body);
+        $this->assertMatchesRegularExpression('~<input type="radio" name="completed" value="1" checked[^>]*>\s*<span class="seg-label">Complete</span>\s*<span class="count" data-search-count="status:1">1</span>~', $body);
+        $this->assertMatchesRegularExpression('~value="0"[^>]*>\s*<span class="seg-label">In Progress</span>\s*<span class="count" data-search-count="status:0">2</span>~', $body);
+        $this->assertStringNotContainsString('<select name="completed"', $body);
+    }
+
+    public function test_rating_and_category_rows_carry_their_count_on_the_right(): void
+    {
+        $this->a->category('rail-cat');
+        $this->a->story('River Rated', ['categories' => [$this->a->category('rail-cat')]]);
+        $body = $this->body(['q' => 'river', 'category' => ['rail-cat']]);
+        $this->assertMatchesRegularExpression('~<input type="radio" name="rating" value="\d+"[^>]*>\s*<span class="row-label">[^<]+</span>\s*<span class="count" data-search-count="rating:\d+">1</span>~', $body);
+        $this->assertMatchesRegularExpression('~<input type="checkbox" name="category\[\]" value="rail-cat" checked>\s*<span class="row-label">Rail-cat</span>\s*<span class="count" data-search-count="category:rail-cat">1</span>~', $body);
+    }
+
+    public function test_categories_past_the_fifth_fold_into_a_show_more_disclosure(): void
+    {
+        $this->a->story('River Many');
+        foreach (range(1, 8) as $n) $this->a->category('fold-' . $n);
+        $body = $this->body(['q' => 'river']);
+        $this->assertMatchesRegularExpression('~<details class="rail-more-rows">\s*<summary><span class="more-closed">Show \d+ More~', $body);
+        $open = $this->body(['q' => 'river', 'category' => ['fold-8']]);
+        $this->assertMatchesRegularExpression('~<details class="rail-more-rows" open>~', $open, 'a checked row never hides in the fold');
+    }
+
+    public function test_sort_is_a_pair_of_links_that_keep_the_other_filters(): void
+    {
+        $this->a->story('River Sorted', ['completed' => 1]);
+        $body = $this->body(['q' => 'river', 'completed' => '1']);
+        $this->assertMatchesRegularExpression('~<nav class="sort-toggle"[^>]*>\s*<a href="/search\?q=river&amp;completed=1" aria-current="true">Best Match</a>\s*<a href="/search\?q=river&amp;completed=1&amp;sort=updated">Recently Updated</a>~', $body);
+        $updated = $this->body(['q' => 'river', 'sort' => 'updated']);
+        $this->assertStringContainsString('<input type="hidden" name="sort" value="updated">', $updated);
+        $this->assertMatchesRegularExpression('~href="/search\?q=river" ?>Best Match~', $updated);
+        $this->assertMatchesRegularExpression('~sort=updated" aria-current="true">Recently Updated~', $updated);
+        $this->assertStringNotContainsString('<select name="sort"', $body);
+    }
+
+    public function test_tags_offer_a_finder_hint_and_the_checkbox_pair_as_the_no_script_fallback(): void
+    {
+        $tag = $this->a->tag('Pick Me');
+        $this->a->story('River Tagged', ['tags' => [$tag]]);
+        $body = $this->body(['q' => 'river']);
+        $this->assertStringContainsString('Click once to include, twice to leave out.', $body);
+        $this->assertMatchesRegularExpression('~<p class="tag-find" hidden data-tag-find>.*?<input type="search"[^>]*placeholder="Find a Tag"~s', $body);
+        $this->assertMatchesRegularExpression('~<div class="tag-fallback" data-tag-fallback>.*name="tag\[\]" value="' . $tag . '".*name="xtag\[\]" value="' . $tag . '"~s', $body);
+        $this->assertStringContainsString('data-tag-chips', $body);
+    }
+
+    public function test_live_response_carries_the_status_any_count_and_the_total(): void
+    {
+        $this->a->story('River Live', ['completed' => 1]);
+        $this->a->story('River Live Two');
+        $r = $this->client()->get('/search', ['q' => 'river', 'live' => '1']);
+        $data = json_decode($r->body, true);
+        $this->assertSame(2, $data['counts']['status:any']);
+        $this->assertSame(2, $data['total']);
+    }
 }

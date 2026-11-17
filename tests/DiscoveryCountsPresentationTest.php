@@ -58,7 +58,7 @@ final class DiscoveryCountsPresentationTest extends TaxonomyCase
                 $this->assertNotNull($label);
                 $this->assertSame('Gore (' . $count . ')', trim($label->textContent));
             }
-            $this->assertStringContainsString('The Gazette (1)', $body);
+            $this->assertMatchesRegularExpression($path === '/search' ? '~The Gazette</span>\s*<span class="count"[^>]*>1</span>~' : '~The Gazette \(1\)~', $body);
             $this->assertStringContainsString(\App\Lang::t('search.category_counts_help'), $body);
             $this->assertStringContainsString(\App\Lang::t('search.tag_counts_help'), $body);
         }
@@ -68,7 +68,7 @@ final class DiscoveryCountsPresentationTest extends TaxonomyCase
     {
         $body = $this->client()->get('/search', ['completed' => '0'])->body;
         $xpath = $this->document($body);
-        $this->assertSame('In Progress (1)', trim($xpath->query('//select[@name="completed"]/option[@value="0" and @selected]')->item(0)?->textContent ?? ''));
+        $this->assertSame('In Progress 1', preg_replace('/\s+/', ' ', trim($xpath->query('//input[@name="completed" and @value="0" and @checked]/ancestor::label')->item(0)?->textContent ?? '')));
         $this->assertStringContainsString('1 Matching Story', $body);
         $this->assertStringNotContainsString('href="/story/view/fixture-1"', $body);
         foreach (['/search', '/browse/filter'] as $path) {

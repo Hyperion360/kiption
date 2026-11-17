@@ -167,8 +167,8 @@ $themes = $arr($ed['themes'] ?? []);
     <p class="lp-lead"><?= $this->e($str($faq['sub'] ?? '')) ?></p>
     </div>
     <div class="lp-faq-list">
-<?php foreach ($arr($faq['items']) as $qa): $qa = $arr($qa); ?>
-    <details class="lp-faq">
+<?php foreach ($arr($faq['items']) as $i => $qa): $qa = $arr($qa); ?>
+    <details class="lp-faq"<?= $i === 0 ? ' open' : '' ?>>
       <summary><?= $this->e($str($qa[0] ?? '')) ?></summary>
       <p><?= $this->e($str($qa[1] ?? '')) ?></p>
     </details>

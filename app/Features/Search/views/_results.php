@@ -1,6 +1,30 @@
+<?php
+// Pagination preserves the active query string (q + every filter), the
+// plan's "prev/next preserve the query string" requirement.
+$carry = ['q' => $q,
+          'category' => $filters['category'] ?? [],
+          'rating' => (string) ($filters['rating_id'] ?? ''),
+          'completed' => ($filters['completed'] ?? null) === null ? '' : ($filters['completed'] ? '1' : '0'),
+          'language' => (string) ($filters['language'] ?? ''),
+          'character' => (string) ($filters['character'] ?? ''), 'sort' => $sort];
+$keep = array_filter($carry, static fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
+foreach (['tag', 'xtag', 'tags', 'xtags'] as $key) {
+    $value = $filters[$key] ?? null;
+    if ($value !== null && $value !== '' && $value !== []) $keep[$key] = $value;
+}
+$sortKeep = $keep; unset($sortKeep['sort']);
+?>
 <?php $asked = $q !== '' || $result['mode'] !== 'none'; ?>
 <?php if (!empty($result['capped'])): ?><p class="notice"><?= \App\Lang::t('search.capped') ?></p><?php endif; ?>
-<?php if ($asked): ?><h2 class="section-label"><?= \App\Lang::t($result['total'] === 1 ? 'search.matching_story' : 'search.matching_stories', ['count' => $this->e((string) (int) $result['total'])]) ?></h2><?php endif; ?>
+<?php if ($asked): ?>
+<div class="results-head">
+  <h2 class="section-label"><?= \App\Lang::t($result['total'] === 1 ? 'search.matching_story' : 'search.matching_stories', ['count' => $this->e((string) (int) $result['total'])]) ?></h2>
+  <nav class="sort-toggle" aria-label="<?= $this->e(\App\Lang::t('search.sort')) ?>">
+    <a href="<?= $this->e('/search?' . http_build_query($sortKeep)) ?>"<?= $sort !== 'updated' ? ' aria-current="true"' : '' ?>><?= \App\Lang::t('search.sort_relevance') ?></a>
+    <a href="<?= $this->e('/search?' . http_build_query($sortKeep + ['sort' => 'updated'])) ?>"<?= $sort === 'updated' ? ' aria-current="true"' : '' ?>><?= \App\Lang::t('search.sort_updated') ?></a>
+  </nav>
+</div>
+<?php endif; ?>
 <?php $chips = $chips ?? []; ?>
 <?php if ($chips !== []): ?>
   <div class="active-filters" data-search-chips>
@@ -48,19 +72,6 @@
 <?= $this->render('browse/_story_cards', ['stories' => $result['rows'], 'passageQuery' => $q]) ?>
   </ul>
 <?php
-// Pagination preserves the active query string (q + every filter), the
-// plan's "prev/next preserve the query string" requirement.
-$carry = ['q' => $q,
-          'category' => $filters['category'] ?? [],
-          'rating' => (string) ($filters['rating_id'] ?? ''),
-          'completed' => ($filters['completed'] ?? null) === null ? '' : ($filters['completed'] ? '1' : '0'),
-          'language' => (string) ($filters['language'] ?? ''),
-          'character' => (string) ($filters['character'] ?? ''), 'sort' => $sort];
-$keep = array_filter($carry, static fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
-foreach (['tag', 'xtag', 'tags', 'xtags'] as $key) {
-    $value = $filters[$key] ?? null;
-    if ($value !== null && $value !== '' && $value !== []) $keep[$key] = $value;
-}
 $prevQ = http_build_query($keep + ['page' => max(1, $page - 1)]);
 $nextQ = http_build_query($keep + ['page' => $page + 1]);
 ?>

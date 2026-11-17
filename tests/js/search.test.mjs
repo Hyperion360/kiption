@@ -25,10 +25,12 @@ function harness(settings = {}) {
   const list = new Element(); list.id = 'search-suggestions';
   const status = new Element(), results = new Element(); results.innerHTML = 'initial';
   const count = new Element({'data-search-count': 'category:a', 'data-count-label': 'A'});
+  const bare = new Element({'data-search-count': 'status:any'});
+  const apply = new Element({'data-show-one': 'Show 1 Story', 'data-show-many': 'Show {count} Stories'}); apply.textContent = 'Apply Filters';
   const form = new Element({'data-search-loading': 'Searching', 'data-search-error': 'Use Search', 'data-search-suggestions-label': 'Suggested Stories'});
   form.action = 'https://archive.example/search'; form.fields = []; form.children = [input,list,status,count];
-  form.querySelector = sel => ({'[name="q"]': input, '[data-search-suggestions]': list, '[data-search-status]': status})[sel] ?? null;
-  form.querySelectorAll = sel => sel === '[data-search-count]' ? [count, ...(language?.options ?? [])] : [];
+  form.querySelector = sel => ({'[name="q"]': input, '[data-search-suggestions]': list, '[data-search-status]': status, '[data-show-many]': apply})[sel] ?? null;
+  form.querySelectorAll = sel => sel === '[data-search-count]' ? [count, bare, ...(language?.options ?? [])] : [];
   const language = settings.language ? new Element() : null;
   if (language) { language.options = language.children; language.value = 'zz'; }
   const originalQuery = form.querySelector;
@@ -63,9 +65,9 @@ function harness(settings = {}) {
     await flush();
   }
   function body(html='new', suggestions=[{label:'River',url:'/story/view/river'}]) {
-    return {html,suggestions,counts:{'category:a':2},message:'2 matching stories.'};
+    return {html,suggestions,counts:{'category:a':2,'status:any':7},total:7,message:'2 matching stories.'};
   }
-  return {input,list,status,results,count,form,document,window,language,requests,navigated,tick,type,answer,body,flush};
+  return {input,list,status,results,count,bare,apply,form,document,window,language,requests,navigated,tick,type,answer,body,flush};
 }
 
 test('rapid input sends one request after 250 ms and includes all active filters', () => {
@@ -198,4 +200,13 @@ test('fetch unavailability leaves the native form and input unchanged', () => {
   const h=harness({unavailable:true}); h.type('river'); h.tick(500);
   assert.equal(h.requests.length,0); assert.equal(h.input.getAttribute('role'),null);
   assert.equal(h.form.emit('submit').prevented,false);
+});
+test('rail counts without a label show the bare number and the apply button names the total', async () => {
+  const h=harness(); h.type('river'); h.tick(250);
+  await h.answer(0,h.body());
+  assert.equal(h.bare.textContent,'7');
+  assert.equal(h.apply.textContent,'Show 7 Stories');
+  h.type('rive'); h.tick(250);
+  const d=h.body(); d.total=1; await h.answer(1,d);
+  assert.equal(h.apply.textContent,'Show 1 Story');
 });
