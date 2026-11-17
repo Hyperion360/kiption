@@ -2211,7 +2211,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .queue-keys { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-block: 0 12px; color: var(--muted); font: 13px/1.4 var(--sans); }
 .queue-keys[hidden] { display: none; }
 .queue-keys kbd, .queue-cap { padding: 1px 5px; border: 1px solid var(--line-strong); color: var(--ink-2); font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; }
-.queue-cap { display: none; padding: 0 4px; font-size: 11px; border-color: currentcolor; opacity: .8; }
+.queue-cap { display: none; padding: 0 4px; font-size: 11px; border-color: currentcolor; color: inherit; opacity: .8; }
 .has-keys .queue-cap { display: inline-block; }
 .queue-detail { padding: 20px; border: 1px solid var(--line); background: var(--surface); }
 .queue-detail h2 { margin-block-start: 0; }
