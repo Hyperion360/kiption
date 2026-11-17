@@ -46,7 +46,7 @@ final class SiteTextStoreTest extends TestCase
     public function test_a_value_equal_to_the_built_in_text_deletes_the_row(): void
     {
         $this->store->put('en', 'nav.login', 'Sign in');
-        $this->assertNull($this->store->put('en', 'nav.login', 'Log in'));
+        $this->assertNull($this->store->put('en', 'nav.login', 'Log In'));
         $this->assertSame([], $this->store->rows('en'));
     }
 
@@ -152,6 +152,6 @@ final class SiteTextStoreTest extends TestCase
         file_put_contents($this->dir . '/blocker', 'x');
         $this->assertFalse(@Compiler::compile($this->db, $this->dir . '/blocker/sub'));
         Lang::setCurrent('en');
-        $this->assertSame('Log in', Lang::t('nav.login'));
+        $this->assertSame('Log In', Lang::t('nav.login'));
     }
 }

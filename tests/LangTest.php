@@ -61,7 +61,7 @@ final class LangTest extends TestCase
     public function test_lang_fallback_and_interpolation(): void
     {
         \App\Lang::setCurrent('en');
-        $this->assertSame('Log in', \App\Lang::t('nav.login'));
+        $this->assertSame('Log In', \App\Lang::t('nav.login'));
         $this->assertSame('Chapter 3 of 7', \App\Lang::t('story.chapter_of', ['n' => '3', 'm' => '7']));
         $this->assertSame('story.nonexistent.key', \App\Lang::t('story.nonexistent.key'), 'missing keys are visible, not fatal');
         // A test pack overrides with en fallback underneath. FLAT dotted keys
@@ -78,7 +78,7 @@ final class LangTest extends TestCase
     {
         // The missing-key philosophy: bad input is soft, the site stays up.
         \App\Lang::setCurrent('4x!EN');
-        $this->assertSame('Log in', \App\Lang::t('nav.login'), 'junk coerces to the en pack');
+        $this->assertSame('Log In', \App\Lang::t('nav.login'), 'junk coerces to the en pack');
         \App\Lang::setCurrent('en');
     }
 
@@ -87,16 +87,16 @@ final class LangTest extends TestCase
         file_put_contents($this->root . '/bad.php', '<?php return ["nav.login" => "Ensalida"'); // parse error
         \App\Lang::addPackPath('zz', $this->root . '/bad.php');
         \App\Lang::setCurrent('zz');
-        $this->assertSame('Log in', \App\Lang::t('nav.login'), 'a broken pack serves en, never a fatal');
+        $this->assertSame('Log In', \App\Lang::t('nav.login'), 'a broken pack serves en, never a fatal');
         // A pack that loads but is not a [key => text] map reads as empty too.
         file_put_contents($this->root . '/str.php', '<?php return "not an array";');
         \App\Lang::addPackPath('st', $this->root . '/str.php');
         \App\Lang::setCurrent('st');
-        $this->assertSame('Log in', \App\Lang::t('nav.login'));
+        $this->assertSame('Log In', \App\Lang::t('nav.login'));
         // With no registration, autodiscovery looks for app/lang/qq.php; the
         // missing file is the same empty-pack case (en underneath).
         \App\Lang::setCurrent('qq');
-        $this->assertSame('Log in', \App\Lang::t('nav.login'));
+        $this->assertSame('Log In', \App\Lang::t('nav.login'));
         \App\Lang::setCurrent('en');
     }
 
@@ -108,7 +108,7 @@ final class LangTest extends TestCase
         $body = $this->client()->get('/auth/login')->body;
         $this->assertStringContainsString('Ensalida', $body, 'the nav brand string renders from the pack');
         \App\Lang::setCurrent('en');
-        $this->assertStringContainsString('Log in', $this->client()->get('/auth/login')->body);
+        $this->assertStringContainsString('Log In', $this->client()->get('/auth/login')->body);
     }
 
     public function test_html_lang_attribute_follows_the_pack(): void

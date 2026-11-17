@@ -44,7 +44,7 @@ final class SearchRailTest extends TaxonomyCase
         $this->a->story('River Plain');
         $body = $this->body(['q' => 'river', 'category' => ['rail-cat']]);
         $this->assertStringContainsString('Drop Rail-cat', $body);
-        $this->assertStringContainsString('Try dropping one filter', $body);
+        $this->assertStringContainsString('Try Dropping One Filter', $body);
     }
 
     public function test_bare_search_is_a_start_page_with_popular_tags_and_no_chips(): void

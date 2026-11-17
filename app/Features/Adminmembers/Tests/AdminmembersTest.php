@@ -96,7 +96,7 @@ final class AdminmembersTest extends TestCase
     public function test_roster_shows_role_names_people_can_read(): void
     {
         $body = $this->client($this->adminId)->get('/adminmembers')->body;
-        $this->assertStringContainsString('>Trusted author</option>', $body, 'the role select names roles in words');
+        $this->assertStringContainsString('>Trusted Author</option>', $body, 'the role select names roles in words');
         $this->assertStringContainsString('>Moderator</option>', $body);
         $this->assertStringNotContainsString('>validated_author<', $body, 'role codes never reach the page');
         $this->assertStringNotContainsString('>moderator<', $body);

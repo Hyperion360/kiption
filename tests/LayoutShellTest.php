@@ -90,8 +90,8 @@ final class LayoutShellTest extends TestCase
         $this->assertStringNotContainsString('aria-expanded', $body);
         $this->assertStringContainsString('<form class="nav-search" role="search" action="/search" method="get">', $body);
         $this->assertStringContainsString('name="q"', $body);
-        // A cookieless guest sees Log in and Join, not the account link.
-        $this->assertStringContainsString('<a class="nav-account" href="/auth/login">Log in</a>', $body);
+        // A cookieless guest sees Log In and Join, not the account link.
+        $this->assertStringContainsString('<a class="nav-account" href="/auth/login">Log In</a>', $body);
         $this->assertStringContainsString('<a class="nav-join" href="/auth/register">Join</a>', $body);
         $this->assertStringNotContainsString('href="/account"', $body);
     }

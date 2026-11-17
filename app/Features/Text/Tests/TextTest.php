@@ -116,7 +116,7 @@ final class TextTest extends TestCase
         $group = $c->get('/text/group/nav');
         $this->assertSame(200, $group->status);
         $this->assertStringContainsString('values[nav.login]', $group->body);
-        $this->assertStringContainsString('Log in', $group->body);
+        $this->assertStringContainsString('Log In', $group->body);
         $this->assertSame(404, $c->get('/text/group/nosuchgroup')->status);
         $this->assertSame(404, $c->get('/text', ['lang' => 'zz'])->status);
     }

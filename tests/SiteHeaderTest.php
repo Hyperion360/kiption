@@ -65,7 +65,7 @@ final class SiteHeaderTest extends TestCase
         }
         $this->assertStringContainsString('All Categories', $panel);
         $this->assertStringContainsString('Filter by Tags', $panel);
-        $this->assertStringContainsString('Not sure where to start?', $panel);
+        $this->assertStringContainsString('Not Sure Where to Start?', $panel);
         $this->assertStringContainsString('class="bp-chips"', $panel);
     }
 
