@@ -60,7 +60,7 @@ final class EditorContractTest extends TestCase
             $html = $this->client($enabled)->get('/chapter/new/the-rabbit-hole', ['editor_formatted' => '1'])->body;
             [$form, $xpath] = $this->writerForm($html, 'chapter-editor-form');
             $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
-            $this->assertSame($enabled === true, str_contains($box->getAttribute('data-js-module'), 'rich-editor'));
+            $this->assertSame($enabled === true, str_contains($box->getAttribute('data-js-module'), 'epigraph-boot'));
             $this->assertFalse($box->hasAttribute('hidden'));
             $this->assertTrue($box->hasAttribute('required'));
             $this->assertFalse($box->hasAttribute('disabled'));
@@ -72,7 +72,7 @@ final class EditorContractTest extends TestCase
         $config = (string) file_get_contents(dirname(__DIR__) . '/config.php');
         $this->assertStringContainsString("'editor_formatted' => false", $config);
         $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
-        $this->assertStringContainsString("['rich-editor', ['subset', 'source-document', 'rich-projection', 'rich-active', 'text-edit', 'smart', 'paste', 'editor']]", $js);
+        $this->assertStringContainsString("['epigraph-boot', ['paste', 'epigraph']]", $js);
     }
 
     public function test_the_loader_lists_the_editor_module_and_the_files_exist(): void

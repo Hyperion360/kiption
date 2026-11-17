@@ -43,7 +43,7 @@ final class Feed
                 // one escape over already-rendered HTML round-trips exactly once
                 // under that type (finding 9). Summary mode emits nothing here.
                 . ($fullText
-                    ? '    <content type="html">' . self::e(\App\Markdown::render((string) ($s['first_chapter'] ?? ''))) . "</content>\n"
+                    ? '    <content type="html">' . self::e(\App\Markdown::render((string) ($s['first_chapter'] ?? ''), false, false)) . "</content>\n"
                     : '')
                 . "  </entry>\n";
         }

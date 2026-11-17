@@ -19,7 +19,7 @@ final class Settings
         'reviews_on' => 'bool', 'guest_reviews' => 'bool', 'rating_only' => 'bool',
         'coauthors_on' => 'bool', 'series_on' => 'bool',
         'tag_policy' => 'oneof:off,suggest,free',
-        'default_sort' => 'oneof:recent,alpha', 'profiles_public' => 'bool', 'uploads_on' => 'bool',
+        'default_sort' => 'oneof:recent,alpha', 'profiles_public' => 'bool', 'uploads_on' => 'bool', 'chapter_images_on' => 'bool',
         'footer_copyright' => 'label', 'footer_copyright_url' => 'link', 'footer_links' => 'links', 'og_image' => 'link', 'maintenance_on' => 'bool'];
 
     /** What each newer key means when no row exists (they have no config.php
@@ -30,7 +30,7 @@ final class Settings
         'reviews_on' => '1', 'guest_reviews' => '1', 'rating_only' => '0',
         'coauthors_on' => '1', 'series_on' => '1',
         'tag_policy' => 'off',
-        'default_sort' => 'recent', 'profiles_public' => '1', 'uploads_on' => '1',
+        'default_sort' => 'recent', 'profiles_public' => '1', 'uploads_on' => '1', 'chapter_images_on' => '0',
     ];
 
     /** A new-style setting's effective value: the stored row, else its default.

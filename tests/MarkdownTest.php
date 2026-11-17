@@ -152,4 +152,19 @@ final class MarkdownTest extends TestCase
         $this->assertSame(0, Markdown::wordCount('---'));
         $this->assertSame(3, Markdown::wordCount('Four *short* words.'));
     }
+    public function test_library_images_follow_the_chapter_policy(): void
+    {
+        $md = "Before\n\n![A *map*](/uploads/0123456789abcdef.png)\n\n---\n\nAfter";
+        $this->assertStringContainsString('<img src="/uploads/0123456789abcdef.png" alt="A map">', Markdown::render($md, false, true));
+        $off = Markdown::render($md, false, false);
+        $this->assertStringNotContainsString('<img', $off);
+        $this->assertStringContainsString('<p>A map</p>', $off);
+        $this->assertStringContainsString('<hr>', $off);
+        // every other caller is unchanged: the path stays literal text
+        $this->assertSame(Markdown::render($md), Markdown::render($md, false, null));
+        $this->assertStringNotContainsString('<img', Markdown::render($md));
+        // only the library shape qualifies, never an arbitrary local path
+        $this->assertStringNotContainsString('<img', Markdown::render('![x](/etc/passwd)', false, true));
+        $this->assertStringNotContainsString('<img', Markdown::render('![x](/uploads/../x.png)', false, true));
+    }
 }

@@ -34,7 +34,7 @@ final class Html
             $n = (int) $c['position'];
             $chapterTitle = (string) $c['title'] !== '' ? (string) $c['title'] : 'Chapter ' . $n;
             $out .= '<h2 id="ch-' . $n . '">' . self::e($chapterTitle) . "</h2>\n"
-                . \App\Markdown::render((string) $c['content']);
+                . \App\Markdown::render((string) $c['content'], false, false);
         }
         return $out . "</body>\n</html>\n";
     }
