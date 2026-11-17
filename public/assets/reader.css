@@ -1747,6 +1747,10 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
   html:has(.admin-tabs) { scroll-padding-block-end: 0; }
   /* The page keeps its own column, set against the sidebar instead of centred. */
   .admin-body .site-main, .admin-body .admin-trail { margin-inline: 0; }
+  /* Admin screens are tools, not reading pages: a smaller heading with no
+     rule, and the whole column beside the sidebar (drawn A1 to A3). */
+  :is(.admin-body .site-main > h1:first-child, .admin-body .site-main > :is(section, article):first-child > h1:first-child) { font-size: 36px; padding-block-end: 0; margin-block-end: 8px; border-block-end: 0; }
+  .admin-shell .admin-body .site-main { max-width: 1120px; }
 }
 
 /* The admin menu: each screen is one row with its name and a line saying
@@ -2017,11 +2021,20 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .cloud-landing .lp-offer h2, .cloud-landing .lp-close h2 { font-size: clamp(24px, 4vw, 34px); line-height: 1.15; margin: 0 0 12px; }
 .cloud-landing .lp-offer p, .cloud-landing .lp-close p { font: 400 16px/1.6 var(--sans); color: var(--ink-2); margin: 0 auto 16px; max-width: 56ch; }
 .cloud-landing .lp-close { margin-block: 56px 0; }
+/* Drawn C1: the offer band runs the full width of the window, the closing
+   call sits on the page with only a rule above it, and the questions sit
+   beside their heading on a wide screen. */
+.cloud-landing section.lp-offer { padding-inline: 0; box-shadow: 0 0 0 100vmax #1c2320; clip-path: inset(0 -100vmax); }
+.cloud-landing .lp-close { background: none; border: 0; border-block-start: 1px solid var(--line-strong); padding-block: 64px 24px; }
+@media (min-width: 1024px) {
+  .cloud-landing #faq { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); column-gap: 48px; align-items: start; }
+  .cloud-landing #faq .lp-faq { max-width: none; }
+}
 .cloud-landing .plans-band { margin-block-start: 0; }
 .cloud-landing .plan-name { font-size: 20px; }
 .cloud-landing .lp-faq { border-block-end: 1px solid var(--line-strong); max-width: 760px; }
 .cloud-landing .lp-faq:first-of-type { border-block-start: 1px solid var(--line-strong); }
-.cloud-landing .lp-faq summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; padding-block: 10px; cursor: pointer; list-style: none; font: 500 16px/1.4 var(--sans); }
+.cloud-landing .lp-faq summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 52px; padding-block: 10px; cursor: pointer; list-style: none; font: 400 18px/1.4 var(--serif); }
 .cloud-landing .lp-faq summary::-webkit-details-marker { display: none; }
 .cloud-landing .lp-faq summary::after { content: "+"; font: 400 22px/1 var(--mono); color: var(--accent); }
 .cloud-landing .lp-faq[open] summary::after { content: "\2212"; }
@@ -2111,12 +2124,14 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 /* Search: filter rail beside the results, active-filter chips, start page.
  * No scripting needed. On a phone the rail is a sheet opened by the
  * Filters link (:target), the same pattern as the mobile Menu. */
-.page.page-search { max-width: 1040px; }
-.page-search { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 32px; }
+.page.page-search { max-width: 1120px; }
+.page-search { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 52px; }
 .page-search > .page-head, .page-search > .search-form, .page-search > #search-results { grid-column: 1 / -1; }
 .search-rail .refine-grid { grid-template-columns: 1fr; }
+#search-results > .section-label { margin: 0 0 16px; font: 400 28px/1.2 var(--serif); letter-spacing: 0; text-transform: none; color: var(--ink); }
 .search-rail .rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.search-rail .rail-head h2 { font: 600 16px var(--sans); margin: 0; }
+.search-rail .rail-head h2 { font: 400 24px/1.2 var(--serif); margin: 0; }
+.search-rail .rail-head { padding-block-end: 12px; border-block-end: 1px solid var(--line); }
 .search-rail .rail-apply { margin-block: 14px; width: 100%; min-height: 44px; }
 .rail-open, .rail-close { font: 500 14px var(--sans); }
 .rail-open { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; margin-block-start: 8px; }
@@ -2125,16 +2140,15 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
   .search-rail:target { display: block; position: fixed; inset: 0; z-index: 40; overflow-y: auto; background: var(--bg, var(--surface)); padding: 16px; }
 }
 @media (min-width: 860px) {
-  .page-search { grid-template-columns: 280px minmax(0, 1fr); }
+  .page-search { grid-template-columns: 260px minmax(0, 1fr); }
   .page-search > .search-form { display: contents; }
   .page-search > .search-form > :not(.search-rail):not(.rail-open) { grid-column: 1 / -1; }
-  .page-search > .search-form > .search-rail { grid-column: 1; align-self: start; border: 1px solid var(--line); background: var(--surface); padding: 14px 16px; }
+  .page-search > .search-form > .search-rail { grid-column: 1; align-self: start; }
   .page-search > #search-results { grid-column: 2; }
   .rail-open, .rail-close { display: none; }
 }
 .chip-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); font: 500 14px var(--sans); }
-.chip-exclude { border-style: dashed; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 2px 8px 2px 12px; border: 1px solid var(--line-strong); border-radius: 0; background: var(--surface); font: 400 13.5px var(--sans); }
 .chip-kind { color: var(--ink-2); }
 .chip a { color: var(--ink); }
 .chip-x { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
@@ -2166,6 +2180,9 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .home-todo li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-block-end: 1px solid var(--line); }
 .home-todo .home-n { min-width: 44px; font-size: 28px; color: var(--accent); }
 .home-todo .home-label { flex: 1; font-size: 15px; }
+/* Each waiting row's one action is the filled button (drawn A1). */
+.home-todo .btn { background: var(--btn); border-color: var(--btn); color: var(--btn-ink); font-weight: 500; }
+.home-todo .btn:hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
 .home-total { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; background: var(--accent); color: var(--on-accent); font: 600 14px/1.5 var(--sans); vertical-align: middle; }
 .home-new { margin-block: 12px 28px; font: 15px/1.5 var(--sans); }
 .home-n-small { font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -2360,8 +2377,8 @@ body:has(.reader) .site-foot { display: none; }
   }
   .nav-browse > summary::after { content: ""; width: 6px; height: 6px; margin-inline-start: 8px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translateY(-2px); }
   .hd2 .site-nav > a:hover, .hd2 .site-nav summary:hover, .nav-browse[open] > summary { color: var(--accent); }
-  .hd2 .nav-search { display: flex; align-items: center; gap: 8px; flex: 0 10 340px; min-width: 160px; margin-inline-start: auto; margin-inline-end: 6px; padding: 0 12px; border: 1px solid var(--field-line); background: var(--surface); color: var(--muted); }
-  .hd2 .nav-search input { flex: 1; min-width: 0; min-height: 40px; border: 0; background: transparent; color: var(--ink); font: 14px var(--sans); }
+  .hd2 .nav-search { display: flex; align-items: center; gap: 10px; flex: 0 10 340px; min-width: 160px; margin-inline-start: auto; margin-inline-end: 6px; padding: 0 8px 0 12px; border: 1px solid var(--field-line); background: var(--surface); color: var(--muted); }
+  .hd2 .nav-search input { flex: 1; min-width: 0; min-height: 38px; padding: 0; border: 0; background: transparent; color: var(--ink); font: 14px var(--sans); }
   .hd2 .nav-search:focus-within { border-color: var(--accent); }
   .hd2 .nav-kbd { display: none; padding: 1px 6px; border: 1px solid var(--line-strong); font: 12px var(--mono); color: var(--muted); }
   .js .nav-kbd { display: inline-block; }

@@ -161,15 +161,19 @@ $themes = $arr($ed['themes'] ?? []);
 
 <?php if ($arr($faq['items'] ?? []) !== []): ?>
   <section class="lp-band" id="faq" aria-labelledby="lp-faq-h">
+    <div class="lp-faq-head">
     <p class="lp-label"><?= $this->e($str($faq['label'] ?? '')) ?></p>
     <h2 id="lp-faq-h"><?= $this->e($str($faq['h2'] ?? '')) ?></h2>
     <p class="lp-lead"><?= $this->e($str($faq['sub'] ?? '')) ?></p>
+    </div>
+    <div class="lp-faq-list">
 <?php foreach ($arr($faq['items']) as $qa): $qa = $arr($qa); ?>
     <details class="lp-faq">
       <summary><?= $this->e($str($qa[0] ?? '')) ?></summary>
       <p><?= $this->e($str($qa[1] ?? '')) ?></p>
     </details>
 <?php endforeach; ?>
+    </div>
   </section>
 <?php endif; ?>
 
