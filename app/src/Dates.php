@@ -31,6 +31,27 @@ final class Dates
         return $out;
     }
 
+    /** How long a stamp is from now, in its largest whole unit ("2 days", "6 hours"). A blank or junk stamp reads as ''. */
+    public static function span(?string $stamp, ?int $now = null): string
+    {
+        $t = $stamp === null || trim($stamp) === '' ? false : strtotime($stamp);
+        if ($t === false) return '';
+        $s = max(0, ($now ?? time()) - $t);
+        foreach ([['day', 86400], ['hour', 3600], ['minute', 60]] as [$unit, $size]) {
+            $n = intdiv($s, $size);
+            if ($n >= 1) return Lang::t('dates.span_' . $unit . ($n === 1 ? '_one' : ''), ['n' => $n]);
+        }
+        return Lang::t('dates.span_now');
+    }
+
+    /** The same, as something that already happened: "6 hours ago", or "just now" inside a minute. */
+    public static function ago(?string $stamp, ?int $now = null): string
+    {
+        $span = self::span($stamp, $now);
+        if ($span === '') return '';
+        return $span === Lang::t('dates.span_now') ? Lang::t('dates.just_now') : Lang::t('dates.ago', ['span' => $span]);
+    }
+
     /** Only the time of day, in the owner's 12 or 24 hour style. */
     public static function time(?string $stamp): string
     {
