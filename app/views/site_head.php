@@ -13,7 +13,7 @@ $inbox = $member ? \App\SessionGuard::unreadNotifications() + (\App\Features::on
 $penname = $member ? \App\SessionGuard::penname() : '';
 $initial = $penname !== '' ? mb_strtoupper(mb_substr($penname, 0, 1)) : '•';
 ?>
-  <header class="site-head hd2">
+  <header class="site-head hd2" data-js-module="sitehead">
     <a class="brand" href="/"><?= $this->e(\App\SiteName::get()) ?></a>
     <?php if (($tagline = \App\Settings::get('slogan')) !== ''): ?><span class="tagline"><?= $this->e($tagline) ?></span><?php endif; ?>
     <nav class="site-nav" aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">

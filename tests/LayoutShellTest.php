@@ -77,7 +77,7 @@ final class LayoutShellTest extends TestCase
     public function test_header_renders_brand_nav_search_link_and_menu_control(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertStringContainsString('<header class="site-head hd2">', $body);
+        $this->assertStringContainsString('<header class="site-head hd2" data-js-module="sitehead">', $body);
         $this->assertStringContainsString('<a class="brand" href="/">Kiption</a>', $body);
         // Browse is a native <details> panel, so it opens with scripting off.
         $this->assertStringContainsString('<details class="nav-browse" name="site-menus">', $body);
