@@ -41,6 +41,10 @@ html[data-theme="night"]{
    hairline does not reach. Derived from each theme's own ink and bg, so
    sepia, night, the skins and an owner Look all get a matching edge. */
 :root{ --field-line:color-mix(in srgb, var(--ink) 55%, var(--bg)); }
+/* The vendored Epigraph editor ships paper colors and switches only on the
+   OS setting, so a Night or Sepia choice left dark ink on a dark page. Hand
+   it the site's tokens instead; the higher specificity beats its own block. */
+:root .epigraph{ --ink:inherit; --bg:inherit; --muted:inherit; --accent:inherit; --line:var(--field-line); width:100%; }
 
 /* Component layer (C6). Every rule reads the token blocks above; class
    names are the pre-redesign vocabulary so screens not yet redesigned
