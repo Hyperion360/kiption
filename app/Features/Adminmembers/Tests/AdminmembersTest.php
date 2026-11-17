@@ -186,7 +186,9 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('name="stories" value="move"', $body);
         $this->assertStringContainsString('name="stories" value="remove"', $body);
         $this->assertStringContainsString('name="penname"', $body);
-        $this->assertStringContainsString('Stories by this member: 1', $body);
+        $this->assertStringContainsString('<dt>Stories</dt><dd>1</dd>', $body, 'the facts come first');
+        $this->assertStringContainsString('<dt>Email</dt><dd>leaving-member@e.test</dd>', $body);
+        $this->assertStringContainsString('href="/adminmembers">Cancel</a>', $body);
     }
 
     public function test_delete_and_keep_moves_the_stories_to_another_member(): void

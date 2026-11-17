@@ -2057,3 +2057,17 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .member-menu-list .member-delete { color: var(--accent); }
 .member-menu-list button:hover, .member-menu-list a:hover { background: var(--hover); }
 @media (min-width: 900px) { .member-menu[open] .member-menu-list { position: absolute; inset-inline-end: 0; z-index: 5; box-shadow: 0 8px 24px -8px var(--scrim); } }
+
+/* Admin redesign, delete a member: a panel with the facts first and the danger button last. */
+.member-delete-panel { max-width: 560px; padding: 24px; border: 1px solid var(--line-strong); background: var(--surface); }
+.member-delete-panel h1 { margin-block-start: 0; }
+.delete-facts { margin: 0 0 16px; border-block-start: 1px solid var(--line); }
+.delete-facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-block-end: 1px solid var(--line); font: 15px/1.4 var(--sans); }
+.delete-facts dt { color: var(--muted); }
+.delete-facts dd { margin: 0; text-align: end; overflow-wrap: anywhere; }
+.delete-warning { color: var(--danger); }
+.member-delete-panel fieldset { margin-block: 16px; padding: 12px 14px; border: 1px solid var(--line); }
+.member-delete-panel .delete-choice, .member-delete-panel .delete-heir { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.member-delete-panel .delete-heir { padding-inline-start: 26px; }
+.delete-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.delete-actions .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); }
