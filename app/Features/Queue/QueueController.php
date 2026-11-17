@@ -12,6 +12,10 @@ final class QueueController
         private Session $session, private App $app, private \App\MailGuard $mailer,
     ) {}
 
+    /** The ready-made reasons the in-place Remove offers. The page posts the
+     *  key; the words come from the language file here, never from the form. */
+    public const PRESETS = ['policy', 'content', 'spam', 'quality'];
+
     #[AuthAttr]
     public function index(): Response|string
     {
@@ -21,6 +25,8 @@ final class QueueController
             if ($r['k'] === '0gate') { $moderator = $r; break; }
         }
         if ($moderator === null) return new Response(\App\Lang::t('error.forbidden'), 403);
+        // The admin sidebar and phone tab carry what this page already counted.
+        \App\AdminNav::waiting(['/queue' => count($rows) - 1]);
         return $this->view->render('queue/index', [
             'title' => \App\Lang::t('queue.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('queue.heading'))->withCanonical('/queue')->withNoindex(),
@@ -29,6 +35,9 @@ final class QueueController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,
+            'tab' => (string) ($this->request->get['tab'] ?? ''),
+            'item' => (int) ($this->request->get['item'] ?? 0),
+            'presets' => self::PRESETS,
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
             // the gate row already carries the viewer's role (c): the layout's
@@ -114,6 +123,10 @@ final class QueueController
     private function reason(string $defaultKey): string
     {
         $reason = trim($this->request->postStr('reason'));
+        if ($reason === '') {
+            $preset = $this->request->postStr('reason_preset');
+            if (in_array($preset, self::PRESETS, true)) $reason = \App\Lang::t('queue.preset_' . $preset);
+        }
         return $reason !== '' ? $reason : \App\Lang::t($defaultKey);
     }
 

@@ -155,8 +155,9 @@ final class QueueDecisionMailTest extends TestCase
     {
         $id = $this->applicant();
         $this->pendingStory();
-        $body = $this->client($this->moderatorId)->get('/queue')->body;
-        $this->assertSame(2, substr_count($body, 'name="reason"'), 'one reason box on the story, one on the member');
+        $c = $this->client($this->moderatorId);
+        $this->assertSame(1, substr_count($c->get('/queue', ['tab' => 'stories'])->body, 'name="reason"'), 'a reason box on the story');
+        $this->assertSame(1, substr_count($c->get('/queue', ['tab' => 'members'])->body, 'name="reason"'), 'a reason box on the member');
         $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/approve');
         $this->assertSame('', $this->mail());
     }
@@ -249,5 +250,18 @@ final class QueueDecisionMailTest extends TestCase
         $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/approve');
         $this->assertSame('2020-01-01T00:00:00Z', $this->db->one('SELECT approved_at FROM users WHERE id = ?', [$id])['approved_at']);
         $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) c FROM activity_log WHERE action = 'queue.member_approve'")['c'], 'a no-op approve logs nothing');
+    }
+
+    public function test_a_chosen_preset_reason_is_mailed_in_the_languages_words_and_typed_text_wins(): void
+    {
+        $sid = $this->pendingStory();
+        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/remove', ['confirmed' => '1', 'reason_preset' => 'spam']);
+        $this->assertStringContainsString(\App\Lang::t('queue.preset_spam'), $this->mail());
+        $sid = $this->pendingStory('pending-two');
+        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/remove', ['confirmed' => '1', 'reason_preset' => 'spam', 'reason' => 'Own words here']);
+        $this->assertStringContainsString('Own words here', $this->mail());
+        $sid = $this->pendingStory('pending-three');
+        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/remove', ['confirmed' => '1', 'reason_preset' => '<script>']);
+        $this->assertStringContainsString(\App\Lang::t('queue.default_story_reason'), $this->mail(), 'an unknown preset key is ignored, never echoed');
     }
 }

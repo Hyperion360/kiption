@@ -30,21 +30,40 @@ final class AdminmembersController
     #[AuthAttr]
     public function index(): Response|string
     {
-        $gate = Adminness::requireAdmin($this->db, $this->session);
-        if ($gate instanceof Response) return $gate;
+        $refused = Adminness::adminFromSession($this->db, $this->session);
+        if ($refused !== null) return $refused;
         [$perPage, $offset] = $this->paginate();
         $q = trim((string) ($this->request->get['q'] ?? ''));
-        // COALESCE keeps penname-less accounts on the unfiltered roster (an
-        // operator must see every account); a prefix then excludes them.
-        // Wildcards in the prefix are escaped (the SearchRepository idiom).
+        $filter = (string) ($this->request->get['filter'] ?? '');
+        if (!isset(self::FILTERS[$filter])) $filter = 'all';
+        // A prefix on the pen name or the email. COALESCE keeps penname-less
+        // accounts on the unfiltered roster (an operator must see every
+        // account). Wildcards in the prefix are escaped (the SearchRepository idiom).
         $pattern = ($q === '' ? '' : str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $q)) . '%';
-        $rows = $this->db->all(
-            "SELECT id, penname, email, role, is_locked, approved_at, email_verified_at, profile_slug,
-                    (SELECT COUNT(*) FROM stories s WHERE s.author_id = users.id AND s.deleted_at IS NULL) AS stories,
-                    (SELECT COUNT(*) FROM reports r JOIN stories s ON s.id = r.story_id WHERE s.author_id = users.id AND r.resolved_at IS NULL) AS open_reports,
-                    (SELECT MAX(a.created_at) FROM activity_log a WHERE a.actor_id = users.id AND a.action IN ('auth.signin', 'auth.link_used')) AS last_signin
-             FROM users WHERE COALESCE(penname, '') LIKE ? ESCAPE '\\' ORDER BY penname COLLATE NOCASE, id LIMIT ? OFFSET ?",
-            [$pattern, $perPage, $offset]);
+        $where = "(COALESCE(penname, '') LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\') AND " . self::FILTERS[$filter];
+        // One statement: the counts row (k = 'c') comes first, then the page of
+        // members (k = 'm'). The counts row reuses the member columns: id is the
+        // total for this search and filter, then penname, email, role,
+        // is_locked, approved_at and email_verified_at carry the counts for
+        // all, members, moderators, admins, locked and waiting.
+        $all = $this->db->all(
+            "SELECT 'c' AS k, (SELECT COUNT(*) FROM users WHERE {$where}) AS id, (SELECT COUNT(*) FROM users) AS penname,
+                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['member'] . ") AS email,
+                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['moderator'] . ") AS role,
+                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['admin'] . ") AS is_locked,
+                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['locked'] . ") AS approved_at,
+                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['waiting'] . ") AS email_verified_at,
+                    NULL AS profile_slug, NULL AS stories, NULL AS open_reports, NULL AS last_signin
+             UNION ALL
+             SELECT * FROM (SELECT 'm', id, penname, email, role, is_locked, approved_at, email_verified_at, profile_slug,
+                    (SELECT COUNT(*) FROM stories s WHERE s.author_id = users.id AND s.deleted_at IS NULL),
+                    (SELECT COUNT(*) FROM reports r JOIN stories s ON s.id = r.story_id WHERE s.author_id = users.id AND r.resolved_at IS NULL),
+                    (SELECT MAX(a.created_at) FROM activity_log a WHERE a.actor_id = users.id AND a.action IN ('auth.signin', 'auth.link_used'))
+             FROM users WHERE {$where} ORDER BY penname COLLATE NOCASE, id LIMIT ? OFFSET ?)",
+            [$pattern, $pattern, $pattern, $pattern, $perPage, $offset]);
+        $counts = array_shift($all);
+        $rows = $all;
+        $total = (int) $counts['id'];
         return $this->view->render('adminmembers/index', [
             'title' => \App\Lang::t('adminmembers.heading'),
             'head' => $this->head()->withTitle(\App\Lang::t('adminmembers.heading'))->withCanonical('/adminmembers')->withNoindex(),
@@ -53,7 +72,14 @@ final class AdminmembersController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'rows' => $rows,
-            'hasMore' => count($rows) === $perPage,
+            'total' => $total,
+            'perPage' => $perPage,
+            'filter' => $filter,
+            'filters' => [
+                'all' => (int) $counts['penname'], 'member' => (int) $counts['email'], 'moderator' => (int) $counts['role'],
+                'admin' => (int) $counts['is_locked'], 'locked' => (int) $counts['approved_at'], 'waiting' => (int) $counts['email_verified_at'],
+            ],
+            'hasMore' => $offset + count($rows) < $total,
             'roles' => Adminness::ROLES,
             'q' => $q,
             'page' => $this->page(),
@@ -62,6 +88,25 @@ final class AdminmembersController
             'loggedIn' => true,
             'isAdmin' => true, // the gate above already proved it
         ]);
+    }
+
+    /** The roster's filters: the SQL each one adds, and the counts the tabs
+     *  show. Fixed text, never built from the request. */
+    private const FILTERS = [
+        'all' => '1 = 1',
+        'member' => "role = 'member'",
+        'moderator' => "role = 'moderator'",
+        'admin' => "role = 'admin'",
+        'locked' => 'is_locked = 1',
+        'waiting' => 'approved_at IS NULL AND email_verified_at IS NOT NULL AND is_locked = 0',
+    ];
+
+    /** The role select's form: the same write as the per-role links, with the
+     *  role read from the form. One path (role) does every check. */
+    #[AuthAttr] #[Post]
+    public function setrole(string $id): Response
+    {
+        return $this->role($id, $this->request->postStr('role'));
     }
 
     /** The ONLY role write path: validate against the enum BEFORE dispatch so

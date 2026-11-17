@@ -164,7 +164,7 @@ final class QueryBudgetTest extends TestCase
 
     public static function authPages(): array
     {
-        return [['/manage'], ['/story/new'], ['/story/edit/the-rabbit-hole'],
+        return [['/manage'], ['/adminmembers'], ['/story/new'], ['/story/edit/the-rabbit-hole'],
                 ['/chapter/new/the-rabbit-hole'], ['/chapter/edit/the-rabbit-hole/2'],
                 // C4: the member story view runs the progress-folded statement
                 // (reading_history LEFT JOIN + the pct/minutes columns); the
@@ -203,7 +203,7 @@ final class QueryBudgetTest extends TestCase
             $demoId = (int) $db->one('SELECT id FROM users WHERE email = ?', ['demo@example.test'])['id'];
             \App\Adminness::setRole($db, $demoId, 'moderator');
         }
-        if ($page === '/manage') { // the admin home: gate, counts and recent activity in one statement
+        if ($page === '/manage' || $page === '/adminmembers') { // the admin home and the member roster: gate, counts and recent activity in one statement
             $demoId = (int) $db->one('SELECT id FROM users WHERE email = ?', ['demo@example.test'])['id'];
             \App\Adminness::setRole($db, $demoId, 'admin');
         }

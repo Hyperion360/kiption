@@ -78,13 +78,22 @@ final class AdminShellTest extends TestCase
         $body = $this->client($this->adminId)->get('/tags')->body;
         $this->assertStringContainsString('<nav id="admin-nav" class="admin-nav"', $body);
         foreach (['manage.group_stories', 'manage.group_pages', 'manage.group_members', 'manage.group_look', 'manage.group_settings', 'manage.group_advanced'] as $group) {
-            $this->assertStringContainsString('>' . Lang::t($group) . '</p>', $body, $group);
+            $this->assertStringContainsString('<span>' . Lang::t($group) . '</span>', $body, $group);
         }
         foreach (array_column(\App\Features\Manage\ManageController::LINKS, 1) as $url) {
             $this->assertStringContainsString('<li><a href="' . $url . '"', $body, $url);
         }
         $this->assertStringContainsString('<li><a href="/tags" aria-current="page">', $body);
         $this->assertSame(1, substr_count($body, 'aria-current="page"'), 'one current screen, and Tags is not a phone tab');
+    }
+
+    public function test_the_sidebar_groups_fold_with_only_the_current_one_open_and_every_link_still_in_the_page(): void
+    {
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        $this->assertSame(1, substr_count($body, '<details class="admin-nav-section" open>'));
+        $this->assertSame(6, substr_count($body, '<details class="admin-nav-section"'));
+        $this->assertMatchesRegularExpression('#<details class="admin-nav-section" open>\s*<summary[^>]*><span>' . preg_quote(Lang::t('manage.group_members'), '#') . '</span>#', $body);
+        $this->assertStringContainsString('<li><a href="/tags"', $body, 'a folded group still holds its links, so scripting off loses nothing');
     }
 
     public function test_a_sub_screen_marks_the_list_it_belongs_to(): void
@@ -136,7 +145,9 @@ final class AdminShellTest extends TestCase
         \App\ActivityLog::record($this->db, $this->adminId, 'settings.save', 'site_name');
         $body = $this->client($this->adminId)->get('/manage')->body;
         $this->assertStringContainsString(Lang::t('manage.now_waiting'), $body);
-        $this->assertStringContainsString('<a href="/queue" class="is-urgent"><span class="home-n">1</span> <span class="home-label">' . Lang::t('manage.wait_member') . '</span>', $body);
+        $this->assertStringContainsString('<span class="home-n">1</span> <span class="home-label">' . Lang::t('manage.wait_member') . '</span> <a class="btn" href="/queue?tab=members">' . Lang::t('manage.cta_approve') . '</a>', $body);
+        $this->assertStringContainsString('<span class="admin-nav-count">1</span>', $body, 'the sidebar Queue link carries the same count, with no extra query');
+        $this->assertStringContainsString('<span class="tab-count">', $body);
         $this->assertStringContainsString(Lang::t('activity.a.settings.save') . ': site_name', $body);
         $this->assertStringContainsString('<a href="/activity">', $body);
     }

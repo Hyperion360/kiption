@@ -613,25 +613,27 @@ final class AuthoringRepository
      *  never cut it (a missing gate row reads as non-moderator = 403).
      *  No 'gate' row in the result = caller is not a moderator (403).
      *  Story and chapter rows carry what is known about the author in f:
-     *  joined|stories posted|removed while waiting|reports on their stories. */
+     *  joined|stories posted|removed while waiting|reports on their stories.
+     *  g is the opening the decision reads (a story's summary, a chapter's
+     *  first lines) and h its word count; both ride the same statement. */
     public function queueRows(int $userId): array
     {
         return $this->db->all(
-            "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e, NULL AS f
+            "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h
              FROM users u WHERE u.id = ? AND u.role IN ('moderator', 'admin')
              UNION ALL
-             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, " . self::AUTHOR_FACTS . "
+             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, " . self::AUTHOR_FACTS . ", substr(s.summary, 1, 600), s.word_count
              FROM stories s JOIN users au ON au.id = s.author_id
              WHERE " . self::WAITING_STORY . "
              UNION ALL
-             SELECT 'chapter', ch.id, ch.title, s.slug, au.penname, ch.updated_at, " . self::AUTHOR_FACTS . "
+             SELECT 'chapter', ch.id, ch.title, s.slug, au.penname, ch.updated_at, " . self::AUTHOR_FACTS . ", substr(ch.content, 1, 600), ch.word_count
              FROM chapters ch JOIN stories s ON s.id = ch.story_id JOIN users au ON au.id = s.author_id
              WHERE " . self::WAITING_CHAPTER . "
              UNION ALL
-             SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at, NULL
+             SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at, NULL, NULL, NULL
              FROM users us WHERE " . self::WAITING_MEMBER . "
              UNION ALL
-             SELECT 'report', rp.id, rp.reason, COALESCE(st.slug, ''), (SELECT body FROM reviews rb WHERE rb.id = rp.review_id), rp.created_at, NULL
+             SELECT 'report', rp.id, rp.reason, COALESCE(st.slug, ''), (SELECT body FROM reviews rb WHERE rb.id = rp.review_id), rp.created_at, NULL, NULL, NULL
              FROM reports rp LEFT JOIN stories st ON st.id = rp.story_id
              WHERE rp.resolved_at IS NULL
              ORDER BY k, e LIMIT 151", [$userId]);

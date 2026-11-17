@@ -11,7 +11,7 @@ $icons = [
 ]; ?>
 <nav class="admin-tabs" aria-label="<?= $this->e(\App\Lang::t('manage.tabs_label')) ?>">
   <?php foreach ($admin['tabs'] as $t): ?>
-  <a href="<?= $this->e($t['url']) ?>"<?= $t['current'] ? ' aria-current="page"' : '' ?>><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><?= $icons[$t['icon']] ?></svg><span><?= \App\Lang::t($t['label']) ?></span></a>
+  <a href="<?= $this->e($t['url']) ?>"<?= $t['current'] ? ' aria-current="page"' : '' ?>><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><?= $icons[$t['icon']] ?></svg><span><?= \App\Lang::t($t['label']) ?></span><?php if ($t['count'] > 0): ?><span class="tab-count"><span class="visually-hidden"><?= $this->e(\App\Lang::t('manage.waiting_inside')) ?> </span><?= (int) $t['count'] ?></span><?php endif; ?></a>
   <?php endforeach; ?>
   <a href="#admin-nav"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><?= $icons['menu'] ?></svg><span><?= \App\Lang::t('manage.tab_menu') ?></span></a>
 </nav>

@@ -4,7 +4,9 @@
  * Enter opens the first match. Pressing / (outside a field) or Ctrl+K or
  * Cmd+K from anywhere on an admin screen jumps to the box; on a phone that
  * opens the sheet first. Escape clears it and steps back out. With
- * scripting off the box stays hidden and the full list is simply there. */
+ * scripting off the box stays hidden and the full list is simply there. Groups
+ * are details elements: only the current one starts open, and a search opens
+ * every group that has a match. */
 'use strict';
 (function (Kip) {
   if (!Kip) { return; }
@@ -20,17 +22,25 @@
     function shown() {
       return Array.prototype.filter.call(nav.querySelectorAll('li'), function (li) { return !li.hidden; });
     }
+    /* A folded group's badge only matters while it is folded. */
+    /* Folded groups open while a search runs, and fold back to how the page
+       had them when the box empties. */
+    var sections = Array.prototype.slice.call(nav.querySelectorAll('details.admin-nav-section'));
+    var wasOpen = sections.map(function (d) { return d.open; });
+    var searching = false;
     box.addEventListener('input', function () {
       var q = box.value.trim().toLowerCase();
-      Array.prototype.forEach.call(nav.querySelectorAll('ul'), function (ul) {
+      if (q !== '' && !searching) { wasOpen = sections.map(function (d) { return d.open; }); }
+      Array.prototype.forEach.call(nav.querySelectorAll('details.admin-nav-section'), function (d, i) {
         var any = false;
-        Array.prototype.forEach.call(ul.children, function (li) {
+        Array.prototype.forEach.call(d.querySelectorAll('li'), function (li) {
           li.hidden = q !== '' && li.textContent.toLowerCase().indexOf(q) === -1;
           any = any || !li.hidden;
         });
-        ul.hidden = !any;
-        if (ul.previousElementSibling) { ul.previousElementSibling.hidden = !any; }
+        d.hidden = q !== '' && !any;
+        d.open = q !== '' ? any : wasOpen[i];
       });
+      searching = q !== '';
       if (none) { none.hidden = shown().length > 0; }
     });
     if (box.getAttribute('data-hint')) { box.placeholder = box.getAttribute('data-hint'); }

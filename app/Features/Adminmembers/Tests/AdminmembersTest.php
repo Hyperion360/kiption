@@ -96,8 +96,8 @@ final class AdminmembersTest extends TestCase
     public function test_roster_shows_role_names_people_can_read(): void
     {
         $body = $this->client($this->adminId)->get('/adminmembers')->body;
-        $this->assertStringContainsString('>Make trusted author</button>', $body);
-        $this->assertStringContainsString('>Moderator</span>', $body);
+        $this->assertStringContainsString('>Trusted author</option>', $body, 'the role select names roles in words');
+        $this->assertStringContainsString('>Moderator</option>', $body);
         $this->assertStringNotContainsString('>validated_author<', $body, 'role codes never reach the page');
         $this->assertStringNotContainsString('>moderator<', $body);
     }
@@ -107,7 +107,8 @@ final class AdminmembersTest extends TestCase
         $body = $this->client($this->adminId)->get('/adminmembers')->body;
         $this->assertStringNotContainsString('action="/adminmembers/role/' . $this->adminId . '/', $body, 'no role form on your own row');
         $this->assertStringContainsString('>Admin</span>', $body, 'your role still shows');
-        $this->assertStringContainsString('action="/adminmembers/role/' . $this->targetId . '/moderator"', $body, 'other rows keep theirs');
+        $this->assertStringNotContainsString('action="/adminmembers/setrole/' . $this->adminId . '"', $body);
+        $this->assertStringContainsString('action="/adminmembers/setrole/' . $this->targetId . '"', $body, 'other rows keep theirs');
         // The page only stops offering it; the server rule is unchanged.
         \App\Adminness::setRole($this->db, $this->heirId, 'admin');
         $this->assertSame(302, $this->client($this->adminId)->postWithToken('/adminmembers/role/' . $this->adminId . '/member')->status);
@@ -186,7 +187,9 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('name="stories" value="move"', $body);
         $this->assertStringContainsString('name="stories" value="remove"', $body);
         $this->assertStringContainsString('name="penname"', $body);
-        $this->assertStringContainsString('Stories by this member: 1', $body);
+        $this->assertStringContainsString('<dt>Stories</dt><dd>1</dd>', $body, 'the facts come first');
+        $this->assertStringContainsString('<dt>Email</dt><dd>leaving-member@e.test</dd>', $body);
+        $this->assertStringContainsString('href="/adminmembers">Cancel</a>', $body);
     }
 
     public function test_delete_and_keep_moves_the_stories_to_another_member(): void
@@ -374,5 +377,50 @@ final class AdminmembersTest extends TestCase
         $this->assertFileExists($dir . '/ghost.png');
         $this->assertSame(302, $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->heirId, ['stories' => 'remove'])->status);
         $this->assertFileDoesNotExist($dir . '/ghost.png', 'the picture is scrubbed with the account');
+    }
+
+    public function test_the_role_select_posts_the_chosen_role_through_the_same_checks(): void
+    {
+        $c = $this->client($this->adminId);
+        $this->assertSame(302, $c->postWithToken('/adminmembers/setrole/' . $this->targetId, ['role' => 'moderator'])->status);
+        $this->assertSame('moderator', $this->db->one('SELECT role FROM users WHERE id = ?', [$this->targetId])['role']);
+        $this->assertSame(422, $c->postWithToken('/adminmembers/setrole/' . $this->targetId, ['role' => 'root'])->status, 'an unknown role is refused, never applied');
+        $this->assertSame(403, $this->client($this->moderatorId)->postWithToken('/adminmembers/setrole/' . $this->targetId, ['role' => 'admin'])->status, 'moderators still cannot mint admins');
+    }
+
+    public function test_filters_carry_counts_and_narrow_the_list_and_the_total(): void
+    {
+        $this->db->query("UPDATE users SET approved_at = NULL WHERE id = ?", [$this->heirId]);
+        $this->db->query("UPDATE users SET is_locked = 1 WHERE id = ?", [$this->targetId]);
+        $c = $this->client($this->adminId);
+        $body = $c->get('/adminmembers')->body;
+        $this->assertStringContainsString('Moderators <span class="queue-tab-n">1</span>', $body);
+        $this->assertStringContainsString('Locked <span class="queue-tab-n">1</span>', $body);
+        $this->assertStringContainsString('Waiting for Approval <span class="queue-tab-n">1</span>', $body);
+        $locked = $c->get('/adminmembers', ['filter' => 'locked'])->body;
+        $this->assertStringContainsString('leaving-member', $locked);
+        $this->assertStringNotContainsString('roster-mod@', $locked);
+        $this->assertStringContainsString('1 member', $locked, 'the total follows the filter');
+        $this->assertStringContainsString('<a href="/adminmembers?filter=locked" aria-current="page">', $locked);
+        $this->assertStringContainsString('roster-admin@', $c->get('/adminmembers', ['filter' => 'bogus'])->body, 'an unknown filter means everyone');
+    }
+
+    public function test_search_finds_a_member_by_the_start_of_their_email_and_keeps_the_filter(): void
+    {
+        $c = $this->client($this->adminId);
+        $body = $c->get('/adminmembers', ['q' => 'heir-member@'])->body;
+        $this->assertStringContainsString('heir-member@e.test', $body);
+        $this->assertStringNotContainsString('leaving-member@e.test', $body);
+        $this->assertStringContainsString('<input type="hidden" name="filter" value="member">', $c->get('/adminmembers', ['q' => 'heir', 'filter' => 'member'])->body);
+    }
+
+    public function test_each_account_shows_one_plain_status_word_and_a_menu_that_works_without_scripts(): void
+    {
+        $this->db->query("UPDATE users SET is_locked = 1 WHERE id = ?", [$this->targetId]);
+        $body = $this->client($this->adminId)->get('/adminmembers')->body;
+        $this->assertStringContainsString('<span class="member-status is-locked">Locked</span>', $body);
+        $this->assertStringContainsString('<span class="member-status is-active">Active</span>', $body);
+        $this->assertStringContainsString('<details class="member-menu">', $body);
+        $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->targetId . '"', $body, 'inside the menu, a plain form');
     }
 }
