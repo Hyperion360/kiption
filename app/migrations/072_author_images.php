@@ -1,4 +1,4 @@
-<?php // app/migrations/071_author_images.php
+<?php // app/migrations/072_author_images.php
 return new class extends Kip\Migrations\Migration {
     public function up(Kip\Database $db): void
     {
