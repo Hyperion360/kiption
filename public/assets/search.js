@@ -86,8 +86,15 @@
         form.querySelectorAll('[data-search-count]').forEach(function (el) {
           var n = counts[el.getAttribute('data-search-count')];
           if (!Number.isInteger(n) || n < 0) n = 0;
-          el.textContent = el.getAttribute('data-count-label') + ' (' + n + ')';
+          var label = el.getAttribute('data-count-label');
+          el.textContent = label === null ? String(n) : label + ' (' + n + ')';
         });
+        if (form.dispatchEvent && window.CustomEvent) form.dispatchEvent(new window.CustomEvent('kip:counts'));
+      }
+      function updateApply(total) {
+        var apply = form.querySelector('[data-show-many]');
+        if (!apply || !Number.isInteger(total) || total < 0) return;
+        apply.textContent = total === 1 ? apply.getAttribute('data-show-one') : apply.getAttribute('data-show-many').replace('{count}', String(total));
       }
       function schedule(e) {
         // The unnamed tag-picker search only filters local controls.
@@ -118,6 +125,7 @@
             results.innerHTML = data.html;
             suggestions(data.suggestions);
             updateCounts(data.counts);
+            updateApply(data.total);
             status.textContent = data.message;
           }).catch(function (error) {
             if (id !== serial || error.name === 'AbortError') return;
