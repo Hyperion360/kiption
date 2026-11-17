@@ -188,7 +188,7 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('name="stories" value="remove"', $body);
         $this->assertStringContainsString('name="penname"', $body);
         $this->assertStringContainsString('<h1>Delete leaving-member?</h1>', $body, 'the title names who is going');
-        $this->assertStringContainsString('leaving-member@e.test &middot; 1 story &middot; 0 open reports &middot; member since ', $body, 'the facts come first');
+        $this->assertStringContainsString('leaving-member@e.test · 1 story · 0 open reports · member since ', $body, 'the facts come first');
         $this->assertStringContainsString('What should happen to their 1 story?', $body);
         $this->assertStringContainsString('>Delete leaving-member</button>', $body, 'the button says what it deletes');
         $this->assertStringContainsString('href="/adminmembers">Cancel</a>', $body);

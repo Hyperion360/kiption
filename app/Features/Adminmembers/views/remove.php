@@ -9,7 +9,7 @@ $stories = (int) $member['stories'];
   <p class="delete-eyebrow"><?= \App\Lang::t('adminmembers.remove_heading') ?></p>
   <h1><?= \App\Lang::t('adminmembers.remove_title', ['name' => $this->e($name)]) ?></h1>
   <p class="delete-warning"><?= \App\Lang::t('adminmembers.remove_intro') ?></p>
-  <p class="delete-meta"><?= $this->e($member['email']) ?> &middot; <?= $count($stories, 'adminmembers.stories') ?> &middot; <?= $count((int) $member['open_reports'], 'adminmembers.open_reports') ?> &middot; <?= \App\Lang::t('adminmembers.since', ['date' => $this->e(\App\Dates::format($member['created_at']))]) ?></p>
+  <p class="delete-meta"><?= $this->e($member['email']) ?> · <?= $count($stories, 'adminmembers.stories') ?> · <?= $count((int) $member['open_reports'], 'adminmembers.open_reports') ?> · <?= \App\Lang::t('adminmembers.since', ['date' => $this->e(\App\Dates::format($member['created_at']))]) ?></p>
   <?php if (($error ?? null) !== null): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <form method="post" action="/adminmembers/destroy/<?= (int) $member['id'] ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">

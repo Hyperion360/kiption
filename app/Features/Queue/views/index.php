@@ -52,7 +52,7 @@
       <li><a href="/queue?tab=<?= $tab ?>&amp;item=<?= (int) $r['a'] ?>"<?= $on ? ' aria-current="true"' : '' ?>>
         <span class="queue-list-top"><strong><?= $this->e($name($r)) ?></strong><span class="queue-when"><?= $this->e(\App\Dates::ago((string) $r['e'])) ?></span></span>
         <?php if ($r['k'] === 'story' || $r['k'] === 'chapter'): ?>
-        <span class="queue-list-meta"><?= \App\Lang::t('story.by') ?> <strong><?= $this->e($r['d']) ?></strong><?php if ((int) $r['h'] > 0): ?> &middot; <?= \App\Lang::t('queue.words', ['n' => number_format((int) $r['h'])]) ?><?php endif; ?></span>
+        <span class="queue-list-meta"><?= \App\Lang::t('story.by') ?> <strong><?= $this->e($r['d']) ?></strong><?php if ((int) $r['h'] > 0): ?> · <?= \App\Lang::t('queue.words', ['n' => number_format((int) $r['h'])]) ?><?php endif; ?></span>
         <span class="queue-list-facts"><?php foreach ($about($r['f']) as [$fact, $warn]): ?><span<?= $warn ? ' class="ctx-warn"' : '' ?>><?= $fact ?></span> <?php endforeach; ?></span>
         <?php else: ?>
         <span class="queue-list-meta"><?= $this->e($r['c']) ?></span>

@@ -21,7 +21,7 @@ final class TextController
         'visitors' => ['home', 'browse', 'search', 'story', 'reader', 'series', 'top', 'feed', 'news', 'challenges', 'lists', 'user', 'review', 'report', 'contact', 'auth', 'nav', 'foot', 'theme', 'msg', 'maintenance', 'error', 'site', 'cloud'],
         'members' => ['account', 'chapter', 'writer', 'posting', 'messages', 'notifications', 'favorites', 'stats', 'mute', 'uploads', 'authorimages'],
         'admins' => ['manage', 'saved', 'adminmembers', 'queue', 'activity', 'analytics', 'settings', 'features', 'text', 'look', 'categories', 'ratings', 'characters', 'tagsadmin', 'tagqueue', 'wrangling', 'taxonomy', 'pages', 'page', 'navlinks', 'images', 'invites', 'signupcheck', 'profilefields', 'templates', 'mailusers', 'wordfilter', 'notice', 'admin'],
-        'shared' => ['common', 'form'],
+        'shared' => ['common', 'form', 'dates'],
     ];
 
     public function __construct(

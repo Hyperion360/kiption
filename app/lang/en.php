@@ -1906,6 +1906,7 @@ return [
     'text.group.notice' => 'Message and Text Errors',
     'text.group.admin' => 'Admin Error Messages',
     'text.group.common' => 'Shared Buttons and Words',
+    'text.group.dates' => 'Dates and Times',
     'text.group.form' => 'Shared Form Errors',
     'text.group_count' => '{changed} changed of {total}',
     'text.search_label' => 'Search the Text',
