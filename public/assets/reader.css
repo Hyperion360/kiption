@@ -36,6 +36,11 @@ html[data-theme="night"]{
     --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027; color-scheme:dark;
   }
 }
+/* Field borders. Form controls need a 3:1 edge against both the page and
+   the surface (WCAG non-text contrast), which the decorative --line-strong
+   hairline does not reach. Derived from each theme's own ink and bg, so
+   sepia, night, the skins and an owner Look all get a matching edge. */
+:root{ --field-line:color-mix(in srgb, var(--ink) 55%, var(--bg)); }
 
 /* Component layer (C6). Every rule reads the token blocks above; class
    names are the pre-redesign vocabulary so screens not yet redesigned
@@ -94,7 +99,7 @@ input, select, textarea { caret-color: var(--accent); }
 .nav-search { display: none; }
 .nav-search input {
   width: 300px; min-height: 40px; padding: 4px 10px;
-  border: 1px solid var(--line-strong); border-radius: 0;
+  border: 1px solid var(--field-line); border-radius: 0;
   background: var(--surface); color: var(--ink); font: 15px var(--sans);
 }
 .nav-menu-link {
@@ -290,7 +295,7 @@ label { display: block; margin-block-end: .5rem; font: 13px/1.5 var(--sans); col
 .form-aside { margin-block-start: 1.5rem; padding-block-start: 1.5rem; border-block-start: 1px solid var(--line); }
 input, select, textarea {
   min-height: 44px; padding: 6px 12px;
-  border: 1px solid var(--line-strong); border-radius: 0;
+  border: 1px solid var(--field-line); border-radius: 0;
   background: var(--surface); color: var(--ink); font: 16px var(--sans);
 }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
@@ -1682,7 +1687,7 @@ body.focus .site-head { display: none; }
 .admin-nav-home { display: flex; align-items: center; min-height: 44px; padding-inline: 12px; margin-inline: -12px; font: 600 16px/1.3 var(--sans); color: var(--ink); text-decoration: none; }
 .admin-nav-filter {
   width: 100%; min-height: 44px; margin-block: 8px 0; padding: 0 12px;
-  border: 1px solid var(--line-strong); border-radius: 0; background: var(--bg); color: var(--ink); font: 15px var(--sans);
+  border: 1px solid var(--field-line); border-radius: 0; background: var(--bg); color: var(--ink); font: 15px var(--sans);
 }
 .admin-nav-group, .admin-nav-none { margin: 20px 0 4px; font: 600 12px/1.5 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .admin-nav-none { letter-spacing: 0; text-transform: none; font-weight: 400; font-size: 14px; }
@@ -2281,7 +2286,7 @@ html:not([data-theme]) .theme-seg [value="auto"],
 /* Phone sheet pieces. */
 #menu .sheet-bar { display: flex; align-items: center; }
 #menu .sheet-title { font: 600 16px/1 var(--sans); margin: 0; }
-#menu .sheet-search { display: flex; align-items: center; gap: 8px; margin-block: 8px 4px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--bg); }
+#menu .sheet-search { display: flex; align-items: center; gap: 8px; margin-block: 8px 4px; padding: 0 12px; border: 1px solid var(--field-line); background: var(--bg); }
 #menu .sheet-search input { flex: 1; min-height: 44px; border: 0; background: transparent; color: var(--ink); font: 16px var(--sans); }
 #menu .sheet-join { margin-block: 12px 4px; padding: 16px; border: 1px solid var(--line-strong); background: var(--bg); }
 #menu .sheet-join p { margin: 0 0 12px; font: 14px/1.5 var(--sans); color: var(--ink-2); }
@@ -2328,7 +2333,7 @@ body:has(.reader) .site-foot { display: none; }
   }
   .nav-browse > summary::after { content: ""; width: 6px; height: 6px; margin-inline-start: 8px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translateY(-2px); }
   .hd2 .site-nav > a:hover, .hd2 .site-nav summary:hover, .nav-browse[open] > summary { color: var(--accent); }
-  .hd2 .nav-search { display: flex; align-items: center; gap: 8px; flex: 0 10 340px; min-width: 160px; margin-inline-start: auto; margin-inline-end: 6px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); }
+  .hd2 .nav-search { display: flex; align-items: center; gap: 8px; flex: 0 10 340px; min-width: 160px; margin-inline-start: auto; margin-inline-end: 6px; padding: 0 12px; border: 1px solid var(--field-line); background: var(--surface); color: var(--muted); }
   .hd2 .nav-search input { flex: 1; min-width: 0; min-height: 40px; border: 0; background: transparent; color: var(--ink); font: 14px var(--sans); }
   .hd2 .nav-search:focus-within { border-color: var(--accent); }
   .hd2 .nav-kbd { display: none; padding: 1px 6px; border: 1px solid var(--line-strong); font: 12px var(--mono); color: var(--muted); }
