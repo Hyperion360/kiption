@@ -15,10 +15,11 @@ $stories = (int) $member['stories'];
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
     <fieldset class="delete-choices">
       <legend><?= \App\Lang::t('adminmembers.remove_legend_n', ['stories' => $count($stories, 'adminmembers.stories')]) ?></legend>
-      <div class="delete-card">
+      <div class="delete-card" data-js-module="heir-lookup" data-heir-url="/adminmembers/heir?for=<?= (int) $member['id'] ?>">
         <label class="delete-choice"><input type="radio" name="stories" value="move" checked> <?= \App\Lang::t('adminmembers.remove_move') ?></label>
         <label class="delete-heir" for="delete-heir"><?= \App\Lang::t('adminmembers.remove_move_to') ?></label>
         <input id="delete-heir" name="penname" maxlength="100" autocomplete="off">
+        <span class="delete-found" data-heir-status aria-live="polite"></span>
         <span class="delete-note"><?= \App\Lang::t('adminmembers.remove_move_note') ?></span>
       </div>
       <div class="delete-card">

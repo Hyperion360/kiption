@@ -189,6 +189,33 @@ final class AdminmembersController
         return $this->removeForm($card, null);
     }
 
+    /** The live "Found X" line under the pen name field on the delete card.
+     *  One lookup on the pen name's unique index, with the same eligibility
+     *  the delete itself applies, so the line never promises what the
+     *  delete would refuse. Plain JSON; the page works without it. */
+    #[AuthAttr]
+    public function heir(): Response
+    {
+        $refused = Adminness::adminFromSession($this->db, $this->session);
+        if ($refused !== null) return $refused;
+        $name = trim((string) ($this->request->get['penname'] ?? ''));
+        $state = 'none';
+        $message = '';
+        $row = $name === '' ? null : $this->db->one(
+            'SELECT id, penname, role FROM users WHERE penname = ? COLLATE NOCASE AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL AND is_locked = 0',
+            [mb_substr($name, 0, 100)]);
+        if ($row !== null && (int) $row['id'] === (int) ($this->request->get['for'] ?? 0)) {
+            [$state, $message] = ['self', \App\Lang::t('adminmembers.heir_self')];
+        } elseif ($row !== null) {
+            [$state, $message] = ['found', \App\Lang::t('adminmembers.heir_found', ['name' => (string) $row['penname'], 'role' => \App\Lang::t('adminmembers.heir_role.' . $row['role'])])];
+        } elseif ($name !== '') {
+            $message = \App\Lang::t('adminmembers.heir_none');
+        }
+        return (new Response(json_encode(['state' => $state, 'message' => $message], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE), 200))
+            ->withHeader('Content-Type', 'application/json; charset=utf-8')
+            ->withHeader('Cache-Control', 'private, no-store')->withHeader('X-Robots-Tag', 'noindex');
+    }
+
     /** Delete a member. The account row is scrubbed and locked rather than
      *  dropped: the database would cascade-delete their stories, series and
      *  lists with the row, and a soft-deleted story should stay recoverable.

@@ -2335,6 +2335,9 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .member-delete-panel .delete-choice { display: flex; align-items: center; gap: 12px; min-height: 44px; font: 15px/1.4 var(--sans); }
 .member-delete-panel .delete-heir { padding-inline-start: 30px; color: var(--muted); font: 13px var(--sans); }
 .delete-card input[name="penname"] { margin-inline-start: 30px; min-height: 44px; max-width: calc(100% - 30px); box-sizing: border-box; }
+.delete-found { display: block; padding-inline-start: 30px; font: 600 13px/1.45 var(--sans); color: var(--accent); }
+.delete-found:empty { display: none; }
+.delete-found[data-state="problem"] { color: var(--danger); }
 .delete-note { padding-inline-start: 30px; color: var(--muted); font: 13px/1.45 var(--sans); }
 .delete-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; align-items: center; margin: 0; padding-block-start: 4px; }
 .delete-actions .btn, .delete-actions .btn-danger { min-height: 44px; padding-inline: 16px; }

@@ -39,9 +39,14 @@ final class QueueTest extends TestCase
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
-    private function clientAs(int $userId): TestClient
+    private function clientAs(int $userId, ?App $app = null): TestClient
     {
-        return (new TestClient(new App([
+        return (new TestClient($app ?? $this->app()))->actingAs($userId);
+    }
+
+    private function app(): App
+    {
+        return (new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
             'views' => dirname(__DIR__, 4) . '/app/views',
@@ -49,7 +54,7 @@ final class QueueTest extends TestCase
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-authoring-test.log', 'from' => 'noreply@kiption.test'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-        ])))->actingAs($userId);
+        ]));
     }
 
     /** The moderator choke point (Adminness::requireModerator) must validate
@@ -198,8 +203,9 @@ final class QueueTest extends TestCase
         $this->db->query('UPDATE stories SET updated_at = ?, completed = 0 WHERE id = ?', [date('c', time() - 2 * 86400 - 600), $this->pendingStoryId]);
         $this->db->query("UPDATE chapters SET title = 'The Ledger', content = 'The ledger was the only tidy thing.' WHERE id = ?", [$this->pendingChapterId]);
         $this->db->query("INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 2, 'Two', 'More.', 0, 1)", [$this->pendingStoryId]);
-        $c = $this->clientAs(1);
-        $db = $this->db;
+        $app = $this->app();
+        $c = $this->clientAs(1, $app);
+        $db = $app->container->make(Database::class);
         $queries = 0;
         \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return;
@@ -207,6 +213,7 @@ final class QueueTest extends TestCase
         });
         $body = $c->get('/queue')->body;
         \App\Tests\Support\QueryTap::off($db);
+        $this->assertSame(1, $queries, 'the tap really saw the content statement');
         $this->assertLessThanOrEqual(1, $queries, "the queue ran {$queries} content statements, budget is 1");
         $this->assertStringContainsString('New Story', $body);
         $this->assertStringContainsString('Sent 2 days ago', $body);
