@@ -26,6 +26,12 @@ final class MarketingPage
         )->withTitle((string) $row['title'])->withCanonical($path);
         $text = trim(html_entity_decode(strip_tags(\App\Markdown::render($body)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $head = $head->withDescription((string) preg_replace('/\s+/u', ' ', $text) ?: $text);
+        // A landing config may carry its own meta pair; the row's title and
+        // body stay the fallback so a page without one reads as before.
+        $marketing = $app->config('cloud_marketing', []);
+        $meta = is_array($marketing) && is_array($marketing['landing']['meta'] ?? null) ? $marketing['landing']['meta'] : [];
+        if (($meta['title'] ?? '') !== '') $head = $head->withTitle((string) $meta['title']);
+        if (($meta['description'] ?? '') !== '') $head = $head->withDescription((string) $meta['description']);
         $noindex = $body === '' || (int) ($row['noindex'] ?? 0) === 1;
         $data = [
             'title' => (string) $row['title'],
@@ -34,7 +40,7 @@ final class MarketingPage
             'request' => $request,
             'navFile' => (string) $app->config('nav_file', ''),
             'page' => ['slug' => $slug, 'title' => (string) $row['title'], 'body' => $body, 'updated_at' => (string) $row['updated_at']],
-            'marketing' => $app->config('cloud_marketing', []),
+            'marketing' => $marketing,
             'loggedIn' => \App\Viewer::id($request, $session, $db) !== 0,
         ];
         return $noindex
