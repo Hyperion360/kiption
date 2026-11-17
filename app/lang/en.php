@@ -854,6 +854,14 @@ return [
     'cloud.learn_more' => 'Learn More About Kiption Cloud',
     'page.last_updated' => 'Last updated {date}',
 
+    // How long ago something happened.
+    'dates.ago_minute' => '{n} minutes',
+    'dates.ago_minute_one' => '{n} minute',
+    'dates.ago_hour' => '{n} hours',
+    'dates.ago_hour_one' => '{n} hour',
+    'dates.ago_day' => '{n} days',
+    'dates.ago_day_one' => '{n} day',
+
     // The validation queue.
     'queue.heading' => 'Review Queue and Reports',
     'queue.intro' => 'New stories, chapters, and members wait here until you approve them. Reports from readers land here too.',

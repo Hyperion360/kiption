@@ -23,4 +23,18 @@ final class DatesTest extends TestCase
         $this->assertNotSame('', \App\Dates::time('2026-03-04 10:00:00'));
         $this->assertMatchesRegularExpression('/^\d{1,2}:\d{2}/', \App\Dates::time('2026-03-04 10:00:00'));
     }
+
+    public function test_ago_counts_minutes_hours_and_days_and_then_gives_the_date(): void
+    {
+        $now = strtotime('2026-11-17 12:00:00');
+        $this->assertSame('1 minute', \App\Dates::ago('2026-11-17 11:59:50', $now));
+        $this->assertSame('5 minutes', \App\Dates::ago('2026-11-17 11:55:00', $now));
+        $this->assertSame('1 hour', \App\Dates::ago('2026-11-17 10:30:00', $now));
+        $this->assertSame('5 hours', \App\Dates::ago('2026-11-17 07:00:00', $now));
+        $this->assertSame('1 day', \App\Dates::ago('2026-11-16 10:00:00', $now));
+        $this->assertSame('2 days', \App\Dates::ago('2026-11-15 11:00:00', $now));
+        $this->assertSame(\App\Dates::format('2026-08-01 00:00:00'), \App\Dates::ago('2026-08-01 00:00:00', $now));
+        $this->assertSame('', \App\Dates::ago('garbage', $now));
+        $this->assertSame('1 minute', \App\Dates::ago('2026-11-17 12:05:00', $now), 'a clock a little ahead never reads negative');
+    }
 }
