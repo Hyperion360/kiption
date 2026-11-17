@@ -80,7 +80,7 @@ return [
     'items_per_page' => 20,
     'skin' => 'default',   // operator skin: app/skins/{name}/views overrides the app views when not 'default'; the /settings board writes this key
     // Where the simplified /cloud page links ("Want Kiption hosted for you?").
-    'cloud_url' => getenv('KIP_CLOUD_URL') ?: 'https://kiption.com/cloud',
+    'cloud_url' => 'https://kiption.com/cloud',
     // The official site's full /cloud landing (hero, features, plans, FAQ).
     // All copy, links, and pricing live in config.marketing.php (gitignored),
     // never in this file; absent, /cloud renders the simplified page.
