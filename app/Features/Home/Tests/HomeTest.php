@@ -49,7 +49,7 @@ final class HomeTest extends TestCase
         $body = $this->appOver($db)->handle(new Request('GET', '/', [], [], []))->body;
         $this->assertSame(6, substr_count($body, '<li class="story-card">'), 'Latest stops at six');
         $this->assertStringContainsString('Extra 7', $body, 'newest first');
-        $this->assertStringContainsString('<a href="/browse/recent">All recently updated stories</a>', $body);
+        $this->assertStringContainsString('<a href="/browse/recent">All Recently Updated Stories</a>', $body);
         $this->assertStringNotContainsString('being set up', $body, 'the stale setup copy is gone');
     }
 

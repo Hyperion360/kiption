@@ -61,10 +61,10 @@ final class TopTest extends TestCase
         $this->db()->query("INSERT INTO favorites (user_id, story_id) VALUES ((SELECT id FROM users WHERE penname = 'betafriend'), (SELECT id FROM stories WHERE slug = 'the-rabbit-hole'))");
         $this->db()->query("INSERT INTO reviews (story_id, user_id, body, rating) VALUES ((SELECT id FROM stories WHERE slug = 'the-rabbit-hole'), (SELECT id FROM users WHERE penname = 'betafriend'), 'Great.', 9)");
         $body = $this->client()->get('/top')->body;
-        $this->assertStringContainsString('Most favorited', $body);
-        $this->assertStringContainsString('Most kudos', $body);
-        $this->assertStringContainsString('Most reviewed', $body);
-        $this->assertStringContainsString('Top rated', $body);
+        $this->assertStringContainsString('Most Favorited', $body);
+        $this->assertStringContainsString('Most Kudos', $body);
+        $this->assertStringContainsString('Most Reviewed', $body);
+        $this->assertStringContainsString('Top Rated', $body);
         $this->assertStringContainsString('href="/story/view/the-rabbit-hole"', $body);
         // Top rated needs 3 ratings; a single 9 must NOT appear there yet
         $this->assertStringContainsString('Not enough ratings yet', $body);
@@ -93,7 +93,7 @@ final class TopTest extends TestCase
             $rootId = (int) $this->db->lastInsertId();
         }
         $body = $this->client()->get('/top')->body;
-        $this->assertStringContainsString('Top rated', $body);
+        $this->assertStringContainsString('Top Rated', $body);
         $this->assertStringContainsString('href="/story/view/the-rabbit-hole"', $body, 'rated leader linked');
         $this->assertStringContainsString('8.0 average from 3 ratings', $body, 'rounded average plus count');
         $this->assertStringNotContainsString('Not enough ratings yet', $body, 'floor satisfied');

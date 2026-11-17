@@ -629,7 +629,7 @@ final class ImporterTest extends TestCase
         $member = (new \Kip\Testing\TestClient(new \Kip\App($this->config())))->actingAs(1);
         $res = $member->get('/story/view/' . $restricted);
         $this->assertSame(200, $res->status, $res->body);
-        $this->assertStringContainsString('Registered readers only', $res->body);
+        $this->assertStringContainsString('Registered Readers Only', $res->body);
 
         // bit 2 alone reaches the age gate; the consent cookie opens it
         $gate = $guest->get('/story/read/' . $adult . '/1');

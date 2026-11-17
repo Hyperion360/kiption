@@ -36,7 +36,7 @@ final class CharactersTest extends TaxonomyCase
         $this->assertNull($this->row('SELECT category_id FROM characters WHERE id = ?', [$b])['category_id']);
         $body = $this->admin()->get('/characters')->body;
         $this->assertStringContainsString('Alice', $body);
-        $this->assertStringContainsString('Any category', $body);
+        $this->assertStringContainsString('Any Category', $body);
     }
 
     public function test_the_slug_is_unique_and_stable_across_a_rename(): void

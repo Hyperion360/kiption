@@ -168,7 +168,7 @@ final class WholeViewTest extends TestCase
         // one separator per chapter, each captioned in roman numerals
         $this->assertSame(3, substr_count($res->body, '<div class="chapter-end" role="group"'));
         foreach (['I', 'II', 'III'] as $roman) {
-            $this->assertStringContainsString('aria-label="End of chapter ' . $roman . '"', $res->body);
+            $this->assertStringContainsString('aria-label="End of Chapter ' . $roman . '"', $res->body);
         }
         $this->assertSame(3, substr_count($res->body, '<span class="dots" aria-hidden="true"></span>'));
         // the engagement pair rides every boundary
@@ -186,7 +186,7 @@ final class WholeViewTest extends TestCase
         $sec2 = strpos($res->body, 'id="ch-2"');
         $kicker2 = strpos($res->body, '<p class="ch-kicker">Chapter II</p>');
         $h2 = strpos($res->body, '<h2 class="p-name">Through</h2>');
-        $end2 = strpos($res->body, 'aria-label="End of chapter II"');
+        $end2 = strpos($res->body, 'aria-label="End of Chapter II"');
         $this->assertGreaterThan($sec2, $kicker2, 'the kicker sits inside the section, above the h2');
         $this->assertGreaterThan($kicker2, $h2);
         $this->assertGreaterThan($h2, $end2, 'the separator follows the chapter it closes');

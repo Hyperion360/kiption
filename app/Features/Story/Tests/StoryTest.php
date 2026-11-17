@@ -76,14 +76,14 @@ final class StoryTest extends TestCase
         (new Database($this->dsn))->query('UPDATE stories SET round_robin = 1 WHERE id = 1');
         $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
         $this->assertSame(200, $res->status);
-        $this->assertStringContainsString('Round robin', $res->body);
+        $this->assertStringContainsString('Round Robin', $res->body);
     }
 
     public function test_unflagged_story_shows_no_round_robin_badge(): void
     {
         $res = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []));
         $this->assertSame(200, $res->status);
-        $this->assertStringNotContainsString('Round robin', $res->body);
+        $this->assertStringNotContainsString('Round Robin', $res->body);
     }
 
     public function test_toc_renders_titles_with_delimiter_characters_intact(): void
@@ -224,7 +224,7 @@ final class StoryTest extends TestCase
         (new Database($this->dsn))->query('INSERT INTO reading_history (user_id, story_id, last_position) VALUES (1, 1, 1)');
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString("You're here · 33%", $body);
-        $this->assertStringContainsString('Continue reading', $body);
+        $this->assertStringContainsString('Continue Reading', $body);
         $this->assertStringContainsString('href="/story/read/the-rabbit-hole/1"', $body);
         $this->assertStringContainsString('Chapter I · Down · 33%', $body, 'the CTA sub-line: roman, title, percent');
         $this->assertStringContainsString('1 min left', $body);
@@ -239,7 +239,7 @@ final class StoryTest extends TestCase
     {
         $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
         $this->assertStringNotContainsString("You're here", $body);
-        $this->assertStringNotContainsString('Continue reading', $body);
+        $this->assertStringNotContainsString('Continue Reading', $body);
         $this->assertStringNotContainsString('% read', $body);
         $this->assertStringNotContainsString('min left', $body);
         $this->assertStringNotContainsString('read_pct', $body);
@@ -253,7 +253,7 @@ final class StoryTest extends TestCase
     {
         $body = $this->client(1)->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringNotContainsString("You're here", $body);
-        $this->assertStringNotContainsString('Continue reading', $body);
+        $this->assertStringNotContainsString('Continue Reading', $body);
     }
 
     /** Step 2b at the data layer: findStoryWithChapter carries the SAME
@@ -372,7 +372,7 @@ final class StoryTest extends TestCase
     public function test_eyebrow_joins_categories_and_status_with_middle_dots(): void
     {
         $body = $this->app->handle(new Request('GET', '/story/view/the-rabbit-hole', [], [], []))->body;
-        $this->assertStringContainsString('<p class="eyebrow">General · In progress<span class="eyebrow-updated"> · Updated ', $body);
+        $this->assertStringContainsString('<p class="eyebrow">General · In Progress<span class="eyebrow-updated"> · Updated ', $body);
         // after-hours: completed and uncategorized (nullable GROUP_CONCAT)
         $body = $this->app->handle(new Request('GET', '/story/view/after-hours', [], [], []))->body;
         $this->assertStringContainsString('<p class="eyebrow">Complete<span class="eyebrow-updated"> · Updated ', $body);
@@ -384,7 +384,7 @@ final class StoryTest extends TestCase
         $this->assertStringContainsString('<dl class="story-stats">', $body);
         $this->assertStringContainsString('<dt>Rating</dt><dd>Teen</dd>', $body);
         $this->assertStringContainsString('<dt>Words</dt><dd>300</dd>', $body);
-        $this->assertStringContainsString('<dt>Reading time</dt><dd>1 min</dd>', $body,
+        $this->assertStringContainsString('<dt>Reading Time</dt><dd>1 min</dd>', $body,
             'the public estimate sits between Words and Kudos (D3: 300 words at 250 wpm)');
         $this->assertStringContainsString('<dt>Kudos</dt><dd>0</dd>', $body);
         $this->assertStringContainsString('<dt>Reviews</dt><dd>0</dd>', $body);

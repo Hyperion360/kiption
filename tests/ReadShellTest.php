@@ -56,7 +56,7 @@ final class ReadShellTest extends TestCase
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
         $this->assertStringContainsString('<header class="reader-head">', $body);
-        $this->assertStringContainsString('<a class="reader-back" href="/story/view/the-rabbit-hole" aria-label="Back to story">←</a>', $body);
+        $this->assertStringContainsString('<a class="reader-back" href="/story/view/the-rabbit-hole" aria-label="Back to Story">←</a>', $body);
         $this->assertStringContainsString('<span class="rt-story">The Rabbit Hole</span>', $body);
         // line 2: "ROMAN · title" when the chapter carries a title
         $this->assertStringContainsString('<span class="rt-chapter">II · Through</span>', $body);
@@ -111,7 +111,7 @@ final class ReadShellTest extends TestCase
     {
         $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', []);
         $body = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('<summary>Add note</summary>', $body, 'an empty note offers Add note');
+        $this->assertStringContainsString('<summary>Add Note</summary>', $body, 'an empty note offers Add Note');
         $this->assertMatchesRegularExpression('#<time class="bm-date" datetime="\d{4}-\d{2}-\d{2}T[^"]+">[A-Z][a-z]{2} \d{1,2}</time>#', $body,
             'each bookmark carries its saved date (M5)');
         $this->assertStringContainsString('<form method="post" action="/reader/bookmarkadd/the-rabbit-hole/1">', $body,
@@ -120,11 +120,11 @@ final class ReadShellTest extends TestCase
         // a saved note switches the label and pre-fills the field, escaped
         $this->client($this->memberId)->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'look <b>here</b>']);
         $noted = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('<summary>Edit note</summary>', $noted);
+        $this->assertStringContainsString('<summary>Edit Note</summary>', $noted);
         $this->assertStringContainsString('maxlength="500">look &lt;b&gt;here&lt;/b&gt;</textarea>', $noted);
         $this->assertStringNotContainsString('<b>here</b>', $noted);
         // opening chapter 2 recorded the reading position: it leads the list
-        $this->assertStringContainsString('<p class="bm-kind">Where you left off</p>', $noted);
+        $this->assertStringContainsString('<p class="bm-kind">Where You Left Off</p>', $noted);
         // guests carry none of it
         $guest = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
         $this->assertStringNotContainsString('bm-note-edit', $guest);
@@ -137,7 +137,7 @@ final class ReadShellTest extends TestCase
     public function test_focus_mode_has_a_plain_link_in(): void
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('<a class="focus-entry" href="/story/read/the-rabbit-hole/2?focus=1">Focus mode</a>', $body);
+        $this->assertStringContainsString('<a class="focus-entry" href="/story/read/the-rabbit-hole/2?focus=1">Focus Mode</a>', $body);
         $focus = $this->client()->get('/story/read/the-rabbit-hole/2', ['focus' => '1'])->body;
         $this->assertStringNotContainsString('class="focus-entry"', $focus);
     }
@@ -175,7 +175,7 @@ final class ReadShellTest extends TestCase
         $this->assertStringContainsString('aria-current="page"', $guest);
 
         $member = $this->client($this->memberId)->get('/story/read/the-rabbit-hole/2')->body;
-        $this->assertStringContainsString('aria-label="Contents and bookmarks"', $member);
+        $this->assertStringContainsString('aria-label="Contents and Bookmarks"', $member);
         $this->assertStringContainsString('<input type="radio" name="ctab" id="ctab-contents" class="ctab-radio" checked>', $member);
         $this->assertStringContainsString('<input type="radio" name="ctab" id="ctab-bookmarks" class="ctab-radio">', $member);
         // a planted bookmark renders its escaped note plus the remove form
@@ -202,7 +202,7 @@ final class ReadShellTest extends TestCase
         // the current px readout on the legend line
         $this->assertStringContainsString('<input type="range" name="size" min="16" max="24" step="1" value="19"', $body,
             'cookieless default is 19px');
-        $this->assertStringContainsString('aria-label="Text size"', $body);
+        $this->assertStringContainsString('aria-label="Text Size"', $body);
         $this->assertStringContainsString('<span class="size-readout">19 px</span>', $body);
         $this->assertStringContainsString('<input type="radio" name="theme" value="auto" checked data-js-pref="theme">', $body);
     }
@@ -211,8 +211,8 @@ final class ReadShellTest extends TestCase
     {
         $body = $this->client()->get('/story/read/the-rabbit-hole/2')->body;
         // the caption names the chapter when it carries a title, sentence case
-        $this->assertStringContainsString('<div class="chapter-end" role="group" aria-label="End of chapter II · Through">', $body);
-        $this->assertStringContainsString('<p>End of chapter II · Through</p>', $body);
+        $this->assertStringContainsString('<div class="chapter-end" role="group" aria-label="End of Chapter II · Through">', $body);
+        $this->assertStringContainsString('<p>End of Chapter II · Through</p>', $body);
         $this->assertStringContainsString('<span class="dots" aria-hidden="true"></span>', $body);
         $this->assertStringContainsString('action="/kudos/add/the-rabbit-hole"', $body);
         $this->assertStringContainsString('href="/story/view/the-rabbit-hole#reviews">Review · 0</a>', $body,
@@ -226,7 +226,7 @@ final class ReadShellTest extends TestCase
         // the last chapter closes without a next block
         $last = $this->client()->get('/story/read/the-rabbit-hole/3')->body;
         $this->assertStringNotContainsString('class="next-chapter"', $last);
-        $this->assertStringContainsString('aria-label="End of chapter III · Up"', $last);
+        $this->assertStringContainsString('aria-label="End of Chapter III · Up"', $last);
     }
 
     public function test_focus_variant_renders_dock_and_hides_chrome(): void

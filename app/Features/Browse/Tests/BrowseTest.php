@@ -229,7 +229,7 @@ final class BrowseTest extends TestCase
         // All is the bare URL; the others carry their facet
         $this->assertStringContainsString('<a class="chip is-active" href="/browse/recent" aria-current="true">All</a>', $body);
         $this->assertStringContainsString('<a class="chip" href="/browse/recent?filter=complete">Complete</a>', $body);
-        $this->assertStringContainsString('<a class="chip" href="/browse/recent?filter=wip">In progress</a>', $body);
+        $this->assertStringContainsString('<a class="chip" href="/browse/recent?filter=wip">In Progress</a>', $body);
         $this->assertStringContainsString('<a class="chip" href="/browse/recent?filter=under10k">Under 10k</a>', $body);
         // the active chip moves with the facet
         $filtered = $this->app->handle(new Request('GET', '/browse/recent', ['filter' => 'complete'], [], []))->body;
@@ -278,7 +278,7 @@ final class BrowseTest extends TestCase
         // badge, summary clamped to two lines
         $this->assertStringContainsString('<a class="story-title" href="/story/view/the-rabbit-hole">The Rabbit Hole</a>', $body);
         $this->assertStringContainsString('<strong>Demo Author</strong>', $body);
-        $this->assertStringContainsString('<span class="badge">In progress</span>', $body);
+        $this->assertStringContainsString('<span class="badge">In Progress</span>', $body);
         $this->assertStringContainsString('5,000 words', $body);
         $this->assertStringContainsString('class="summary clamp-2"', $body);
     }

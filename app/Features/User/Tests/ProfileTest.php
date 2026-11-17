@@ -111,7 +111,7 @@ final class ProfileTest extends TestCase
         $res = $this->client()->get('/browse/authors');
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('href="/user/view/demo-author"', $res->body);
-        $this->assertStringContainsString('Beta reader', $res->body); // betafriend badge
+        $this->assertStringContainsString('Beta Reader', $res->body); // betafriend badge
         $this->assertStringContainsString('href="/user/view/betafriend"', $res->body);
     }
 

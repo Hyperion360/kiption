@@ -48,7 +48,7 @@ final class CharacterPickerTest extends TaxonomyCase
         $this->character('Narrator', null);
         $this->character('Zed', $this->other);
         $body = $this->client($this->authorId)->get('/story/new')->body;
-        foreach (['Alice', 'Narrator', 'Zed', 'name="characters[]"', 'name="characters_shown"', 'Any category'] as $needle) {
+        foreach (['Alice', 'Narrator', 'Zed', 'name="characters[]"', 'name="characters_shown"', 'Any Category'] as $needle) {
             $this->assertStringContainsString($needle, $body);
         }
     }

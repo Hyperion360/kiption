@@ -60,7 +60,7 @@ final class AdminstoriesTest extends TestCase
     {
         $admin = $this->client($this->adminId)->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('action="/adminstories/featured/the-rabbit-hole"', $admin);
-        $this->assertStringContainsString('Feature on home page', $admin);
+        $this->assertStringContainsString('Feature on Home Page', $admin);
         $this->assertStringContainsString('action="/adminstories/reassign/the-rabbit-hole"', $admin);
         foreach ([$this->memberId, $this->moderatorId, null] as $who) {
             $body = $this->client($who)->get('/story/view/the-rabbit-hole')->body;
@@ -75,7 +75,7 @@ final class AdminstoriesTest extends TestCase
         $home = $this->client()->get('/')->body;
         $this->assertStringContainsString('id="home-featured"', $home);
         $this->assertStringContainsString('The Rabbit Hole', $home);
-        $this->assertStringContainsString('Stop featuring', $admin->get('/story/view/the-rabbit-hole')->body);
+        $this->assertStringContainsString('Stop Featuring', $admin->get('/story/view/the-rabbit-hole')->body);
         $this->assertSame(302, $admin->postWithToken('/adminstories/featured/the-rabbit-hole')->status);
         $this->assertStringNotContainsString('id="home-featured"', $this->client()->get('/')->body);
     }

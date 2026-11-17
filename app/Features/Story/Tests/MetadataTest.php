@@ -105,7 +105,7 @@ final class MetadataTest extends TestCase
         // attestation tests').
         $this->db->query("UPDATE stories SET is_original = 1 WHERE slug = 'the-rabbit-hole'");
         $body = $this->client()->get('/story/view/the-rabbit-hole')->body;
-        $this->assertStringContainsString('Support the author', $body);
+        $this->assertStringContainsString('Support the Author', $body);
         $this->assertStringContainsString('https://ko-fi.example/demo', $body);
         $res = $this->client()->postWithToken('/account/support', ['support_url' => 'javascript:alert(1)']);
         $this->assertSame(422, $res->status); // http/https only

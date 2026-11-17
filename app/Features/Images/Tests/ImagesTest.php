@@ -120,7 +120,7 @@ final class ImagesTest extends TestCase
         $db = $this->db();
         $db->query('UPDATE users SET avatar_path = ? WHERE id = ?', ['/uploads/' . $name, $this->adminId()]);
         $list = $admin->get('/images')->body;
-        $this->assertStringContainsString('In use', $list, 'the in-use marker renders');
+        $this->assertStringContainsString('In Use', $list, 'the in-use marker renders');
         $this->assertStringNotContainsString('value="' . $name . '"', $list, 'an in-use file has no delete form');
         $this->assertSame(409, $admin->postWithToken('/images/delete', ['name' => $name])->status, 'avatar-referenced file refuses deletion');
         $this->assertFileExists($dir . '/' . $name);

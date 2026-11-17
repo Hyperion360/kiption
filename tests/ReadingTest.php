@@ -79,8 +79,8 @@ final class ReadingTest extends TestCase
         $res = $client->postWithToken('/story/mark/the-rabbit-hole');
         $this->assertSame(302, $res->status, $res->body);
         $body = $client->get('/account')->body;
-        $this->assertStringContainsString('Continue reading', $body);
-        $this->assertStringContainsString('Marked for later', $body);
+        $this->assertStringContainsString('Continue Reading', $body);
+        $this->assertStringContainsString('Marked for Later', $body);
         $this->assertStringContainsString('The Rabbit Hole', $body);
     }
 }

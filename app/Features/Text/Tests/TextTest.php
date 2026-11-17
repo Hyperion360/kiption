@@ -128,8 +128,8 @@ final class TextTest extends TestCase
         $this->assertStringContainsString('<a href="/text/group/adminmembers?lang=en"><span class="manage-name">Members Admin</span>', $home);
         $this->assertStringContainsString('<a href="/text/group/foot?lang=en"><span class="manage-name">Footer</span>', $home);
         $this->assertStringNotContainsString('>adminmembers<', $home, 'codes never stand in for a name');
-        $this->assertStringContainsString('<h3>What visitors and readers see</h3>', $home);
-        $this->assertStringContainsString('<h3>What admins and moderators see</h3>', $home);
+        $this->assertStringContainsString('<h3>What Visitors and Readers See</h3>', $home);
+        $this->assertStringContainsString('<h3>What Admins and Moderators See</h3>', $home);
         $this->assertStringContainsString('<h1>Members Admin</h1>', $c->get('/text/group/adminmembers')->body);
     }
 

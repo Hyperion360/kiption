@@ -118,7 +118,7 @@ final class SeriesTest extends TestCase
         $body = $owner->get('/series/view/down-the-rabbit-hole')->body;
         $this->assertStringContainsString('Remove', $body);
         $member = $this->client($this->memberId()); // betafriend
-        $this->assertStringContainsString('Add your story', $member->get('/series/view/down-the-rabbit-hole')->body); // open series
+        $this->assertStringContainsString('Add Your Story', $member->get('/series/view/down-the-rabbit-hole')->body); // open series
     }
 
     public function test_story_view_links_its_series(): void
@@ -229,7 +229,7 @@ final class SeriesTest extends TestCase
         $this->assertSame(302, $res->status, $res->body);
         $body = $owner->get('/series/view/night-works')->body;
         $this->assertStringContainsString('Night Works', $body);
-        $this->assertStringContainsString('moderated', $body); // shown as pending-submission hint to owner
+        $this->assertStringContainsString('Moderated', $body); // shown as pending-submission hint to owner
         $res = $owner->postWithToken('/series/update/night-works',
             ['title' => 'Night Works II', 'summary' => 'Later things.', 'membership' => 'closed']);
         $this->assertSame(302, $res->status);
@@ -252,7 +252,7 @@ final class SeriesTest extends TestCase
     public function test_account_lists_your_series_with_pending_counts(): void
     {
         $body = $this->client($this->authorId())->get('/account')->body;
-        $this->assertStringContainsString('Your series', $body);
+        $this->assertStringContainsString('Your Series', $body);
         $this->assertStringContainsString('down-the-rabbit-hole', $body);
     }
 

@@ -76,10 +76,10 @@ final class KudosTest extends TestCase
         $this->client($this->fanId)->postWithToken('/kudos/add/the-rabbit-hole');
         $body = $this->client($this->fanId)->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('Kudos · 1', $body);
-        $this->assertStringContainsString('You left kudos', $body);
+        $this->assertStringContainsString('You Left Kudos', $body);
         $guestBody = $this->client()->get('/story/view/the-rabbit-hole')->body;
         $this->assertStringContainsString('Kudos · 1', $guestBody);
-        $this->assertStringNotContainsString('You left kudos', $guestBody);
+        $this->assertStringNotContainsString('You Left Kudos', $guestBody);
     }
 
     public function test_unknown_story_404s(): void

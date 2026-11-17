@@ -81,7 +81,7 @@ final class PrefsTest extends TestCase
         $this->assertSame(0, (int) $p['notify_review']);
         $body = $this->client()->get('/user/view/betafriend')->body;
         $this->assertStringContainsString('<em>everything</em>', $body); // bio renders markdown
-        $this->assertStringContainsString('Beta reader', $body);
+        $this->assertStringContainsString('Beta Reader', $body);
     }
 
     public function test_prefs_junk_coerces_and_bio_clamps(): void

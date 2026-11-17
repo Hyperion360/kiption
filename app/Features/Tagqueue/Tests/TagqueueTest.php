@@ -75,8 +75,8 @@ final class TagqueueTest extends TaxonomyCase
         $this->db->query('UPDATE stories SET title = ? WHERE id = ?', ['Alpha|Beta', $story]);
         $this->suggest($story, $this->memberId, 'Pipe Marker');
         $body = $this->admin()->get('/tagqueue')->body;
-        $this->assertStringContainsString('Suggested on: Alpha|Beta', $body, 'the whole title shows');
-        $this->assertStringNotContainsString('Suggested on: Alpha, Beta', $body, 'no split into two phantom titles');
+        $this->assertStringContainsString('Suggested On: Alpha|Beta', $body, 'the whole title shows');
+        $this->assertStringNotContainsString('Suggested On: Alpha, Beta', $body, 'no split into two phantom titles');
     }
 
     public function test_queue_gates_and_noindex(): void

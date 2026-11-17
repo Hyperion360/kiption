@@ -47,7 +47,7 @@ final class RestrictedTest extends TestCase
         $this->assertSame(404, (new TestClient($this->app()))->get('/story/read/the-rabbit-hole/1')->status);
         $res = (new TestClient($this->app()))->actingAs(1)->get('/story/view/the-rabbit-hole');
         $this->assertSame(200, $res->status);
-        $this->assertStringContainsString('Registered readers only', $res->body);
+        $this->assertStringContainsString('Registered Readers Only', $res->body);
     }
 
     #[Group('process')]
