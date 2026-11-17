@@ -125,7 +125,8 @@ final class CloudLandingTest extends TestCase
             $this->assertStringContainsString('id="' . $id . '"', $r->body, $id);
         }
         $this->assertSame(5, substr_count($r->body, 'class="lp-feature-mock" aria-hidden="true"'));
-        $this->assertSame(2, substr_count($r->body, '<details class="lp-faq">'), 'the FAQ is native details, no script');
+        $this->assertSame(2, substr_count($r->body, '<details class="lp-faq"'), 'the FAQ is native details, no script');
+        $this->assertSame(1, substr_count($r->body, '<details class="lp-faq" open>'), 'only the first answer starts open');
         $this->assertStringContainsString('Offer Heading', $r->body);
         $this->assertStringContainsString('href="https://cloud.example/terms">Read the Terms</a>', $r->body);
         $this->assertStringNotContainsString('Callout that the landing replaces.', $r->body, 'the offer lives in its band, not twice');
