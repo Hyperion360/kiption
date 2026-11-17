@@ -299,6 +299,9 @@ input, select, textarea {
   background: var(--surface); color: var(--ink); font: 16px var(--sans);
 }
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+/* Placeholder text follows the theme's muted ink (4.5:1 on page and
+   surface); the browser default gray falls under that on sepia and night. */
+::placeholder { color: var(--muted); opacity: 1; }
 input[type="checkbox"], input[type="radio"] { min-height: 0; width: 18px; height: 18px; accent-color: var(--accent); }
 input[type="search"] { min-height: 40px; }
 @media (max-width:767px) { input[type="search"] { min-height: 44px; } }
