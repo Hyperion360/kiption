@@ -502,7 +502,8 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('name="_token"', $menu[0], 'the lock form carries the CSRF token');
         $this->assertStringContainsString('<a href="/adminmembers/remove/' . $writer . '" class="member-delete">Delete Member&hellip;</a>', str_replace('…', '&hellip;', $menu[0]));
         $outside = preg_replace('#<details class="member-menu">.*?</details>#s', '', $body);
-        $this->assertStringNotContainsString('>More<', $outside);
+        preg_match('#<table.*?</table>#s', $outside, $table);
+        $this->assertStringNotContainsString('>More<', $table[0] ?? $outside, 'the old More control is gone from the roster');
         $this->assertStringNotContainsString('class="member-facts"', $body);
         $quiet = $this->client($this->adminId)->get('/adminmembers', ['q' => 'roster-mod'])->body;
         $this->assertStringNotContainsString('Open Report', $quiet, 'no reports, no reports entry');

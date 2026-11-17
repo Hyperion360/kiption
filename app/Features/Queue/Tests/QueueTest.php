@@ -193,7 +193,7 @@ final class QueueTest extends TestCase
     {
         $this->db->query('UPDATE stories SET word_count = 4812, updated_at = ? WHERE id = ?', [date('c', time() - 2 * 86400 - 600), $this->pendingStoryId]);
         $body = $this->clientAs(1)->get('/queue')->body;
-        $this->assertStringContainsString('<span class="queue-when">2 days</span>', $body);
+        $this->assertStringContainsString('<span class="queue-when">2 days ago</span>', $body);
         $this->assertStringContainsString('<strong>pendingauthor</strong>', $body);
         $this->assertStringContainsString('4,812 words', $body);
         $this->assertStringContainsString('class="queue-list-facts"', $body);
