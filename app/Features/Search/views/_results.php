@@ -8,7 +8,7 @@
     <ul class="chip-list">
     <?php foreach ($chips as $c): ?>
       <li class="chip chip-<?= $this->e($c['kind']) ?>"><span class="chip-kind"><?= \App\Lang::t($c['kind'] === 'exclude' ? 'search.exclude_note' : 'search.include_note') ?>:</span> <?= $this->e($c['label']) ?>
-        <a class="chip-x" href="<?= $this->e($c['remove']) ?>" aria-label="<?= $this->e(\App\Lang::t('search.remove_filter', ['label' => $c['label']])) ?>">&times;</a></li>
+        <a class="chip-x" href="<?= $this->e($c['remove']) ?>" aria-label="<?= $this->e(\App\Lang::t('search.remove_filter', ['label' => $c['label']])) ?>"><?= "×" ?></a></li>
     <?php endforeach; ?>
     </ul>
     <a class="chip-clear" href="/search<?= $q === '' ? '' : '?q=' . $this->e(rawurlencode($q)) ?>"><?= \App\Lang::t('search.clear_all') ?></a>
