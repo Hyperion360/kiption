@@ -45,6 +45,7 @@ final class CheckboxSizingCssTest extends TestCase
     {
         $bad = [];
         foreach ($this->rules() as [$sel, $decl]) {
+            if (str_contains($sel, '.search-q')) continue;   // the one search box, a type=search field
             if (!preg_match('~filter-form|refine-grid|search-form|search-rail|tag-chip|search-refine~', $sel)) continue;
             $sizes = preg_match('~(?<![-\w])width\s*:\s*(?!auto|18px)~', $decl) || preg_match('~min-height\s*:\s*(?!0\b)~', $decl);
             if ($sizes && $this->hitsCheckbox($sel)) $bad[] = $sel;
