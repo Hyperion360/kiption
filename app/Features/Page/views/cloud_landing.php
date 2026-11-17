@@ -64,7 +64,7 @@ $themes = $arr($ed['themes'] ?? []);
     </div>
 <?php if ($ed !== []): ?>
     <figure class="lp-mock lp-editor">
-      <div class="lp-mock-bar"><span><?= $this->e($str($ed['story'] ?? '')) ?></span><span><?= $this->e($str($ed['chapter'] ?? '')) ?> &middot; <?= $this->e($str($ed['status'] ?? '')) ?></span></div>
+      <div class="lp-mock-bar"><span><?= $this->e($str($ed['story'] ?? '')) ?></span><span><?= $this->e($str($ed['chapter'] ?? '') . ' · ' . $str($ed['status'] ?? '')) ?></span></div>
       <div class="lp-mock-tools" aria-hidden="true"><?php foreach ($arr($ed['tools'] ?? []) as $tool): ?><span><?= $this->e($str($tool)) ?></span><?php endforeach; ?></div>
       <div class="lp-mock-page" aria-hidden="true"><?php foreach ($arr($ed['text'] ?? []) as $para): ?><p><?= $this->e($str($para)) ?></p><?php endforeach; ?></div>
       <div class="lp-mock-foot" aria-hidden="true"><?php foreach ($themes as $i => $th): ?><span<?= $i === 0 ? ' class="on"' : '' ?>><?= $this->e($str($th)) ?></span><?php endforeach; ?><span class="lp-mock-focus"><?= $this->e($str($ed['focus'] ?? '')) ?></span></div>
