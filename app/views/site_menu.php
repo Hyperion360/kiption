@@ -32,9 +32,9 @@ $categoryCount = count(\App\BrowsePanel::read(\App\BrowsePanel::fileFor($navFile
       <span><?php if ($penname !== ''): ?><strong><?= $this->e($penname) ?></strong><?php endif; ?><small><?= \App\Lang::t('nav.view_profile') ?></small></span>
     </a>
     <div class="sheet-tiles">
-      <a href="/account"><strong><?= \App\Lang::t('nav.library') ?></strong></a>
+      <a href="/account"><span><strong><?= \App\Lang::t('nav.library') ?></strong><?php if (\App\SessionGuard::inProgress() > 0): ?><small><?= \App\Lang::t('nav.in_progress_n', ['n' => \App\SessionGuard::inProgress()]) ?></small><?php endif; ?></span></a>
       <a href="/notifications"><span><strong><?= \App\Lang::t('nav.inbox') ?></strong><?php if ($inbox > 0): ?><small><?= \App\Lang::t('nav.new_n', ['n' => $inbox]) ?></small><?php endif; ?></span><?php if ($inbox > 0): ?><b class="nav-count"><?= $inbox > 99 ? '99+' : $inbox ?></b><?php endif; ?></a>
-      <a href="/account#your-stories"><strong><?= \App\Lang::t('account.your_stories') ?></strong></a>
+      <a href="/account#your-stories"><span><strong><?= \App\Lang::t('account.your_stories') ?></strong><?php if (\App\SessionGuard::ownStories() > 0): ?><small><?= \App\Lang::t(\App\SessionGuard::ownStories() === 1 ? 'nav.stories_n_one' : 'nav.stories_n', ['n' => \App\SessionGuard::ownStories()]) ?></small><?php endif; ?></span></a>
       <a href="/account/settings"><span><strong><?= \App\Lang::t('account.settings') ?></strong><small><?= \App\Lang::t('nav.settings_note') ?></small></span></a>
     </div>
 <?= $this->render('menu_post', ['class' => 'sheet-post']) ?>

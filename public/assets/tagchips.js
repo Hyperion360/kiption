@@ -7,7 +7,11 @@
 'use strict';
 (function () {
   var STATES = ['off', 'include', 'exclude'];
-  function next(state) { return STATES[(STATES.indexOf(state) + 1) % STATES.length]; }
+  // A tag with no include box (a leave-out kept from a link, say) only toggles leave out and off.
+  function next(state, canInclude) {
+    if (canInclude === false) { return state === 'exclude' ? 'off' : 'exclude'; }
+    return STATES[(STATES.indexOf(state) + 1) % STATES.length];
+  }
   function stateOf(inc, exc) { return exc ? 'exclude' : inc ? 'include' : 'off'; }
   function matches(name, needle) { return needle === '' || name.toLowerCase().indexOf(needle.trim().toLowerCase()) !== -1; }
   function countOf(text) { var m = /\((\d+)\)\s*$/.exec(text || ''); return m ? m[1] : '0'; }
@@ -24,15 +28,17 @@
     var seen = {};
     var group = null;
     var headings = [];
-    fallback.querySelectorAll('input[name="tag[]"]').forEach(function (inc) {
-      if (seen[inc.value]) { return; }
-      seen[inc.value] = true;
+    fallback.querySelectorAll('input[name="tag[]"], input[name="xtag[]"]').forEach(function (first) {
+      if (seen[first.value]) { return; }
+      seen[first.value] = true;
+      var inc = null;
       var xc = null;
-      fallback.querySelectorAll('input[name="xtag[]"]').forEach(function (x) { if (x.value === inc.value) { xc = x; } });
-      var label = inc.closest('label');
+      fallback.querySelectorAll('input[name="tag[]"]').forEach(function (i) { if (i.value === first.value) { inc = i; } });
+      fallback.querySelectorAll('input[name="xtag[]"]').forEach(function (x) { if (x.value === first.value) { xc = x; } });
+      var label = (inc || xc).closest('label');
       var named = label && label.querySelector('[data-count-label]');
-      var name = named ? named.getAttribute('data-count-label') : (label ? label.textContent.trim() : inc.value);
-      var fieldset = inc.closest('fieldset');
+      var name = named ? named.getAttribute('data-count-label') : (label ? label.textContent.trim() : first.value);
+      var fieldset = (inc || xc).closest('fieldset');
       var legend = fieldset && fieldset.querySelector('legend');
       var groupName = legend ? legend.textContent.trim() : '';
       if (groupName && groupName !== group) {
@@ -53,7 +59,7 @@
       button.appendChild(text);
       button.appendChild(count);
       function paint() {
-        var state = stateOf(inc.checked, xc && xc.checked);
+        var state = stateOf(inc && inc.checked, xc && xc.checked);
         button.setAttribute('data-state', state);
         var tpl = holder.getAttribute('data-state-' + state) || '{label}';
         button.setAttribute('aria-label', tpl.replace('{label}', name));
@@ -62,11 +68,11 @@
         count.textContent = countOf(span && span.textContent);
       }
       button.addEventListener('click', function () {
-        var state = next(stateOf(inc.checked, xc && xc.checked));
-        inc.checked = state === 'include';
+        var state = next(stateOf(inc && inc.checked, xc && xc.checked), !!inc);
+        if (inc) { inc.checked = state === 'include'; }
         if (xc) { xc.checked = state === 'exclude'; }
         paint();
-        inc.dispatchEvent(new Event('change', { bubbles: true }));
+        (inc || xc).dispatchEvent(new Event('change', { bubbles: true }));
       });
       holder.appendChild(button);
       made.push({ name: name, button: button, paint: paint });

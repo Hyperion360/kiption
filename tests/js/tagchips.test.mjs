@@ -23,3 +23,13 @@ test('counts are read from the trailing parenthesis', () => {
   assert.equal(countOf('Slow Burn (12)'), '12');
   assert.equal(countOf('Slow Burn'), '0');
 });
+test('a tag with no include box toggles between leave out and off, never include', () => {
+  assert.equal(next('off', false), 'exclude');
+  assert.equal(next('exclude', false), 'off');
+  assert.equal(next('off', true), 'include');
+  assert.equal(next('off'), 'include');
+});
+test('a lone leave-out box still reads as the leave-out state', () => {
+  assert.equal(stateOf(null, true), 'exclude');
+  assert.equal(stateOf(undefined, false), 'off');
+});

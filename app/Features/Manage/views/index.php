@@ -19,13 +19,32 @@ $memberName = (string) ($info['members']['a'] ?? '') !== '' ? (string) $info['me
 $memberPreview = $waiting['members'] === 1
     ? \App\Lang::t('manage.preview_member', ['name' => $memberName, 'ago' => $ago((string) ($info['members']['d'] ?? ''))])
     : \App\Lang::t('manage.preview_members', ['name' => $memberName, 'ago' => $ago((string) ($info['members']['d'] ?? ''))]);
+// With the owner's signup question on, a waiting member has passed it, so say so.
+if ((string) ($info['members']['c'] ?? '0') === '1') $memberPreview = rtrim($memberPreview, '.') . ' ' . \App\Lang::t('manage.preview_answered');
+// Up to two open reports, "One on Title (reason) and one on a review of Title", then how many more.
+$reportBits = [];
+foreach (array_filter(explode("\x1e", (string) ($info['reports']['c'] ?? ''))) as $packed) {
+    [$kind, $what, $why] = array_pad(explode("\x1f", $packed), 3, '');
+    $why = mb_strimwidth(trim($why), 0, 24, '…');
+    $reportBits[] = \App\Lang::t($kind === 'r' ? 'manage.preview_report_review' : 'manage.preview_report_story', ['title' => $what]) . ($why !== '' ? ' (' . $why . ')' : '');
+}
+$reportPreview = $reportBits === []
+    ? \App\Lang::t('manage.preview_reports', ['ago' => $ago((string) ($info['reports']['a'] ?? ''))])
+    : ucfirst(implode(' ' . \App\Lang::t('manage.preview_and') . ' ', $reportBits))
+        . ($waiting['reports'] > count($reportBits) ? ', ' . \App\Lang::t('manage.preview_plus_more', ['n' => $waiting['reports'] - count($reportBits)]) : '') . '.';
+// The most suggested tag names, then how many more are waiting.
+$tagBits = array_values(array_filter(explode("\x1f", (string) ($info['tags']['c'] ?? ''))));
+if ($waiting['tags'] > count($tagBits) && $tagBits !== []) $tagBits[] = \App\Lang::t('manage.preview_more', ['n' => $waiting['tags'] - count($tagBits)]);
+$tagLast = $tagBits === [] ? '' : array_pop($tagBits);
+$tagPreview = $tagLast === '' ? \App\Lang::t('manage.preview_tags')
+    : \App\Lang::t('manage.preview_tags_named', ['names' => ($tagBits === [] ? '' : implode(', ', $tagBits) . ' ' . \App\Lang::t('manage.preview_and') . ' ') . $tagLast]);
 $posted = (int) ($info['new']['a'] ?? 0);
 // Each row: how many, what, a line about it, and the one button that goes and does it.
 $rows = [
     ['n' => $queue, 'one' => 'manage.wait_story', 'many' => 'manage.wait_stories', 'url' => '/queue', 'cta' => 'manage.cta_review', 'preview' => $queue > 0 ? $storyPreview : ''],
     ['n' => $waiting['members'], 'one' => 'manage.wait_member', 'many' => 'manage.wait_members', 'url' => '/queue?tab=members', 'cta' => 'manage.cta_approve', 'preview' => $waiting['members'] > 0 ? $memberPreview : ''],
-    ['n' => $waiting['reports'], 'one' => 'manage.wait_report', 'many' => 'manage.wait_reports', 'url' => '/queue?tab=reports', 'cta' => 'manage.cta_look', 'preview' => $waiting['reports'] > 0 ? \App\Lang::t('manage.preview_reports', ['ago' => $ago((string) ($info['reports']['a'] ?? ''))]) : ''],
-    ['n' => $waiting['tags'], 'one' => 'manage.wait_tag', 'many' => 'manage.wait_tags', 'url' => '/tagqueue', 'cta' => 'manage.cta_sort', 'preview' => $waiting['tags'] > 0 ? \App\Lang::t('manage.preview_tags') : ''],
+    ['n' => $waiting['reports'], 'one' => 'manage.wait_report', 'many' => 'manage.wait_reports', 'url' => '/queue?tab=reports', 'cta' => 'manage.cta_look', 'preview' => $waiting['reports'] > 0 ? $reportPreview : ''],
+    ['n' => $waiting['tags'], 'one' => 'manage.wait_tag', 'many' => 'manage.wait_tags', 'url' => '/tagqueue', 'cta' => 'manage.cta_sort', 'preview' => $waiting['tags'] > 0 ? $tagPreview : ''],
 ];
 ?>
 <div class="home-head">

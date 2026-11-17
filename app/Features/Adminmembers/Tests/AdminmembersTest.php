@@ -48,9 +48,15 @@ final class AdminmembersTest extends TestCase
         return (int) $this->db->lastInsertId();
     }
 
-    private function client(?int $as = null): TestClient
+    private function client(?int $as = null, ?App $app = null): TestClient
     {
-        $client = new TestClient(new App([
+        $client = new TestClient($app ?? $this->app());
+        return $as === null ? $client : $client->actingAs($as);
+    }
+
+    private function app(): App
+    {
+        return (new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
             'views' => dirname(__DIR__, 4) . '/app/views',
@@ -61,7 +67,6 @@ final class AdminmembersTest extends TestCase
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
             'nav_file' => $this->root . '/nav.json',
         ]));
-        return $as === null ? $client : $client->actingAs($as);
     }
 
     private function locked(int $id): int
@@ -542,5 +547,59 @@ final class AdminmembersTest extends TestCase
         });
         $this->assertSame(200, $this->client($this->adminId)->get('/adminmembers', ['filter' => 'validated_author', 'q' => 'a', 'page' => '1'])->status);
         $this->assertLessThanOrEqual(1, $n, 'counts, rows, stories, reports and sign-ins arrive in one statement');
+    }
+
+    private function heirLookup(string $name, ?int $as = null, ?int $for = null): array
+    {
+        $res = $this->client($as ?? $this->adminId)->get('/adminmembers/heir', ['penname' => $name, 'for' => (string) ($for ?? $this->targetId)]);
+        $this->assertSame(200, $res->status);
+        return json_decode($res->body, true, 8, JSON_THROW_ON_ERROR);
+    }
+
+    public function test_the_heir_lookup_says_who_a_pen_name_belongs_to(): void
+    {
+        $found = $this->heirLookup('HEIR-member');
+        $this->assertSame('found', $found['state']);
+        $this->assertSame('Found heir-member, a member.', $found['message']);
+        $this->user('second-admin', 'admin');
+        $this->assertSame('Found second-admin, an admin.', $this->heirLookup('second-admin')['message']);
+    }
+
+    public function test_the_heir_lookup_handles_missing_ineligible_and_self(): void
+    {
+        $this->assertSame('none', $this->heirLookup('nobody-here')['state']);
+        $this->db->query('UPDATE users SET is_locked = 1 WHERE id = ?', [$this->heirId]);
+        $this->assertSame('none', $this->heirLookup('heir-member')['state'], 'a locked member cannot inherit, so the lookup agrees with the delete');
+        $this->assertSame('self', $this->heirLookup('leaving-member')['state']);
+        $this->assertSame('none', $this->heirLookup('')['state']);
+    }
+
+    public function test_the_heir_lookup_is_for_admins_only_and_is_one_indexed_statement(): void
+    {
+        $this->assertSame(403, $this->client($this->moderatorId)->get('/adminmembers/heir', ['penname' => 'heir-member'])->status);
+        $app = $this->app();
+        $db = $app->container->make(Database::class);
+        $queries = [];
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return;
+            $queries[] = $sql;
+        });
+        $res = $this->client($this->adminId, $app)->get('/adminmembers/heir', ['penname' => 'heir-member', 'for' => (string) $this->targetId]);
+        \App\Tests\Support\QueryTap::off($db);
+        $this->assertSame(200, $res->status);
+        $this->assertCount(1, $queries);
+        $plan = implode(' ', array_column($this->db->all('EXPLAIN QUERY PLAN ' . $queries[0], ['heir-member']), 'detail'));
+        $this->assertStringContainsString('SEARCH', $plan);
+        $this->assertStringNotContainsString('SCAN', $plan);
+    }
+
+    public function test_the_delete_card_offers_the_live_lookup_and_keeps_a_plain_input(): void
+    {
+        $body = $this->client($this->adminId)->get('/adminmembers/remove/' . $this->targetId)->body;
+        $this->assertStringContainsString('data-js-module="heir-lookup"', $body);
+        $this->assertStringContainsString('data-heir-url="/adminmembers/heir?for=' . $this->targetId . '"', $body);
+        $this->assertStringContainsString('id="delete-heir" name="penname"', $body, 'without scripting it is still a plain field');
+        $this->assertStringContainsString('class="delete-found" data-heir-status aria-live="polite"', $body);
+        $this->assertStringContainsString('The stories keep their reviews and kudos.', $body);
     }
 }

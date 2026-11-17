@@ -18,6 +18,19 @@ final class AuthoringRepository
                  || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 0 AND x.deleted_at IS NOT NULL)
                  || '|' || (SELECT COUNT(*) FROM reports r JOIN stories x ON x.id = r.story_id WHERE x.author_id = au.id)";
 
+    /** What a waiting story's pane adds, as correlated subselects in the same
+     *  statement (columns i-q): tags, tags suggested but not yet approved,
+     *  rating label, completed flag, chapter count, genres, and the first
+     *  chapter's title and opening. Every probe is a primary-key or
+     *  (story_id, ...) index range, so a screenful costs a few dozen seeks. */
+    private const STORY_PANE = "(SELECT GROUP_CONCAT(n, char(31)) FROM (SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id ORDER BY t.name)),
+                (SELECT GROUP_CONCAT(n, char(31)) FROM (SELECT ts.name AS n FROM tag_suggestions ts WHERE ts.story_id = s.id AND ts.status = 'pending' ORDER BY ts.name)),
+                (SELECT r.label FROM ratings r WHERE r.id = s.rating_id), s.completed,
+                (SELECT COUNT(*) FROM chapters c1 WHERE c1.story_id = s.id),
+                (SELECT GROUP_CONCAT(n, char(31)) FROM (SELECT cg.name AS n FROM story_categories sc JOIN categories cg ON cg.id = sc.category_id WHERE sc.story_id = s.id ORDER BY cg.position, cg.name)),
+                (SELECT c2.title || char(31) || substr(c2.content, 1, 500) FROM chapters c2 WHERE c2.story_id = s.id ORDER BY c2.position LIMIT 1)";
+    private const NO_PANE = 'NULL, NULL, NULL, NULL, NULL, NULL, NULL';
+
     public function __construct(private Database $db) {}
 
     /** ONE query for the story form: taxonomy rows for every caller, plus the
@@ -622,21 +635,21 @@ final class AuthoringRepository
     public function queueRows(int $userId): array
     {
         return $this->db->all(
-            "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h
+            "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS m, NULL AS n, NULL AS o, NULL AS p, NULL AS q
              FROM users u WHERE u.id = ? AND u.role IN ('moderator', 'admin')
              UNION ALL
-             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, " . self::AUTHOR_FACTS . ", substr(s.summary, 1, 600), s.word_count
+             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, " . self::AUTHOR_FACTS . ", substr(s.summary, 1, 600), s.word_count, " . self::STORY_PANE . "
              FROM stories s JOIN users au ON au.id = s.author_id
              WHERE " . self::WAITING_STORY . "
              UNION ALL
-             SELECT 'chapter', ch.id, ch.title, s.slug, au.penname, ch.updated_at, " . self::AUTHOR_FACTS . ", substr(ch.content, 1, 600), ch.word_count
+             SELECT 'chapter', ch.id, ch.title, s.slug, au.penname, ch.updated_at, " . self::AUTHOR_FACTS . ", substr(ch.content, 1, 600), ch.word_count, " . self::NO_PANE . "
              FROM chapters ch JOIN stories s ON s.id = ch.story_id JOIN users au ON au.id = s.author_id
              WHERE " . self::WAITING_CHAPTER . "
              UNION ALL
-             SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at, NULL, NULL, NULL
+             SELECT 'member', us.id, us.penname, us.email, NULL, us.created_at, NULL, NULL, NULL, " . self::NO_PANE . "
              FROM users us WHERE " . self::WAITING_MEMBER . "
              UNION ALL
-             SELECT 'report', rp.id, rp.reason, COALESCE(st.slug, ''), (SELECT body FROM reviews rb WHERE rb.id = rp.review_id), rp.created_at, NULL, NULL, NULL
+             SELECT 'report', rp.id, rp.reason, COALESCE(st.slug, ''), (SELECT body FROM reviews rb WHERE rb.id = rp.review_id), rp.created_at, NULL, NULL, NULL, " . self::NO_PANE . "
              FROM reports rp LEFT JOIN stories st ON st.id = rp.story_id
              WHERE rp.resolved_at IS NULL
              ORDER BY k, e LIMIT 151", [$userId]);
