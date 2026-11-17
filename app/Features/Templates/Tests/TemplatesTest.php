@@ -1,11 +1,13 @@
 <?php // app/Features/Templates/Tests/TemplatesTest.php
 namespace App\Features\Templates\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class TemplatesTest extends TestCase
 {
     private string $path = '';
@@ -17,18 +19,17 @@ final class TemplatesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-tpl-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-tpl-');
         $this->root = sys_get_temp_dir() . '/kiption-tpl-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // admin + member fixtures, the SeriesRepositoryTest idiom
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('tpladmin@e.test', ?, 'tpladmin', 'admin', 1, ?, ?, 'tpladmin')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('tplmember@e.test', ?, 'tplmember', ?, ?, 'tplmember')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->memberUserId = (int) $this->db->lastInsertId();
     }
 

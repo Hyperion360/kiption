@@ -1,5 +1,6 @@
 <?php // app/Features/Auth/Tests/SignInLinkTest.php
 namespace App\Features\Auth\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\LoginLinks;
 use Kip\App;
 use Kip\Auth;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 
 // One-time sign-in links: the token lifecycle in App\LoginLinks and the four
 // routes that use it (/auth/link, /auth/send, /auth/magic, /auth/enter).
+#[Medium]
 final class SignInLinkTest extends TestCase
 {
     private App $app;
@@ -99,7 +101,7 @@ final class SignInLinkTest extends TestCase
     {
         $id = $this->registerUser();
         $token = $this->links()->mint($id, 1800);
-        $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash('another-pass1', PASSWORD_DEFAULT), $id]);
+        $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [\App\Tests\Support\Hashes::of('another-pass1'), $id]);
         $this->assertFalse($this->links()->peek($token));
         $this->assertNull($this->links()->consume($token));
     }

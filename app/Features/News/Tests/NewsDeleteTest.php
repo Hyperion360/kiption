@@ -1,5 +1,6 @@
 <?php // app/Features/News/Tests/NewsDeleteTest.php
 namespace App\Features\News\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** Deleting a news post and the edit links that lead there. */
+#[Medium]
 final class NewsDeleteTest extends TestCase
 {
     private string $path = '';
@@ -19,12 +21,11 @@ final class NewsDeleteTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-news-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-news-');
         $this->root = sys_get_temp_dir() . '/kiption-news-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->adminId = $this->user('roster-admin', 'admin');
         $this->targetId = $this->user('leaving-member', 'member');
         $this->heirId = $this->user('heir-member', 'member');
@@ -41,7 +42,7 @@ final class NewsDeleteTest extends TestCase
     private function user(string $name, string $role): int
     {
         $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            ["$name@e.test", password_hash('password123', PASSWORD_DEFAULT), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
+            ["$name@e.test", \App\Tests\Support\Hashes::of('password123'), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
         return (int) $this->db->lastInsertId();
     }
 

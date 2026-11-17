@@ -1,5 +1,6 @@
 <?php // app/Features/Auth/Tests/RegisterTermsTest.php
 namespace App\Features\Auth\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
  *  KIP_SIGNUP_TERMS_URL): one line under the submit button when the URL is
  *  set, nothing when it is not, and never a link for a scheme the footer
  *  stance rejects (the FooterLegal defensive precedent). */
+#[Medium]
 final class RegisterTermsTest extends TestCase
 {
     private string $path = '';
@@ -17,10 +19,9 @@ final class RegisterTermsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-terms-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-terms-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

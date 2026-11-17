@@ -1,9 +1,11 @@
 <?php // tests/SmartContractTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
 
 /** Slice 8: the smart punctuation rules exist once, in subset.js, and the
  *  conversions keep the word counter honest. */
+#[Large]
 final class SmartContractTest extends TestCase
 {
     public function test_the_guard_tables_match_the_subset_module(): void

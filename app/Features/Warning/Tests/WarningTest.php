@@ -1,9 +1,11 @@
 <?php // app/Features/Warning/Tests/WarningTest.php
 namespace App\Features\Warning\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Http\Request;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class WarningTest extends TestCase
 {
     private function app(): App

@@ -1,11 +1,14 @@
 <?php // app/Features/Challenges/Tests/ScheduledReleasesTest.php
 namespace App\Features\Challenges\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class ScheduledReleasesTest extends TestCase
 {
     private string $path = '';
@@ -14,11 +17,10 @@ final class ScheduledReleasesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-rel-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-rel-');
         $this->cacheDir = sys_get_temp_dir() . '/kiption-rel-cache-' . uniqid('', true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void
@@ -61,7 +63,7 @@ final class ScheduledReleasesTest extends TestCase
     {
         $this->db->query(
             "INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('relfan@e.test', ?, 'relfan', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $fan = (int) $this->db->lastInsertId();
         $this->db->query("INSERT INTO follows (follower_id, author_id, notify_mode) VALUES (?, ?, 'email')", [$fan, $this->authorId()]);
         return $fan;
@@ -163,6 +165,7 @@ final class ScheduledReleasesTest extends TestCase
             ['title' => 'Down', 'content' => 'Falling words.', 'publish_at' => 'soonish'])->status);
     }
 
+    #[Group('process')]
     public function test_release_due_flips_and_fans_out(): void
     {
         $fan = $this->plantFollower();

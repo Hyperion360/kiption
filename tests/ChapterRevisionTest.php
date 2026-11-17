@@ -1,9 +1,11 @@
 <?php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\{ChapterChanged, ChapterRevision};
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class ChapterRevisionTest extends TestCase
 {
     public function test_each_saved_field_and_stable_id_change_the_revision(): void

@@ -1,5 +1,6 @@
 <?php // app/Features/Analytics/Tests/AnalyticsLeaderboardTest.php
 namespace App\Features\Analytics\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
  * the top-stories list gates titles for guest visibility, the author
  * table names no titles). Admin-only behind the same driver gate.
  */
+#[Medium]
 final class AnalyticsLeaderboardTest extends TestCase
 {
     private string $path = '';
@@ -24,13 +26,12 @@ final class AnalyticsLeaderboardTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-al-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-al-');
         $this->root = sys_get_temp_dir() . '/kiption-al-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('aladmin@e.test', ?, 'aladmin', 'admin', 1, ?, ?, 'aladmin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
@@ -70,7 +71,7 @@ final class AnalyticsLeaderboardTest extends TestCase
             $this->db->query("INSERT INTO page_stats (day, story_id, chapter_id, reads) VALUES ($day, ?, ?, ?)", [$sid, $chapter, $reads]);
         }
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('leader@e.test', ?, 'LeadAuthor', ?, ?, 'leadauthor')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $leader = (int) $this->db->lastInsertId();
         $this->db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, word_count) VALUES (?, ?, ?, ?, ?, 1, 100)',
             ['Lead Story', 'lead-story', 'Leads.', $leader, $teen]);

@@ -1,5 +1,6 @@
 <?php // app/Features/Account/Tests/PennameChangeTest.php
 namespace App\Features\Account\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 /** A member changes their own pen name from Account settings; the profile
  *  address follows and the old one keeps working as a redirect. */
+#[Medium]
 final class PennameChangeTest extends TestCase
 {
     private string $path = '';
@@ -15,10 +17,9 @@ final class PennameChangeTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-penname-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-penname-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

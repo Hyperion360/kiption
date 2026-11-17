@@ -1,8 +1,10 @@
 <?php // tests/FictioneerMapperTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Import\FictioneerMapper;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class FictioneerMapperTest extends TestCase
 {
     public function test_meta_list_reads_serialized_arrays_and_refuses_objects(): void

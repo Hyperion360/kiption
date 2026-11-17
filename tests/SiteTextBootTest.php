@@ -1,5 +1,6 @@
 <?php // tests/SiteTextBootTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Lang;
 use App\SiteText\Boot;
@@ -8,6 +9,7 @@ use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SiteTextBootTest extends TestCase
 {
     private string $path = '';
@@ -17,7 +19,7 @@ final class SiteTextBootTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-boot-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::path('kiption-boot-');
         $this->dir = sys_get_temp_dir() . '/kiption-boot-' . bin2hex(random_bytes(4));
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();

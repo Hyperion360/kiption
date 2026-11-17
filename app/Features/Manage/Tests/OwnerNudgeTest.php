@@ -1,5 +1,6 @@
 <?php // app/Features/Manage/Tests/OwnerNudgeTest.php
 namespace App\Features\Manage\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Lang;
 use Kip\{App, Database};
 use Kip\Migrations\Migrator;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 /** The quiet line on /manage for an admin whose pen name is still "Owner"
  *  (what Kiption Cloud calls every new owner). */
+#[Medium]
 final class OwnerNudgeTest extends TestCase
 {
     private string $path = '';
@@ -16,12 +18,11 @@ final class OwnerNudgeTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-nudge-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-nudge-');
         $this->root = sys_get_temp_dir() . '/kiption-nudge-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         Lang::reset();
     }
 
@@ -38,7 +39,7 @@ final class OwnerNudgeTest extends TestCase
     private function admin(string $penname, string $slug): int
     {
         $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [$slug . '@e.test', password_hash('password123', PASSWORD_DEFAULT), $penname, 'admin', 1, date('c'), date('c'), $slug]);
+            [$slug . '@e.test', \App\Tests\Support\Hashes::of('password123'), $penname, 'admin', 1, date('c'), date('c'), $slug]);
         return (int) $this->db->lastInsertId();
     }
 

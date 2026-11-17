@@ -1,5 +1,6 @@
 <?php // app/Features/Reader/Tests/ReaderSettingsTest.php
 namespace App\Features\Reader\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Features\Reader\Prefs;
 use Kip\App;
 use Kip\Database;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 // column CHECK admits paper/sepia/night only). Cache-bypass economy: auto and
 // all-default typography CLEAR their cookies instead of minting year-long
 // ones, because a cookie-bearing request never hits the static cache.
+#[Medium]
 final class ReaderSettingsTest extends TestCase
 {
     private string $path = '';
@@ -23,10 +25,9 @@ final class ReaderSettingsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-rs-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-rs-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         \App\Features::init($this->db, []);
     }

@@ -1,10 +1,12 @@
 <?php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 
 use PHPUnit\Framework\TestCase;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 
+#[Large]
 final class GeneratedOutputConfigTest extends TestCase
 {
     private string $root;

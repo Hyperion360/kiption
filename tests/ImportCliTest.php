@@ -1,7 +1,9 @@
 <?php // tests/ImportCliTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
 
+#[Large]
 final class ImportCliTest extends TestCase
 {
     private string $root = '';

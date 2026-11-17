@@ -2,10 +2,12 @@
 declare(strict_types=1);
 
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Setup\MigrationLock;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class MigrationLockTest extends TestCase
 {
     private string $root;

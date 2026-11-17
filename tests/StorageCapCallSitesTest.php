@@ -1,5 +1,6 @@
 <?php // tests/StorageCapCallSitesTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Storage;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  *  import. At or over the cap the upload is refused before Storage::put runs,
  *  the file set is unchanged, and nothing is ever deleted. Under the cap,
  *  every path behaves exactly as it did before. */
+#[Medium]
 final class StorageCapCallSitesTest extends TestCase
 {
     private string $path = '';
@@ -22,14 +24,13 @@ final class StorageCapCallSitesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-capsites-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-capsites-');
         $this->root = sys_get_temp_dir() . '/kiption-capsites-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         mkdir($this->root . '/upl', 0775, true); // present before the first put: some tests seed files directly
         $this->db = new Database('sqlite:' . $this->path);
         (new \Kip\Migrations\Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('capadmin@e.test', ?, 'capadmin', 'admin', 1, ?, ?, 'capadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminId = (int) $this->db->lastInsertId();

@@ -1,11 +1,14 @@
 <?php // tests/RestrictedTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class RestrictedTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +16,9 @@ final class RestrictedTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-rest-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-rest-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void
@@ -48,6 +50,7 @@ final class RestrictedTest extends TestCase
         $this->assertStringContainsString('Registered readers only', $res->body);
     }
 
+    #[Group('process')]
     public function test_restricted_story_never_fills_static_cache(): void
     {
         // TestClient drives App::handle directly; the static layer lives in index.php,

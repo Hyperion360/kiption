@@ -1,21 +1,22 @@
 <?php // tests/EditorContractTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** Slice 5: the chapter box carries the editor marker and the toolbar
  *  labels, the loader lists the module, and nothing changes with JS off. */
+#[Medium]
 final class EditorContractTest extends TestCase
 {
     private string $path = '';
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-editor-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-editor-');
         $db = new \Kip\Database('sqlite:' . $this->path);
         (new \Kip\Migrations\Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
     }
 
     protected function tearDown(): void

@@ -1,5 +1,6 @@
 <?php // tests/BackupTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -7,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 /** kip backup through CliTest's subprocess idiom: KIP_DB_DSN backs up a
  *  migrated+seeded temp database and KIP_BACKUP_DIR redirects the archive to
  *  a throwaway directory, so tests never write the repo's app/backups. */
+#[Large]
 final class BackupTest extends TestCase
 {
     private string $path = '';
@@ -14,12 +16,11 @@ final class BackupTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-backup-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-backup-');
         $this->root = sys_get_temp_dir() . '/kiption-backup-' . uniqid('', true);
         mkdir($this->root . '/backups', 0775, true);
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
     }
 
     protected function tearDown(): void

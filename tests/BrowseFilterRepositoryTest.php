@@ -1,10 +1,12 @@
 <?php // tests/BrowseFilterRepositoryTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Repositories\BrowseFilterRepository;
 use App\Repositories\BrowseQuery;
 use App\Tests\Support\QueryTap;
 use App\Tests\Support\TaxonomyCase;
 
+#[Small]
 final class BrowseFilterRepositoryTest extends TaxonomyCase
 {
     private BrowseFilterRepository $repo;

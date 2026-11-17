@@ -1,11 +1,13 @@
 <?php // app/Features/Kudos/Tests/KudosTest.php
 namespace App\Features\Kudos\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class KudosTest extends TestCase
 {
     private string $path = '';
@@ -14,14 +16,13 @@ final class KudosTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-kudos-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-kudos-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // a second user: kudos notifications target the AUTHOR (user 1),
         // and self-notifications are suppressed, so the actor cannot be the author
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('k2@e.test', ?, 'kudosfan', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->fanId = (int) $this->db->lastInsertId();
     }
 

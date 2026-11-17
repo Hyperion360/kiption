@@ -1,11 +1,14 @@
 <?php // app/Features/Lists/Tests/ListsTest.php
 namespace App\Features\Lists\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class ListsTest extends TestCase
 {
     private string $path = '';
@@ -448,6 +451,7 @@ final class ListsTest extends TestCase
         $this->assertLessThanOrEqual(1, $queries, "list page ran {$queries} content queries, budget is 1");
     }
 
+    #[Group('process')]
     public function test_list_page_is_static_cacheable_and_purges(): void
     {
         // StaticCacheTest idiom: TestClient responses never carry X-Static-Cache;

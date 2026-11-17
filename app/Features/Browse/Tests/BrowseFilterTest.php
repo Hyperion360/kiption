@@ -1,8 +1,10 @@
 <?php // app/Features/Browse/Tests/BrowseFilterTest.php
 namespace App\Features\Browse\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** GET /browse/filter: tags to include and leave out, status, language, words, category, sort. */
+#[Small]
 final class BrowseFilterTest extends TaxonomyCase
 {
     private function tagId(string $name): int

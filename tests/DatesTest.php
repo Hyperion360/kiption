@@ -1,11 +1,13 @@
 <?php // tests/DatesTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use PHPUnit\Framework\TestCase;
 
 /** The time-of-day half of Dates: the activity log renders it, and its
  *  guards must never print today's time for a missing or unreadable
  *  stamp. Runs on the default settings (12 hour style). */
+#[Small]
 final class DatesTest extends TestCase
 {
     public function test_time_is_empty_for_missing_or_unreadable_stamps(): void

@@ -1,5 +1,6 @@
 <?php // tests/PennameRuleTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Repositories\UserRepository;
 use Kip\Database;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /** The one pen-name rule, shared by sign-up and rename. */
+#[Medium]
 final class PennameRuleTest extends TestCase
 {
     private string $path = '';
@@ -16,7 +18,7 @@ final class PennameRuleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-penrule-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::path('kiption-penrule-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         $this->users = new UserRepository($this->db);

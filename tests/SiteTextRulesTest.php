@@ -1,5 +1,6 @@
 <?php // tests/SiteTextRulesTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\SiteText\Rules;
 use PHPUnit\Framework\TestCase;
 
@@ -7,6 +8,7 @@ use PHPUnit\Framework\TestCase;
  * Owner text is printed raw by hundreds of view sites, so these rules are the
  * XSS boundary. Every rule has one case that passes and one that fails.
  */
+#[Medium]
 final class SiteTextRulesTest extends TestCase
 {
     protected function setUp(): void

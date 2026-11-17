@@ -1,5 +1,6 @@
 <?php // app/Features/Analytics/Tests/AnalyticsTest.php
 namespace App\Features\Analytics\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -21,6 +22,7 @@ use PHPUnit\Framework\TestCase;
  * resets in tearDown so no later suite inherits a memo pointing at this
  * unlinking temp DB.
  */
+#[Medium]
 final class AnalyticsTest extends TestCase
 {
     private string $path = '';
@@ -37,7 +39,7 @@ final class AnalyticsTest extends TestCase
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db); // Demo Author (created 2026-01-01, outside the window), betafriend (today), the-rabbit-hole, after-hours, 4 validated chapters
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('anadmin@e.test', ?, 'anadmin', 'admin', 1, ?, ?, 'anadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
@@ -106,7 +108,7 @@ final class AnalyticsTest extends TestCase
         foreach ([['andyesterday@e.test', 'andyesterday', "-1 day"], ['andyesterday2@e.test', 'andyesterday2', "-1 day"],
                   ['andaysago@e.test', 'andaysago', "-2 day"]] as [$email, $penname, $ago]) {
             $this->db->query("INSERT INTO users (email, password_hash, penname, created_at) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '$ago'))",
-                [$email, password_hash('password123', PASSWORD_DEFAULT), $penname]);
+                [$email, \App\Tests\Support\Hashes::of('password123'), $penname]);
         }
         return [
             'today' => $this->db->one("SELECT date('now') d")['d'],

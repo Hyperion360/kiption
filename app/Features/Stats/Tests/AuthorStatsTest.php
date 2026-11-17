@@ -1,5 +1,6 @@
 <?php // app/Features/Stats/Tests/AuthorStatsTest.php
 namespace App\Features\Stats\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -7,6 +8,7 @@ use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class AuthorStatsTest extends TestCase
 {
     private string $path = '';
@@ -15,10 +17,9 @@ final class AuthorStatsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-stats-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-stats-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->app = $this->newApp();
     }
 

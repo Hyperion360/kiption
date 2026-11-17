@@ -1,11 +1,14 @@
 <?php // app/Features/Top/Tests/TopTest.php
 namespace App\Features\Top\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class TopTest extends TestCase
 {
     private string $path = '';
@@ -14,10 +17,9 @@ final class TopTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-top-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-top-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->app = $this->newApp();
     }
 
@@ -100,6 +102,7 @@ final class TopTest extends TestCase
         $this->assertStringContainsString('8.0 average from 3 ratings', $this->client()->get('/top')->body);
     }
 
+    #[Group('process')]
     public function test_top_cacheable_and_purged_by_engagement(): void
     {
         $dir = sys_get_temp_dir() . '/kiption-top-cache-' . uniqid('', true);

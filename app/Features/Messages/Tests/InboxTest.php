@@ -1,11 +1,13 @@
 <?php // app/Features/Messages/Tests/InboxTest.php
 namespace App\Features\Messages\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class InboxTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +15,9 @@ final class InboxTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-inbox-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-inbox-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         (new \App\Notifications($this->db))->create(1, 'kudos', 1, 1, 'The Rabbit Hole'); // actor 1 exists
     }
 

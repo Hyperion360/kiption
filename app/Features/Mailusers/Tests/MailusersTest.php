@@ -1,5 +1,7 @@
 <?php // app/Features/Mailusers/Tests/MailusersTest.php
 namespace App\Features\Mailusers\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +9,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** The owner broadcast screen. */
+#[Medium]
 final class MailusersTest extends TestCase
 {
     private string $path = '';
@@ -19,12 +22,11 @@ final class MailusersTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-mailusers-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-mailusers-');
         $this->root = sys_get_temp_dir() . '/kiption-mailusers-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->adminId = $this->user('roster-admin', 'admin');
         $this->targetId = $this->user('leaving-member', 'member');
         $this->heirId = $this->user('heir-member', 'member');
@@ -41,7 +43,7 @@ final class MailusersTest extends TestCase
     private function user(string $name, string $role): int
     {
         $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            ["$name@e.test", password_hash('password123', PASSWORD_DEFAULT), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
+            ["$name@e.test", \App\Tests\Support\Hashes::of('password123'), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
         return (int) $this->db->lastInsertId();
     }
 
@@ -84,6 +86,7 @@ final class MailusersTest extends TestCase
         $this->assertSame('', $this->mail());
     }
 
+    #[Group('process')]
     public function test_count_matches_the_command(): void
     {
         $dry = (string) shell_exec(sprintf('KIP_DB_DSN=%s %s %s mail:users Subj Body --dry-run 2>&1',
@@ -264,6 +267,7 @@ final class MailusersTest extends TestCase
         $this->assertSame('', $this->mail());
     }
 
+    #[Group('process')]
     public function test_the_command_refuses_a_broadcast_that_does_not_fit(): void
     {
         $this->seedMembers(25); // 28 eligible, room 20 at cap 30
@@ -279,6 +283,7 @@ final class MailusersTest extends TestCase
 
     /** The CLI exit code check rides the same refusal; assert it separately
      *  from the output text (shell_exec hides the exit code). */
+    #[Group('process')]
     public function test_the_command_exits_non_zero_on_a_refused_broadcast(): void
     {
         while ($this->eligibleTotal() < 30) $this->seedMembers(1); // room 20 at cap 30

@@ -1,5 +1,6 @@
 <?php // tests/PerUserTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -16,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 // same client's next request the way a browser replays it, so the jar cases
 // below assert carriage, not just emission; the sync cases assert the
 // Set-Cookie list shape on the response itself.
+#[Medium]
 final class PerUserTest extends TestCase
 {
     private string $path = '';
@@ -26,11 +28,10 @@ final class PerUserTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-pu-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-pu-');
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-pu-mail-') . '.log';
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         // The public/index.php init, pointed at this throwaway DB.
         \App\Features::init($this->db, []);

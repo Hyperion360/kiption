@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 namespace Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 
 use PHPUnit\Framework\TestCase;
 
@@ -11,8 +13,10 @@ use PHPUnit\Framework\TestCase;
  * golden sample converts to renders through App\Markdown as safe, plain
  * story markup.
  */
+#[Medium]
 final class PasteConverterTest extends TestCase
 {
+    #[Group('process')]
     public function test_node_converter_suite_passes(): void
     {
         $node = trim((string) shell_exec('command -v node'));

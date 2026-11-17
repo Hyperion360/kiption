@@ -2,10 +2,12 @@
 declare(strict_types=1);
 
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\AssetUrl;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class AssetUrlTest extends TestCase
 {
     protected function tearDown(): void

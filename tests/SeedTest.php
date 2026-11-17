@@ -1,9 +1,11 @@
 <?php // tests/SeedTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SeedTest extends TestCase
 {
     private string $dsn = '';

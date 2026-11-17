@@ -1,5 +1,6 @@
 <?php // tests/FrontControllerPassthroughTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Tests\Support\DevServerHttp;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
  * application. The private tree carries a pending setup token, so "reached
  * the application" is the setup gate's 503 and a leak would be a 200.
  */
+#[Medium]
 final class FrontControllerPassthroughTest extends TestCase
 {
     use DevServerHttp;
@@ -96,7 +98,7 @@ define("KIPTION_SHARED_DIR", ' . var_export($shared, true) . ');
 define("KIPTION_PUBLIC_DIR", ' . var_export($public, true) . ');
 return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';');
 
-        $port = $this->freePort(8098);
+        $port = $this->freePort();
         $server = $this->startServer($port, $public, $router);
         try {
             foreach ($served as $rel => [$body, $type]) {

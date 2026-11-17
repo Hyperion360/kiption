@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
 namespace App\Features\Story\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Tests\Support\TaxonomyCase;
 
+#[Small]
 final class StoryDraftTest extends TaxonomyCase
 {
     private int $general;

@@ -1,5 +1,6 @@
 <?php // tests/SkinsTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use Kip\App;
 use Kip\Database;
@@ -17,6 +18,7 @@ use PHPUnit\Framework\TestCase;
  *  switch (cached pages are skinned pages), and the seam's tolerance of a
  *  missing or malformed skin name (fall back to the app defaults, never a
  *  fatal page). */
+#[Medium]
 final class SkinsTest extends TestCase
 {
     private string $path = '';
@@ -182,7 +184,7 @@ final class SkinsTest extends TestCase
     private function seed(): void
     {
         \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('skinadmin@e.test', ?, 'skinadmin', 'admin', 1, ?, ?, 'skinadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();

@@ -1,5 +1,6 @@
 <?php // app/Features/Images/Tests/ImagesTest.php
 namespace App\Features\Images\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\TestCase;
  *  Storage's copy-mover seam on the App's container BEFORE POSTing (the
  *  AccountTest idiom); the controller resolves Storage from the container,
  *  not inline, so the seam takes. */
+#[Medium]
 final class ImagesTest extends TestCase
 {
     private string $path = '';
@@ -26,14 +28,13 @@ final class ImagesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-images-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-images-');
         $this->root = sys_get_temp_dir() . '/kiption-images-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // admin + member fixtures, the AdminToolsTest idiom
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('imgadmin@e.test', ?, 'imgadmin', 'admin', 1, ?, ?, 'imgadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();

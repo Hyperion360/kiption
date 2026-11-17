@@ -1,11 +1,13 @@
 <?php // app/Features/Queue/Tests/QueueTest.php
 namespace App\Features\Queue\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class QueueTest extends TestCase
 {
     private string $path = '';
@@ -16,14 +18,13 @@ final class QueueTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-queue-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-queue-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         \App\Adminness::setRole($this->db, 1, 'moderator'); // Demo Author moderates
         // one pending story with one pending chapter by a plain member
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('p@e.test', ?, 'pendingauthor', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->memberId = (int) $this->db->lastInsertId();
         $this->db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES (?, ?, ?, ?, ?, 0)',
             ['Pending Work', 'pending-work', 'S.', $this->memberId, 2]);
@@ -62,7 +63,7 @@ final class QueueTest extends TestCase
         }
         $client = $this->clientAs($moderator); // the session predates the rotation
         $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?',
-            [password_hash('rotated-mod-7', PASSWORD_DEFAULT), $moderator]);
+            [\App\Tests\Support\Hashes::of('rotated-mod-7'), $moderator]);
         // /queue carries #[AuthAttr]: the kernel gate runs first and redirects a
         // stale-epoch session to login (302). The security property is 'no 200':
         // a rotated-away session never sees moderator authority, whether the
@@ -129,7 +130,7 @@ final class QueueTest extends TestCase
     public function test_member_approval_flow(): void
     {
         $this->db->query("INSERT INTO users (email, password_hash, penname, approved_at) VALUES ('w@e.test', ?, 'waitingmember', NULL)",
-            [password_hash('password123', PASSWORD_DEFAULT)]);
+            [\App\Tests\Support\Hashes::of('password123')]);
         $id = (int) $this->db->lastInsertId();
         $res = $this->clientAs(1)->postWithToken('/queue/member/' . $id . '/approve');
         $this->assertSame(302, $res->status, $res->body);

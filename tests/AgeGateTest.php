@@ -1,11 +1,13 @@
 <?php // tests/AgeGateTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\AgeGate;
 use Kip\Http\Request;
 use PHPUnit\Framework\TestCase;
 
 /** The adult-rating gate every reading surface asks: only an adult-rated
  *  story without the age acknowledgement is blocked. */
+#[Small]
 final class AgeGateTest extends TestCase
 {
     private function request(array $cookies = []): Request

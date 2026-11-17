@@ -1,5 +1,6 @@
 <?php // tests/AdminToolsTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\TestCase;
  *  flag the home page finally consumes (finding 3). Roles are admin-only:
  *  the moderator-must-not-mint-admins pin (finding 11) rides the SQL admin
  *  gate because requireModerator would admit moderators. */
+#[Medium]
 final class AdminToolsTest extends TestCase
 {
     private string $path = '';
@@ -25,15 +27,14 @@ final class AdminToolsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-admintools-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-admintools-');
         $this->root = sys_get_temp_dir() . '/kiption-admintools-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->cacheDir = dirname(__DIR__) . '/public/cache';
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // admin + member + moderator fixtures, the NewsTest idiom
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('tooladmin@e.test', ?, 'tooladmin', 'admin', 1, ?, ?, 'tooladmin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
@@ -273,7 +274,7 @@ final class AdminToolsTest extends TestCase
         // the lexicographic penname order matches the numeric order)
         for ($i = 0; $i < 20; $i++) {
             $db->query("INSERT INTO users (email, password_hash, penname) VALUES ('filler{$i}@e.test', ?, ?)",
-                [password_hash('password123', PASSWORD_DEFAULT), sprintf('zz-filler-%02d', $i)]);
+                [\App\Tests\Support\Hashes::of('password123'), sprintf('zz-filler-%02d', $i)]);
         }
         $page1 = $admin->get('/adminmembers')->body;
         $this->assertStringNotContainsString('zz-filler-19', $page1);

@@ -1,5 +1,6 @@
 <?php // app/Features/Challenges/Tests/ChallengesTest.php
 namespace App\Features\Challenges\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -13,6 +14,7 @@ use PHPUnit\Framework\TestCase;
  * Features::init/reset discipline: the class inits in setUp and resets in
  * tearDown so no later suite inherits a memo pointing at this unlinking
  * temp DB. */
+#[Medium]
 final class ChallengesTest extends TestCase
 {
     private string $path = '';
@@ -320,7 +322,7 @@ final class ChallengesTest extends TestCase
         $this->assertSame(302, $owner->postWithToken("/challenges/confirm/mod-challenge/{$itemId}", [])->status);
         // remove: a stranger 404s, the story author may withdraw, the owner may remove
         $this->assertSame(404, $this->client($this->memberId())->postWithToken('/challenges/remove/ghost-challenge/the-rabbit-hole', [])->status);
-        $db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('r@example.test', ?, 'Stranger', ?, ?)", [password_hash('x', PASSWORD_DEFAULT), date('c'), date('c')]);
+        $db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('r@example.test', ?, 'Stranger', ?, ?)", [\App\Tests\Support\Hashes::of('x'), date('c'), date('c')]);
         $strangerId = (int) $db->one("SELECT id FROM users WHERE penname = 'Stranger'")['id'];
         $this->assertSame(404, $this->client($strangerId)->postWithToken('/challenges/remove/mod-challenge/the-rabbit-hole', [])->status);
         $this->assertSame(302, $author->postWithToken('/challenges/remove/mod-challenge/the-rabbit-hole', [])->status, 'the story author withdraws');

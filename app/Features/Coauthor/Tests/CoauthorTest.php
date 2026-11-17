@@ -1,11 +1,13 @@
 <?php // app/Features/Coauthor/Tests/CoauthorTest.php
 namespace App\Features\Coauthor\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class CoauthorTest extends TestCase
 {
     private string $path = '';
@@ -15,15 +17,14 @@ final class CoauthorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-coa-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-coa-');
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-coa-mail-') . '.log';
         touch($this->mailLog);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // a full member to attach as coauthor (approved, verified, unlocked)
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('ow@e.test', ?, 'otherwriter', ?, ?, 'otherwriter')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->otherUserId = (int) $this->db->lastInsertId();
     }
 

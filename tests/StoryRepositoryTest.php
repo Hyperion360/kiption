@@ -1,10 +1,12 @@
 <?php // tests/StoryRepositoryTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Repositories\StoryRepository;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class StoryRepositoryTest extends TestCase
 {
     private string $dsn = '';
@@ -12,7 +14,7 @@ final class StoryRepositoryTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->dsn = 'sqlite:' . tempnam(sys_get_temp_dir(), 'kiption-repo-') . '.sqlite';
+        $this->dsn = 'sqlite:' . \App\Tests\Support\SchemaTemplate::path('kiption-repo-');
         $this->db = new Database($this->dsn);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         $this->db->query('INSERT INTO users (email, password_hash, penname) VALUES (?, ?, ?)',

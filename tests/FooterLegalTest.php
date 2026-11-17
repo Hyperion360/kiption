@@ -1,5 +1,6 @@
 <?php // tests/FooterLegalTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -13,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 // foot-legal paragraph after the foot-nav. Absent when unconfigured (the
 // MIT default: nothing renders until an operator sets the keys), identical
 // bytes for every visitor so cached pages stay stable.
+#[Medium]
 final class FooterLegalTest extends TestCase
 {
     private string $path = '';
@@ -21,10 +23,9 @@ final class FooterLegalTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-legal-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-legal-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
     }
 

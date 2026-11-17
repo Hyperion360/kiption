@@ -1,8 +1,10 @@
 <?php // tests/MaintenanceViewTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use Kip\View;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class MaintenanceViewTest extends TestCase
 {
     public function test_maintenance_view_renders_standalone(): void

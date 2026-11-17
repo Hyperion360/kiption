@@ -1,5 +1,6 @@
 <?php // app/Features/Manage/Tests/MessagesMenuTest.php
 namespace App\Features\Manage\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Lang;
 use App\SiteText\Store;
 use Kip\{App, Database};
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 
 /** Owner messages (/help /rules /terms and the notices), the settings block
  *  for footer, picture and maintenance, the /manage page and the word filter. */
+#[Medium]
 final class MessagesMenuTest extends TestCase
 {
     private string $path = '';
@@ -20,13 +22,12 @@ final class MessagesMenuTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-mm-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-mm-');
         $this->root = sys_get_temp_dir() . '/kiption-mm-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $ins = 'INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
         $this->db->query($ins, ['ma@e.test', $hash, 'mmadmin', 'admin', 1, date('c'), date('c'), 'mmadmin']);
         $this->adminId = (int) $this->db->lastInsertId();

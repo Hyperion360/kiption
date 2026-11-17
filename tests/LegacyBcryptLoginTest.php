@@ -1,5 +1,6 @@
 <?php // tests/LegacyBcryptLoginTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Features\Auth\AuthController;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
  *  (T4), md5 precedence on corrupt double-legacy rows (T3), and a wrong
  *  password burns nothing inside the hook itself (the throttle gate above it
  *  owns login_attempts). */
+#[Medium]
 final class LegacyBcryptLoginTest extends TestCase
 {
     private string $path = '';
@@ -17,7 +19,7 @@ final class LegacyBcryptLoginTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-bc-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::path('kiption-bc-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
     }

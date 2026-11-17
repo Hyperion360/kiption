@@ -1,8 +1,10 @@
 <?php // tests/HeadTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Seo\Head;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class HeadTest extends TestCase
 {
     protected function tearDown(): void

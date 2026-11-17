@@ -1,11 +1,14 @@
 <?php // tests/RoundTripTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\TestCase;
 
 /** Shared fixtures pin the PHP renderer's subset and exact JavaScript source
  *  contracts on every checkout. Browser parsing and form transport can normalize
  *  newlines; the source model preserves the string it receives. Rich-surface and
  *  real-device release evidence is verified separately. */
+#[Medium]
 final class RoundTripTest extends TestCase
 {
     /** The HTML subset the editor's renderer contract claims. Anything else
@@ -54,6 +57,7 @@ final class RoundTripTest extends TestCase
     }
 
     /** Automated source tests are required independently of device acceptance. */
+    #[Group('process')]
     public function test_the_js_round_trip_contract(): void
     {
         exec('node --test ' . escapeshellarg(dirname(__DIR__) . '/tests/js/roundtrip.test.mjs') . ' 2>&1', $out, $code);

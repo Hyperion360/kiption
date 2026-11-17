@@ -1,5 +1,7 @@
 <?php // tests/SetupTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Setup\Install;
 use App\Setup\Preflight;
@@ -10,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  * to install; SetupGate authorizes the one-use browser setup; Install is the
  * one migration-plus-admin service shared by CLI and browser.
  */
+#[Medium]
 final class SetupTest extends TestCase
 {
     private array $tmpDirs = [];
@@ -248,6 +251,7 @@ final class SetupTest extends TestCase
         ];
     }
 
+    #[Group('process')]
     public function test_install_parity(): void
     {
         // The CLI path: migrate, blank bootstrap, admin user.
@@ -642,6 +646,7 @@ final class SetupTest extends TestCase
         $this->assertSame(404, $this->post($config, $this->goodPost($token, $session['setup_csrf']), $session)['status']);
     }
 
+    #[Group('process')]
     public function test_browser_setup_concurrent_posts_yield_one_winner(): void
     {
         $home = $this->tmptree('kiption-race-');
@@ -707,6 +712,7 @@ final class SetupTest extends TestCase
         $this->assertFileDoesNotExist($this->tokenPath($config));
     }
 
+    #[Group('process')]
     public function test_browser_setup_killed_worker_releases_the_lock(): void
     {
         $home = $this->tmptree('kiption-kill-');
@@ -904,6 +910,7 @@ final class SetupTest extends TestCase
         $this->assertTrue($byName['https']['ok']);
     }
 
+    #[Group('process')]
     public function test_setup_state_serves_a_generic_503_from_the_front_controller(): void
     {
         $home = $this->tmptree('kiption-503gate-');
@@ -928,7 +935,7 @@ define("KIPTION_PUBLIC_DIR", ' . var_export($public, true) . ');
         $router = $home . '/router.php';
         file_put_contents($router, '<?php require ' . var_export($prepend, true) . '; return require ' . var_export(dirname(__DIR__) . '/public/index.php', true) . ';');
 
-        $port = $this->freePort(8097);
+        $port = $this->freePort();
         $handle = proc_open(
             [PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $public, $router],
             [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
@@ -951,6 +958,7 @@ define("KIPTION_PUBLIC_DIR", ' . var_export($public, true) . ');
         }
     }
 
+    #[Group('process')]
     public function test_web_and_cli_boot_the_same_deployment(): void
     {
         $home = $this->tmptree('kiption-parity-deploy-');
@@ -1008,16 +1016,9 @@ define("KIPTION_PUBLIC_DIR", ' . var_export($public, true) . ');
         $this->assertStringContainsString('https://archive.example.com/auth/verify/', $mail);
     }
 
-    private function freePort(int $start): int
+    private function freePort(): int
     {
-        for ($port = $start; $port < $start + 8; $port++) {
-            $sock = @fsockopen('127.0.0.1', $port, timeout: 0.2);
-            if ($sock === false) {
-                return $port;
-            }
-            fclose($sock);
-        }
-        $this->fail('no free port in the ad-hoc range');
+        return \App\Tests\Support\FreePort::get();
     }
 
     private function httpStatus(int $port, string $path): int

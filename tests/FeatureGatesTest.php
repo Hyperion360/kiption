@@ -1,5 +1,7 @@
 <?php // tests/FeatureGatesTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -38,6 +40,7 @@ use PHPUnit\Framework\TestCase;
  * the recorded data-collection stance: flags gate the VIEW surfaces, never
  * the count.
  */
+#[Medium]
 final class FeatureGatesTest extends TestCase
 {
     private string $path = '';
@@ -54,7 +57,7 @@ final class FeatureGatesTest extends TestCase
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($this->db); // plants the Welcome news row (id 1), demo-author, the-rabbit-hole
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('fg1admin@e.test', ?, 'fg1admin', 'admin', 1, ?, ?, 'fg1admin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
@@ -315,13 +318,14 @@ final class FeatureGatesTest extends TestCase
         return [$code, implode("\n", $out)];
     }
 
+    #[Group('process')]
     public function test_digest_off_prints_disabled_and_never_mails(): void
     {
         // A digest-eligible member with a pending notification (the DigestTest
         // plant shapes): a guardless run WOULD mail this member, which is what
         // makes the empty log and the untouched marker meaningful.
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('fgdigest@e.test', ?, 'fgdigestfan', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $fan = (int) $this->db->lastInsertId();
         $this->db->query('INSERT INTO user_prefs (user_id, notify_favorite_digest) VALUES (?, 1)', [$fan]); // Digest INNER JOINs user_prefs; raw INSERTs create none
         $this->db->query("INSERT INTO notifications (user_id, kind, story_title) VALUES (?, 'update', 'The Rabbit Hole')", [$fan]);
@@ -335,6 +339,7 @@ final class FeatureGatesTest extends TestCase
             'no marker advanced: the member query never ran');
     }
 
+    #[Group('process')]
     public function test_releases_off_prints_disabled_but_the_schedule_input_still_stores(): void
     {
         // The flag gates the RELEASE ARM, never the authoring input (the README

@@ -1,5 +1,6 @@
 <?php // tests/LayoutShellTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 // pins hold the shell markup plus the two stylesheet contracts every
 // not-yet-redesigned screen inherits: the comp breakpoints live in
 // reader.css, and print.css stops styling the retired footer.
+#[Medium]
 final class LayoutShellTest extends TestCase
 {
     private string $path = '';
@@ -22,10 +24,9 @@ final class LayoutShellTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-shell-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-shell-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
     }
 

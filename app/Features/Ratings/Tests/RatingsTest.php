@@ -1,9 +1,11 @@
 <?php // app/Features/Ratings/Tests/RatingsTest.php
 namespace App\Features\Ratings\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** The owner's rating manager at /ratings: add, edit, order and delete the
  *  content ratings, including which ones are adult and what warning they show. */
+#[Small]
 final class RatingsTest extends TaxonomyCase
 {
     private function add(string $label, bool $adult = false, string $warning = ''): int

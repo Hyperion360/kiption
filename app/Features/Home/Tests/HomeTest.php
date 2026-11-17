@@ -1,5 +1,6 @@
 <?php // app/Features/Home/Tests/HomeTest.php
 namespace App\Features\Home\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -7,6 +8,7 @@ use Kip\Migrations\Migrator;
 use Kip\Session;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class HomeTest extends TestCase
 {
     private function app(): App

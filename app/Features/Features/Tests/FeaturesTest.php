@@ -1,5 +1,6 @@
 <?php // app/Features/Features/Tests/FeaturesTest.php
 namespace App\Features\Features\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\{Request, Response};
@@ -7,6 +8,7 @@ use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class FeaturesTest extends TestCase
 {
     private string $path = '';
@@ -296,7 +298,7 @@ final class FeaturesTest extends TestCase
     private function seed(): void
     {
         \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('flagsadmin@e.test', ?, 'flagsadmin', 'admin', 1, ?, ?, 'flagsadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();

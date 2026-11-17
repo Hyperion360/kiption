@@ -1,5 +1,6 @@
 <?php // tests/PurgeSeamsTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\CachePurge;
 use Kip\App;
 use Kip\Database;
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /** Every admin save that changes public pages ends in the one shared purge
  *  set, so the CDN's copy goes too, not just the local files. */
+#[Medium]
 final class PurgeSeamsTest extends TestCase
 {
     private string $path = '';
@@ -19,12 +21,11 @@ final class PurgeSeamsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-seams-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-seams-');
         $this->root = sys_get_temp_dir() . '/kiption-seams-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('seams@e.test', 'x', 'seamsadmin', 'admin', 1, ?, ?, 'seamsadmin')", [date('c'), date('c')]);
         $this->adminId = (int) $this->db->lastInsertId();
         CachePurge::reset();

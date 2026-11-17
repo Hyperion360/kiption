@@ -1,8 +1,10 @@
 <?php // tests/HtmlToMarkdownTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Import\HtmlToMarkdown;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class HtmlToMarkdownTest extends TestCase
 {
     public function test_prose_tag_set_maps_to_markdown(): void

@@ -1,5 +1,6 @@
 <?php // tests/LookLayoutTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Look\{Boot, Compiler, Presets, Store};
 use Kip\{App, Database};
@@ -12,6 +13,7 @@ use PHPUnit\Framework\TestCase;
  *  and skin sheets (and is absent by default), the public route answers with
  *  the cache policy the front controller keeps, and a saved look adds no
  *  query to a page. */
+#[Medium]
 final class LookLayoutTest extends TestCase
 {
     private string $path = '';
@@ -20,13 +22,12 @@ final class LookLayoutTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-looklay-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-looklay-');
         $this->root = sys_get_temp_dir() . '/kiption-looklay-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         symlink(dirname(__DIR__) . '/app/skins', $this->root . '/app/skins');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

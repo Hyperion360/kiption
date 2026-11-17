@@ -1,5 +1,6 @@
 <?php // tests/DemoTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -7,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 /** `bin/kip db:demo`: the manual-testing archive rides on top of the Seeder
  *  fixture without changing it, refuses a second load, rebuilds exactly its
  *  own rows under --force, and stores word counts the pages can trust. */
+#[Medium]
 final class DemoTest extends TestCase
 {
     private string $path = '';
@@ -14,10 +16,9 @@ final class DemoTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-demo-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-demo-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

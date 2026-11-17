@@ -1,8 +1,10 @@
 <?php // app/Features/Tags/Tests/TagsTest.php
 namespace App\Features\Tags\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** The owner's tag type and tag manager at /tags. */
+#[Small]
 final class TagsTest extends TaxonomyCase
 {
     private function typeId(string $name): int

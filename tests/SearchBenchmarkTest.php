@@ -1,12 +1,15 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Tests\Support\SearchBenchmark;
 use Kip\Database;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SearchBenchmarkTest extends TestCase
 {
     public static function invalidOptions(): iterable
@@ -65,6 +68,7 @@ final class SearchBenchmarkTest extends TestCase
         $this->assertSame([], SearchBenchmark::postingsScans(array_slice($plan, 2)));
     }
 
+    #[Group('process')]
     public function test_cli_smoke_cleans_its_database_and_reports_real_measurements(): void
     {
         $dir = sys_get_temp_dir() . '/search-runner-test-' . bin2hex(random_bytes(6));

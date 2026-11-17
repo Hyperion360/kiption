@@ -1,5 +1,6 @@
 <?php // tests/CookieTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Cookie;
 use PHPUnit\Framework\TestCase;
 
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 // none carried Secure on HTTPS deployments). The clear idiom is the empty
 // value; the CLI/test SAPI has no HTTPS, so the default shape is the plain
 // attribute string the existing pins already assert.
+#[Small]
 final class CookieTest extends TestCase
 {
     public function test_long_shapes_and_the_secure_variant(): void

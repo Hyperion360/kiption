@@ -1,9 +1,11 @@
 <?php // app/Features/Look/Tests/PaletteTest.php
 namespace App\Features\Look\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Look\{Color, Compiler, Palette, Rules};
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class PaletteTest extends TestCase
 {
     /** Inputs that pass the Rules gates (text 4.5 on background, accent 5.0). */

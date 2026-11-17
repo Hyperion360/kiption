@@ -1,11 +1,13 @@
 <?php // tests/HeadlineCaseTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 
 /** Headings, titles, labels, links and buttons follow Chicago headline case:
  *  every word is capitalized except articles, short conjunctions and
  *  prepositions (never the first word). Sentences, fragments that sit inside
  *  a sentence, and parenthetical hints are left alone. */
+#[Small]
 final class HeadlineCaseTest extends TestCase
 {
     private const SMALL = ['a', 'an', 'the', 'and', 'but', 'or', 'nor', 'for', 'so', 'yet', 'as', 'at', 'by',

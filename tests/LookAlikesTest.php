@@ -2,10 +2,12 @@
 declare(strict_types=1);
 
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\LookAlikes;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class LookAlikesTest extends TestCase
 {
     public function test_names_that_differ_only_by_case_spacing_or_punctuation_are_grouped(): void

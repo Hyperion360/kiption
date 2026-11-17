@@ -1,8 +1,10 @@
 <?php // tests/BundleReaderTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Import\BundleReader;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class BundleReaderTest extends TestCase
 {
     private string $root = '';
@@ -151,16 +153,22 @@ final class BundleReaderTest extends TestCase
         $bundle = $this->root . '/partial.tar.gz';
         file_put_contents($bundle, gzencode((string) file_get_contents($tarPath), 9));
         unlink($tarPath);
-        $before = glob(sys_get_temp_dir() . '/kiption-read-*');
+        // Point the temp dir at this test's own root, so reads from other test processes cannot show up in the listing.
+        $tmp = $this->root . '/tmp';
+        mkdir($tmp, 0775, true);
+        $previous = getenv('TMPDIR');
+        putenv('TMPDIR=' . $tmp);
         try {
             new BundleReader($bundle);
             $this->fail('expected RuntimeException for a bundle without manifest/jsonl');
         } catch (\RuntimeException $e) {
             $this->assertStringContainsString('manifest.json', $e->getMessage());
+        } finally {
+            putenv($previous === false ? 'TMPDIR' : 'TMPDIR=' . $previous);
         }
         // PHP never runs the destructor when the constructor throws, so the
         // missing-parts path itself must clean the extracted temp dir
-        $this->assertSame($before, glob(sys_get_temp_dir() . '/kiption-read-*'));
+        $this->assertSame([], glob($tmp . '/kiption-read-*'));
     }
 
     public function test_rows_reject_corrupt_archive_lines_in_a_controlled_way(): void

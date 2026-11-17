@@ -1,11 +1,13 @@
 <?php // tests/StaticCacheHeadersTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\StaticCache\Cache;
 use Kip\Http\{Request, Response};
 use PHPUnit\Framework\TestCase;
 
 /** Browsers revalidate every cached page; the edge keeps its own four-hour copy
  *  under the headers CDNs read first (and Cloudflare strips). */
+#[Medium]
 final class StaticCacheHeadersTest extends TestCase
 {
     private string $dir = '';

@@ -1,5 +1,6 @@
 <?php // app/Features/Reader/Tests/BookmarkTest.php
 namespace App\Features\Reader\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 // back to the chapter. The read/view envelopes fold the member's bookmarks
 // for the story into the SAME single query (the budget law); guests get the
 // cookieless shape with no bookmark markup and no other reader's notes.
+#[Medium]
 final class BookmarkTest extends TestCase
 {
     private string $path = '';
@@ -20,10 +22,9 @@ final class BookmarkTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-bm-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-bm-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // betafriend is the seeded NON-author member: the acting reader.
         $this->memberId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
     }
@@ -336,7 +337,7 @@ final class BookmarkTest extends TestCase
         $c = $this->client($this->memberId);
         $c->postWithToken('/reader/bookmarkadd/the-rabbit-hole/1', ['note' => 'secret margin note']);
         $this->assertStringContainsString('secret margin note', $c->get('/story/read/the-rabbit-hole/1')->body);
-        $this->db->query("UPDATE users SET password_hash = ? WHERE id = ?", [password_hash('rotated', PASSWORD_DEFAULT), $this->memberId]);
+        $this->db->query("UPDATE users SET password_hash = ? WHERE id = ?", [\App\Tests\Support\Hashes::of('rotated'), $this->memberId]);
         foreach (['/story/read/the-rabbit-hole/1', '/story/fragment/the-rabbit-hole/1', '/story/view/the-rabbit-hole'] as $path) {
             $res = $c->get($path);
             $this->assertStringNotContainsString('secret margin note', $res->body, $path);

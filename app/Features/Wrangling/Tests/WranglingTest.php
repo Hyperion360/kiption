@@ -1,5 +1,7 @@
 <?php // app/Features/Wrangling/Tests/WranglingTest.php
 namespace App\Features\Wrangling\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\{Request, Response};
@@ -14,6 +16,7 @@ use PHPUnit\Framework\TestCase;
  *  literal ids would silently re-point these scenarios at the wrong tags),
  *  every test-created tag captures lastInsertId, and every story_tags count
  *  is scoped to the-rabbit-hole (the seed's second story carries tags). */
+#[Medium]
 final class WranglingTest extends TestCase
 {
     private string $path = '';
@@ -33,7 +36,7 @@ final class WranglingTest extends TestCase
         $this->memberRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         $this->authorRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
         // The wrangling operator (the FeatureGatesTest admin idiom).
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('wrapadmin@e.test', ?, 'wrapadmin', 'admin', 1, ?, ?, 'wrapadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminRowId = (int) $this->db->lastInsertId();
@@ -94,7 +97,7 @@ final class WranglingTest extends TestCase
     {
         $client = $this->client($this->adminRowId); // the session predates the rotation
         $this->db->query("UPDATE users SET password_hash = ? WHERE id = ?",
-            [password_hash('rotated-pass-9', PASSWORD_DEFAULT), $this->adminRowId]);
+            [\App\Tests\Support\Hashes::of('rotated-pass-9'), $this->adminRowId]);
         $this->assertSame(403, $client->get('/wrangling')->status);
         $this->assertSame(403, $client->get('/wrangling/merge')->status);
         // The invites gate: a revoked session must not mint or even list.
@@ -351,6 +354,7 @@ final class WranglingTest extends TestCase
      *  pre-seeds a real cache file the way the static cache names them
      *  (tests/StaticCacheTest's fileFor idiom) against the config-injected
      *  dir, then merges and unmerges and confirms the file is gone. */
+    #[Group('process')]
     public function test_a_merge_and_an_unmerge_purge_the_static_cache(): void
     {
         $cacheDir = sys_get_temp_dir() . '/kiption-wrap-cache-' . uniqid();

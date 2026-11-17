@@ -1,5 +1,6 @@
 <?php // app/Features/Messages/Tests/MessagesTest.php
 namespace App\Features\Messages\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Notifications;
 use App\Repositories\MessageRepository;
 use Kip\App;
@@ -8,6 +9,7 @@ use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class MessagesTest extends TestCase
 {
     private string $path = '';
@@ -18,11 +20,10 @@ final class MessagesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-pm-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-pm-');
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-pm-mail-') . '.log';
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         $this->authorRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
     }
@@ -156,7 +157,7 @@ final class MessagesTest extends TestCase
         // the alice one carrying messages in BOTH directions (the normalized
         // pair groups them into a single thread however the pair alternates).
         $this->db()->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('carol@example.test', ?, 'Carol', ?, ?, 'carol')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $carol = (int) $this->db()->one("SELECT id FROM users WHERE penname = 'Carol'")['id'];
         $repo = new MessageRepository($this->db());
         $repo->send($this->memberId(), $this->authorId(), 'First thread A');

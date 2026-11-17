@@ -1,8 +1,10 @@
 <?php // tests/MarkdownTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Markdown;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class MarkdownTest extends TestCase
 {
     public function test_inline_editor_parity_fixtures(): void

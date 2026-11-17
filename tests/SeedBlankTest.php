@@ -2,9 +2,11 @@
 declare(strict_types=1);
 
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 
 use PHPUnit\Framework\TestCase;
 
+#[Large]
 final class SeedBlankTest extends TestCase
 {
     private string $dir;

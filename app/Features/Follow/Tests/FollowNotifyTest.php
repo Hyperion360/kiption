@@ -1,11 +1,13 @@
 <?php // app/Features/Follow/Tests/FollowNotifyTest.php
 namespace App\Features\Follow\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class FollowNotifyTest extends TestCase
 {
     private string $path = '';
@@ -15,14 +17,13 @@ final class FollowNotifyTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-fnotify-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-fnotify-');
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-fnotify-mail-') . '.log';
         touch($this->mailLog); // site mode sends no mail; the empty-log assertion reads a real empty file
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('fn@e.test', ?, 'followerone', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->memberId = (int) $this->db->lastInsertId();
     }
 

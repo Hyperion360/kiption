@@ -1,9 +1,11 @@
 <?php // tests/RedirectsTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Redirects;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[Small]
 final class RedirectsTest extends TestCase
 {
     #[DataProvider('cases')]

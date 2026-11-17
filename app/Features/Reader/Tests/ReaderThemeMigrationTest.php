@@ -1,5 +1,6 @@
 <?php // app/Features/Reader/Tests/ReaderThemeMigrationTest.php
 namespace App\Features\Reader\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
 // digest_sent_at/notify_favorite_digest + 024's lang) or data is lost, so the
 // round trip seeds a row with every column off its default and asserts each
 // value survives both directions.
+#[Medium]
 final class ReaderThemeMigrationTest extends TestCase
 {
     private string $path = '';
@@ -54,7 +56,7 @@ final class ReaderThemeMigrationTest extends TestCase
     private function seedMemberWithFullPrefs(): void
     {
         $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('rtm@e.test', ?, 'rtmmember')",
-            [password_hash('password123', PASSWORD_DEFAULT)]);
+            [\App\Tests\Support\Hashes::of('password123')]);
         $uid = (int) $this->db->lastInsertId();
         $this->db->query(
             'INSERT INTO user_prefs (user_id, notify_review, notify_response, notify_favorites, default_sort, toc_first, theme, digest_sent_at, notify_favorite_digest, lang)
@@ -75,7 +77,7 @@ final class ReaderThemeMigrationTest extends TestCase
         // The light arm too (testing specialist: a typo in either CASE branch
         // would otherwise ship green; dark is the round-trip row above).
         $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('rtm-light@e.test', ?, 'rtmlight')",
-            [password_hash('password123', PASSWORD_DEFAULT)]);
+            [\App\Tests\Support\Hashes::of('password123')]);
         $this->db->query('INSERT INTO user_prefs (user_id, theme) VALUES ((SELECT id FROM users WHERE penname = \'rtmlight\'), \'light\')');
 
         // Up: 026 runs alone (its own batch, the real Migrator mechanics).
@@ -96,7 +98,7 @@ final class ReaderThemeMigrationTest extends TestCase
         $this->assertSame('de', $up['lang'], 'the 024 column survives');
         // The new CHECK is live: legacy values refuse, the new set accepts.
         $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('rtm2@e.test', ?, 'rtmsecond')",
-            [password_hash('password123', PASSWORD_DEFAULT)]);
+            [\App\Tests\Support\Hashes::of('password123')]);
         $this->db->query('INSERT INTO user_prefs (user_id) VALUES ((SELECT id FROM users WHERE penname = \'rtmsecond\'))');
         $this->assertSame('paper', $this->db->one("SELECT theme FROM user_prefs WHERE user_id = (SELECT id FROM users WHERE penname = 'rtmsecond')")['theme'],
             'the schema default is now paper');
@@ -145,7 +147,7 @@ final class ReaderThemeMigrationTest extends TestCase
         $this->assertSame(1, (int) $up['notify_favorite_digest']);
         $this->assertSame('de', $up['lang']);
         $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('rtm3@e.test', ?, 'rtmthird')",
-            [password_hash('password123', PASSWORD_DEFAULT)]);
+            [\App\Tests\Support\Hashes::of('password123')]);
         $this->db->query("INSERT INTO user_prefs (user_id, lang) VALUES ((SELECT id FROM users WHERE penname = 'rtmthird'), 'fr')");
         $this->assertNull($this->db->one("SELECT theme FROM user_prefs WHERE user_id = (SELECT id FROM users WHERE penname = 'rtmthird')")['theme'],
             'a row created for another reason no longer carries a theme');

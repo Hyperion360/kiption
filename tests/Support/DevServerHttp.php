@@ -10,16 +10,9 @@ namespace App\Tests\Support;
  */
 trait DevServerHttp
 {
-    private function freePort(int $start): int
+    private function freePort(): int
     {
-        for ($port = $start; $port < $start + 8; $port++) {
-            $sock = @fsockopen('127.0.0.1', $port, timeout: 0.2);
-            if ($sock === false) {
-                return $port;
-            }
-            fclose($sock);
-        }
-        $this->fail('no free port in the ad-hoc range');
+        return \App\Tests\Support\FreePort::get();
     }
 
     /** @return resource the proc_open handle of the built-in server */

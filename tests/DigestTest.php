@@ -1,5 +1,6 @@
 <?php // tests/DigestTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Digest;
 use Kip\App;
 use Kip\Database;
@@ -7,6 +8,7 @@ use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class DigestTest extends TestCase
 {
     private string $path = '';
@@ -16,14 +18,13 @@ final class DigestTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-dig-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-dig-');
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-dig-mail-') . '.log';
         touch($this->mailLog);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('dg@e.test', ?, 'digestfan', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->fanId = (int) $this->db->lastInsertId();
         $this->db->query('INSERT INTO user_prefs (user_id) VALUES (?)', [$this->fanId]); // Digest INNER JOINs user_prefs; raw INSERTs create none
     }

@@ -1,9 +1,11 @@
 <?php // app/Features/Search/Tests/SearchFtsSchemaTest.php
 namespace App\Features\Search\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SearchFtsSchemaTest extends TestCase
 {
     private string $path = '';

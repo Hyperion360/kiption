@@ -1,10 +1,12 @@
 <?php // tests/SeriesRepositoryTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Repositories\SeriesRepository;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SeriesRepositoryTest extends TestCase
 {
     private string $path = '';
@@ -21,17 +23,16 @@ final class SeriesRepositoryTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-ser-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-ser-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->repo = new SeriesRepository($this->db);
         $this->ownerId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('other@e.test', ?, 'otherwriter', ?, ?, 'otherwriter')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->authorId = (int) $this->db->lastInsertId();
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('admin@e.test', ?, 'siteadmin', 'admin', 1, ?, ?, 'siteadmin')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
         $this->db->query("INSERT INTO stories (title, slug, author_id, rating_id, validated) VALUES ('Other Tale', 'other-tale', ?, (SELECT id FROM ratings LIMIT 1), 1)", [$this->authorId]);
     }
@@ -73,7 +74,7 @@ final class SeriesRepositoryTest extends TestCase
         $this->assertSame('added', $this->repo->addItem($slug, 'other-tale', $this->authorId, false));
         // A third member who is neither owner nor the story's author cannot add it.
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('x@e.test', ?, 'strangerx', ?, ?, 'strangerx')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $stranger = (int) $this->db->lastInsertId();
         $this->expectException(\RuntimeException::class);
         $this->repo->addItem($slug, 'the-rabbit-hole', $stranger, false);

@@ -1,8 +1,10 @@
 <?php // app/Features/Characters/Tests/CharactersTest.php
 namespace App\Features\Characters\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** The owner's character manager at /characters. */
+#[Small]
 final class CharactersTest extends TaxonomyCase
 {
     private function general(): int

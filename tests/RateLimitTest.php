@@ -1,5 +1,6 @@
 <?php // tests/RateLimitTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\TestCase;
  *  config against a prefix no route claims; every other test's app config
  *  carries no rate_limit key, so the limiter is inert there and page renders
  *  keep the one-query budget (QueryBudgetTest's pin). */
+#[Medium]
 final class RateLimitTest extends TestCase
 {
     private string $path = '';
@@ -19,7 +21,7 @@ final class RateLimitTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-rl-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::path('kiption-rl-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
     }

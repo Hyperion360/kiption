@@ -1,11 +1,13 @@
 <?php // app/Features/Tags/Tests/TagSuggestionTest.php
 namespace App\Features\Tags\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
 /** Slice 4: the tag policy setting and the write-side rules for member tag
  *  suggestions (Task 4.2). */
+#[Medium]
 final class TagSuggestionTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +15,9 @@ final class TagSuggestionTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-tagsugg-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-tagsugg-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

@@ -2,10 +2,12 @@
 declare(strict_types=1);
 
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Doctor;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class DoctorTest extends TestCase
 {
     private array $env;

@@ -1,5 +1,6 @@
 <?php // app/Features/Auth/Tests/AuthTest.php
 namespace App\Features\Auth\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Auth;
 use Kip\Database;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 // against the real 001_init schema: proves the migration stays compatible
 // with the framework auth contract (users shape, login_attempts.kind,
 // password_resets) that AuthController relies on.
+#[Medium]
 final class AuthTest extends TestCase
 {
     private App $app;

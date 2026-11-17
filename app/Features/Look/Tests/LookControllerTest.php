@@ -1,5 +1,6 @@
 <?php // app/Features/Look/Tests/LookControllerTest.php
 namespace App\Features\Look\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Lang;
 use App\Look\{Boot, Compiler, Store};
 use Kip\{App, Database};
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /** The colors and layout editor (/look): admin only, CSRF on every write,
  *  every value through App\Look\Rules, and the public stylesheet route. */
+#[Medium]
 final class LookControllerTest extends TestCase
 {
     private string $path = '';
@@ -20,13 +22,12 @@ final class LookControllerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-look-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-look-');
         $this->root = sys_get_temp_dir() . '/kiption-look-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $ins = 'INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
         $this->db->query($ins, ['la@e.test', $hash, 'lookadmin', 'admin', 1, date('c'), date('c'), 'lookadmin']);
         $this->adminId = (int) $this->db->lastInsertId();
