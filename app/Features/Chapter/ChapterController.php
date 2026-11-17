@@ -30,18 +30,24 @@ final class ChapterController
     #[AuthAttr] #[Post]
     public function create(string $slug): Response|string
     {
-        if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
+        if (\App\Posting::paused($this->db, $this->uid())) {
+            return $this->wantsJson() ? $this->json(['error' => \App\Lang::t('error.forbidden')], 403) : \App\Posting::stopPage($this->view, $this->request, $this->app);
+        }
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
+        if (($replay = $this->replay('create', $slug, null)) !== null) return $replay;
         if (trim($content) === '') {
-            return $this->form($slug, null, \App\Lang::t('chapter.err_text'));
+            return $this->fail($slug, null, \App\Lang::t('chapter.err_text'));
         }
         if (($wordError = $this->wordLimitError($content)) !== null) {
-            return $this->form($slug, null, $wordError);
+            return $this->fail($slug, null, $wordError);
+        }
+        if (($imageError = $this->imageError('', $content)) !== null) {
+            return $this->fail($slug, null, $imageError);
         }
         try {
             $publishAt = $this->canonicalPublishAt($rawPublishAt);
         } catch (\InvalidArgumentException) {
-            return $this->form($slug, null, \App\Lang::t('chapter.publish_invalid'));
+            return $this->fail($slug, null, \App\Lang::t('chapter.publish_invalid'));
         }
         $auto = $this->autoValidates();
         // The round-robin expansion reaches chapter CREATION only (finding 7's
@@ -51,11 +57,15 @@ final class ChapterController
         // The post-password field (Fictioneer parity): hashed here, stored by
         // the repository; a new chapter was never public, so no purge rider.
         $accessPassword = trim((string) ($this->request->post['access_password'] ?? ''));
+        $land = $this->landing($slug);
         try {
             [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr,
-                $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT));
+                $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $this->saveRecorder('create', $land));
         } catch (\RuntimeException) {
-            return new Response(\App\Lang::t('error.not_found'), 404); // non-owned or unknown story, same contract as story writes
+            return $this->notFound(); // non-owned or unknown story, same contract as story writes
+        } catch (\PDOException $e) {
+            if (($won = $this->replayAfterRace()) !== null) return $won;
+            throw $e;
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         \App\ActivityLog::record($this->db, $this->uid(), 'chapter.create', $slug . ': ' . $title);
@@ -63,37 +73,32 @@ final class ChapterController
         // checks live_chapters >= 1, so scheduling onto a live story would
         // notify followers about a chapter they cannot read yet.
         if ($auto && $publishAt === null) $this->notifyPublish($slug);
-        // A pure rr contributor cannot see /story/edit (owner-gated by
-        // construction); ownStory WITHOUT the flag is exactly the edit page's
-        // gate, so the probe cannot drift from the surface it routes to.
-        try {
-            $this->repo()->ownStory($slug, $this->uid());
-            $land = '/story/edit/';
-        } catch (\RuntimeException) {
-            $land = '/story/view/';
-        }
-        return Response::redirect($land . $slug);
+        return $this->saved($land);
     }
 
     #[AuthAttr] #[Post]
     public function update(string $slug, int $position): Response|string
     {
-        if ($this->formRow($slug, $position) === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        if ($this->formRow($slug, $position) === null) return $this->notFound();
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
+        if (($replay = $this->replay('update', $slug, $position)) !== null) return $replay;
         if (trim($content) === '') {
-            return $this->form($slug, $position, \App\Lang::t('chapter.err_text'));
+            return $this->fail($slug, $position, \App\Lang::t('chapter.err_text'));
         }
         if (($wordError = $this->wordLimitError($content)) !== null) {
-            return $this->form($slug, $position, $wordError);
+            return $this->fail($slug, $position, $wordError);
+        }
+        if (($imageError = $this->imageError((string) ($this->formRow($slug, $position)['content'] ?? ''), $content)) !== null) {
+            return $this->fail($slug, $position, $imageError);
         }
         try {
             $publishAt = $this->canonicalPublishAt($rawPublishAt);
         } catch (\InvalidArgumentException) {
-            return $this->form($slug, $position, \App\Lang::t('chapter.publish_invalid'));
+            return $this->fail($slug, $position, \App\Lang::t('chapter.publish_invalid'));
         }
         $revision = $this->request->post['accept_revision'] ?? ($this->request->post['base_revision'] ?? null);
         if (!is_string($revision) || preg_match('/^[a-f0-9]{64}$/D', $revision) !== 1) {
-            return $this->form($slug, $position, \App\Lang::t('chapter.reload_before_save'), 409);
+            return $this->fail($slug, $position, \App\Lang::t('chapter.reload_before_save'), 409);
         }
         // The post-password pair (Fictioneer parity; the repository hashes the
         // raw input and applies the clear-wins trio). A NULL-to-set lock on a
@@ -105,18 +110,20 @@ final class ChapterController
         $old = $this->formRow($slug, $position);
         $wasOpen = ($old['access_hash'] ?? null) === null || (string) $old['access_hash'] === '';
         try {
-            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt, $accessPassword, $accessClear, $revision);
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt, $accessPassword, $accessClear, $revision,
+                $this->saveRecorder('update', \App\Saved::url('/chapter/edit/' . $slug . '/' . $position)));
         } catch (\App\ChapterChanged $e) {
             $key = $slug . ':' . $position;
             $this->formRows[$key] = array_replace($this->formRows[$key], $e->savedFields());
             $this->currentRevisions[$key] = $e->savedRevision();
-            return $this->form($slug, $position, \App\Lang::t('chapter.changed'), 409);
+            return $this->fail($slug, $position, \App\Lang::t('chapter.changed'), 409);
         } catch (\PDOException $e) {
+            if (($won = $this->replayAfterRace()) !== null) return $won;
             $native = (int) ($e->errorInfo[1] ?? 0);
             if (!in_array($native & 0xff, [5, 6], true)) throw $e;
-            return $this->form($slug, $position, \App\Lang::t('chapter.busy'), 503, ['Retry-After' => '1']);
+            return $this->fail($slug, $position, \App\Lang::t('chapter.busy'), 503, ['Retry-After' => '1']);
         } catch (\RuntimeException) {
-            return new Response(\App\Lang::t('error.not_found'), 404);
+            return $this->notFound();
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         \App\ActivityLog::record($this->db, $this->uid(), 'chapter.update', $slug . ' #' . $position);
@@ -132,7 +139,7 @@ final class ChapterController
             'SELECT validated FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
             [$slug, $position])['validated'] ?? 0);
         if ($wasLive === 1) $this->notifyPublish($slug); // only an already-live chapter's edit is "news"
-        return \App\Saved::to('/chapter/edit/' . $slug . '/' . $position);
+        return $this->saved(\App\Saved::url('/chapter/edit/' . $slug . '/' . $position));
     }
 
     #[AuthAttr] #[Post]
@@ -146,6 +153,108 @@ final class ChapterController
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
         \App\ActivityLog::record($this->db, $this->uid(), 'chapter.delete', $slug . ' #' . $position);
         return Response::redirect('/story/edit/' . $slug);
+    }
+
+    // ---- JSON saves: the editor posts the form with Accept: application/json
+    // and a UUID save_key; a retry after a lost response replays the recorded
+    // redirect instead of writing a second chapter. Plain form posts are unchanged.
+
+    private ?string $saveKey = null;
+    private string $saveHash = '';
+
+    private function wantsJson(): bool
+    {
+        return str_contains(strtolower((string) $this->request->header('accept')), 'application/json');
+    }
+
+    private function json(array $body, int $status = 200, array $headers = []): Response
+    {
+        return new Response(json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), $status,
+            $headers + ['Content-Type' => 'application/json', 'Cache-Control' => 'no-store']);
+    }
+
+    private function notFound(): Response
+    {
+        return $this->wantsJson() ? $this->json(['error' => \App\Lang::t('error.not_found')], 404) : new Response(\App\Lang::t('error.not_found'), 404);
+    }
+
+    /** The refusal as the editor's JSON {error}, or the usual form page. */
+    private function fail(string $slug, ?int $position, string $message, int $status = 422, array $headers = []): Response|string
+    {
+        return $this->wantsJson() ? $this->json(['error' => $message], $status, $headers) : $this->form($slug, $position, $message, $status, $headers);
+    }
+
+    /** A saved chapter: the JSON {redirect} for the editor, a 302 for a form. */
+    private function saved(string $url): Response
+    {
+        return $this->wantsJson() ? $this->json(['redirect' => $url]) : Response::redirect($url);
+    }
+
+    /** Where a new chapter lands. A pure rr contributor cannot see /story/edit
+     *  (owner-gated by construction); ownStory WITHOUT the flag is exactly the
+     *  edit page's gate, so the probe cannot drift from the surface it routes to. */
+    private function landing(string $slug): string
+    {
+        try {
+            $this->repo()->ownStory($slug, $this->uid());
+            return '/story/edit/' . $slug;
+        } catch (\RuntimeException) {
+            return '/story/view/' . $slug;
+        }
+    }
+
+    /** JSON save lookup, run after auth, CSRF and the story-access check but
+     *  before the mutable-policy checks (word limit, image switch) and the
+     *  revision compare, so an identical retry never meets a stale 409.
+     *  Null means proceed with a fresh write. */
+    private function replay(string $op, string $slug, ?int $position): ?Response
+    {
+        if (!$this->wantsJson()) return null;
+        $key = $this->request->post['save_key'] ?? null;
+        if (!is_string($key) || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/D', $key) !== 1) {
+            return $this->json(['error' => \App\Lang::t('chapter.err_save_key')], 422);
+        }
+        if ($this->formRow($slug, $position) === null) return $this->notFound();
+        [$title, $content, $before, $after, $publishAt] = $this->chapterInput();
+        $p = $this->request->post;
+        $this->saveKey = $key;
+        $this->saveHash = hash('sha256', json_encode([$op, $slug, $position, $title, $content, $before, $after, $publishAt,
+            hash('sha256', trim((string) ($p['access_password'] ?? ''))), ($p['access_clear'] ?? '') === '1'], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+        return $this->recorded();
+    }
+
+    private function recorded(): ?Response
+    {
+        $row = $this->db->one('SELECT request_hash, redirect FROM chapter_save_requests WHERE user_id = ? AND save_key = ?', [$this->uid(), $this->saveKey]);
+        if ($row === null) return null;
+        return hash_equals((string) $row['request_hash'], $this->saveHash)
+            ? $this->json(['redirect' => (string) $row['redirect']])
+            : $this->json(['error' => \App\Lang::t('chapter.err_save_key_reused')], 409);
+    }
+
+    /** Two identical requests racing: the loser's key insert fails inside its
+     *  transaction, which rolls back whole; answer it from the winner's row. */
+    private function replayAfterRace(): ?Response
+    {
+        return $this->saveKey === null ? null : $this->recorded();
+    }
+
+    /** The writer's in-transaction hook that records the key, or null for a form post. */
+    private function saveRecorder(string $op, string $redirect): ?callable
+    {
+        if ($this->saveKey === null) return null;
+        return function (int $chapterId) use ($op, $redirect): void {
+            $this->db->query('INSERT INTO chapter_save_requests (user_id, save_key, request_hash, chapter_id, operation, redirect, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$this->uid(), $this->saveKey, $this->saveHash, $chapterId, $op, $redirect, date('c')]);
+        };
+    }
+
+    /** New image references must come from the author's own library, and none
+     *  may be an unresolved editor placeholder. Unchanged ones always pass. */
+    private function imageError(string $stored, string $submitted): ?string
+    {
+        $key = \App\ChapterImages::refusal($this->db, $this->uid(), $stored, $submitted, \App\Settings::on('chapter_images_on'));
+        return $key === null ? null : \App\Lang::t($key);
     }
 
     private function formRow(string $slug, ?int $position): ?array

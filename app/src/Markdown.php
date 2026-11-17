@@ -3,6 +3,9 @@ namespace App;
 
 final class Markdown
 {
+    /** The only local image destination: a personal-library upload. */
+    public const LOCAL_IMAGE = '\/uploads\/[0-9a-f]{16}\.(?:png|jpe?g|webp|gif)';
+
     /** Prose subset. Raw HTML does not exist in this flavor: every non-marker
      *  character is escaped, so stored content cannot carry markup. */
     public static function render(string $md, bool $blocks = false): string

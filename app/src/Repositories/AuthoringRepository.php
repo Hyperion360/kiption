@@ -505,7 +505,7 @@ final class AuthoringRepository
      *  (update/delete stay story-side; chapters record no contributor to gate
      *  edits by). $accessHash arrives pre-hashed (the controller hashes the
      *  form's raw input; a NULL means open). */
-    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false, ?string $accessHash = null): array
+    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false, ?string $accessHash = null, ?callable $inTransaction = null): array
     {
         $story = $this->ownStory($slug, $userId, $rr);
         $words = \App\Markdown::wordCount($content);
@@ -519,7 +519,9 @@ final class AuthoringRepository
                 'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, publish_at, access_hash)
                  SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
                 [$story['id'], $title, $before, $content, $after, $live, $words, $publishAt, $accessHash, $story['id']]);
+            $newId = (int) $this->db->lastInsertId();
             $this->touchStory($story['id']);
+            if ($inTransaction !== null) $inTransaction($newId); // rides the chapter's own commit (the JSON save key)
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
             return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs];
@@ -530,7 +532,7 @@ final class AuthoringRepository
     }
 
     /** @return array{0: array, 1: array, 2: string, 3: array} */
-    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null, ?string $accessPassword = null, bool $accessClear = false, ?string $expectedRevision = null): array
+    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null, ?string $accessPassword = null, bool $accessClear = false, ?string $expectedRevision = null, ?callable $inTransaction = null): array
     {
         $story = $this->ownStory($slug, $userId);
         $this->db->begin();
@@ -557,6 +559,7 @@ final class AuthoringRepository
                               word_count = ?, publish_at = ?, access_hash = ?, updated_at = ? WHERE story_id = ? AND position = ?',
                 [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, $accessValue, date('c'), $story['id'], $position]);
             $this->touchStory($story['id']);
+            if ($inTransaction !== null) $inTransaction((int) $current['chapter_id']);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
             return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs];
