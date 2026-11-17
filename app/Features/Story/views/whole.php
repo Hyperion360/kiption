@@ -36,7 +36,7 @@
   <section class="prose" id="ch-<?= (int) $c['position'] ?>">
     <?php if ($i > 0): ?><p class="ch-kicker"><?= \App\Lang::t('story.chapter_n', ['n' => $roman($c)]) ?></p><?php endif; ?>
     <h2 class="p-name"><?= $this->e($c['title'] !== '' ? $c['title'] : \App\Lang::t('story.chapter_n', ['n' => (int) $c['position']])) ?></h2>
-    <?= \App\Markdown::render($c['content']) /* markdown at rest; raw HTML cannot be stored */ ?>
+    <?= \App\Markdown::render($c['content'], false, \App\Settings::on('chapter_images_on')) /* markdown at rest; raw HTML cannot be stored */ ?>
   </section>
   <div class="chapter-end" role="group" aria-label="<?= $this->e(\App\Lang::t('reader.end_of_chapter', ['n' => $roman($c)])) ?>">
     <span class="dots" aria-hidden="true"></span>

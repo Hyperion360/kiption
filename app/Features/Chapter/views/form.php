@@ -43,7 +43,7 @@
     <?php endif; ?>
     <label><?= \App\Lang::t('chapter.title') ?> <input name="title" maxlength="200" value="<?= $this->e($story['title'] ?? '') ?>"></label>
     <label><?= \App\Lang::t('chapter.note_before') ?> <textarea name="notes_before" rows="2"><?= $this->e($story['notes_before'] ?? '') ?></textarea></label>
-    <label><?= \App\Lang::t('chapter.text') ?> <textarea name="content" rows="18" required aria-describedby="writer-count" data-js-module="<?= $formattedEnabled ? 'paste epigraph-boot' : 'paste editor' ?>" data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
+    <label><?= \App\Lang::t('chapter.text') ?> <textarea name="content" rows="18" required aria-describedby="writer-count" data-js-module="<?= $formattedEnabled ? 'paste epigraph-boot' : 'paste editor' ?>"<?php if ($formattedEnabled && $imagesOn) : ?> data-epigraph-upload-url="/authorimages/upload" data-epigraph-csrf="<?= $this->e($csrf) ?>"<?php endif; ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
         'bold' => \App\Lang::t('chapter.editor_bold'),
         'italic' => \App\Lang::t('chapter.editor_italic'),
         'link' => \App\Lang::t('chapter.editor_link'),

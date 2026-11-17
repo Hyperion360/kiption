@@ -18,11 +18,18 @@
     var mounted = 0;
     Array.prototype.forEach.call(doc.querySelectorAll('textarea[data-js-module~="epigraph-boot"]'), function (box) {
       try {
-        editor.mount(box, {
-          imagesAllowed: false,
+        /* Images are on only when the server says so: it renders the upload
+         * address and token onto the textarea when the site allows them. */
+        var uploadUrl = box.getAttribute ? box.getAttribute('data-epigraph-upload-url') : null;
+        var token = box.getAttribute ? box.getAttribute('data-epigraph-csrf') : null;
+        var images = !!(uploadUrl && token);
+        var options = {
+          imagesAllowed: images,
           /* The word count and draft modules listen for input on the textarea. */
           onChange: function () { box.dispatchEvent(new win.Event('input', { bubbles: true })); }
-        });
+        };
+        if (images) { options.imageLibrary = { uploadUrl: uploadUrl, csrfToken: token }; }
+        editor.mount(box, options);
         mounted += 1;
       } catch (e) {
         box.hidden = false;

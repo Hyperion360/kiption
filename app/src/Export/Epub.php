@@ -110,7 +110,7 @@ final class Epub
         // Markdown at rest; the corpus guarantee that raw HTML cannot be
         // stored is what makes this wrap safe. The void-tag patch is
         // Epub-only (finding 3): hr and img close for XHTML.
-        $body = \App\Markdown::render((string) $c['content']);
+        $body = \App\Markdown::render((string) $c['content'], false, false);
         $body = str_replace('<hr>', '<hr/>', $body);
         $body = (string) preg_replace('#<img ([^>]*[^/])>#', '<img $1/>', $body);
         return '<?xml version="1.0" encoding="utf-8"?>' . "\n"

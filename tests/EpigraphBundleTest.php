@@ -55,6 +55,17 @@ final class EpigraphBundleTest extends TestCase
         $this->assertStringNotContainsString('/Users/', (string) file_get_contents($dir . '/epigraph.js'));
     }
 
+    public function test_image_uploads_are_offered_only_when_the_site_switch_is_on(): void
+    {
+        $this->assertFalse($this->box(true)->hasAttribute('data-epigraph-upload-url'));
+        \App\Features::init(new \Kip\Database('sqlite:' . $this->path), []);
+        \App\Settings::put('chapter_images_on', '1');
+        $box = $this->box(true);
+        $this->assertSame('/authorimages/upload', $box->getAttribute('data-epigraph-upload-url'));
+        $this->assertNotSame('', $box->getAttribute('data-epigraph-csrf'));
+        $this->assertFalse($this->box(false)->hasAttribute('data-epigraph-upload-url'));
+    }
+
     public function test_the_editor_loads_only_when_the_formatted_flag_is_on(): void
     {
         $off = $this->box(false);

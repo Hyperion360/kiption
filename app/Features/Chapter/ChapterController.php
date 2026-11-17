@@ -330,6 +330,7 @@ final class ChapterController
             'error' => $error,
             'writerLabels' => $writerLabels,
             'formattedEnabled' => $this->app->config('editor_formatted', false) === true,
+            'imagesOn' => \App\Settings::on('chapter_images_on') && \App\Settings::on('uploads_on'),
             'notice' => $error === null && \App\Saved::message($this->request) === 'admin.saved_saved'
                 ? \App\Lang::t('chapter.saved') : '',
             'loggedIn' => true,

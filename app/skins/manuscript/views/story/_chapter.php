@@ -36,7 +36,7 @@
       <?php if (($chapter['notes_before'] ?? '') !== ''): ?>
         <div class="chapter-meta"><?= \App\Markdown::render($chapter['notes_before']) ?></div>
       <?php endif; ?>
-      <?= \App\Markdown::render($chapter['content']) /* markdown at rest; raw HTML cannot be stored */ ?>
+      <?= \App\Markdown::render($chapter['content'], false, \App\Settings::on('chapter_images_on')) /* markdown at rest; raw HTML cannot be stored */ ?>
       <?php if (($chapter['notes_after'] ?? '') !== ''): ?>
         <div class="chapter-meta"><?= \App\Markdown::render($chapter['notes_after']) ?></div>
       <?php endif; ?>

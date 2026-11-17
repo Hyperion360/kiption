@@ -8,7 +8,7 @@ final class Markdown
 
     /** Prose subset. Raw HTML does not exist in this flavor: every non-marker
      *  character is escaped, so stored content cannot carry markup. */
-    public static function render(string $md, bool $blocks = false): string
+    public static function render(string $md, bool $blocks = false, ?bool $localImages = null): string
     {
         $md = str_replace(["\r\n", "\r"], "\n", $md);
         $md = trim($md);
@@ -30,10 +30,10 @@ final class Markdown
             }
             if ($lines[0] !== '' && $lines[0][0] === '>') {
                 $quoted = implode("\n", array_map(static fn(string $l): string => preg_replace('/^>\s?/', '', $l) ?? '', $lines));
-                $out .= '<blockquote>' . rtrim(self::inline($quoted)) . "</blockquote>\n";
+                $out .= '<blockquote>' . rtrim(self::inline($quoted, $localImages)) . "</blockquote>\n";
                 continue;
             }
-            $out .= self::inline($block);
+            $out .= self::inline($block, $localImages);
         }
         return $out;
     }
@@ -61,19 +61,21 @@ final class Markdown
     }
 
     /** Escape + apply inline markers to one paragraph's text; wraps in <p>. */
-    private static function inline(string $text): string
+    private static function inline(string $text, ?bool $localImages = null): string
     {
-        return '<p>' . self::inlineText($text) . "</p>\n";
+        return '<p>' . self::inlineText($text, $localImages) . "</p>\n";
     }
 
-    private static function inlineText(string $text): string
+    private static function inlineText(string $text, ?bool $localImages = null): string
     {
         // Protect the link/image constructs (their addresses must never see
         // emphasis), then format and escape everything else, then
         // re-materialize them: this ordering is what makes raw HTML impossible.
         $tokens = [];
         $text = preg_replace_callback(
-            '/(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/',
+            $localImages === null
+                ? '/(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/'
+                : '/(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+|' . self::LOCAL_IMAGE . ')\)/',
             static function (array $m) use (&$tokens): string {
                 $tokens[] = $m;
                 return "\x00" . (count($tokens) - 1) . "\x00";
@@ -84,11 +86,16 @@ final class Markdown
         foreach ($tokens as $i => $m) {
             $label = self::format($m[2]);
             $url = htmlspecialchars($m[3], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
-            $replacement = $m[1] === '!'
+            $local = $m[3][0] === '/';
+            $replacement = $local
+                ? ($m[1] === '!'
+                    ? ($localImages === true ? '<img src="' . $url . '" alt="' . strip_tags($label) . '">' : strip_tags($label))
+                    : '[' . $label . '](' . $url . ')')
+                : ($m[1] === '!'
                 ? '<img src="' . $url . '" alt="' . strip_tags($label) . '">'
                 : (str_starts_with($m[3], 'https://')
                     ? '<a href="' . $url . '" rel="noopener">' . $label . '</a>'
-                    : '[' . $label . '](' . $url . ')');
+                    : '[' . $label . '](' . $url . ')'));
             $safe = str_replace("\x00{$i}\x00", $replacement, $safe);
         }
         return $safe;
