@@ -117,6 +117,29 @@ final class SiteHeaderTest extends TestCase
         $this->assertStringNotContainsString('nav-count', $none, 'no badge at zero');
     }
 
+    public function test_account_menu_notes_unread_messages_from_the_session_row(): void
+    {
+        $this->db->query('INSERT INTO messages (sender_id, recipient_id, body, created_at) VALUES (?, ?, ?, ?)', [$this->adminId, $this->memberId, 'hi', gmdate('c')]);
+        $head = $this->head($this->client($this->memberId)->get('/')->body);
+        $this->assertStringContainsString('<small class="nav-me-note">1 new</small>', $head);
+        $quiet = $this->head($this->client($this->adminId)->get('/')->body);
+        $this->assertStringNotContainsString('nav-me-note', $quiet, 'no note at zero');
+    }
+
+    public function test_phone_sheet_tiles_carry_captions_and_the_read_list_folds_into_more(): void
+    {
+        $this->db->query('INSERT INTO notifications (user_id, kind, created_at) VALUES (?, ?, ?)', [$this->memberId, 'comment', gmdate('c')]);
+        $body = $this->client($this->memberId)->get('/')->body;
+        preg_match('#<div id="menu".*?\n  </div>#s', $body, $m);
+        $sheet = $m[0] ?? '';
+        $this->assertStringContainsString('<small>1 new</small>', $sheet, 'the Inbox tile says how many are new');
+        $this->assertStringContainsString('<small>Profile, email, reading</small>', $sheet);
+        $this->assertStringContainsString('<details class="sheet-more">', $sheet);
+        $this->assertStringContainsString('href="/browse"', $sheet);
+        $guest = $this->client()->get('/')->body;
+        $this->assertStringNotContainsString('sheet-more', $guest, 'guests keep the full Read list');
+    }
+
     public function test_guest_bytes_carry_no_member_state(): void
     {
         $body = $this->client()->get('/')->body;

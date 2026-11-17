@@ -33,9 +33,9 @@ $categoryCount = count(\App\BrowsePanel::read(\App\BrowsePanel::fileFor($navFile
     </a>
     <div class="sheet-tiles">
       <a href="/account"><strong><?= \App\Lang::t('nav.library') ?></strong></a>
-      <a href="/notifications"><strong><?= \App\Lang::t('nav.inbox') ?></strong><?php if ($inbox > 0): ?><b class="nav-count"><?= $inbox > 99 ? '99+' : $inbox ?></b><?php endif; ?></a>
+      <a href="/notifications"><span><strong><?= \App\Lang::t('nav.inbox') ?></strong><?php if ($inbox > 0): ?><small><?= \App\Lang::t('nav.new_n', ['n' => $inbox]) ?></small><?php endif; ?></span><?php if ($inbox > 0): ?><b class="nav-count"><?= $inbox > 99 ? '99+' : $inbox ?></b><?php endif; ?></a>
       <a href="/account#your-stories"><strong><?= \App\Lang::t('account.your_stories') ?></strong></a>
-      <a href="/account/settings"><strong><?= \App\Lang::t('account.settings') ?></strong></a>
+      <a href="/account/settings"><span><strong><?= \App\Lang::t('account.settings') ?></strong><small><?= \App\Lang::t('nav.settings_note') ?></small></span></a>
     </div>
 <?= $this->render('menu_post', ['class' => 'sheet-post']) ?>
 <?php else: ?>
@@ -50,12 +50,26 @@ $categoryCount = count(\App\BrowsePanel::read(\App\BrowsePanel::fileFor($navFile
 <?php endif; ?>
     <nav aria-label="<?= $this->e(\App\Lang::t('nav.site_label')) ?>">
       <span class="sheet-group"><?= \App\Lang::t('nav.read') ?></span>
-<?php foreach ($menuRead as $menuUrl => $menuLabel): ?>
+<?php $menuMore = []; foreach ($menuRead as $menuUrl => $menuLabel):
+        if ($member && !in_array($menuUrl, ['/browse', '/browse/recent', '/browse/authors', '/series'], true)) { $menuMore[$menuUrl] = $menuLabel; continue; } ?>
       <a href="<?= $menuUrl ?>"><span><?= $menuLabel ?></span><?php if ($menuUrl === '/browse' && $categoryCount > 0 && !$member): ?><small><?= \App\Lang::t('nav.categories_count', ['n' => $categoryCount]) ?></small><?php endif; ?></a>
 <?php endforeach; ?>
+<?php if ($member): $menuLinks = []; foreach (\App\NavLinks::all($navFile ?? '') as $l) { if (!isset($menuSeen[$l['url']])) $menuLinks[$l['url']] = $l['label']; } ?>
+<?php if ($menuMore || $menuLinks): ?>
+      <details class="sheet-more">
+        <summary><span><?= \App\Lang::t('nav.more') ?></span></summary>
+<?php foreach ($menuMore as $menuUrl => $menuLabel): ?>
+        <a href="<?= $menuUrl ?>"><span><?= $menuLabel ?></span></a>
+<?php endforeach; foreach ($menuLinks as $menuUrl => $menuLabel): ?>
+        <a href="<?= $this->e($menuUrl) ?>"><span><?= $this->e($menuLabel) ?></span></a>
+<?php endforeach; ?>
+      </details>
+<?php endif; ?>
+<?php else: ?>
 <?php foreach (\App\NavLinks::all($navFile ?? '') as $l): if (isset($menuSeen[$l['url']])) continue; ?>
       <a href="<?= $this->e($l['url']) ?>"><span><?= $this->e($l['label']) ?></span></a>
 <?php endforeach; ?>
+<?php endif; ?>
     </nav>
 <?php if (!$member && \App\Posting::guestOffered()): ?>
     <span class="sheet-group"><?= \App\Lang::t('nav.write') ?></span>
