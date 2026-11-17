@@ -23,9 +23,12 @@ final class ReaderController
         $reset = $this->request->postStr('reset') === '1';
         $theme = $reset ? 'auto' : $this->request->postStr('theme');
         $theme = in_array($theme, \App\Theme::VALUES, true) ? $theme : 'auto';
-        $prefs = $reset ? new Prefs() : Prefs::fromParts(...array_map(
+        // A post with no typography field at all is the header's theme-only
+        // control: keep what this device already chose instead of resetting it.
+        $typed = array_intersect(['size', 'typeface', 'spacing', 'paragraphs', 'width', 'mode'], array_keys($this->request->post)) !== [];
+        $prefs = $reset ? new Prefs() : (!$typed ? Prefs::current($this->request) : Prefs::fromParts(...array_map(
             fn (string $k): string => $this->request->postStr($k),
-            ['size', 'typeface', 'spacing', 'paragraphs', 'width', 'mode']));
+            ['size', 'typeface', 'spacing', 'paragraphs', 'width', 'mode'])));
         $to = \App\Redirects::safeReturn($this->request->postStr('return_to'));
 
         // Write-through for members (phase 12d): the user_prefs row re-syncs
