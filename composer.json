@@ -1,6 +1,6 @@
 {
     "name": "hyperion360/kiption",
-    "description": "Self-hosted fiction archive built on Kip (working title)",
+    "description": "An open source fiction archive, built with Kip",
     "license": "MIT",
     "require": {
         "php": ">=8.3",

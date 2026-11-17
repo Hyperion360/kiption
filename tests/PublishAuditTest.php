@@ -42,7 +42,7 @@ final class PublishAuditTest extends TestCase
         $dir = sys_get_temp_dir() . '/kiption-pubaudit-' . uniqid();
         $this->dirs[] = $dir;
         mkdir($dir . '/src', 0777, true);
-        file_put_contents($dir . '/README.md', "# Fixture archive\n\nSelf-hosted fiction archive. See INSTALL.md.\n");
+        file_put_contents($dir . '/README.md', "# Fixture archive\n\nAn open source fiction archive, built with Kip. See INSTALL.md.\n");
         file_put_contents($dir . '/LICENSE', "MIT License. Copyright (c) fixture.\n");
         file_put_contents($dir . '/CHANGELOG.md', "# Changelog\n\n## [Unreleased]\n");
         file_put_contents($dir . '/INSTALL.md', "# Install\n\n    composer install\n    php bin/kip migrate\n");
