@@ -2198,18 +2198,51 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 @media (min-width: 900px) { .queue-split { grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); align-items: start; } }
 .site-main .queue-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: var(--surface); }
 .queue-list li + li { border-block-start: 1px solid var(--line); }
-.queue-list a { display: flex; flex-direction: column; gap: 2px; min-height: 44px; padding: 10px 14px 10px 11px; border-inline-start: 3px solid transparent; color: var(--ink); text-decoration: none; font: 15px/1.35 var(--sans); }
+.queue-list a { display: flex; flex-direction: column; gap: 4px; min-height: 44px; padding: 14px 16px 14px 13px; border-inline-start: 3px solid transparent; color: var(--ink); text-decoration: none; font: 15px/1.35 var(--sans); }
 .queue-list a:hover { background: var(--hover); }
 .queue-list a[aria-current="true"] { background: var(--pill-bg); border-inline-start-color: var(--accent); }
-.queue-list-meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.queue-list-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.queue-list-top strong { font: 400 18px/1.25 var(--serif); overflow-wrap: anywhere; }
+.queue-when { flex: none; color: var(--muted); font-size: 13px; }
+.queue-list-meta { color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
+.queue-list-meta strong { color: var(--ink); font-weight: 600; }
+.queue-list-facts { display: flex; flex-wrap: wrap; gap: 2px 10px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.queue-list-facts .ctx-warn { font-weight: 600; }
+.queue-keys { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-block: 0 12px; color: var(--muted); font: 13px/1.4 var(--sans); }
+.queue-keys[hidden] { display: none; }
+.queue-keys kbd, .queue-cap { padding: 1px 5px; border: 1px solid var(--line-strong); color: var(--ink-2); font: 11.5px ui-monospace, "SF Mono", Menlo, monospace; }
+.queue-cap { display: none; padding: 0 4px; font-size: 11px; border-color: currentcolor; opacity: .8; }
+.has-keys .queue-cap { display: inline-block; }
 .queue-detail { padding: 20px; border: 1px solid var(--line); background: var(--surface); }
 .queue-detail h2 { margin-block-start: 0; }
 .queue-excerpt { max-width: 62ch; white-space: pre-line; color: var(--ink-2); }
 .queue-detail .queue-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-block-start: 16px; }
-.queue-remove > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; }
+.queue-remove > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; }
 .queue-remove > summary::-webkit-details-marker { display: none; }
-.queue-remove[open] { flex-basis: 100%; padding: 14px; border: 1px solid var(--line-strong); }
-.queue-remove form { display: grid; gap: 8px; max-width: 420px; margin-block-start: 12px; }
+.queue-remove[open] { flex-basis: 100%; }
+.queue-remove[open] > summary { margin-block-end: 10px; }
+.queue-remove-panel { display: grid; gap: 12px; max-width: 640px; padding: 16px 18px; border: 1px solid var(--danger-line); background: var(--danger-bg); }
+.queue-remove-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; margin: 0; font: 15px/1.4 var(--sans); }
+.queue-remove-note { color: var(--ink-2); font-size: 13px; }
+.queue-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.queue-reasons label { position: relative; display: inline-flex; }
+.queue-reasons input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.queue-reasons span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); font: 13.5px/1.2 var(--sans); }
+.queue-reasons input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
+.queue-reasons input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.queue-remove-panel textarea { width: 100%; min-height: 44px; padding: 10px 12px; box-sizing: border-box; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 14px/1.5 var(--sans); }
+.queue-remove-go { display: flex; gap: 8px; margin: 0; }
+.queue-remove-go .btn-danger { min-height: 44px; padding-inline: 16px; background: var(--danger); border: 1px solid var(--danger); color: var(--bg); font-weight: 600; }
+.queue-remove-go .btn-danger:hover { background: var(--danger); filter: brightness(.9); }
+.queue-remove-go .btn { min-height: 44px; }
+.queue-remove-go [hidden] { display: none; }
+.queue-open { margin-inline-start: auto; display: inline-flex; align-items: center; min-height: 44px; padding-inline: 6px; font: 14px var(--sans); }
+.queue-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 640px; margin: 16px 0 0; border: 1px solid var(--line); }
+.queue-stats > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 12px 14px; }
+.queue-stats > div + div { border-inline-start: 1px solid var(--line); }
+.queue-stats dt { color: var(--muted); font: 12px var(--sans); }
+.queue-stats dd { margin: 0; font: 600 14px var(--sans); overflow-wrap: anywhere; }
+.queue-stats dd.ctx-warn { color: var(--danger); }
 
 /* Admin redesign, members: filters with counts, a role select, one status word and a row menu. */
 .member-filters { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-block: 14px 4px; border-block-end: 1px solid var(--line); }
@@ -2244,7 +2277,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .member-delete-panel .delete-heir { padding-inline-start: 26px; }
 .delete-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .delete-actions .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); }
-.queue-remove > summary.btn { padding-inline: 16px; border: 1px solid var(--line-strong); }
+.queue-remove > summary.btn { padding-inline: 16px; border: 1px solid var(--danger); color: var(--danger); font-weight: 600; }
 .member-role { flex-wrap: nowrap; }
 .member-role select { min-width: 0; max-width: 100%; }
 @media (min-width: 900px) { .member-role button { padding-inline: 10px; } }

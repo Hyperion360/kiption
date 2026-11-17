@@ -169,7 +169,7 @@ final class QueueTest extends TestCase
         $this->assertStringContainsString('<a href="/queue?tab=stories" aria-current="page">', $body);
         $this->assertStringContainsString('<a href="/queue?tab=chapters">', $body);
         $this->assertStringContainsString('class="queue-detail"', $body);
-        $this->assertStringContainsString('<summary class="btn">' . \App\Lang::t('common.remove') . '</summary>', $body, 'Remove opens its reason in place, a plain details element');
+        $this->assertStringContainsString('<summary class="btn queue-remove-btn" data-queue-remove>' . \App\Lang::t('common.remove') . ' ', $body, 'Remove opens its reason in place, a plain details element');
         $this->assertStringContainsString('name="confirmed" value="1"', $body, 'the opened form is itself the confirmation, so no second page');
         $this->assertStringContainsString('name="reason_preset"', $body);
         $this->assertStringContainsString('action="/queue/story/' . $this->pendingStoryId . '/remove"', $body);
@@ -187,5 +187,49 @@ final class QueueTest extends TestCase
     {
         \App\Adminness::setRole($this->db, 1, 'admin');
         $this->assertStringContainsString('<span class="admin-nav-count">1</span>', $this->clientAs(1)->get('/queue')->body);
+    }
+
+    public function test_each_list_row_says_when_who_how_long_and_what_is_known(): void
+    {
+        $this->db->query('UPDATE stories SET word_count = 4812, updated_at = ? WHERE id = ?', [date('c', time() - 2 * 86400 - 600), $this->pendingStoryId]);
+        $body = $this->clientAs(1)->get('/queue')->body;
+        $this->assertStringContainsString('<span class="queue-when">2 days</span>', $body);
+        $this->assertStringContainsString('<strong>pendingauthor</strong>', $body);
+        $this->assertStringContainsString('4,812 words', $body);
+        $this->assertStringContainsString('class="queue-list-facts"', $body);
+        $this->assertStringContainsString(\App\Lang::t('queue.ctx_first'), $body);
+    }
+
+    public function test_the_detail_pane_reads_its_author_in_three_figures_and_links_the_whole_story(): void
+    {
+        $body = $this->clientAs(1)->get('/queue')->body;
+        $this->assertStringContainsString('class="queue-stats"', $body);
+        $this->assertStringContainsString('<dt>' . \App\Lang::t('queue.stat_since') . '</dt>', $body);
+        $this->assertStringContainsString('<dt>' . \App\Lang::t('queue.stat_posted') . '</dt><dd>' . \App\Lang::t('queue.stat_nothing') . '</dd>', $body);
+        $this->assertStringContainsString('<dt>' . \App\Lang::t('queue.stat_reports') . '</dt><dd>' . \App\Lang::t('queue.stat_none') . '</dd>', $body);
+        $this->assertStringContainsString('<a class="queue-open" href="/story/view/pending-work">' . \App\Lang::t('queue.open_story') . '</a>', $body);
+    }
+
+    public function test_keyboard_hints_are_hidden_until_the_script_runs_and_the_script_is_wired(): void
+    {
+        $body = $this->clientAs(1)->get('/queue')->body;
+        $this->assertMatchesRegularExpression('/<p class="queue-keys" data-js-module="queue-keys" hidden aria-label="[^"]+">/', $body);
+        foreach (['J', 'K', 'A', 'R'] as $key) $this->assertStringContainsString('<kbd>' . $key . '</kbd>', $body);
+        $this->assertStringContainsString('data-queue-approve', $body);
+        $this->assertStringContainsString('data-queue-remove', $body);
+    }
+
+    public function test_the_remove_reason_is_a_row_of_choices_and_a_text_box_that_post_without_scripts(): void
+    {
+        $body = $this->clientAs(1)->get('/queue')->body;
+        foreach (['policy', 'content', 'spam', 'quality'] as $key) {
+            $this->assertStringContainsString('<input type="radio" name="reason_preset" value="' . $key . '"', $body);
+        }
+        $this->assertStringContainsString('<textarea id="qr-reason" name="reason" maxlength="1000"', $body);
+        $this->assertStringContainsString('>' . \App\Lang::t('queue.remove_story_btn') . '</button>', $body);
+        $this->assertStringContainsString('<span class="queue-remove-note">', $body);
+        $res = $this->clientAs(1)->postWithToken('/queue/story/' . $this->pendingStoryId . '/remove', ['confirmed' => '1', 'reason_preset' => 'spam', 'reason' => '']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertNotNull($this->db->one('SELECT deleted_at FROM stories WHERE id = ?', [$this->pendingStoryId])['deleted_at']);
     }
 }
