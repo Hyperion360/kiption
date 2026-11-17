@@ -51,6 +51,17 @@ final class Adminness
         return self::requireRole($db, $session, ['admin']);
     }
 
+    /** The same admin gate for a page that must stay inside one content query:
+     *  the live-session check already reads the viewer's role, so no second
+     *  read is spent. Null means admin; otherwise the refusal to send. */
+    public static function adminFromSession(Database $db, Session $session): ?Response
+    {
+        $id = $session->get('user_id');
+        if (!is_int($id)) return new Response(\App\Lang::t('error.forbidden'), 403);
+        if (!SessionGuard::valid($db, $session)) return self::refused($session);
+        return SessionGuard::role() === 'admin' ? null : new Response(\App\Lang::t('error.forbidden'), 403);
+    }
+
     /** The shared body of both gates: a live-session row whose role is in $roles, else a 403.
      *  @param list<string> $roles */
     private static function requireRole(Database $db, Session $session, array $roles): array|Response

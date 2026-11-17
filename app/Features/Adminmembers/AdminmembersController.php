@@ -30,8 +30,8 @@ final class AdminmembersController
     #[AuthAttr]
     public function index(): Response|string
     {
-        $gate = Adminness::requireAdmin($this->db, $this->session);
-        if ($gate instanceof Response) return $gate;
+        $refused = Adminness::adminFromSession($this->db, $this->session);
+        if ($refused !== null) return $refused;
         [$perPage, $offset] = $this->paginate();
         $q = trim((string) ($this->request->get['q'] ?? ''));
         $filter = (string) ($this->request->get['filter'] ?? '');
