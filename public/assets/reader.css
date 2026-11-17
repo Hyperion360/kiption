@@ -2109,7 +2109,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .search-rail .rail-head h2 { font: 600 16px var(--sans); margin: 0; }
 .search-rail .rail-apply { margin-block: 14px; width: 100%; min-height: 44px; }
 .rail-open, .rail-close { font: 500 14px var(--sans); }
-.rail-open { display: inline-flex; align-items: center; min-height: 44px; margin-block-start: 8px; }
+.rail-open { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; margin-block-start: 8px; }
 @media (max-width: 859px) {
   .search-rail { display: none; }
   .search-rail:target { display: block; position: fixed; inset: 0; z-index: 40; overflow-y: auto; background: var(--bg, var(--surface)); padding: 16px; }
@@ -2220,6 +2220,11 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .member-role { flex-wrap: nowrap; }
 .member-role select { min-width: 0; max-width: 100%; }
 @media (min-width: 900px) { .member-role button { padding-inline: 10px; } }
+/* Table rows keep compact 36px controls for the mouse; on a phone they
+   return to the 44px tap floor, and the row menu's own items win again. */
+@media (max-width: 767px) {
+  .site-main td :is(button, input:not([type="checkbox"]):not([type="radio"]), select, a.btn), .member-menu > summary { min-height: 44px; }
+}
 
 /* ==== Site header and navigation (begin) ====
    One header element tree. Below 1024px the phone bar shows (brand, Search,
@@ -2234,6 +2239,9 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .hd2 .brand {
   font-family: var(--serif); font-variant: small-caps; letter-spacing: .08em;
   font-size: 22px; color: var(--ink); text-decoration: none; white-space: nowrap;
+  /* A 44px tap target, and free to give up the last half pixel when the
+     phone bar (brand, Search, Inbox, Menu) runs exactly 390px wide. */
+  line-height: 44px; min-width: 0; overflow: hidden; text-overflow: ellipsis;
 }
 .hd2 .tagline { display: none; color: var(--muted); font: 14px/1.2 var(--sans); }
 .hd2 .site-nav, .hd2 .nav-search, .hd2 .nav-theme, .hd2 > .nav-account, .hd2 .nav-join, .hd2 .nav-me, .site-head.hd2 .head-post { display: none; }
@@ -2310,6 +2318,7 @@ html:not([data-theme]) .theme-seg [value="auto"],
 #menu .sheet-staff { display: flex; flex-direction: column; margin-block-start: 8px; border-block-start: 1px solid var(--line); }
 #menu .sheet-staff a { display: flex; align-items: center; justify-content: space-between; min-height: 48px; text-decoration: none; color: var(--ink); font: 15px var(--sans); }
 #menu .theme-seg { margin-block-start: 8px; }
+#menu .theme-seg button { min-height: 44px; }
 
 /* Footer: brand line over four columns, then the legal line and credit. */
 .site-foot.ft2 { display: block; padding: 32px 20px 36px; border-block-start: 1px solid var(--line); font: 13px/1.6 var(--sans); color: var(--muted); }
