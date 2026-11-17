@@ -144,8 +144,8 @@ final class AdminShellTest extends TestCase
             ['wait@e.test', 'x', 'waiting', 'member', 0, date('c'), 'waiting']);
         \App\ActivityLog::record($this->db, $this->adminId, 'settings.save', 'site_name');
         $body = $this->client($this->adminId)->get('/manage')->body;
-        $this->assertStringContainsString(Lang::t('manage.now_waiting'), $body);
-        $this->assertStringContainsString('<span class="home-n">1</span> <span class="home-label">' . Lang::t('manage.wait_member') . '</span> <a class="btn" href="/queue?tab=members">' . Lang::t('manage.cta_approve') . '</a>', $body);
+        $this->assertStringContainsString('1 thing needs a decision from you.', $body);
+        $this->assertMatchesRegularExpression('#<li class="home-row is-urgent"><span class="home-n">1</span>\s*<span class="home-what"><span class="home-label">' . preg_quote(Lang::t('manage.wait_member'), '#') . '</span>\s*<span class="home-preview">waiting signed up [^<]*</span></span>\s*<a class="btn" href="/queue\?tab=members">' . preg_quote(Lang::t('manage.cta_approve'), '#') . '</a></li>#', $body);
         $this->assertStringContainsString('<span class="admin-nav-count">1</span>', $body, 'the sidebar Queue link carries the same count, with no extra query');
         $this->assertStringContainsString('<span class="tab-count">', $body);
         $this->assertStringContainsString(Lang::t('activity.a.settings.save') . ': site_name', $body);
@@ -179,5 +179,57 @@ final class AdminShellTest extends TestCase
         $this->assertStringContainsString('hidden data-js-module="listfilter" data-filter-rows=".tag-rows > li"', $tags, 'hidden until the script shows it');
         $this->assertStringContainsString('data-js-module="listfilter" data-filter-rows=".member-table tbody tr" data-filter-text=".member-name, .member-email"', $c->get('/adminmembers')->body);
         $this->assertStringNotContainsString('adminforms', $this->client($this->memberId)->get('/')->body, 'reading pages never load them');
+    }
+
+    private function waitingStory(string $title, string $when): void
+    {
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, created_at) VALUES (?, ?, 'S.', ?, 2, 0, ?)", [$title, strtolower(str_replace(' ', '-', $title)), $this->memberId, $when]);
+    }
+
+    public function test_the_home_lede_counts_what_needs_a_decision_and_how_long_the_oldest_waited(): void
+    {
+        $this->assertStringContainsString(Lang::t('manage.now_clear'), $this->client($this->adminId)->get('/manage')->body);
+        $this->waitingStory('A Map of Quiet Places', gmdate('Y-m-d\TH:i:s\Z', time() - 2 * 86400 - 600));
+        $this->waitingStory('Ninth Bell', gmdate('Y-m-d\TH:i:s\Z', time() - 3600));
+        $body = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringContainsString('<p class="lede">2 things need a decision from you. The oldest has waited 2 days.</p>', $body);
+        $this->assertStringContainsString('<span class="home-preview">A Map of Quiet Places and Ninth Bell. The oldest was sent 2 days ago.</span>', $body);
+    }
+
+    public function test_the_stories_preview_names_three_and_counts_the_rest(): void
+    {
+        foreach (['One', 'Two', 'Three', 'Four', 'Five'] as $i => $t) $this->waitingStory($t, gmdate('Y-m-d\TH:i:s\Z', time() - 3600 * (10 - $i)));
+        $body = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringContainsString('<span class="home-preview">One, Two, Three and 2 more. The oldest was sent 10 hours ago.</span>', $body);
+    }
+
+    public function test_the_home_has_two_columns_header_buttons_and_a_calm_joined_row_with_a_members_link(): void
+    {
+        $this->db->query("UPDATE users SET created_at = ? WHERE id = ?", [gmdate('Y-m-d\TH:i:s\Z', time() - 3600), $this->memberId]);
+        $this->waitingStory('Posted Tale', gmdate('Y-m-d\TH:i:s\Z'));
+        $body = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringContainsString('<div class="home-head">', $body);
+        $this->assertStringContainsString('<a class="btn" href="/news/new">Post News</a>', $body);
+        $this->assertStringContainsString('<a class="btn" href="/story/new">Post a Story</a>', $body);
+        $this->assertMatchesRegularExpression('#<div class="home-cols">\s*<section aria-labelledby="manage-now" class="home-now">.*</section>\s*<section aria-labelledby="manage-recent" class="home-recent">#s', $body);
+        $this->assertMatchesRegularExpression('#<li class="home-row is-calm"><span class="home-n">3</span>.*?<span class="home-preview">1 of them has already posted a story\.</span>.*?<a class="home-link" href="/adminmembers">See Members</a></li>#s', $body);
+        $this->assertStringContainsString('<div class="home-screens">', $body);
+    }
+
+    public function test_recent_activity_reads_in_relative_time(): void
+    {
+        \App\ActivityLog::record($this->db, $this->adminId, 'settings.save', 'site_name');
+        $body = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertMatchesRegularExpression('#mmadmin, <time datetime="[^"]+">just now</time>#', $body);
+    }
+
+    public function test_the_home_actions_need_no_scripts_and_moderators_are_still_refused(): void
+    {
+        $this->waitingStory('Plain', gmdate('Y-m-d\TH:i:s\Z'));
+        $body = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringNotContainsString('<script>', $body);
+        $this->assertStringContainsString('href="/queue"', $body);
+        $this->db->query("UPDATE users SET role = 'moderator' WHERE id = ?", [$this->memberId]);
+        $this->assertSame(403, $this->client($this->memberId)->get('/manage')->status);
     }
 }
