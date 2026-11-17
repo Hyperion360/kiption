@@ -12,6 +12,7 @@ app/maintenance.lock
 public/cache/
 public/sitemap*.xml
 app/nav.json
+app/browse-panel.json
 AGENTS.md
 CLAUDE.md
 /Kiption Designs/
