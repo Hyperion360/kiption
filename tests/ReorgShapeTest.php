@@ -98,8 +98,9 @@ final class ReorgShapeTest extends TestCase
         // now; Cloud and Dmca remain from the marketing top paths batch;
         // 41 since the invite-code surface, 40 since recommendations;
         // 60 since the colors and layout editor (Look);
-        // 61 since Tagqueue joined (the owner's tag suggestion queue).
-        $this->assertCount(61, $features, 'exactly 61 feature folders expected');
+        // 61 since Tagqueue joined (the owner's tag suggestion queue);
+        // 62 since Authorimages joined (author image uploads for chapters).
+        $this->assertCount(62, $features, 'exactly 62 feature folders expected');
     }
 
     public function test_no_test_files_outside_the_tests_directory(): void
