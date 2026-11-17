@@ -1,11 +1,13 @@
 <?php // tests/AdminNavTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\AdminNav;
 use App\Features\Manage\ManageController;
 use PHPUnit\Framework\TestCase;
 
 /** Which pages count as owner screens, and what the admin list and way back say about them. */
+#[Medium]
 final class AdminNavTest extends TestCase
 {
     protected function tearDown(): void

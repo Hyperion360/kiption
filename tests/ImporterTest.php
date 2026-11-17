@@ -1,5 +1,6 @@
 <?php // tests/ImporterTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Import\Importer;
 use Kip\Database;
 use PHPUnit\Framework\TestCase;
@@ -7,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 /** Drives the REAL Importer class in-process (the CLI tests shell out to
  *  bin/kip, which pcov cannot see): coverage for the orchestration plus
  *  regression pins for the QA-found resume and rating-fallback bugs. */
+#[Medium]
 final class ImporterTest extends TestCase
 {
     private string $dbPath = '';

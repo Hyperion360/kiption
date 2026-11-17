@@ -1,5 +1,6 @@
 <?php // app/Features/Recommend/Tests/RecommendTest.php
 namespace App\Features\Recommend\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -13,6 +14,7 @@ use PHPUnit\Framework\TestCase;
  *  inside the one-query budget: the rec fold rides the EXISTING profile and
  *  story statements as correlated scalar subqueries, pinned by
  *  QueryBudgetTest's /user/view/* and /story/view/* rows. */
+#[Medium]
 final class RecommendTest extends TestCase
 {
     private string $path = '';
@@ -22,10 +24,9 @@ final class RecommendTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-rec-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-rec-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->authorId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
         $this->memberId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
     }

@@ -1,5 +1,6 @@
 <?php // tests/StorageQuotaTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\StorageQuota;
 use Kip\Database;
 use Kip\Storage;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  *  drift-corrected on refusal. Nothing here ever deletes a file: the cap
  *  blocks NEW uploads only (the unlink inside removeFile retires a file the
  *  call site already decided to retire). */
+#[Medium]
 final class StorageQuotaTest extends TestCase
 {
     private string $path = '';

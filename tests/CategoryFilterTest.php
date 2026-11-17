@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Repositories\CategoryFilter;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class CategoryFilterTest extends TestCase
 {
     public function test_scalar_and_array_slugs_keep_their_first_occurrence(): void

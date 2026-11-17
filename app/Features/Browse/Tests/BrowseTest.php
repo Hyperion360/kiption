@@ -1,5 +1,6 @@
 <?php // app/Features/Browse/Tests/BrowseTest.php
 namespace App\Features\Browse\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -8,6 +9,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[Medium]
 final class BrowseTest extends TestCase
 {
     private string $dsn = '';
@@ -15,7 +17,7 @@ final class BrowseTest extends TestCase
 
     protected function setUp(): void
     {
-        $path = tempnam(sys_get_temp_dir(), 'kiption-browse-') . '.sqlite';
+        $path = \App\Tests\Support\SchemaTemplate::path('kiption-browse-');
         $this->dsn = 'sqlite:' . $path;
         $db = new Database($this->dsn);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();

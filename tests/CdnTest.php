@@ -1,8 +1,10 @@
 <?php // tests/CdnTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Cdn;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class CdnTest extends TestCase
 {
     /** @var list<array{url:string, body:string, token:string}> */

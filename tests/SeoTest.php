@@ -1,11 +1,13 @@
 <?php // tests/SeoTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SeoTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +15,9 @@ final class SeoTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-seo-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-seo-');
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
         $this->app = new App([
             'app_dir' => dirname(__DIR__) . '/app',
             'env' => 'prod',

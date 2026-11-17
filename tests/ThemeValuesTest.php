@@ -1,5 +1,6 @@
 <?php // tests/ThemeValuesTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 // browsers. auto is the explicit "no preference" choice: it reads as null so
 // the layout omits data-theme and prefers-color-scheme decides, which is also
 // what keeps cookieless cached pages theme-neutral bytes.
+#[Medium]
 final class ThemeValuesTest extends TestCase
 {
     private function app(): App

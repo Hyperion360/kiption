@@ -1,5 +1,6 @@
 <?php // tests/SavedUndoTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Saved;
 use Kip\Http\Request;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 /** The Undo button on the saved line must appear only for a link this
  *  owner's own form token signed, and only for the two kinds of action
  *  that are safe to repeat. */
+#[Small]
 final class SavedUndoTest extends TestCase
 {
     private const TOKEN = 'owner-form-token';

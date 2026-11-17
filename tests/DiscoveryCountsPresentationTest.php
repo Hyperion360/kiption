@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Tests\Support\{SearchArchive, TaxonomyCase};
 
+#[Small]
 final class DiscoveryCountsPresentationTest extends TaxonomyCase
 {
     private SearchArchive $archive;

@@ -1,5 +1,6 @@
 <?php // app/Features/Account/Tests/EmailChangeTest.php
 namespace App\Features\Account\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** Changing the email address: a confirm link to the new one, applied only when used. */
+#[Medium]
 final class EmailChangeTest extends TestCase
 {
     private string $path = '';
@@ -15,11 +17,10 @@ final class EmailChangeTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-em-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-em-');
         $this->log = tempnam(sys_get_temp_dir(), 'kiption-em-mail-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void
@@ -215,7 +216,7 @@ final class EmailChangeTest extends TestCase
         // Whoever asked may have been an attacker the member has since reset away.
         $this->ask('attacker@example.test');
         $t = $this->token();
-        $this->db->query("UPDATE users SET password_hash = ? WHERE penname = 'betafriend'", [password_hash('a-new-password', PASSWORD_DEFAULT)]);
+        $this->db->query("UPDATE users SET password_hash = ? WHERE penname = 'betafriend'", [\App\Tests\Support\Hashes::of('a-new-password')]);
         $this->assertSame(410, (new TestClient($this->app()))->get('/account/emailconfirm', ['t' => $t])->status);
         $this->assertSame(410, (new TestClient($this->app()))->postWithToken('/account/emailapply', ['t' => $t])->status);
         $this->assertSame('beta@example.test', $this->email());

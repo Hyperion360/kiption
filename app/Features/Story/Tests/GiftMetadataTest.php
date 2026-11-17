@@ -1,11 +1,13 @@
 <?php // app/Features/Story/Tests/GiftMetadataTest.php
 namespace App\Features\Story\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class GiftMetadataTest extends TestCase
 {
     private string $path = '';
@@ -15,11 +17,10 @@ final class GiftMetadataTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-gift-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-gift-');
         $this->cacheDir = sys_get_temp_dir() . '/kiption-gift-cfg-' . uniqid('', true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->app = $this->newApp();
     }
 

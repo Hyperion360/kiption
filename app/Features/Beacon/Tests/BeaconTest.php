@@ -1,11 +1,14 @@
 <?php // app/Features/Beacon/Tests/BeaconTest.php
 namespace App\Features\Beacon\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class BeaconTest extends TestCase
 {
     private string $path = '';
@@ -14,10 +17,9 @@ final class BeaconTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-beacon-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-beacon-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->app = $this->newApp();
     }
 
@@ -105,6 +107,7 @@ final class BeaconTest extends TestCase
         $this->assertStringContainsString('src="/beacon/read/1/5"', $res->body);
     }
 
+    #[Group('process')]
     public function test_logs_prune_prunes_page_stats_days_on_the_content_db(): void
     {
         $this->db()->query("INSERT INTO page_stats (day, story_id, chapter_id, reads) VALUES ('2020-01-01', 1, 0, 7)");

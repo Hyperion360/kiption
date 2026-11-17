@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Repositories\SearchRepository;
 use App\Tests\Support\{SearchArchive, TaxonomyCase};
 
+#[Small]
 final class SearchQualityTest extends TaxonomyCase
 {
     public function test_declared_corpus_meets_identity_rank_and_recall_gates(): void

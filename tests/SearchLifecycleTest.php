@@ -1,11 +1,13 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Repositories\{AuthoringRepository, SearchRepository};
 use App\Tests\Support\{SearchArchive, TaxonomyCase};
 
 /** Search sees committed editor and taxonomy changes without recreating the repository. */
+#[Small]
 final class SearchLifecycleTest extends TaxonomyCase
 {
     private SearchArchive $archive;

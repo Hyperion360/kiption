@@ -1,5 +1,6 @@
 <?php // tests/ActivityLogFilterTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\ActivityLog;
 use Kip\Database;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 /** The log's person and kind filters, the day grouping, and the indexes the
  *  members and queue pages lean on. */
+#[Medium]
 final class ActivityLogFilterTest extends TestCase
 {
     private Database $db;

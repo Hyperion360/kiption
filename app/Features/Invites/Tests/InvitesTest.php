@@ -1,5 +1,6 @@
 <?php // app/Features/Invites/Tests/InvitesTest.php
 namespace App\Features\Invites\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  *  bootstrap mirrors WranglingTest (tempnam sqlite, the app's migrations,
  *  the demo seed, a test-created admin). Every assertion resolves ids from
  *  the database, never from literals. */
+#[Medium]
 final class InvitesTest extends TestCase
 {
     private string $path = '';
@@ -21,13 +23,12 @@ final class InvitesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-invite-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-invite-');
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-invite-mail-') . '.log';
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberRowId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('inviteadmin@e.test', ?, 'inviteadmin', 'admin', 1, ?, ?, 'inviteadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminRowId = (int) $this->db->lastInsertId();

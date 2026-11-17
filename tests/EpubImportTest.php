@@ -1,5 +1,6 @@
 <?php // tests/EpubImportTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Import\Epub;
 use Kip\Database;
 use PHPUnit\Framework\TestCase;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
  *  database plus throwaway uploads and fixtures directories, removed
  *  recursively on teardown. The later pipeline tasks build their tests on
  *  this scaffold. */
+#[Medium]
 final class EpubImportTest extends TestCase
 {
     private string $path = '';
@@ -447,7 +449,7 @@ final class EpubImportTest extends TestCase
     private function member(string $penname): int
     {
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)",
-            [$penname . '@e.test', password_hash('x1234567', PASSWORD_DEFAULT), $penname, date('c'), date('c')]);
+            [$penname . '@e.test', \App\Tests\Support\Hashes::of('x1234567'), $penname, date('c'), date('c')]);
         return (int) $this->db->lastInsertId();
     }
 

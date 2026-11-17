@@ -1,10 +1,12 @@
 <?php // app/Features/Notifications/Tests/NotificationTest.php
 namespace App\Features\Notifications\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Notifications;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class NotificationTest extends TestCase
 {
     private Database $db;
@@ -12,10 +14,9 @@ final class NotificationTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-notif-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-notif-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void
@@ -27,7 +28,7 @@ final class NotificationTest extends TestCase
     {
         // second user: actor_id has an FK to users, and the seeder ships one user
         $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('n2@e.test', ?, 'notifactor')",
-            [password_hash('password123', PASSWORD_DEFAULT)]);
+            [\App\Tests\Support\Hashes::of('password123')]);
         $actor = (int) $this->db->lastInsertId();
         $n = new Notifications($this->db);
         $n->create(1, 'follow', null, $actor, null);

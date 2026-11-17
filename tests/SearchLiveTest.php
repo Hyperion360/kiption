@@ -1,8 +1,10 @@
 <?php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Tests\Support\{QueryTap,SearchArchive,TaxonomyCase};
 use Kip\{App,Database};
 use Kip\Testing\TestClient;
+#[Medium]
 final class SearchLiveTest extends TaxonomyCase
 {
     private SearchArchive $a;

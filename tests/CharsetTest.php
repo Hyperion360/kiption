@@ -1,9 +1,11 @@
 <?php // tests/CharsetTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Import\Charset;
 use App\Import\Report;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class CharsetTest extends TestCase
 {
     public function test_detection_ratio_and_override(): void

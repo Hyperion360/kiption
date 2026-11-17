@@ -1,5 +1,6 @@
 <?php // app/Features/Settings/Tests/SettingsTest.php
 namespace App\Features\Settings\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\{Request, Response};
@@ -13,6 +14,7 @@ use PHPUnit\Framework\TestCase;
  *  downstream edits. The client() helper mirrors the entrypoint seam
  *  (Features::init then Settings::apply) because TestClient builds App
  *  directly and never runs public/index.php. */
+#[Medium]
 final class SettingsTest extends TestCase
 {
     private string $path = '';
@@ -417,7 +419,7 @@ final class SettingsTest extends TestCase
     private function seed(): void
     {
         \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('setadmin@e.test', ?, 'setadmin', 'admin', 1, ?, ?, 'setadmin')",
             [$hash, date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();

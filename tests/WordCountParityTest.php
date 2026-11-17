@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace Tests;
+use PHPUnit\Framework\Attributes\Large;
 
 use App\Markdown;
 use PHPUnit\Framework\TestCase;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  * public/assets/wordcount.js (shown while writing). Both read the same
  * fixture list, so the two cannot drift apart.
  */
+#[Large]
 final class WordCountParityTest extends TestCase
 {
     public function test_php_counts_match_the_shared_fixtures(): void

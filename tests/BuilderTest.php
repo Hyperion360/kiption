@@ -1,11 +1,13 @@
 <?php // tests/BuilderTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\StaticCache\{Builder, Cache};
 use Kip\Database;
 use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class BuilderTest extends TestCase
 {
     private string $path = '';
@@ -14,12 +16,11 @@ final class BuilderTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-build-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-build-');
         $this->dsn = 'sqlite:' . $this->path;
         $this->cacheDir = sys_get_temp_dir() . '/kiption-buildcache-' . uniqid();
         $db = new Database($this->dsn);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
     }
 
     protected function tearDown(): void

@@ -1,11 +1,13 @@
 <?php // tests/CliTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 use Kip\App;
 use Kip\Database;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** End-to-end CLI checks: bin/kip runs against a throwaway DB via KIP_DB_DSN. */
+#[Large]
 final class CliTest extends TestCase
 {
     private string $path = '';
@@ -416,7 +418,7 @@ final class CliTest extends TestCase
     {
         $db = new Database('sqlite:' . $this->path);
         $db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)",
-            [$penname . '@e.test', password_hash('x1234567', PASSWORD_DEFAULT), $penname, date('c'), date('c')]);
+            [$penname . '@e.test', \App\Tests\Support\Hashes::of('x1234567'), $penname, date('c'), date('c')]);
         return (int) $db->lastInsertId();
     }
 
@@ -632,7 +634,7 @@ final class CliTest extends TestCase
         $this->kip('migrate');
         $db = new Database('sqlite:' . $this->path);
         $db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('cli@e.test', ?, 'climember', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         [$code, $out] = $this->kip('auth:link cli@e.test');
         $this->assertSame(0, $code, $out);
         $url = strtok($out, "\n");

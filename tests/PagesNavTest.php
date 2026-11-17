@@ -1,11 +1,14 @@
 <?php // tests/PagesNavTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class PagesNavTest extends TestCase
 {
     private string $path = '';
@@ -17,18 +20,17 @@ final class PagesNavTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-nav-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-nav-');
         $this->root = sys_get_temp_dir() . '/kiption-nav-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // admin + member fixtures, the SeriesRepositoryTest idiom
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('navadmin@e.test', ?, 'navadmin', 'admin', 1, ?, ?, 'navadmin')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('navmember@e.test', ?, 'navmember', ?, ?, 'navmember')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->memberUserId = (int) $this->db->lastInsertId();
     }
 
@@ -184,6 +186,7 @@ final class PagesNavTest extends TestCase
         $this->assertStringContainsString('href="/browse"', $res->body);
     }
 
+    #[Group('process')]
     public function test_public_page_renders_markdown_and_caches(): void
     {
         // OR IGNORE: the Seeder already plants this exact row (Step 3's
@@ -209,6 +212,7 @@ final class PagesNavTest extends TestCase
         $this->assertStringContainsString('Updated.', $this->client()->get('/page/view/about')->body);
     }
 
+    #[Group('process')]
     public function test_page_admin_gates_rejects_and_purges(): void
     {
         $db = $this->db();

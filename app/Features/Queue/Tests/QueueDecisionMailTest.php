@@ -1,5 +1,6 @@
 <?php // app/Features/Queue/Tests/QueueDecisionMailTest.php
 namespace App\Features\Queue\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** Approving or rejecting a story or a member mails them a decision. */
+#[Medium]
 final class QueueDecisionMailTest extends TestCase
 {
     private string $path = '';
@@ -19,12 +21,11 @@ final class QueueDecisionMailTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-queuemail-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-queuemail-');
         $this->root = sys_get_temp_dir() . '/kiption-queuemail-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->adminId = $this->user('roster-admin', 'admin');
         $this->targetId = $this->user('leaving-member', 'member');
         $this->heirId = $this->user('heir-member', 'member');
@@ -41,7 +42,7 @@ final class QueueDecisionMailTest extends TestCase
     private function user(string $name, string $role): int
     {
         $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            ["$name@e.test", password_hash('password123', PASSWORD_DEFAULT), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
+            ["$name@e.test", \App\Tests\Support\Hashes::of('password123'), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
         return (int) $this->db->lastInsertId();
     }
 
@@ -69,7 +70,7 @@ final class QueueDecisionMailTest extends TestCase
 
     private function applicant(): int
     {
-        $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('hopeful@e.test', ?, 'hopeful', ?, NULL)", [password_hash('password123', PASSWORD_DEFAULT), date('c')]);
+        $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('hopeful@e.test', ?, 'hopeful', ?, NULL)", [\App\Tests\Support\Hashes::of('password123'), date('c')]);
         return (int) $this->db->lastInsertId();
     }
 
@@ -220,7 +221,7 @@ final class QueueDecisionMailTest extends TestCase
         // Staff rows can appear in the member queue with approved_at NULL;
         // reject only ever settles members.
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at) VALUES ('mod@e.test', ?, 'modhopeful', 'moderator', 0, ?, NULL)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c')]);
         $id = (int) $this->db->lastInsertId();
         $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/reject', ['confirmed' => '1', 'reason' => 'x']);
         $row = $this->db->one('SELECT is_locked, approved_at, role FROM users WHERE id = ?', [$id]);
@@ -233,7 +234,7 @@ final class QueueDecisionMailTest extends TestCase
     public function test_approving_a_pending_staff_member_dates_them_and_keeps_the_role(): void
     {
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at) VALUES ('mod2@e.test', ?, 'modhopeful2', 'moderator', 0, ?, NULL)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c')]);
         $id = (int) $this->db->lastInsertId();
         $this->client($this->moderatorId)->postWithToken('/queue/member/' . $id . '/approve');
         $row = $this->db->one('SELECT approved_at, role FROM users WHERE id = ?', [$id]);

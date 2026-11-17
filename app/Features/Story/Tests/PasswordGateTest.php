@@ -1,5 +1,6 @@
 <?php // app/Features/Story/Tests/PasswordGateTest.php
 namespace App\Features\Story\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\StaticCache\Builder;
 use Kip\App;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\TestCase;
  *  the crawler's view of a locked work, and the prose side-channels (full-
  *  text feeds, search) withhold locked prose while the identity stays
  *  listed. */
+#[Medium]
 final class PasswordGateTest extends TestCase
 {
     private string $path = '';
@@ -24,12 +26,11 @@ final class PasswordGateTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-gate-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-gate-');
         $this->uploads = sys_get_temp_dir() . '/kiption-gate-upl-' . bin2hex(random_bytes(4));
         $this->cacheDir = sys_get_temp_dir() . '/kiption-gate-cache-' . bin2hex(random_bytes(4));
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void
@@ -64,7 +65,7 @@ final class PasswordGateTest extends TestCase
 
     private function lockStory(): void
     {
-        $this->db->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [password_hash('pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        $this->db->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [\App\Tests\Support\Hashes::of('pw'), 'the-rabbit-hole']);
     }
 
     private function storyId(): int
@@ -135,7 +136,7 @@ final class PasswordGateTest extends TestCase
         $id = $this->storyId();
         $c->post('/reader/unlock', ['table' => 'story', 'id' => (string) $id, 'password' => 'pw', 'return_to' => '/story/view/the-rabbit-hole']);
         $this->assertStringNotContainsString('name="password"', $c->get('/story/view/the-rabbit-hole')->body, 'unlocked before the rotation');
-        $this->db->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [password_hash('new-pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        $this->db->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [\App\Tests\Support\Hashes::of('new-pw'), 'the-rabbit-hole']);
         $this->assertStringContainsString('name="password"', $c->get('/story/view/the-rabbit-hole')->body, 'the rotated hash locks the session out again');
         $c->post('/reader/unlock', ['table' => 'story', 'id' => (string) $id, 'password' => 'new-pw', 'return_to' => '/story/view/the-rabbit-hole']);
         $this->assertStringNotContainsString('name="password"', $c->get('/story/view/the-rabbit-hole')->body, 'the new password opens it');
@@ -180,14 +181,14 @@ final class PasswordGateTest extends TestCase
 
     public function test_chapter_level_gate_applies_to_fragments(): void
     {
-        $this->db->query('UPDATE chapters SET access_hash = ? WHERE story_id = 1 AND position = 1', [password_hash('pw', PASSWORD_DEFAULT)]);
+        $this->db->query('UPDATE chapters SET access_hash = ? WHERE story_id = 1 AND position = 1', [\App\Tests\Support\Hashes::of('pw')]);
         $res = $this->client()->get('/story/fragment/the-rabbit-hole/1');
         $this->assertSame(404, $res->status, 'a fragment never renders prose nor the gate page');
     }
 
     public function test_chapter_level_gate_hides_one_prose_not_the_toc(): void
     {
-        $this->db->query('UPDATE chapters SET access_hash = ? WHERE story_id = 1 AND position = 1', [password_hash('pw', PASSWORD_DEFAULT)]);
+        $this->db->query('UPDATE chapters SET access_hash = ? WHERE story_id = 1 AND position = 1', [\App\Tests\Support\Hashes::of('pw')]);
         $c = $this->client();
         // The locked chapter's read page answers the pass form...
         $this->assertStringContainsString('name="password"', $c->get('/story/read/the-rabbit-hole/1')->body);
@@ -242,7 +243,7 @@ final class PasswordGateTest extends TestCase
         $this->assertStringNotContainsString('the-rabbit-hole', $c->get('/search', ['q' => 'shelves'])->body);
         $this->assertStringNotContainsString('the-rabbit-hole', $c->get('/search', ['q' => 'Rabbit'])->body, 'a locked work is not found by title either');
         $this->db->query('UPDATE stories SET access_hash = NULL WHERE slug = ?', ['the-rabbit-hole']);
-        $this->db->query('UPDATE chapters SET access_hash = ? WHERE story_id = 1 AND position = 1', [password_hash('pw', PASSWORD_DEFAULT)]);
+        $this->db->query('UPDATE chapters SET access_hash = ? WHERE story_id = 1 AND position = 1', [\App\Tests\Support\Hashes::of('pw')]);
         $this->assertStringNotContainsString('the-rabbit-hole', $c->get('/search', ['q' => 'shelves'])->body, 'a locked chapter never makes the story match');
         $this->assertStringContainsString('the-rabbit-hole', $c->get('/search', ['q' => 'garden'])->body, 'an open chapter still matches');
     }

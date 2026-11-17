@@ -1,11 +1,13 @@
 <?php // tests/AdminnessTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Adminness;
 use Kip\Database;
 use Kip\Http\Response;
 use Kip\Session;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class AdminnessTest extends TestCase
 {
     private Database $db;
@@ -13,10 +15,9 @@ final class AdminnessTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-adminness-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-adminness-');
         $this->db = new Database('sqlite:' . $this->path);
         (new \Kip\Migrations\Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void
@@ -54,7 +55,7 @@ final class AdminnessTest extends TestCase
         $session = new Session($store);
         $this->assertInstanceOf(Response::class, Adminness::requireModerator($this->db, $session));
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('m@e.test', ?, 'plainperson', ?, ?)",
-            [password_hash('x1234567', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('x1234567'), date('c'), date('c')]);
         $member = (int) $this->db->lastInsertId();
         $session->set('user_id', $member);
         $this->assertInstanceOf(Response::class, Adminness::requireModerator($this->db, $session));

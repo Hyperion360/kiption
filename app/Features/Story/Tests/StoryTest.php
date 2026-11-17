@@ -1,11 +1,13 @@
 <?php // app/Features/Story/Tests/StoryTest.php
 namespace App\Features\Story\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class StoryTest extends TestCase
 {
     private string $dsn = '';
@@ -13,7 +15,7 @@ final class StoryTest extends TestCase
 
     protected function setUp(): void
     {
-        $path = tempnam(sys_get_temp_dir(), 'kiption-story-') . '.sqlite';
+        $path = \App\Tests\Support\SchemaTemplate::path('kiption-story-');
         $this->dsn = 'sqlite:' . $path;
         $db = new Database($this->dsn);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();

@@ -1,5 +1,6 @@
 <?php // app/Features/Settings/Tests/SettingsSectionsTest.php
 namespace App\Features\Settings\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Lang;
 use Kip\{App, Database};
 use Kip\Migrations\Migrator;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 /** The settings page is a set of short forms, one per section, each saved
  *  on its own. */
+#[Medium]
 final class SettingsSectionsTest extends TestCase
 {
     private string $path = '';
@@ -18,13 +20,12 @@ final class SettingsSectionsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-sections-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-sections-');
         $this->root = sys_get_temp_dir() . '/kiption-sections-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $ins = 'INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
         $this->db->query($ins, ['ma@e.test', $hash, 'mmadmin', 'admin', 1, date('c'), date('c'), 'mmadmin']);
         $this->adminId = (int) $this->db->lastInsertId();

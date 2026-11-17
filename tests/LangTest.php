@@ -1,11 +1,13 @@
 <?php // tests/LangTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class LangTest extends TestCase
 {
     private string $path = '';
@@ -14,10 +16,9 @@ final class LangTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-lang-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-lang-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->root = sys_get_temp_dir() . '/kiption-lang-pack-' . uniqid();
         mkdir($this->root, 0775, true);
     }

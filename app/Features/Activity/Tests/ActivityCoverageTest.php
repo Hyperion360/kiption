@@ -1,5 +1,6 @@
 <?php // app/Features/Activity/Tests/ActivityCoverageTest.php
 namespace App\Features\Activity\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 /** Every action that changes something leaves a line in the activity log:
  *  admin and moderator actions, account and security events, member content.
  *  Nothing private (passwords, tokens, addresses, message text) is stored. */
+#[Medium]
 final class ActivityCoverageTest extends TestCase
 {
     private string $path = '';
@@ -21,12 +23,11 @@ final class ActivityCoverageTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-actall-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-actall-');
         $this->root = sys_get_temp_dir() . '/kiption-actall-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->adminId = $this->user('log-admin', 'admin');
         $this->modId = $this->user('log-mod', 'moderator');
         $this->memberId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
@@ -44,7 +45,7 @@ final class ActivityCoverageTest extends TestCase
     private function user(string $name, string $role): int
     {
         $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            ["$name@e.test", password_hash('password123', PASSWORD_DEFAULT), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
+            ["$name@e.test", \App\Tests\Support\Hashes::of('password123'), $name, $role, $role === 'admin' ? 1 : 0, date('c'), date('c'), $name]);
         return (int) $this->db->lastInsertId();
     }
 

@@ -1,5 +1,6 @@
 <?php // app/Features/Settings/Tests/SiteSettingsTest.php
 namespace App\Features\Settings\Tests;
+use PHPUnit\Framework\Attributes\Large;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
  *  date style, reviews, co-authors, series, default order, public profiles and
  *  uploads. Each one is pinned by its effect on a public page, not only by the
  *  stored row. */
+#[Large]
 final class SiteSettingsTest extends TestCase
 {
     private string $path = '';
@@ -21,13 +23,12 @@ final class SiteSettingsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-sitesettings-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-sitesettings-');
         $this->root = sys_get_temp_dir() . '/kiption-sitesettings-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('ssadmin@e.test', ?, 'ssadmin', 'admin', 1, ?, ?, 'ssadmin')", [$hash, date('c'), date('c')]);
         $this->adminId = (int) $this->db->lastInsertId();
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('ssmember@e.test', ?, 'ssmember', ?, ?, 'ssmember')", [$hash, date('c'), date('c')]);

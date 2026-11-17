@@ -1,7 +1,9 @@
 <?php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Repositories\{BrowseFilterRepository,BrowseQuery,SearchRepository};
 use App\Tests\Support\{QueryTap,SearchArchive,TaxonomyCase};
+#[Small]
 final class DiscoveryCountsTest extends TaxonomyCase
 {
     private SearchArchive $a;

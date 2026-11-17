@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 namespace Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use PHPUnit\Framework\TestCase;
 
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
  * Readable English must come from the language pack so owners can edit it.
  * Controllers may not hand a literal sentence to a Response or an error slot.
  */
+#[Small]
 final class NoHardcodedTextTest extends TestCase
 {
     /** @return list<string> */

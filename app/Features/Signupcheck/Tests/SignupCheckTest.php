@@ -1,5 +1,6 @@
 <?php // app/Features/Signupcheck/Tests/SignupCheckTest.php
 namespace App\Features\Signupcheck\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** Signup spam checks: honeypot, minimum fill time, the owner's question. */
+#[Medium]
 final class SignupCheckTest extends TestCase
 {
     private string $path = '';
@@ -15,11 +17,10 @@ final class SignupCheckTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-sc-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-sc-');
         $this->log = tempnam(sys_get_temp_dir(), 'kiption-sc-mail-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

@@ -1,11 +1,14 @@
 <?php // app/Features/News/Tests/NewsTest.php
 namespace App\Features\News\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class NewsTest extends TestCase
 {
     private string $path = '';
@@ -25,10 +28,10 @@ final class NewsTest extends TestCase
         \App\Seeder::run($this->db); // plants the Welcome news row (id 1)
         // admin + member fixtures, the SeriesRepositoryTest idiom
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('newsadmin@e.test', ?, 'newsadmin', 'admin', 1, ?, ?, 'newsadmin')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->adminUserId = (int) $this->db->lastInsertId();
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('newsmember@e.test', ?, 'newsmember', ?, ?, 'newsmember')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->memberUserId = (int) $this->db->lastInsertId();
     }
 
@@ -162,6 +165,7 @@ final class NewsTest extends TestCase
         $this->assertFileDoesNotExist($file, 'comment unlinked the /news cache file (the count moved)');
     }
 
+    #[Group('process')]
     public function test_news_surfaces_are_static_cacheable(): void
     {
         $this->client(); // boots $this->app

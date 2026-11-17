@@ -1,10 +1,12 @@
 <?php // tests/EfictionMapperTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Import\EfictionMapper;
 use App\Import\Report;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[Medium]
 final class EfictionMapperTest extends TestCase
 {
     private string $root = '';

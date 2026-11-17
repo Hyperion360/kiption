@@ -1,11 +1,13 @@
 <?php // app/Features/Feed/Tests/FeedTest.php
 namespace App\Features\Feed\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class FeedTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +15,9 @@ final class FeedTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-feed-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-feed-');
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
         $this->app = new App([
             'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',

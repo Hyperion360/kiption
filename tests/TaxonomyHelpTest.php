@@ -1,10 +1,12 @@
 <?php // tests/TaxonomyHelpTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Lang;
 use App\Tests\Support\TaxonomyCase;
 
 /** Owners are told what Categories, Characters and Tags are for, and can add
  *  the common tag types (Relationships first) in one click. */
+#[Small]
 final class TaxonomyHelpTest extends TaxonomyCase
 {
     protected function tearDown(): void

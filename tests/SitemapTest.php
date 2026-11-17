@@ -1,10 +1,12 @@
 <?php // tests/SitemapTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\StaticCache\Builder;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SitemapTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +15,9 @@ final class SitemapTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-sitemap-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-sitemap-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->root = sys_get_temp_dir() . '/kiption-sitemap-' . uniqid('', true);
         mkdir($this->root . '/public', 0775, true);
     }
@@ -100,7 +101,7 @@ final class SitemapTest extends TestCase
         // advertised: the story gate (view + every read) and the chapter gate
         // (a locked chapter's read URL drops, its open story stays listed)
         $dir = $this->publicDir();
-        $this->db()->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [password_hash('pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+        $this->db()->query('UPDATE stories SET access_hash = ? WHERE slug = ?', [\App\Tests\Support\Hashes::of('pw'), 'the-rabbit-hole']);
         \App\Seo\Sitemap::writeAll($this->db(), $dir, 'https://archive.example', []);
         $stories = (string) file_get_contents($dir . '/sitemap-stories-1.xml');
         $this->assertStringNotContainsString('/story/view/the-rabbit-hole', $stories);
@@ -111,7 +112,7 @@ final class SitemapTest extends TestCase
         // chapter's read URL stay, only the locked chapter's read URL drops
         $this->db()->query('UPDATE stories SET access_hash = NULL WHERE slug = ?', ['the-rabbit-hole']);
         $this->db()->query('UPDATE chapters SET access_hash = ? WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = 1',
-            [password_hash('pw', PASSWORD_DEFAULT), 'the-rabbit-hole']);
+            [\App\Tests\Support\Hashes::of('pw'), 'the-rabbit-hole']);
         \App\Seo\Sitemap::writeAll($this->db(), $dir, 'https://archive.example', []);
         $stories = (string) file_get_contents($dir . '/sitemap-stories-1.xml');
         $this->assertStringContainsString('/story/view/the-rabbit-hole', $stories, 'an open story with a locked chapter stays listed');

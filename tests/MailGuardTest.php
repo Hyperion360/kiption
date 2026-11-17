@@ -1,5 +1,6 @@
 <?php // tests/MailGuardTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Digest;
 use App\MailGuard;
 use App\PublishFanout;
@@ -9,6 +10,7 @@ use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class MailGuardTest extends TestCase
 {
     private string $path = '';
@@ -20,7 +22,7 @@ final class MailGuardTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-quota-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-quota-');
         $this->root = tempnam(sys_get_temp_dir(), 'kiption-quota-');
         unlink($this->root);
         mkdir($this->root, 0775, true);
@@ -29,9 +31,8 @@ final class MailGuardTest extends TestCase
         touch($this->mailLog);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('qf@e.test', ?, 'quotafan', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->fanId = (int) $this->db->lastInsertId();
         $this->db->query('INSERT INTO user_prefs (user_id) VALUES (?)', [$this->fanId]);
     }

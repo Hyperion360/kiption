@@ -1,5 +1,6 @@
 <?php // app/Features/Challenges/Tests/RoundRobinTest.php
 namespace App\Features\Challenges\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\TestCase;
  * README row records the URL); their chapters land validated=0 in the
  * queue like every member write.
  */
+#[Medium]
 final class RoundRobinTest extends TestCase
 {
     private string $path = '';
@@ -25,10 +27,9 @@ final class RoundRobinTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-rr-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-rr-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         \App\Features::init($this->db, []);
     }
 
@@ -85,7 +86,7 @@ final class RoundRobinTest extends TestCase
         $this->assertSame(404, $member->postWithToken('/chapter/create/after-hours', ['title' => 'X', 'content' => 'Words.'])->status);
         // A pending member (approved_at NULL) is rejected even on the rr story.
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at) VALUES ('rrpending@e.test', ?, 'rrpending', ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c')]);
         $pending = (int) $this->db->lastInsertId();
         $this->assertSame(404, $this->client($pending)->postWithToken('/chapter/create/the-rabbit-hole',
             ['title' => 'P', 'content' => 'Words.'])->status, 'pending members never pass the directory gate');

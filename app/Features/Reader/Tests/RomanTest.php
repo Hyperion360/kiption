@@ -1,5 +1,6 @@
 <?php // app/Features/Reader/Tests/RomanTest.php
 namespace App\Features\Reader\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Features\Reader\Roman;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -7,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 // C7: chapter lists render Roman numerals (the comp's I, II, III rows), so
 // the conversion is a named helper with its own pins, including the
 // subtractive pairs a hand-rolled loop gets wrong.
+#[Small]
 final class RomanTest extends TestCase
 {
     /** @return list<array{0: int, 1: string}> */

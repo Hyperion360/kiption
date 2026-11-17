@@ -1,5 +1,6 @@
 <?php // app/Features/Account/Tests/DeleteAccountTest.php
 namespace App\Features\Account\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** Deleting your own account (/account/delete, /account/destroy). */
+#[Medium]
 final class DeleteAccountTest extends TestCase
 {
     private string $path = '';
@@ -14,10 +16,9 @@ final class DeleteAccountTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-del-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-del-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

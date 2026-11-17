@@ -1,5 +1,6 @@
 <?php // tests/HtaccessContractTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use PHPUnit\Framework\TestCase;
 
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
  * a policy line would otherwise pass the whole suite. The file ships in every
  * release ZIP, so these lines are the production behavior for real files.
  */
+#[Medium]
 final class HtaccessContractTest extends TestCase
 {
     private string $ht = '';

@@ -1,5 +1,6 @@
 <?php // tests/WebUpgradeTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 
 use PHPUnit\Framework\TestCase;
 use ZipArchive;
@@ -12,6 +13,7 @@ use ZipArchive;
  * snapshot. Task 1 grounds the layout: stable wrappers, the private pointer,
  * and shared mutable data that never lives under a release or a web root.
  */
+#[Large]
 final class WebUpgradeTest extends TestCase
 {
     private array $tmpDirs = [];
@@ -133,16 +135,9 @@ final class WebUpgradeTest extends TestCase
             . escapeshellarg($home . '/site/bin/kip');
     }
 
-    private function freePort(int $start): int
+    private function freePort(): int
     {
-        for ($port = $start; $port < $start + 16; $port++) {
-            $sock = @fsockopen('127.0.0.1', $port, timeout: 0.2);
-            if ($sock === false) {
-                return $port;
-            }
-            fclose($sock);
-        }
-        $this->fail('no free port in the ad-hoc range');
+        return \App\Tests\Support\FreePort::get();
     }
 
     /** @return resource */
@@ -204,7 +199,7 @@ final class WebUpgradeTest extends TestCase
         $this->assertSame($id . "\n", (string) file_get_contents($home . '/site/current'),
             'the pointer is plain text: exactly the id and a newline');
 
-        $this->deployment($home, $this->freePort(8095));
+        $this->deployment($home, $this->freePort());
         $kip = $this->kip($home);
         [$mCode, $mOut] = $this->sh($home, $kip . ' migrate');
         $this->assertSame(0, $mCode, $mOut);
@@ -241,7 +236,7 @@ final class WebUpgradeTest extends TestCase
 
         // The stable wrapper serves the pointed-at release, and a malformed
         // or missing pointer is a generic 503 that prints no path.
-        $port = $this->freePort(8095);
+        $port = $this->freePort();
         $server = $this->startServer($port, $home . '/public_html', $home . '/public_html/index.php');
         try {
             $this->assertSame(200, $this->http($port, 'GET', '/')[0], 'the wrapper serves the active release');
@@ -726,7 +721,7 @@ final class WebUpgradeTest extends TestCase
     {
         [$home, $active] = $this->hostHome($prefix);
         $site = $home . '/site';
-        $port = $this->freePort(8095);
+        $port = $this->freePort();
         $this->deployment($home, $port);
         $kip = $this->kip($home);
         [$mCode, $mOut] = $this->sh($home, $kip . ' migrate');

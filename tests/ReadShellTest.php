@@ -1,5 +1,6 @@
 <?php // tests/ReadShellTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 // file pins the shell around them. No scripting in the shell itself: links,
 // forms, native inputs, and :target only; the deferred enhancement layer is
 // pinned in LayoutShellTest and the keys contract in AppJsContractTest.
+#[Medium]
 final class ReadShellTest extends TestCase
 {
     private string $path = '';
@@ -23,10 +25,9 @@ final class ReadShellTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-rshell-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-rshell-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
     }
 

@@ -1,5 +1,6 @@
 <?php // app/Features/Series/Tests/SeriesIndexTest.php
 namespace App\Features\Series\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
  *  with title, owner penname, and its visible story count, paged like
  *  /browse/recent. The suite migrates WITHOUT the seeder so the empty-database
  *  shape is testable and every fixture row is explicit. */
+#[Medium]
 final class SeriesIndexTest extends TestCase
 {
     private string $path = '';
@@ -17,7 +19,7 @@ final class SeriesIndexTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-series-index-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::path('kiption-series-index-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
     }
@@ -49,7 +51,7 @@ final class SeriesIndexTest extends TestCase
     {
         $this->db->query(
             "INSERT INTO users (email, password_hash, penname, role, email_verified_at, approved_at) VALUES (?, ?, ?, 'validated_author', ?, ?)",
-            [$email, password_hash('password123', PASSWORD_DEFAULT), $penname, date('c'), date('c')]
+            [$email, \App\Tests\Support\Hashes::of('password123'), $penname, date('c'), date('c')]
         );
         return (int) $this->db->lastInsertId();
     }

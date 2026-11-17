@@ -1,8 +1,10 @@
 <?php // app/Features/Search/Tests/TaxonomyFilterTest.php
 namespace App\Features\Search\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** /search?tag=ID and /search?character=ID, and the story page links that feed them. */
+#[Small]
 final class TaxonomyFilterTest extends TaxonomyCase
 {
     private function storyId(string $slug): int

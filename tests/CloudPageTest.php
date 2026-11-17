@@ -1,5 +1,6 @@
 <?php // tests/CloudPageTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -10,16 +11,16 @@ use PHPUnit\Framework\TestCase;
  *  heading), the body's first paragraph lifted as the lede, and the
  *  cloud_marketing config bands (CTA, plan cards, offer callout, close).
  *  Without the config the page degrades to hero + body with no bands. */
+#[Medium]
 final class CloudPageTest extends TestCase
 {
     private string $path = '';
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-landing-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-landing-');
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
         $db->query('INSERT INTO pages (slug, title, body) VALUES (?, ?, ?)',
             ['cloud', 'Kiption Cloud: your archive, hosted and maintained',
              "Kiption Cloud is the hosted way to run a fiction archive.\n\nThe dated record behind the offer.\n\nSecond closing paragraph."]);

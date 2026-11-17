@@ -1,5 +1,6 @@
 <?php // app/Features/Wordfilter/Tests/WordFilterRulesTest.php
 namespace App\Features\Wordfilter\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Features\Wordfilter\WordFilter;
 use Kip\App;
 use Kip\Database;
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /** What the word filter matches, the seeded starter list, and where it is
  *  (and is not) applied to member submissions. */
+#[Medium]
 final class WordFilterRulesTest extends TestCase
 {
     private string $path = '';
@@ -18,10 +20,9 @@ final class WordFilterRulesTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-wfr-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-wfr-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->memberId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         $this->authorId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'];
         WordFilter::forget();

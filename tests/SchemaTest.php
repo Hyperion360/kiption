@@ -1,10 +1,12 @@
 <?php // tests/SchemaTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 
+#[Medium]
 final class SchemaTest extends TestCase
 {
     private function db(): Database

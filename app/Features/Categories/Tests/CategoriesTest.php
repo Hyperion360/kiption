@@ -1,9 +1,11 @@
 <?php // app/Features/Categories/Tests/CategoriesTest.php
 namespace App\Features\Categories\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** The owner's category manager at /categories: a nested tree they can add to,
  *  rename, move, reorder, lock and delete without touching the database. */
+#[Small]
 final class CategoriesTest extends TaxonomyCase
 {
     private function add(string $name, ?int $parent = null): int

@@ -1,11 +1,13 @@
 <?php // tests/FictioneerRedirectsTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Import\LegacyRedirects;
 use Kip\Database;
 use Kip\Http\Request;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class FictioneerRedirectsTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +15,9 @@ final class FictioneerRedirectsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-fxred-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-fxred-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         // a mapped story, chapter, and user, the rows writeForFictioneer
         // consumes (legacy ids are site-scoped: '{host}/{id}')
         $this->db->query("INSERT INTO import_map (legacy_table, legacy_id, new_table, new_id, run_id) VALUES

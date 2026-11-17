@@ -1,7 +1,10 @@
 <?php // tests/RobotsTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class RobotsTest extends TestCase
 {
     private string $root = '';
@@ -61,6 +64,7 @@ final class RobotsTest extends TestCase
         );
     }
 
+    #[Group('process')]
     public function test_kip_usage_lists_the_robots_arm(): void
     {
         // bare invocation prints usage only: no config side effects on the repo

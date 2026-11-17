@@ -1,10 +1,12 @@
 <?php // app/Features/Search/Tests/SearchFtsTagsTest.php
 namespace App\Features\Search\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
 /** Migration 067: stories_fts gains a tags column that triggers keep in step. */
+#[Medium]
 final class SearchFtsTagsTest extends TestCase
 {
     private string $path = '';
@@ -13,10 +15,9 @@ final class SearchFtsTagsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-ftstags-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-ftstags-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         if ($this->db->one("SELECT 1 FROM sqlite_master WHERE name = 'stories_fts'") === null) {
             $this->markTestSkipped('FTS5 is not available in this SQLite build.');
         }

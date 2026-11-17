@@ -1,8 +1,10 @@
 <?php // app/Features/Story/Tests/CharacterPickerTest.php
 namespace App\Features\Story\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** The character picker on the story form, and characters on the story page. */
+#[Small]
 final class CharacterPickerTest extends TaxonomyCase
 {
     private int $general;

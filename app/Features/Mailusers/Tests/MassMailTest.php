@@ -1,5 +1,6 @@
 <?php // app/Features/Mailusers/Tests/MassMailTest.php
 namespace App\Features\Mailusers\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\MailGuard;
 use App\MassMail;
 use Kip\Database;
@@ -8,6 +9,7 @@ use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
 /** The recipient rule and the ten-minute broadcast slot, without the screen. */
+#[Medium]
 final class MassMailTest extends TestCase
 {
     private string $path = '';
@@ -18,7 +20,7 @@ final class MassMailTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-mm-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::path('kiption-mm-');
         $this->log = tempnam(sys_get_temp_dir(), 'kiption-mm-log-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();

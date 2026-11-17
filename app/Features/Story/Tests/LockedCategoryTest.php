@@ -1,8 +1,10 @@
 <?php // app/Features/Story/Tests/LockedCategoryTest.php
 namespace App\Features\Story\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
 /** A locked category takes stories from admins only (the eFiction rule). */
+#[Small]
 final class LockedCategoryTest extends TaxonomyCase
 {
     private int $locked;

@@ -1,8 +1,10 @@
 <?php // app/Features/Notifications/Tests/TagSuggestionNotifyTest.php
 namespace App\Features\Notifications\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Tests\Support\TaxonomyCase;
 
 /** Slice 4 Task 4.7: the author hears what happened to their suggestion. */
+#[Medium]
 final class TagSuggestionNotifyTest extends TaxonomyCase
 {
     private int $member2 = 0;
@@ -11,7 +13,7 @@ final class TagSuggestionNotifyTest extends TaxonomyCase
     {
         parent::setUp();
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('notify-m2@e.test', ?, 'notifytwo', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->member2 = (int) $this->db->lastInsertId();
     }
 

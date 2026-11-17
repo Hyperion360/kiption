@@ -29,3 +29,4 @@ config.marketing.php
 TODOS.md
 app/site-text/
 app/site-look/
+.phpunit-timings.json

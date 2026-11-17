@@ -1,11 +1,13 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Search\Spelling;
 use App\Search\SpellingSql;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class SearchSpellingTest extends TestCase
 {
     public function test_single_token_prefix_is_left_to_exact_fts_but_multi_token_spelling_keeps_it(): void

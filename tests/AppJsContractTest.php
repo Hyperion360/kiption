@@ -1,5 +1,6 @@
 <?php // tests/AppJsContractTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Features\Reader\Prefs;
 use App\Theme;
 use Kip\App;
@@ -15,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 // theme swatches - carries data-js-pref="{group}" for the instant-apply
 // reader. Pure markers: the server learns nothing of scripting, so noscript
 // bytes gain only the attributes themselves.
+#[Medium]
 final class AppJsContractTest extends TestCase
 {
     private string $path = '';
@@ -23,10 +25,9 @@ final class AppJsContractTest extends TestCase
     protected function setUp(): void
     {
         \App\Lang::setCurrent('en'); // the pack layer is process-global; anchor it (the LangTest idiom)
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-appjs-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-appjs-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

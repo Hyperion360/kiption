@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Repositories\BrowseQuery;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class BrowseQueryTest extends TestCase
 {
     public function test_multiple_categories_are_parsed_and_carried_without_duplicates(): void

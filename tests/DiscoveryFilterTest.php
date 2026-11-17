@@ -1,5 +1,6 @@
 <?php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Repositories\BrowseQuery;
 use App\Repositories\DiscoveryFilter;
@@ -7,6 +8,7 @@ use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class DiscoveryFilterTest extends TestCase
 {
     private PDO $db;

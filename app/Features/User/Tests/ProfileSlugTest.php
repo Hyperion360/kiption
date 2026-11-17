@@ -1,19 +1,20 @@
 <?php // app/Features/User/Tests/ProfileSlugTest.php
 namespace App\Features\User\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class ProfileSlugTest extends TestCase
 {
     private string $path = '';
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-pslug-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-pslug-');
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
     }
 
     protected function tearDown(): void
@@ -37,7 +38,7 @@ final class ProfileSlugTest extends TestCase
         $db->query('UPDATE users SET profile_slug = ? WHERE penname = ?', ['taken-name', 'Demo Author']);
         // A second member whose penname maps to the same slug gets -2.
         $db->query("INSERT INTO users (email, password_hash, penname, profile_slug, email_verified_at, approved_at) VALUES ('c@e.test', ?, 'Taken Name', NULL, ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $id = (int) $db->lastInsertId();
         (new \App\Repositories\UserRepository($db))->backfillProfileSlug($id);
         $this->assertSame('taken-name-2', $db->one('SELECT profile_slug FROM users WHERE id = ?', [$id])['profile_slug']);

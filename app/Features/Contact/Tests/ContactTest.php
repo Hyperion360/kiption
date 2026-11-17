@@ -1,5 +1,6 @@
 <?php // app/Features/Contact/Tests/ContactTest.php
 namespace App\Features\Contact\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** The public /contact form. */
+#[Medium]
 final class ContactTest extends TestCase
 {
     private string $path = '';
@@ -16,11 +18,10 @@ final class ContactTest extends TestCase
     protected function setUp(): void
     {
         \App\Features::reset();
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-ct-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-ct-');
         $this->log = tempnam(sys_get_temp_dir(), 'kiption-ct-mail-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         \App\Features::init($this->db, []);
         \App\Adminness::setRole($this->db, (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'], 'admin');
         \App\Adminness::setRole($this->db, (int) $this->db->one("SELECT id FROM users WHERE penname = 'Demo Author'")['id'], 'admin');

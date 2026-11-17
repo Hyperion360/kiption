@@ -1,5 +1,6 @@
 <?php // app/Features/Search/Tests/SearchTrigramTest.php
 namespace App\Features\Search\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
  *  tokenized) carries a second arm inside the SAME ranking statement, guarded
  *  so a story the normal arm already matched is never contributed twice. The
  *  budget stays one query. */
+#[Medium]
 final class SearchTrigramTest extends TestCase
 {
     private string $path = '';
@@ -15,10 +17,9 @@ final class SearchTrigramTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-trigram-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-trigram-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         if ($this->db->one("SELECT 1 FROM sqlite_master WHERE name = 'stories_trigram' AND sql LIKE '%fts5%'") === null) {
             $this->markTestSkipped('the trigram tokenizer is not available in this SQLite build.');
         }

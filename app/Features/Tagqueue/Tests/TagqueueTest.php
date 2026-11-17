@@ -1,8 +1,10 @@
 <?php // app/Features/Tagqueue/Tests/TagqueueTest.php
 namespace App\Features\Tagqueue\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Tests\Support\TaxonomyCase;
 
 /** The admin queue of waiting tag suggestions at /tagqueue (Task 4.4). */
+#[Medium]
 final class TagqueueTest extends TaxonomyCase
 {
     private function typeId(string $name): int

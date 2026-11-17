@@ -1,5 +1,6 @@
 <?php // tests/LangContextTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
  * tag, or an event-handler attribute, or into a double-quoted attribute
  * without escaping.
  */
+#[Medium]
 final class LangContextTest extends TestCase
 {
     private const SAFE_WRAP = '/(->e\(|htmlspecialchars\(|json_encode\(|rawurlencode\(|urlencode\()/';

@@ -1,7 +1,9 @@
 <?php // tests/FictioneerCliTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\TestCase;
 
+#[Large]
 final class FictioneerCliTest extends TestCase
 {
     private string $dir = '';

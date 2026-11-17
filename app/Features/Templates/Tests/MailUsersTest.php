@@ -1,5 +1,6 @@
 <?php // app/Features/Templates/Tests/MailUsersTest.php
 namespace App\Features\Templates\Tests;
+use PHPUnit\Framework\Attributes\Large;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -7,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 /** mail:users batch CLI through CliTest's subprocess idiom: eligibility (the
  *  directory gate), the --dry-run/--commit modes, the --template override and
  *  the --mail-log operator seam (tests never touch the repo's app/mail.log). */
+#[Large]
 final class MailUsersTest extends TestCase
 {
     private string $path = '';
@@ -14,12 +16,11 @@ final class MailUsersTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-mailusers-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-mailusers-');
         $this->root = sys_get_temp_dir() . '/kiption-mailusers-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
     }
 
     protected function tearDown(): void
@@ -52,13 +53,13 @@ final class MailUsersTest extends TestCase
         // Four excluded fixture rows, one per gate leg: unapproved, unverified,
         // locked, and penname-less. The eligible count must stay at 2.
         $db->query('INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, NULL, ?)',
-            ['pending@e.test', password_hash('password123', PASSWORD_DEFAULT), 'pendingpen', date('c'), 'pendingpen']);
+            ['pending@e.test', \App\Tests\Support\Hashes::of('password123'), 'pendingpen', date('c'), 'pendingpen']);
         $db->query('INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, NULL, ?, ?)',
-            ['unverified@e.test', password_hash('password123', PASSWORD_DEFAULT), 'unverifiedpen', date('c'), 'unverifiedpen']);
+            ['unverified@e.test', \App\Tests\Support\Hashes::of('password123'), 'unverifiedpen', date('c'), 'unverifiedpen']);
         $db->query('INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, is_locked, profile_slug) VALUES (?, ?, ?, ?, ?, 1, ?)',
-            ['locked@e.test', password_hash('password123', PASSWORD_DEFAULT), 'lockedpen', date('c'), date('c'), 'lockedpen']);
+            ['locked@e.test', \App\Tests\Support\Hashes::of('password123'), 'lockedpen', date('c'), date('c'), 'lockedpen']);
         $db->query('INSERT INTO users (email, password_hash, email_verified_at, approved_at) VALUES (?, ?, ?, ?)',
-            ['nopename@e.test', password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            ['nopename@e.test', \App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
 
         $log = $this->root . '/mail.log';
         [$code, $out] = $this->kip('mail:users "Subject here" "Hello members" --dry-run --mail-log=' . escapeshellarg($log));
@@ -88,7 +89,7 @@ final class MailUsersTest extends TestCase
         $db = $this->db();
         foreach (['bulk1@e.test', 'bulk2@e.test', 'bulk3@e.test', 'bulk4@e.test'] as $i => $email) {
             $db->query('INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?)',
-                [$email, password_hash('password123', PASSWORD_DEFAULT), 'bulkpen' . $i, date('c'), date('c'), 'bulkpen' . $i]);
+                [$email, \App\Tests\Support\Hashes::of('password123'), 'bulkpen' . $i, date('c'), date('c'), 'bulkpen' . $i]);
         }
         [, $out] = $this->kip('mail:users "S" "B" --dry-run --mail-log=' . escapeshellarg($this->root . '/mail.log'));
         $this->assertStringContainsString('would mail 6 recipient(s)', $out);

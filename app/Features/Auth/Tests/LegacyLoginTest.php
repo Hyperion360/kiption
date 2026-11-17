@@ -1,11 +1,13 @@
 <?php // app/Features/Auth/Tests/LegacyLoginTest.php
 namespace App\Features\Auth\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class LegacyLoginTest extends TestCase
 {
     private string $path = '';
@@ -14,14 +16,13 @@ final class LegacyLoginTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-lgl-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-lgl-');
         $this->mailLog = tempnam(sys_get_temp_dir(), 'kiption-lgl-mail-') . '.log';
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
         // a legacy-imported member: modern hash sentinel + legacy md5
         $db->query("INSERT INTO users (email, password_hash, penname, legacy_md5, role, email_verified_at, approved_at, profile_slug) VALUES ('legacy@e.test', ?, 'legacyimport', ?, 'member', ?, ?, 'legacyimport')",
-            [password_hash('not-the-password', PASSWORD_DEFAULT), md5('oldpassword'), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('not-the-password'), md5('oldpassword'), date('c'), date('c')]);
         $this->uid = (int) $db->lastInsertId();
     }
 

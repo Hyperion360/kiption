@@ -1,5 +1,6 @@
 <?php // tests/ContentPolicyBackfillTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
  *  with the launch clause; an operator-authored page with the same slug is
  *  never touched; down() lifts only a row the migration itself would have
  *  inserted (the clause fingerprint), never an operator's text. */
+#[Medium]
 final class ContentPolicyBackfillTest extends TestCase
 {
     private string $path = '';

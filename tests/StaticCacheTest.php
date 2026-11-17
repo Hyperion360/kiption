@@ -1,9 +1,11 @@
 <?php // tests/StaticCacheTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\StaticCache\Cache;
 use Kip\Http\{Request, Response};
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class StaticCacheTest extends TestCase
 {
     private string $dir = '';
@@ -271,11 +273,10 @@ final class StaticCacheTest extends TestCase
 
     public function test_fill_via_app_render_then_hit(): void
     {
-        $path = tempnam(sys_get_temp_dir(), 'kiption-wire-') . '.sqlite';
+        $path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-wire-');
         $dsn = 'sqlite:' . $path;
         $db = new \Kip\Database($dsn);
         (new \Kip\Migrations\Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
         $app = new \Kip\App([
             'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',
@@ -308,11 +309,10 @@ final class StaticCacheTest extends TestCase
      *  same markup and theme/prefs stay purely client-side state. */
     public function test_cookieless_story_renders_carry_no_theme_or_reader_pref_attributes(): void
     {
-        $path = tempnam(sys_get_temp_dir(), 'kiption-wire-') . '.sqlite';
+        $path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-wire-');
         $dsn = 'sqlite:' . $path;
         $db = new \Kip\Database($dsn);
         (new \Kip\Migrations\Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($db);
         $app = new \Kip\App([
             'env' => 'prod',
             'views' => dirname(__DIR__) . '/app/views',

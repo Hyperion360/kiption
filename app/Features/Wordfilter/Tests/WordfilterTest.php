@@ -1,5 +1,6 @@
 <?php // app/Features/Wordfilter/Tests/WordfilterTest.php
 namespace App\Features\Wordfilter\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
 /** The admin word-filter screen: its limits refuse with the right message. */
+#[Medium]
 final class WordfilterTest extends TestCase
 {
     private string $path = '';
@@ -15,10 +17,9 @@ final class WordfilterTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-wf-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-wf-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->adminId = (int) $this->db->one("SELECT id FROM users WHERE penname = 'betafriend'")['id'];
         \App\Adminness::setRole($this->db, $this->adminId, 'admin');
     }

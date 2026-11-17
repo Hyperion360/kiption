@@ -1,5 +1,6 @@
 <?php // tests/PublishAuditTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 
 use PHPUnit\Framework\TestCase;
 
@@ -11,6 +12,7 @@ use PHPUnit\Framework\TestCase;
  * contains a contiguous probe string (the boundary check greps tracked
  * files, the secret check scans history, and both would find it here).
  */
+#[Large]
 final class PublishAuditTest extends TestCase
 {
     /** @var string[] fixture roots, removed in tearDown */

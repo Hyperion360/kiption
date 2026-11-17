@@ -1,8 +1,10 @@
 <?php // app/Features/Look/Tests/RulesTest.php
 namespace App\Features\Look\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Look\{Presets, Rules};
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class RulesTest extends TestCase
 {
     private function ok(array $over = []): array

@@ -1,5 +1,6 @@
 <?php // tests/SharedHostReleaseTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Large;
 
 use App\Tests\Support\DevServerHttp;
 use PHPUnit\Framework\TestCase;
@@ -13,6 +14,7 @@ use ZipArchive;
  * launcher (site/bin/kip, sourced from upgrade/dispatch.php) dispatches to
  * whichever release site/current names, without application bootstrap.
  */
+#[Large]
 final class SharedHostReleaseTest extends TestCase
 {
     use DevServerHttp;
@@ -368,7 +370,7 @@ final class SharedHostReleaseTest extends TestCase
 
         // A private deployment record: setup's product, pointing the app at
         // the real docroot over the private tree.
-        $port = $this->freePort(8095);
+        $port = $this->freePort();
         file_put_contents($home . '/site/shared/deployment.php', "<?php\nreturn [\n"
             . "    'public_dir' => " . var_export($home . '/public_html', true) . ",\n"
             . "    'base_url' => 'http://127.0.0.1:' . " . var_export((string) $port, true) . ",\n"
@@ -443,7 +445,7 @@ final class SharedHostReleaseTest extends TestCase
         $home = $this->tmptree('kiption-503-');
         mkdir($home . '/public_html');
         copy(dirname(__DIR__) . '/upgrade/stable/docroot-index.php', $home . '/public_html/index.php');
-        $port = $this->freePort(8096);
+        $port = $this->freePort();
         $server = $this->startServer($port, $home . '/public_html', $home . '/public_html/index.php');
         try {
             $body = $this->httpBody($port, '/');

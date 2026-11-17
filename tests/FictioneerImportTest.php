@@ -1,5 +1,6 @@
 <?php // tests/FictioneerImportTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Import\FictioneerImport;
 use App\Import\WxrReader;
 use App\Tests\Support\Wxr;
@@ -13,6 +14,7 @@ use RuntimeException;
  *  mixed export, original passwords kept, scheduled posts, two sites with
  *  colliding post ids, orphaned/dropped chapter positions, hostile meta,
  *  DOCTYPE refusal, and parent-link precedence. */
+#[Medium]
 final class FictioneerImportTest extends TestCase
 {
     private string $dir = '';

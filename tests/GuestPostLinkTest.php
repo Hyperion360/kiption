@@ -1,5 +1,6 @@
 <?php // tests/GuestPostLinkTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use Kip\App;
 use Kip\Database;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 /** "Post a story" is offered to guests, but the form opens only for a member
  *  with a confirmed account: a guest is sent to sign in (or create an account
  *  first) and lands on the form afterwards. */
+#[Medium]
 final class GuestPostLinkTest extends TestCase
 {
     private string $path = '';
@@ -20,13 +22,12 @@ final class GuestPostLinkTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-guestpost-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-guestpost-');
         $this->root = sys_get_temp_dir() . '/kiption-guestpost-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('gp@e.test', ?, 'gpmember', ?, ?, 'gpmember')", [$hash, date('c'), date('c')]);
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('gpnew@e.test', ?, 'gpnew', NULL, ?, 'gpnew')", [$hash, date('c')]);
     }

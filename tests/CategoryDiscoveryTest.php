@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Repositories\{BrowseFilterRepository, BrowseQuery, SearchRepository};
 use App\Tests\Support\{QueryTap, SearchArchive, TaxonomyCase};
 use Kip\{App, Database};
 use Kip\Testing\TestClient;
 
+#[Medium]
 final class CategoryDiscoveryTest extends TaxonomyCase
 {
     private SearchArchive $archive;

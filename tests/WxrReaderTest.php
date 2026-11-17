@@ -1,7 +1,9 @@
 <?php // tests/WxrReaderTest.php
+use PHPUnit\Framework\Attributes\Medium;
 use App\Import\WxrReader;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class WxrReaderTest extends TestCase
 {
     private function write(string $xml): string

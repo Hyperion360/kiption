@@ -1,5 +1,6 @@
 <?php // app/Features/Auth/Tests/CriticalMailCapTest.php
 namespace App\Features\Auth\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Http\Request;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\TestCase;
  *  byte-identical, registration never creates an account its verification
  *  mail cannot reach, and one address cannot be mailed endlessly. The
  *  ceiling lives in App\MailGuard's own bucket (rows keyed c:YYYY-MM-DD). */
+#[Medium]
 final class CriticalMailCapTest extends TestCase
 {
     private string $path = '';
@@ -23,7 +25,7 @@ final class CriticalMailCapTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-crit-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::path('kiption-crit-');
         $this->root = sys_get_temp_dir() . '/kiption-crit-' . uniqid('', true);
         mkdir($this->root, 0775, true);
         $this->mailLog = $this->root . '/mail.log';
@@ -72,7 +74,7 @@ final class CriticalMailCapTest extends TestCase
     private function registerMember(string $email = 'known@e.test'): int
     {
         $this->db->query('INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES (?, ?, ?, ?, ?)',
-            [$email, password_hash('password123', PASSWORD_DEFAULT), explode('@', $email)[0], date('c'), date('c')]);
+            [$email, \App\Tests\Support\Hashes::of('password123'), explode('@', $email)[0], date('c'), date('c')]);
         return (int) $this->db->lastInsertId();
     }
 

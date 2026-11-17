@@ -1,5 +1,6 @@
 <?php // app/Features/Account/Tests/AccountTest.php
 namespace App\Features\Account\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -7,6 +8,7 @@ use Kip\Storage;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class AccountTest extends TestCase
 {
     private string $path = '';
@@ -15,11 +17,10 @@ final class AccountTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-acct-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-acct-');
         $this->uploads = sys_get_temp_dir() . '/kiption-upl-' . bin2hex(random_bytes(4));
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
     }
 
     protected function tearDown(): void

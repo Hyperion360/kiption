@@ -1,10 +1,12 @@
 <?php // app/Features/Look/Tests/CompilerTest.php
 namespace App\Features\Look\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Look\{Boot, Compiler, Store};
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class CompilerTest extends TestCase
 {
     private string $dir = '';
@@ -31,7 +33,7 @@ final class CompilerTest extends TestCase
 
     private function db(): Database
     {
-        $this->dbPath = tempnam(sys_get_temp_dir(), 'kiption-look-') . '.sqlite';
+        $this->dbPath = \App\Tests\Support\SchemaTemplate::path('kiption-look-');
         $db = new Database('sqlite:' . $this->dbPath);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Features::init($db, []);

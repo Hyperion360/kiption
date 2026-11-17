@@ -1,8 +1,10 @@
 <?php // app/Features/Look/Tests/ColorTest.php
 namespace App\Features\Look\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Look\Color;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class ColorTest extends TestCase
 {
     public function test_parse_accepts_only_strict_six_digit_hex(): void

@@ -1,5 +1,6 @@
 <?php // app/Features/Manage/Tests/AdminShellTest.php
 namespace App\Features\Manage\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Lang;
 use Kip\{App, Database};
 use Kip\Migrations\Migrator;
@@ -8,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 /** What every owner screen carries around its own content: the list of
  *  admin screens with the current one marked, and the phone tab bar. */
+#[Medium]
 final class AdminShellTest extends TestCase
 {
     private string $path = '';
@@ -18,13 +20,12 @@ final class AdminShellTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-shell-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-shell-');
         $this->root = sys_get_temp_dir() . '/kiption-shell-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
-        $hash = password_hash('password123', PASSWORD_DEFAULT);
+        $hash = \App\Tests\Support\Hashes::of('password123');
         $ins = 'INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
         $this->db->query($ins, ['ma@e.test', $hash, 'mmadmin', 'admin', 1, date('c'), date('c'), 'mmadmin']);
         $this->adminId = (int) $this->db->lastInsertId();

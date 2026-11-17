@@ -1,11 +1,14 @@
 <?php // tests/TrendingTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class TrendingTest extends TestCase
 {
     private string $path = '';
@@ -14,10 +17,9 @@ final class TrendingTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-trending-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-trending-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->app = $this->newApp();
     }
 
@@ -99,6 +101,7 @@ final class TrendingTest extends TestCase
         $this->assertStringNotContainsString('href="/story/view/the-rabbit-hole"', $body, 'no window data, no trending rows');
     }
 
+    #[Group('process')]
     public function test_kudos_write_purges_top_but_a_beacon_hit_does_not(): void
     {
         $dir = sys_get_temp_dir() . '/kiption-trending-cache-' . uniqid('', true);

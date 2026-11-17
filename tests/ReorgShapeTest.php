@@ -1,11 +1,13 @@
 <?php // tests/ReorgShapeTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use PHPUnit\Framework\TestCase;
 
 /** Shape invariants of the feature-folder layout. These hold TODAY (layered
  *  app, vacuously), during every intermediate commit of the reorg, and at the
  *  end; they exist to make a half-moved or duplicated tree fail loudly. */
+#[Medium]
 final class ReorgShapeTest extends TestCase
 {
     private string $root;

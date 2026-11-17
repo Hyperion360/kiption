@@ -1,5 +1,6 @@
 <?php // tests/ViewerTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Viewer;
 use Kip\{Auth, Database, Session};
 use Kip\Http\Request;
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 /** App\Viewer decides who a public page renders for: the cookieless path is
  *  a guest without touching the session, a live session is the member, and
  *  a session revoked by a password change is a guest again. */
+#[Medium]
 final class ViewerTest extends TestCase
 {
     private Database $db;
@@ -18,7 +20,7 @@ final class ViewerTest extends TestCase
     {
         $this->db = new Database('sqlite::memory:');
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('v@e.test', ?, 'viewer')", [password_hash('first', PASSWORD_DEFAULT)]);
+        $this->db->query("INSERT INTO users (email, password_hash, penname) VALUES ('v@e.test', ?, 'viewer')", [\App\Tests\Support\Hashes::of('first')]);
         $this->memberId = (int) $this->db->lastInsertId();
     }
 
@@ -56,7 +58,7 @@ final class ViewerTest extends TestCase
     public function test_a_session_revoked_by_a_password_change_is_a_guest(): void
     {
         $session = $this->loggedInSession();
-        $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash('second', PASSWORD_DEFAULT), $this->memberId]);
+        $this->db->query('UPDATE users SET password_hash = ? WHERE id = ?', [\App\Tests\Support\Hashes::of('second'), $this->memberId]);
         $this->assertSame(0, Viewer::id($this->withCookie(), $session, $this->db));
     }
 }

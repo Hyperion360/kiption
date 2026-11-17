@@ -1,11 +1,13 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Repositories\SearchRepository;
 use App\Search\{Spelling, SpellingSql};
 use App\Tests\Support\{SearchArchive, TaxonomyCase, QueryTap};
 
+#[Small]
 final class SearchSpellingIntegrationTest extends TaxonomyCase
 {
     private SearchArchive $a;

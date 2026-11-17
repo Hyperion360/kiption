@@ -1,7 +1,9 @@
 <?php // tests/TagEmptyStateTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Tests\Support\TaxonomyCase;
 
+#[Small]
 final class TagEmptyStateTest extends TaxonomyCase
 {
     public function test_tag_creation_waits_for_the_first_type(): void

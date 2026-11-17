@@ -1,11 +1,13 @@
 <?php // app/Features/Series/Tests/SeriesTest.php
 namespace App\Features\Series\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class SeriesTest extends TestCase
 {
     private string $path = '';
@@ -84,7 +86,7 @@ final class SeriesTest extends TestCase
     private function makeAdmin(string $penname): int
     {
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES (?, ?, ?, 'admin', 1, ?, ?, ?)",
-            [$penname . '@e.test', password_hash('password123', PASSWORD_DEFAULT), $penname, date('c'), date('c'), $penname]);
+            [$penname . '@e.test', \App\Tests\Support\Hashes::of('password123'), $penname, date('c'), date('c'), $penname]);
         return (int) $this->db->one('SELECT id FROM users WHERE penname = ?', [$penname])['id'];
     }
 
@@ -280,7 +282,7 @@ final class SeriesTest extends TestCase
     {
         // fixture: a second full member authoring a validated story
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at, profile_slug) VALUES ('ow@e.test', ?, 'otherwriter', ?, ?, 'otherwriter')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $otherId = (int) $this->db->lastInsertId();
         $this->db->query('INSERT INTO stories (title, slug, author_id, rating_id, validated) VALUES (?, ?, ?, (SELECT id FROM ratings LIMIT 1), 1)', ['Other Tale', 'other-tale', $otherId]);
 

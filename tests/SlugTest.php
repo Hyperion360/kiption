@@ -1,8 +1,10 @@
 <?php // tests/SlugTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Slug;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class SlugTest extends TestCase
 {
     public function test_make_normalizes(): void

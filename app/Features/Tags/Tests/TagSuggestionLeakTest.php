@@ -1,11 +1,13 @@
 <?php // app/Features/Tags/Tests/TagSuggestionLeakTest.php
 namespace App\Features\Tags\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\Tests\Support\TaxonomyCase;
 
 /** Slice 4 Task 4.6: the negative tests that justify the separate table.
  *  Pending names never enter tags, so every existing reader of tags is
  *  correct by construction. These tests exist to prove it and to fail loudly
  *  if a later change breaks that. */
+#[Medium]
 final class TagSuggestionLeakTest extends TaxonomyCase
 {
     private const MARKER = 'Zzyzx Marker';
@@ -24,7 +26,7 @@ final class TagSuggestionLeakTest extends TaxonomyCase
         $genre = (int) $this->row("SELECT id FROM tag_types WHERE name = 'genre'")['id'];
         $memberA = $this->memberId;
         $this->db->query("INSERT INTO users (email, password_hash, penname, email_verified_at, approved_at) VALUES ('leak-a@e.test', ?, 'leaka', ?, ?)",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $author = (int) $this->db->lastInsertId();
         $res = $this->client($author)->postWithToken('/story/create', [
             'title' => 'The Leak Probe', 'summary' => 'A probe story.', 'rating_id' => '1',

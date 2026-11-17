@@ -1,8 +1,10 @@
 <?php // tests/MaintenanceGuardTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\MaintenanceGuard;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class MaintenanceGuardTest extends TestCase
 {
     public function test_blocks_when_enabled_in_prod(): void

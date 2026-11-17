@@ -1,5 +1,6 @@
 <?php // app/Features/Account/Tests/ProfileSaveThrottleTest.php
 namespace App\Features\Account\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\CachePurge;
 use Kip\App;
 use Kip\Database;
@@ -9,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /** A member's own profile saves purge the whole public layer (edge included),
  *  so a burst of them is refused instead of hammering the purge quota. */
+#[Medium]
 final class ProfileSaveThrottleTest extends TestCase
 {
     private string $path = '';
@@ -18,10 +20,9 @@ final class ProfileSaveThrottleTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-throttle-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-throttle-');
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, profile_slug, role, email_verified_at, approved_at) VALUES ('thr@e.test', 'x', 'Thrower', 'thrower', 'member', ?, ?)", [date('c'), date('c')]);
         $this->memberId = (int) $this->db->lastInsertId();
         CachePurge::reset();

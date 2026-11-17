@@ -1,11 +1,13 @@
 <?php
 declare(strict_types=1);
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 
 use App\Search\Spelling;
 use App\Tests\Support\{SearchArchive, TaxonomyCase};
 use Kip\Migrations\Migration;
 
+#[Small]
 final class SearchWordIndexTest extends TaxonomyCase
 {
     private SearchArchive $archive;

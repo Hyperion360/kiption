@@ -1,8 +1,10 @@
 <?php // tests/TagFilterTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Small;
 use App\Repositories\TagFilter;
 use PHPUnit\Framework\TestCase;
 
+#[Small]
 final class TagFilterTest extends TestCase
 {
     public function test_parses_scalar_and_array_forms_and_drops_junk(): void

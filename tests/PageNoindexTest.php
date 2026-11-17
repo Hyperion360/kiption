@@ -1,5 +1,6 @@
 <?php // tests/PageNoindexTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\App;
 use Kip\Database;
 use Kip\Migrations\Migrator;
@@ -10,6 +11,7 @@ use PHPUnit\Framework\TestCase;
  *  checkbox, the reader render (meta plus X-Robots-Tag, the empty-body
  *  idiom) on both /page/view and the marketing top-level spelling, and the
  *  sitemap's exclusion. */
+#[Medium]
 final class PageNoindexTest extends TestCase
 {
     private string $path = '';
@@ -19,15 +21,14 @@ final class PageNoindexTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->path = tempnam(sys_get_temp_dir(), 'kiption-noidx-') . '.sqlite';
+        $this->path = \App\Tests\Support\SchemaTemplate::seededPath('kiption-noidx-');
         $this->root = tempnam(sys_get_temp_dir(), 'kiption-noidx-');
         unlink($this->root);
         mkdir($this->root, 0775, true);
         $this->db = new Database('sqlite:' . $this->path);
         (new Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
-        \App\Seeder::run($this->db);
         $this->db->query("INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, approved_at, profile_slug) VALUES ('noidxadmin@e.test', ?, 'noidxadmin', 'admin', 1, ?, ?, 'noidxadmin')",
-            [password_hash('password123', PASSWORD_DEFAULT), date('c'), date('c')]);
+            [\App\Tests\Support\Hashes::of('password123'), date('c'), date('c')]);
         $this->adminId = (int) $this->db->lastInsertId();
     }
 

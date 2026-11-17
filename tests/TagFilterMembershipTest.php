@@ -1,11 +1,13 @@
 <?php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 
 use App\Repositories\TagFilter;
 use PDO;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class TagFilterMembershipTest extends TestCase
 {
     private PDO $db;

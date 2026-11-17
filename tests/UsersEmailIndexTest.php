@@ -1,5 +1,6 @@
 <?php // tests/UsersEmailIndexTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use Kip\Database;
 use Kip\Migrations\Migrator;
 use PHPUnit\Framework\TestCase;
@@ -7,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 /** Migration 063: the lookups that match an email ignoring case use an index
  *  instead of reading every member, and the index never refuses two rows that
  *  differ only by case (an older archive may already hold such a pair). */
+#[Medium]
 final class UsersEmailIndexTest extends TestCase
 {
     private function db(): Database

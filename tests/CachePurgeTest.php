@@ -1,10 +1,12 @@
 <?php // tests/CachePurgeTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Medium;
 use App\CachePurge;
 use Kip\App;
 use Kip\Database;
 use PHPUnit\Framework\TestCase;
 
+#[Medium]
 final class CachePurgeTest extends TestCase
 {
     private string $root = '';
@@ -18,7 +20,7 @@ final class CachePurgeTest extends TestCase
         $this->root = sys_get_temp_dir() . '/kiption-cp-' . uniqid('', true);
         mkdir($this->root . '/app', 0775, true);
         mkdir($this->root . '/public', 0775, true);
-        $this->dbFile = tempnam(sys_get_temp_dir(), 'kiption-cp-') . '.sqlite';
+        $this->dbFile = \App\Tests\Support\SchemaTemplate::path('kiption-cp-');
         $this->db = new Database('sqlite:' . $this->dbFile);
         (new \Kip\Migrations\Migrator($this->db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         CachePurge::$cdnTransport = function (): int { $this->calls++; return 200; };

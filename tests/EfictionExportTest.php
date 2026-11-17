@@ -1,9 +1,12 @@
 <?php // tests/EfictionExportTest.php
 namespace App\Tests;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Medium;
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/Support/EfictionInstall.php';
 
+#[Medium]
 final class EfictionExportTest extends TestCase
 {
     private string $root = '';
@@ -149,6 +152,7 @@ final class EfictionExportTest extends TestCase
         $this->assertStringNotContainsString('Download ready', $none);
     }
 
+    #[Group('process')]
     public function test_storiespath_escape_is_refused(): void
     {
         $fx = $this->install();
