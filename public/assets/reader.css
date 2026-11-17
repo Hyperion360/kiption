@@ -2135,7 +2135,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-block: 8px 16px; }
 .chip-clear { font: 500 14px var(--sans); }
 .passage mark { background: var(--hover); color: inherit; font-weight: 600; border-radius: 2px; padding-inline: 1px; }
-.search-rail .live-filter input[type="search"] { width: 100%; max-width: none; box-sizing: border-box; }
+.search-rail .live-filter input[type="search"] { width: 100%; min-width: 0; max-width: none; box-sizing: border-box; }
 .search-rail .live-filter label { display: block; }
 
 /* Admin redesign: the sidebar folds. Only the group holding the current
