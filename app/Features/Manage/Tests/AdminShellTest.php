@@ -196,6 +196,61 @@ final class AdminShellTest extends TestCase
         $this->assertStringContainsString('<span class="home-preview">A Map of Quiet Places and Ninth Bell. The oldest was sent 2 days ago.</span>', $body);
     }
 
+    private function homeStatements(): array
+    {
+        $app = new App($this->config());
+        \App\Features::init(new Database('sqlite:' . $this->path), []);
+        Lang::useSiteText($this->root . '/site-text');
+        $db = $app->container->make(Database::class);
+        $seen = [];
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$seen): void { $seen[] = $sql; });
+        $body = (new TestClient($app))->actingAs($this->adminId)->get('/manage')->body;
+        \App\Tests\Support\QueryTap::off($db);
+        $content = array_filter($seen, fn (string $q): bool => $q !== \App\SessionGuard::SQL && $q !== 'SELECT password_hash FROM users WHERE id = ?');
+        return [$body, count($content)];
+    }
+
+    public function test_the_reports_row_says_what_was_reported_and_why(): void
+    {
+        $this->waitingStory('Ninth Bell', gmdate('Y-m-d\TH:i:s\Z'));
+        $story = (int) $this->db->one("SELECT id FROM stories WHERE title = 'Ninth Bell'")['id'];
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES ('Harbourlight', 'harbourlight', 'S.', ?, 2, 1)", [$this->memberId]);
+        $harbour = (int) $this->db->lastInsertId();
+        $this->db->query("INSERT INTO reviews (story_id, user_id, body) VALUES (?, ?, 'Rude.')", [$harbour, $this->memberId]);
+        $review = (int) $this->db->lastInsertId();
+        $this->db->query("INSERT INTO reports (reporter_id, story_id, reason, created_at) VALUES (?, ?, 'spam <b>', '2026-01-01T00:00:00Z')", [$this->adminId, $story]);
+        $this->db->query("INSERT INTO reports (reporter_id, review_id, reason, created_at) VALUES (?, ?, '', '2026-01-02T00:00:00Z')", [$this->adminId, $review]);
+        [$body, $statements] = $this->homeStatements();
+        $this->assertStringContainsString('<span class="home-preview">One on Ninth Bell (spam &lt;b&gt;) and one on a review of Harbourlight.</span>', $body);
+        $this->assertSame(1, $statements, 'the detail rides the one home statement');
+    }
+
+    public function test_the_members_row_says_when_the_signup_question_was_answered(): void
+    {
+        $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            ['wait@e.test', 'x', 'tallow', 'member', 0, date('c'), 'tallow']);
+        [$plain] = $this->homeStatements();
+        $this->assertStringNotContainsString('signup question', $plain, 'no question asked, nothing to claim');
+        $this->db->query("INSERT INTO signup_check (id, enabled, question, answer) VALUES (1, 1, 'Name?', 'Kiption')");
+        [$body, $statements] = $this->homeStatements();
+        $this->assertMatchesRegularExpression('#<span class="home-preview">tallow signed up [^<]* and answered the signup question\.</span>#', $body);
+        $this->assertSame(1, $statements);
+    }
+
+    public function test_the_tags_row_names_the_most_suggested_tags(): void
+    {
+        $this->waitingStory('Tagged', gmdate('Y-m-d\TH:i:s\Z'));
+        $story = (int) $this->db->one("SELECT id FROM stories WHERE title = 'Tagged'")['id'];
+        $type = (int) $this->db->one('SELECT id FROM tag_types ORDER BY id LIMIT 1')['id'];
+        $when = gmdate('Y-m-d\TH:i:s\Z');
+        foreach (['Found Family', 'Slow Burn', 'Hurt Comfort', 'Fix It', 'Road Trip'] as $name) {
+            $this->db->query("INSERT INTO tag_suggestions (tag_type_id, name, suggested_by, story_id, created_at) VALUES (?, ?, ?, ?, ?)", [$type, $name, $this->memberId, $story, $when]);
+        }
+        [$body, $statements] = $this->homeStatements();
+        $this->assertMatchesRegularExpression('#<span class="home-preview">Fix It, Found Family, Hurt Comfort and 2 more, suggested by writers\.</span>#', $body);
+        $this->assertSame(1, $statements);
+    }
+
     public function test_the_stories_preview_names_three_and_counts_the_rest(): void
     {
         foreach (['One', 'Two', 'Three', 'Four', 'Five'] as $i => $t) $this->waitingStory($t, gmdate('Y-m-d\TH:i:s\Z', time() - 3600 * (10 - $i)));

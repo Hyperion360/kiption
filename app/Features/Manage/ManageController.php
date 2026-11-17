@@ -143,11 +143,15 @@ final class ManageController extends AdminScreen
              SELECT '1chapters', COUNT(*), MIN(ch.created_at), '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
              WHERE " . \App\Repositories\AuthoringRepository::WAITING_CHAPTER . "
              UNION ALL
-             SELECT '1members', COUNT(*), COALESCE((SELECT us2.penname FROM users us2 WHERE " . str_replace('us.', 'us2.', \App\Repositories\AuthoringRepository::WAITING_MEMBER) . " ORDER BY us2.created_at DESC, us2.id DESC LIMIT 1), ''), COALESCE(MIN(us.created_at), ''), '', COALESCE(MAX(us.created_at), '') FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "
+             SELECT '1members', COUNT(*), COALESCE((SELECT us2.penname FROM users us2 WHERE " . str_replace('us.', 'us2.', \App\Repositories\AuthoringRepository::WAITING_MEMBER) . " ORDER BY us2.created_at DESC, us2.id DESC LIMIT 1), ''), COALESCE(MIN(us.created_at), ''), COALESCE((SELECT 1 FROM signup_check sc WHERE sc.id = 1 AND sc.enabled = 1 AND sc.question <> '' AND sc.answer <> ''), 0), COALESCE(MAX(us.created_at), '') FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "
              UNION ALL
-             SELECT '1reports', COUNT(*), COALESCE(MIN(created_at), ''), '', '', '' FROM reports WHERE resolved_at IS NULL
+             SELECT '1reports', COUNT(*), COALESCE(MIN(created_at), ''), '',
+                    (SELECT GROUP_CONCAT(x, char(30)) FROM (SELECT CASE WHEN r.story_id IS NOT NULL THEN 's' ELSE 'r' END || char(31) || COALESCE(st.title, rs.title, '') || char(31) || substr(r.reason, 1, 30) AS x
+                        FROM reports r LEFT JOIN stories st ON st.id = r.story_id LEFT JOIN reviews rv ON rv.id = r.review_id LEFT JOIN stories rs ON rs.id = rv.story_id
+                        WHERE r.resolved_at IS NULL ORDER BY r.created_at, r.id LIMIT 2)), '' FROM reports WHERE resolved_at IS NULL
              UNION ALL
-             SELECT '1tags', COUNT(DISTINCT s.tag_type_id || ':' || lower(s.name)), '', '', '', '' FROM tag_suggestions s WHERE s.status = 'pending'
+             SELECT '1tags', COUNT(DISTINCT s.tag_type_id || ':' || lower(s.name)), '', '',
+                    (SELECT GROUP_CONCAT(nm, char(31)) FROM (SELECT MIN(s3.name) AS nm FROM tag_suggestions s3 WHERE s3.status = 'pending' GROUP BY s3.tag_type_id, lower(s3.name) ORDER BY COUNT(*) DESC, lower(s3.name) LIMIT 3)), '' FROM tag_suggestions s WHERE s.status = 'pending'
              UNION ALL
              SELECT '1new', COUNT(*), COALESCE(SUM(EXISTS (SELECT 1 FROM stories sn WHERE sn.author_id = users.id AND sn.deleted_at IS NULL)), 0), '', '', '' FROM users WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 days')
              UNION ALL
