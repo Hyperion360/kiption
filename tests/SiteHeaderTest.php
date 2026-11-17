@@ -33,6 +33,7 @@ final class SiteHeaderTest extends TestCase
 
     protected function tearDown(): void
     {
+        \App\Features::reset(); // the switched-off test must not leak its flags into later tests
         foreach ([$this->path, $this->path . '-wal', $this->path . '-shm', $this->navFile, \App\BrowsePanel::fileFor($this->navFile)] as $f) @unlink($f);
     }
 
