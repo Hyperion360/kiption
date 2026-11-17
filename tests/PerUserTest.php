@@ -249,13 +249,13 @@ final class PerUserTest extends TestCase
         // The form lists installed packs and the theme radios; off hides both field groups
         $form = $me->get('/account/settings')->body;
         $this->assertStringContainsString('name="lang"', $form);
-        $this->assertStringContainsString('name="theme"', $form);
+        $this->assertStringContainsString('type="radio" name="theme"', $form);
         $this->assertStringContainsString('<option value="en"', $form, 'the select options come from Lang::installed()');
         \App\Features::toggle('peruserlang', false);
         $this->assertStringNotContainsString('name="lang"', $me->get('/account/settings')->body);
         \App\Features::toggle('peruserlang', true);
         \App\Features::toggle('perusertheme', false);
-        $this->assertStringNotContainsString('name="theme"', $me->get('/account/settings')->body);
+        $this->assertStringNotContainsString('type="radio" name="theme"', $me->get('/account/settings')->body);
         \App\Features::toggle('perusertheme', true);
     }
 
@@ -390,7 +390,7 @@ final class PerUserTest extends TestCase
         // (b) The form hides the theme group while the lang group stays (its
         //  own flag is still on); with both flags off both groups hide.
         $form = $me->get('/account/settings')->body;
-        $this->assertStringNotContainsString('name="theme"', $form);
+        $this->assertStringNotContainsString('type="radio" name="theme"', $form);
         $this->assertStringContainsString('name="lang"', $form, 'the lang group is gated by peruserlang, not this flag');
         \App\Features::toggle('peruserlang', false);
         $this->assertStringNotContainsString('name="lang"', $me->get('/account/settings')->body, 'both field groups hide with both flags off');

@@ -223,7 +223,7 @@ final class AnalyticsTest extends TestCase
             // epoch re-check run the identical statement), excluded by rule.
             if ($sql === 'SELECT password_hash FROM users WHERE id = ?') return;
             // SessionGuard's version of the same check, which also reads the lock and role.
-            if ($sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return;
+            if ($sql === \App\SessionGuard::SQL) return;
             // The 2026-10-15 review moved the authorization decision to
             // Adminness::requireAdmin; its authority row is gate machinery
             // under the same exclusion, matched exactly so a runaway query

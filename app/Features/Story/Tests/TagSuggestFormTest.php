@@ -231,7 +231,7 @@ final class TagSuggestFormTest extends TestCase
             $db = $app->container->make(\Kip\Database::class);
             $queries = 0;
             \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
-                if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // session validation, excluded by rule
+                if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return; // session validation, excluded by rule
                 $queries++;
             });
             $res = $client->get('/story/edit/suggest-ride');
@@ -245,7 +245,7 @@ final class TagSuggestFormTest extends TestCase
         $db = $app->container->make(\Kip\Database::class);
         $queries = 0;
         \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return;
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return;
             $queries++;
         });
         $res = $client->get('/story/new');

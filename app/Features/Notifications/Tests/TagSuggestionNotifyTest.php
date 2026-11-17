@@ -94,7 +94,7 @@ final class TagSuggestionNotifyTest extends TaxonomyCase
         $client = (new \Kip\Testing\TestClient($app))->actingAs($this->memberId);
         $queries = 0;
         \App\Tests\Support\QueryTap::on($app->container->make(\Kip\Database::class), function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return;
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return;
             $queries++;
         });
         $res = $client->get('/notifications');

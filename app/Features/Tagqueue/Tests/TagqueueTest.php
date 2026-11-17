@@ -106,7 +106,7 @@ final class TagqueueTest extends TaxonomyCase
         $client = (new \Kip\Testing\TestClient($app))->actingAs($this->adminId);
         $queries = 0;
         \App\Tests\Support\QueryTap::on($app->container->make(\Kip\Database::class), function (string $sql) use (&$queries): void {
-            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === 'SELECT password_hash, is_locked, role FROM users WHERE id = ?') return; // session validation, excluded by rule
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return; // session validation, excluded by rule
             $queries++;
         });
         $res = $client->get('/tagqueue');

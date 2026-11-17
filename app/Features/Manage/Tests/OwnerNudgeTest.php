@@ -66,8 +66,10 @@ final class OwnerNudgeTest extends TestCase
         $this->assertStringContainsString('You are still called &quot;Owner&quot;.', $body);
         $this->assertMatchesRegularExpression('#<a href="/account/settings\#penname">Pick the name readers will see\.</a>#', $body);
         // Order: h1, then the nudge, then the Post a story button, then the screens.
-        $this->assertLessThan(strpos($body, 'Pick the name'), strpos($body, '<h1>'));
-        $this->assertLessThan(strpos($body, 'href="/story/new"'), strpos($body, 'Pick the name'));
+        // The site header carries its own Post link above the page, so look for the button after the nudge.
+        $nudge = strpos($body, 'Pick the name');
+        $this->assertLessThan($nudge, strpos($body, '<h1>', (int) strpos($body, '<main')));
+        $this->assertNotFalse(strpos($body, 'href="/story/new"', $nudge), 'the Post a story button follows the nudge');
 
         $this->db->query('UPDATE users SET penname = ? WHERE id = ?', ['Scribble', $id]);
         $this->assertStringNotContainsString('Pick the name readers will see', $this->client($id)->get('/manage')->body);
