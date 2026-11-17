@@ -1830,6 +1830,7 @@ return [
     'text.group.taxonomy' => 'Sorting and Naming Controls',
     'text.group.pages' => 'Pages List',
     'text.group.page' => 'Page Editor',
+    'text.group.cloud' => 'Kiption Cloud Link',
     'text.group.navlinks' => 'Menu Links',
     'text.group.images' => 'Image Library',
     'text.group.authorimages' => 'Chapter Images',

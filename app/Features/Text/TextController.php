@@ -18,7 +18,7 @@ final class TextController
      *  an owner reads is the lang key text.group.<code>; the code stays in the
      *  URL. A group missing here lands under "Other" and shows its code. */
     private const SECTIONS = [
-        'visitors' => ['home', 'browse', 'search', 'story', 'reader', 'series', 'top', 'feed', 'news', 'challenges', 'lists', 'user', 'review', 'report', 'contact', 'auth', 'nav', 'foot', 'theme', 'msg', 'maintenance', 'error', 'site'],
+        'visitors' => ['home', 'browse', 'search', 'story', 'reader', 'series', 'top', 'feed', 'news', 'challenges', 'lists', 'user', 'review', 'report', 'contact', 'auth', 'nav', 'foot', 'theme', 'msg', 'maintenance', 'error', 'site', 'cloud'],
         'members' => ['account', 'chapter', 'writer', 'posting', 'messages', 'notifications', 'favorites', 'stats', 'mute', 'uploads', 'authorimages'],
         'admins' => ['manage', 'saved', 'adminmembers', 'queue', 'activity', 'analytics', 'settings', 'features', 'text', 'look', 'categories', 'ratings', 'characters', 'tagsadmin', 'tagqueue', 'wrangling', 'taxonomy', 'pages', 'page', 'navlinks', 'images', 'invites', 'signupcheck', 'profilefields', 'templates', 'mailusers', 'wordfilter', 'notice', 'admin'],
         'shared' => ['common', 'form'],
