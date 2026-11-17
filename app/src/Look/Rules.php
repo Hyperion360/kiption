@@ -10,6 +10,9 @@ final class Rules
     public const COLORS = ['accent', 'bg', 'ink'];
     public const TEXT_MIN = 4.5;
     public const ACCENT_MIN = 5.0;
+    /** Form field edges (WCAG non-text contrast). Not an owner gate: Palette
+     *  derives an edge that clears it for every pair the two gates accept. */
+    public const FIELD_MIN = 3.0;
 
     /** @return array{values: array<string,string>, errors: array<string, array{0:string, 1:array<string,string>}>} */
     public static function check(array $post): array

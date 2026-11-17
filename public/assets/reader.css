@@ -38,9 +38,11 @@ html[data-theme="night"]{
 }
 /* Field borders. Form controls need a 3:1 edge against both the page and
    the surface (WCAG non-text contrast), which the decorative --line-strong
-   hairline does not reach. Derived from each theme's own ink and bg, so
-   sepia, night, the skins and an owner Look all get a matching edge. */
-:root{ --field-line:color-mix(in srgb, var(--ink) 55%, var(--bg)); }
+   hairline does not reach. This mix clears 3:1 for the built-in themes and
+   both skins (tests/ThemeContrastTokensTest). It does not hold for every
+   owner Look, so App\Look\Palette computes its own edge and look.css sets
+   it; sepia keeps its own colors, so it restates the mix to outrank that. */
+:root, html[data-theme="sepia"]{ --field-line:color-mix(in srgb, var(--ink) 55%, var(--bg)); }
 /* The vendored Epigraph editor ships paper colors and switches only on the
    OS setting, so a Night or Sepia choice left dark ink on a dark page. Hand
    it the site's tokens instead; the higher specificity beats its own block. */
@@ -2084,6 +2086,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .look-preview-body p { margin: 0 0 12px; }
 .look-preview-body a { color: var(--accent); }
 .look-preview-button { display: inline-block; padding: 8px 16px; background: var(--btn); color: var(--btn-ink); font: 500 14px/1.4 var(--sans); }
+.look-preview-field { display: block; max-width: 320px; margin-block-start: 12px; padding: 8px 12px; border: 1px solid var(--field-line); background: var(--surface); color: var(--muted); font: 15px/1.5 var(--sans); }
 
 /* The formatted writer is one reading column. The active block reveals its
    exact source in place without acquiring the chrome of a second form. */

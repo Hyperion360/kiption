@@ -8,7 +8,7 @@ final class Compiler
 {
     /** Bump when the emitted CSS shape changes: it feeds the revision, so
      *  browsers refetch after an upgrade. */
-    public const VERSION = 2;
+    public const VERSION = 3;
     public const FILE = 'look.css';
     private const LIGHT = ['accent' => '#1f4f42', 'bg' => '#f8f7f3', 'ink' => '#1c2320'];
 

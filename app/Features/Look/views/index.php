@@ -53,6 +53,7 @@ $presetFields = ['width' => 'look.width', 'size' => 'look.size', 'density' => 'l
       <h3><?= $t('look.sample_heading') ?></h3>
       <p><?= $t('look.sample_text') ?> <a href="#" tabindex="-1"><?= $t('look.sample_link') ?></a></p>
       <p><span class="look-preview-button"><?= $t('look.sample_button') ?></span></p>
+      <span class="look-preview-field"><?= $t('look.sample_field') ?></span>
     </div>
   </section>
   <?php endforeach; ?>

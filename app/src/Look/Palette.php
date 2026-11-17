@@ -10,7 +10,7 @@ final class Palette
 {
     /** The only custom properties the owner file may set, in print order. */
     public const VARS = [
-        '--bg', '--ink', '--ink-2', '--muted', '--line', '--line-strong', '--hover', '--accent',
+        '--bg', '--ink', '--ink-2', '--muted', '--line', '--line-strong', '--field-line', '--hover', '--accent',
         '--accent-hover', '--on-accent', '--visited', '--track', '--surface', '--scrim', '--pill-bg',
         '--btn', '--btn-ink',
     ];
@@ -51,7 +51,6 @@ final class Palette
     {
         // Nudge text toward the ink side of the background, whichever side that is.
         $darker = $bg->luminance() > $ink->luminance();
-        $muted = $ink->mix($bg, 0.42)->ensureContrast($bg, 4.5, $darker);
         $line = $bg->mix($ink, 0.10);
         $hover = $accent->mix($ink, 0.20);
         $onAccent = Color::contrast(Color::white(), $accent) >= Color::contrast(Color::black(), $accent) ? Color::white() : Color::black();
@@ -60,6 +59,17 @@ final class Palette
         // Otherwise a boundary palette can have no color that reads on all three.
         $inkLimit = $darker ? Color::black() : Color::white();
         $surface = $surface->ensureContrast($inkLimit, Rules::TEXT_MIN, !$darker);
+        // Muted ink is also the placeholder color, and fields sit on the
+        // surface, so it has to read on both. The field edge needs the WCAG
+        // non-text floor on both too: a fixed mix of ink into the page gives
+        // only about 2:1 when the text itself sits at the 4.5 floor. Both
+        // step toward the ink side, which the surface clamp above keeps open.
+        $muted = $ink->mix($bg, 0.42);
+        $fieldLine = $bg->mix($ink, 0.55);
+        foreach ([$bg, $surface] as $background) {
+            $muted = $muted->ensureContrast($background, Rules::TEXT_MIN, $darker);
+            $fieldLine = $fieldLine->ensureContrast($background, Rules::FIELD_MIN, $darker);
+        }
         $pill = $bg->mix($accent, 0.12)->ensureContrast($inkLimit, Rules::TEXT_MIN, !$darker);
         $secondary = $ink->mix($bg, 0.25);
         foreach ([$bg, $surface, $pill] as $background) {
@@ -73,6 +83,7 @@ final class Palette
             '--muted' => $muted->hex(),
             '--line' => $line->hex(),
             '--line-strong' => $bg->mix($ink, 0.18)->hex(),
+            '--field-line' => $fieldLine->hex(),
             '--hover' => $bg->mix($ink, 0.05)->hex(),
             '--accent' => $accent->hex(),
             '--accent-hover' => (Color::contrast($hover, $bg) >= 4.5 ? $hover : $accent)->hex(),

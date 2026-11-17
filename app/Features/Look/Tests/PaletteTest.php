@@ -45,6 +45,75 @@ final class PaletteTest extends TestCase
         }
     }
 
+    /** Text at exactly the 4.5 floor on light, mid and dark backgrounds, in
+     *  grays and in hues: the pairs where a fixed mix of ink into the page
+     *  measured only 1.8 to 2.7:1. Found by sweeping accepted palettes. */
+    public static function floorPalettes(): iterable
+    {
+        yield 'red ink on black, white accent' => [['#ffffff', '#000000', '#d04141']];
+        yield 'green ink on light gray' => [['#000000', '#e0e0e0', '#1d721d']];
+        yield 'gray ink at the floor on white' => [['#004400', '#ffffff', '#767676']];
+        yield 'white ink on mid gray' => [['#ffffff', '#6d6d6d', '#f0f0f0']];
+        yield 'black ink on mid gray' => [['#000000', '#7c7c7c', '#000000']];
+        yield 'pale ink on a dark olive' => [['#44dc7e', '#242c0a', '#9ee1c8']];
+        yield 'dark ink on a pale blue' => [['#970f3c', '#83def8', '#930f57']];
+        yield 'dark background in the light slot' => [['#7fd1b9', '#101820', '#e6edf3']];
+    }
+
+    #[DataProvider('floorPalettes')]
+    public function test_field_edge_and_placeholder_ink_clear_their_floors_at_the_text_floor(array $row): void
+    {
+        $values = array_combine(Rules::COLORS, $row) + Compiler::defaults();
+        $this->assertSame([], Rules::check($values)['errors'], 'the owner colors are accepted');
+        $bad = [];
+        foreach ($this->p($row) as $slot => $set) {
+            foreach (['--bg', '--surface'] as $on) {
+                $back = Color::parse($set[$on]);
+                $edge = Color::contrast(Color::parse($set['--field-line']), $back);
+                $ink = Color::contrast(Color::parse($set['--muted']), $back);
+                if ($edge < Rules::FIELD_MIN) $bad[] = sprintf('%s field edge on %s = %.2f', $slot, $on, $edge);
+                if ($ink < Rules::TEXT_MIN) $bad[] = sprintf('%s muted ink on %s = %.2f', $slot, $on, $ink);
+            }
+        }
+        $this->assertSame([], $bad);
+    }
+
+    public function test_every_accepted_palette_gets_a_field_edge_and_placeholder_ink_that_read(): void
+    {
+        // A fixed seed so a failure names a reproducible palette: random
+        // triples kept only when the editor's own gates accept them, plus a
+        // grid of inks walked down to exactly 4.5:1 on assorted backgrounds.
+        mt_srand(20261117);
+        $rows = [];
+        for ($i = 0; $i < 4000; $i++) $rows[] = [sprintf('#%06x', mt_rand(0, 0xffffff)), sprintf('#%06x', mt_rand(0, 0xffffff)), sprintf('#%06x', mt_rand(0, 0xffffff))];
+        foreach (['#ffffff', '#f8f7f3', '#cccccc', '#808080', '#777777', '#333333', '#101820', '#000000'] as $bg) {
+            $b = Color::parse($bg);
+            $toward = Color::contrast(Color::black(), $b) >= Color::contrast(Color::white(), $b) ? 1.0 : 0.0;
+            foreach ([0, 40, 120, 220, 300] as $hue) foreach ([0.0, 0.7] as $sat) {
+                for ($step = 0; $step <= 200; $step++) {
+                    $c = Color::fromHsl($hue, $sat, $toward === 1.0 ? 1 - $step / 200 : $step / 200);
+                    if (Color::contrast($c, $b) >= Rules::TEXT_MIN) break;
+                }
+                foreach (['#000000', '#ffffff', '#1f4f42'] as $accent) $rows[] = [$accent, $bg, $c->hex()];
+            }
+        }
+        $accepted = 0;
+        $bad = [];
+        foreach ($rows as $row) {
+            if (Rules::check(array_combine(Rules::COLORS, $row) + Compiler::defaults())['errors'] !== []) continue;
+            $accepted++;
+            foreach ($this->p($row) as $slot => $set) {
+                foreach (['--bg', '--surface'] as $on) {
+                    $back = Color::parse($set[$on]);
+                    if (Color::contrast(Color::parse($set['--field-line']), $back) < Rules::FIELD_MIN) $bad[] = $slot . ' edge ' . implode(',', $row) . ' on ' . $on;
+                    if (Color::contrast(Color::parse($set['--muted']), $back) < Rules::TEXT_MIN) $bad[] = $slot . ' muted ' . implode(',', $row) . ' on ' . $on;
+                }
+            }
+        }
+        $this->assertGreaterThan(150, $accepted, 'the sweep exercises enough accepted palettes');
+        $this->assertSame([], $bad);
+    }
+
     public function test_readable_default_secondary_colors_stay_unchanged(): void
     {
         $p = $this->p(self::GRID[0]);

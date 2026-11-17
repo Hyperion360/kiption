@@ -1994,6 +1994,7 @@ return [
     'look.sample_text' => 'This is how a paragraph of story text will read.',
     'look.sample_link' => 'A sample link',
     'look.sample_button' => 'Button',
+    'look.sample_field' => 'Search stories, authors and tags',
     'look.save' => 'Save',
     'look.reset' => 'Reset to Default',
     'look.confirm_reset' => 'Go back to the built-in colors and layout?',

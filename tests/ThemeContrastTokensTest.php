@@ -79,7 +79,9 @@ final class ThemeContrastTokensTest extends TestCase
     #[DataProvider('sheets')]
     public function test_field_edge_clears_three_to_one(string $file): void
     {
-        $this->assertMatchesRegularExpression('~--field-line:color-mix\(in srgb, var\(--ink\) 55%, var\(--bg\)\)~', self::css('public/assets/reader.css'));
+        // Sepia restates the mix: an owner Look's :root edge is worked out
+        // for the owner page and must not reach the sepia page.
+        $this->assertMatchesRegularExpression('~:root, html\[data-theme="sepia"\]\{ --field-line:color-mix\(in srgb, var\(--ink\) 55%, var\(--bg\)\); \}~', self::css('public/assets/reader.css'));
         $bad = [];
         foreach (self::themes($file) as $theme => $t) {
             $edge = Color::parse($t['--ink'])->mix(Color::parse($t['--bg']), 0.45);
