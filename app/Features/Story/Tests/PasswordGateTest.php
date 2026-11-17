@@ -282,6 +282,7 @@ final class PasswordGateTest extends TestCase
         $content = "Falling *down* the hole, past shelves of nothing.";
         $this->assertSame(302, $c->postWithToken('/chapter/update/the-rabbit-hole/1', [
             'title' => 'Down', 'content' => $content, 'access_password' => 'pw',
+            'base_revision' => \App\Tests\Support\ChapterForm::revision($c->get('/chapter/edit/the-rabbit-hole/1')->body),
         ])->status);
         $hash = $this->db->one("SELECT access_hash h FROM chapters WHERE story_id = 1 AND position = 1")['h'];
         $this->assertIsString($hash);
@@ -289,6 +290,7 @@ final class PasswordGateTest extends TestCase
         $this->assertStringContainsString('name="password"', $this->client()->get('/story/read/the-rabbit-hole/1')->body);
         $this->assertSame(302, $c->postWithToken('/chapter/update/the-rabbit-hole/1', [
             'title' => 'Down', 'content' => $content, 'access_clear' => '1',
+            'base_revision' => \App\Tests\Support\ChapterForm::revision($c->get('/chapter/edit/the-rabbit-hole/1')->body),
         ])->status);
         $this->assertNull($this->db->one("SELECT access_hash h FROM chapters WHERE story_id = 1 AND position = 1")['h']);
         $this->assertStringContainsString('shelves of nothing', $this->client()->get('/story/read/the-rabbit-hole/1')->body);

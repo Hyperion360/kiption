@@ -139,7 +139,8 @@ final class LangTest extends TestCase
         );
         $this->assertNotEmpty($files);
         foreach ($files as $f) {
-            foreach (preg_split('/\n/', (string) file_get_contents($f)) as $line) {
+            $html = preg_replace('/<\?(?:php|=)[\s\S]*?\?>/', '', (string) file_get_contents($f));
+            foreach (preg_split('/\n/', $html) as $line) {
                 if (preg_match('/>([^<>{}]*[A-Za-z]{3}[^<>{}]*)</', $line, $m)) {
                     $text = trim(strip_tags('<x>' . $m[1] . '</x>'));
                     if ($text === '' || preg_match('/^[^a-zA-Z]*$/', $text)) continue;

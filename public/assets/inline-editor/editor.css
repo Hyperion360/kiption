@@ -1,0 +1,9 @@
+.ki-document { max-width: 42rem; min-height: 12rem; padding: 1rem; border: 1px solid currentColor; font: inherit; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ki-line { min-height: 1.6em; }
+.ki-line[data-empty]::before { content: '\200b'; }
+.ki-line[data-block="quote"] { border-left: .15em solid currentColor; padding-left: .7em; }
+.ki-line[data-block="scene"] { text-align: center; letter-spacing: .2em; }
+.ki-strong { font-weight: 700; }
+.ki-em { font-style: italic; }
+.ki-link { text-decoration: underline; }
+.ki-syntax[hidden] { display: none; }

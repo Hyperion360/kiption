@@ -613,13 +613,13 @@ final class StoryController
         if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds, $suggest, $withdraw] = $this->storyInput();
         if ($title === '') {
-            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_title'), null), 422);
+            return $this->rejectedForm(null, \App\Lang::t('story.err_title'));
         }
         if (!$this->validRating($ratingId)) {
-            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_rating'), null), 422);
+            return $this->rejectedForm(null, \App\Lang::t('story.err_rating'));
         }
         if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, null)) {
-            return new Response($this->renderForm($this->authoring()->formData(null, $this->uid()), null, \App\Lang::t('story.err_locked_category'), null), 422);
+            return $this->rejectedForm(null, \App\Lang::t('story.err_locked_category'));
         }
         [$id, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut] = $this->authoring()->createStory(
             $this->uid(), $title, $summary, $notes, $ratingId, $categoryIds, $this->autoValidates(), $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds,
@@ -649,14 +649,17 @@ final class StoryController
     {
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds, $suggest, $withdraw] = $this->storyInput();
         [$canonicalUrl, $crosspostUrl, $syndicationError] = $this->syndicationInput();
+        if ($title === '') {
+            return $this->rejectedForm($slug, \App\Lang::t('story.err_title'));
+        }
         if (!$this->validRating($ratingId)) {
-            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, \App\Lang::t('story.err_rating'), null), 422);
+            return $this->rejectedForm($slug, \App\Lang::t('story.err_rating'));
         }
         if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, $slug)) {
-            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, \App\Lang::t('story.err_locked_category'), null), 422);
+            return $this->rejectedForm($slug, \App\Lang::t('story.err_locked_category'));
         }
         if ($syndicationError !== null) {
-            return new Response($this->renderForm($this->authoring()->formData($slug, $this->uid()), null, $syndicationError, null), 422);
+            return $this->rejectedForm($slug, $syndicationError);
         }
         // The lock transition probe: a save that sets a password where none
         // existed flips public prose to gated forever, so the pre-write hash
@@ -783,8 +786,44 @@ final class StoryController
         return Response::redirect('/story/edit/' . $slug);
     }
 
+    /** Rejected values never stand in for the saved identity or its access gate. */
+    private function rejectedForm(?string $slug, string $error): Response
+    {
+        $rows = $this->authoring()->formData($slug, $this->uid());
+        $story = null;
+        foreach ($rows as $row) {
+            if ($row['k'] === 's') { $story = $row; break; }
+        }
+        if ($slug !== null && $story === null) return new Response(\App\Lang::t('error.not_found'), 404);
+        return new Response($this->renderForm($rows, $story, $error, $slug, $this->draftInput()), 422);
+    }
+
+    /** Retain raw, explicitly named fields; passwords are represented only by a notice flag. */
+    private function draftInput(): array
+    {
+        $fields = [];
+        foreach (['title', 'summary', 'notes', 'rating_id', 'language', 'gift_to', 'canonical_url', 'crosspost_url'] as $name) {
+            $fields[$name] = $this->postText($name);
+        }
+        foreach (['completed', 'restricted'] as $name) $fields[$name] = isset($this->request->post[$name]);
+        foreach (['round_robin', 'is_original', 'access_clear'] as $name) $fields[$name] = ($this->request->post[$name] ?? '') === '1';
+        $draft = ['fields' => $fields, 'suggest' => $this->suggestInput(),
+            'passwordDiscarded' => $this->postText('access_password') !== ''];
+        foreach (['categories', 'tags', 'characters', 'withdraw'] as $name) {
+            $draft[$name] = array_values(array_filter((array) ($this->request->post[$name] ?? []), 'is_numeric'));
+        }
+        if (!isset($this->request->post['characters_shown'])) $draft['characters'] = null;
+        return $draft;
+    }
+
+    private function postText(string $name): string
+    {
+        $value = $this->request->post[$name] ?? '';
+        return is_scalar($value) ? (string) $value : '';
+    }
+
     /** @param array[] $rows formData output; $story null on the create form */
-    private function renderForm(array $rows, ?array $story, ?string $error, ?string $editSlug): string
+    private function renderForm(array $rows, ?array $story, ?string $error, ?string $editSlug, ?array $draft = null): string
     {
         $categories = [];
         $ratings = [];
@@ -804,6 +843,17 @@ final class StoryController
             $chapters = json_decode((string) $story['h'], true) ?: [];
             usort($chapters, static fn(array $x, array $y): int => (int) $x['position'] <=> (int) $y['position']);
         }
+        $savedValues = $story === null ? [] : [
+            'title' => $story['b'], 'summary' => $story['c'],
+            'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
+            'restricted' => (int) $story['i'],
+            'language' => (string) $story['j'],
+            'round_robin' => (int) $story['p'],
+            'is_original' => (int) ($story['r'] ?? 0),
+            'gift_to' => (string) ($story['q'] ?? ''),
+            'canonical_url' => (string) ($story['n'] ?? ''),
+            'crosspost_url' => (string) ($story['o'] ?? ''),
+        ];
         $formTitle = $story === null ? \App\Lang::t('story.new_heading') : \App\Lang::t('story.edit_heading');
         return $this->view->render('story/form', [
             'title' => $formTitle,
@@ -813,34 +863,34 @@ final class StoryController
             'request' => $this->request,
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
-            'story' => $story === null ? null : [
-                'slug' => (string) $editSlug, 'title' => $story['b'], 'summary' => $story['c'],
-                'notes' => $story['d'], 'rating_id' => $story['f'], 'completed' => $story['g'],
-                'restricted' => (int) $story['i'],
-                'language' => (string) $story['j'],
-                'round_robin' => (int) $story['p'],
-                'is_original' => (int) ($story['r'] ?? 0),
-                'gift_to' => (string) ($story['q'] ?? ''),
-                'canonical_url' => (string) ($story['n'] ?? ''),
-                'crosspost_url' => (string) ($story['o'] ?? ''),
-            ],
-            'selectedCategories' => $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen'),
+            'story' => $story === null ? null : ['slug' => (string) $editSlug] + $savedValues,
+            'values' => $draft['fields'] ?? $savedValues,
+            'ratingInvalid' => $draft !== null && !in_array((int) $draft['fields']['rating_id'], array_map('intval', array_column($ratings, 'a')), true),
+            'draftSuggest' => $draft['suggest'] ?? [],
+            'draftWithdraw' => $draft['withdraw'] ?? [],
+            'passwordDiscarded' => $draft['passwordDiscarded'] ?? false,
+            'selectedCategories' => $draft['categories'] ?? $selectedCats,
             'categories' => $categories,
             'ratings' => $ratings,
             'tagGroups' => $tagGroups,
-            'selectedTags' => $selectedTags,
+            'selectedTags' => $draft['tags'] ?? $selectedTags,
             'suggestions' => $suggestions,
             'tagPolicy' => $tagPolicy,
             'suggestRefused' => $this->suggestRefusedFlash(),
             'characterGroups' => $characterGroups,
-            'selectedCharacters' => $selectedCharacters,
+            'selectedCharacters' => $draft['characters'] ?? $selectedCharacters,
             'chapters' => $chapters,
             // coauthor management is the owner/admin's; l/m ride the 's' row only
             'coauthors' => $coauthors,
             'canManageCoauthors' => $story !== null && ($this->uid() === (int) $story['l'] || (int) $story['m'] === 1),
             'csrf' => $this->session->csrfToken(),
             'error' => $error,
-            'notice' => $story === null ? '' : ($this->submitNotice() ?: (\App\Saved::message($this->request) === 'admin.saved_saved' ? \App\Lang::t('admin.saved_saved') : '')),
+            'writerLabels' => [
+                'unsaved' => \App\Lang::t('writer.unsaved'),
+                'saved' => \App\Lang::t('writer.saved'),
+                'saving' => \App\Lang::t('writer.saving'),
+            ],
+            'notice' => $story === null || $error !== null ? '' : ($this->submitNotice() ?: (\App\Saved::message($this->request) === 'admin.saved_saved' ? \App\Lang::t('admin.saved_saved') : '')),
             'loggedIn' => true,
         ]);
     }
@@ -903,15 +953,15 @@ final class StoryController
     private function storyInput(): array
     {
         $post = $this->request->post;
-        $language = trim((string) ($post['language'] ?? ''));
+        $language = trim($this->postText('language'));
         if ($language !== '' && (strlen($language) > 10 || !preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $language))) {
             $language = ''; // junk never reaches the browse filter's regex
         }
         return [
-            trim((string) ($post['title'] ?? '')),
-            trim((string) ($post['summary'] ?? '')),
-            trim((string) ($post['notes'] ?? '')),
-            (int) ($post['rating_id'] ?? 0),
+            trim($this->postText('title')),
+            trim($this->postText('summary')),
+            trim($this->postText('notes')),
+            (int) $this->postText('rating_id'),
             array_values(array_filter((array) ($post['categories'] ?? []), 'is_numeric')),
             isset($post['completed']),
             isset($post['restricted']),
@@ -923,7 +973,7 @@ final class StoryController
             // forged non-'1' reads as off. Attaching money surfaces to a
             // fan work is the platform's hard line (DMCA posture).
             ($post['is_original'] ?? '') === '1',
-            substr(trim((string) ($post['gift_to'] ?? '')), 0, 120),
+            substr(trim($this->postText('gift_to')), 0, 120),
             // The tags idiom is the categories idiom: numeric-only, unknown
             // ids drop inside writeTags's INSERT..SELECT WHERE id IN.
             array_values(array_filter((array) ($post['tags'] ?? []), 'is_numeric')),
@@ -931,7 +981,7 @@ final class StoryController
             // travels to the repository, which hashes it (never stored raw,
             // never echoed back); the clear checkbox rides the same
             // value-based idiom as the flags above.
-            trim((string) ($post['access_password'] ?? '')),
+            trim($this->postText('access_password')),
             ($post['access_clear'] ?? '') === '1',
             // The character picker: null when the form did not offer it (the
             // hidden characters_shown marker is absent), so a save from an
@@ -989,8 +1039,8 @@ final class StoryController
      *  canonical, cross-post, error (null when the pair is valid). */
     private function syndicationInput(): array
     {
-        $canonical = trim((string) ($this->request->post['canonical_url'] ?? ''));
-        $crosspost = trim((string) ($this->request->post['crosspost_url'] ?? ''));
+        $canonical = trim($this->postText('canonical_url'));
+        $crosspost = trim($this->postText('crosspost_url'));
         foreach ([$canonical, $crosspost] as $url) {
             if ($url !== '' && (strlen($url) > 200 || !preg_match('#^https?://#', $url))) {
                 return ['', '', 'Syndication URLs must start with http:// or https:// (max 200 characters).'];

@@ -54,7 +54,7 @@ final class AuthoringRepository
                              JOIN stories s3 ON s3.id = st2.story_id WHERE s3.slug = ?) AS e,
                             t.canonical_id AS f,
                             tt.position AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
-                     FROM tags t JOIN tag_types tt ON tt.id = t.tag_type_id";
+                     FROM tag_types tt LEFT JOIN tags t ON t.tag_type_id = tt.id";
         // The 'ch' branch is appended after 'tag' (its slug bind is the LAST
         // bind): every character with its category_id (f), category name (c)
         // and the story's selected character ids as the per-row concat (e).
@@ -380,9 +380,9 @@ final class AuthoringRepository
             if ($selected === []) {
                 $selected = array_filter(explode(',', (string) ($r['e'] ?? '')), 'strlen');
             }
-            if ($r['f'] !== null) continue; // retired synonym: not a form choice
             $typeId = (int) $r['d'];
             $groups[$typeId] ??= ['name' => (string) $r['c'], 'pos' => (int) ($r['g'] ?? 0), 'tags' => []];
+            if ($r['a'] === null || $r['f'] !== null) continue; // empty type or retired synonym
             $groups[$typeId]['tags'][(int) $r['a']] = (string) $r['b'];
         }
         foreach ($groups as &$g) {
@@ -486,12 +486,14 @@ final class AuthoringRepository
                             AND m.approved_at IS NOT NULL AND m.email_verified_at IS NOT NULL AND m.is_locked = 0))"
             : '';
         return $this->db->one(
-            "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.publish_at, ch.position
+            "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.publish_at, ch.position,
+                    ch.id AS chapter_id, ch.access_hash,
+                    CASE WHEN s.access_hash IS NOT NULL OR ch.access_hash IS NOT NULL THEN 1 ELSE 0 END AS recovery_protected
              FROM stories s {$chapterJoin}
              WHERE s.slug = ? AND s.deleted_at IS NULL
                AND (s.author_id = ?
                     OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = s.id AND ca.user_id = ?)
-                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin')" . $rrClause . ")",
+                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin')" . $rrClause . ")" . ($position === null ? '' : ' AND ch.id IS NOT NULL'),
             $rr && $position === null
                 ? [$slug, $userId, $userId, $userId, 1, $userId]
                 : [$slug, $userId, $userId, $userId]);
@@ -528,16 +530,25 @@ final class AuthoringRepository
     }
 
     /** @return array{0: array, 1: array, 2: string, 3: array} */
-    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null, ?string $accessPassword = null, bool $accessClear = false): array
+    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null, ?string $accessPassword = null, bool $accessClear = false, ?string $expectedRevision = null): array
     {
         $story = $this->ownStory($slug, $userId);
-        // The post-password trio (updateStory's shape) against the chapter's
-        // own current row. The POST path may spend this lookup: the
-        // one-query budget binds page renders only.
-        $current = $this->db->one('SELECT access_hash FROM chapters WHERE story_id = ? AND position = ?', [$story['id'], $position]);
-        $accessValue = $this->accessValue($accessClear, $accessPassword, $current['access_hash'] ?? null);
         $this->db->begin();
         try {
+            // Keep the version read and write in one transaction. A competing
+            // WAL writer after this read makes the write fail, never overwrite.
+            $current = $this->db->one(
+                'SELECT ch.id AS chapter_id, ch.title, ch.content, ch.notes_before, ch.notes_after,
+                        ch.publish_at, ch.access_hash,
+                        CASE WHEN s.access_hash IS NOT NULL OR ch.access_hash IS NOT NULL THEN 1 ELSE 0 END AS recovery_protected
+                   FROM chapters ch JOIN stories s ON s.id = ch.story_id
+                   WHERE ch.story_id = ? AND ch.position = ?', [$story['id'], $position]
+            );
+            if ($current === null) throw new \RuntimeException('not found');
+            if ($expectedRevision !== null && !hash_equals(\App\ChapterRevision::of($current), $expectedRevision)) {
+                throw new \App\ChapterChanged($current);
+            }
+            $accessValue = $this->accessValue($accessClear, $accessPassword, $current['access_hash']);
             // The schedule follows the form: the input repopulates from the row
             // (chapterFormData selects publish_at), so an untouched schedule
             // round-trips and an emptied field clears it. A live chapter with a

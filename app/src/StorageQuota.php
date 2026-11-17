@@ -46,8 +46,11 @@ final class StorageQuota
      *  directory counts as 0. */
     public function used(): int
     {
-        $this->seed();
-        $row = $this->db->one('SELECT used FROM storage_usage WHERE id = 1');
+        $row = $this->counter();
+        if ($row === null) {
+            $this->seed();
+            $row = $this->counter();
+        }
         return (int) ($row['used'] ?? 0);
     }
 
@@ -151,12 +154,25 @@ final class StorageQuota
         return UploadRefs::names($this->db);
     }
 
-    /** Create the table and row if absent (a request landing between the
+    /** A normal capped read uses one query. A missing table during deploy or
+     *  an empty counter row takes the slower first-use seeding path. */
+    private function counter(): ?array
+    {
+        try {
+            return $this->db->one('SELECT used, reconciled_at FROM storage_usage WHERE id = 1');
+        } catch (\PDOException $e) {
+            if (preg_match('/no such table: (?:main\.)?storage_usage\b/', $e->getMessage()) === 1) return null;
+            throw $e;
+        }
+    }
+
+    /** Create the table and row only if absent (a request landing between the
      *  code rsync and a deploy's migrate step must not error), then walk the
-     *  directory once. Two requests seeding at once is harmless: both walk,
+     *  directory once. Two requests seeding at once are harmless: both walk,
      *  the later INSERT OR IGNORE is ignored. */
     private function seed(): void
     {
+        if ($this->counter() !== null) return;
         $this->db->query('CREATE TABLE IF NOT EXISTS storage_usage (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             used INTEGER NOT NULL,
@@ -197,12 +213,12 @@ final class StorageQuota
     public static function human(int $bytes): string
     {
         if ($bytes >= 1024 ** 3) {
-            $v = round($bytes / 1024 ** 3, 1);
-            return rtrim(rtrim((string) $v, '0'), '.') . ' GB';
+            $v = number_format($bytes / 1024 ** 3, 1, '.', '');
+            return rtrim(rtrim($v, '0'), '.') . ' GB';
         }
         if ($bytes >= 1024 ** 2) {
-            $v = round($bytes / 1024 ** 2, 1);
-            return rtrim(rtrim((string) $v, '0'), '.') . ' MB';
+            $v = number_format($bytes / 1024 ** 2, 1, '.', '');
+            return rtrim(rtrim($v, '0'), '.') . ' MB';
         }
         return max(0, (int) round($bytes / 1024, 1)) . ' KB';
     }

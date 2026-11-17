@@ -22,32 +22,32 @@ final class SearchController
     public function index(): \Kip\Http\Response|string
     {
         if (($r = \App\Features::guard('search')) !== null) return $r;
-        $q = trim((string) ($this->request->get['q'] ?? ''));
-        // Tag ids, leave-out ids and tag names ride TagFilter::fromQuery, which
-        // owns every coercion (scalar or array ids, junk dropped, names
-        // trimmed and capped). A string where a string is expected stays a
-        // string; anything else becomes null and filters nothing.
-        $onlyString = fn (mixed $v): ?string => is_string($v) && $v !== '' ? $v : null;
+        $raw = $this->request->get['q'] ?? '';
+        $q = is_string($raw) && mb_check_encoding($raw, 'UTF-8')
+            ? mb_substr(trim($raw), 0, 200, 'UTF-8') : '';
+        $tags = \App\Repositories\TagFilter::fromQuery($this->request->get);
+        $language = $this->request->get['language'] ?? '';
+        if (!is_string($language)) $language = '';
         $filters = [
-            'category' => preg_match('#^[a-z0-9-]+$#', (string) ($this->request->get['category'] ?? '')) ? (string) $this->request->get['category'] : null,
-            'rating_id' => ctype_digit((string) ($this->request->get['rating'] ?? '')) ? (int) $this->request->get['rating'] : null,
-            'completed' => ($this->request->get['completed'] ?? '') === '1' ? true : null,
-            'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', (string) ($this->request->get['language'] ?? '')) ? (string) $this->request->get['language'] : null,
-            // Tag and character ids from the story page links; junk and 0 coerce to no filter.
-            'tag' => is_array($this->request->get['tag'] ?? null) ? $this->request->get['tag'] : $this->positiveId('tag'),
-            // Leave-out ids and tag names ride the same TagFilter, which validates them.
-            'xtag' => ($this->request->get['xtag'] ?? []) ?: null,
-            'tags' => $onlyString($this->request->get['tags'] ?? null),
-            'xtags' => $onlyString($this->request->get['xtags'] ?? null),
+            'category' => \App\Repositories\CategoryFilter::slugs($this->request->get['category'] ?? []),
+            'rating_id' => $this->positiveId('rating'),
+            'completed' => match ($this->request->get['completed'] ?? '') { '1' => true, '0' => false, default => null },
+            'language' => preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/D', $language) ? $language : null,
+            'tag' => $tags->include ?: null, 'xtag' => $tags->exclude ?: null,
+            'tags' => implode(',', $tags->names), 'xtags' => implode(',', $tags->excludeNames),
+            // Pass normalized names intact to the shared predicate and count fold.
+            'tag_filter' => $tags,
             'character' => $this->positiveId('character'),
         ];
         $sort = ($this->request->get['sort'] ?? '') === 'updated' ? 'updated' : 'relevance';
-        [$perPage, $offset] = $this->paginate();
+        [$perPage, $page, $offset] = $this->paginate();
         // the gate binds the member id: a revoked session filters as a guest
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // Finding 9: the mute gate rides here in the controller, so flag off
         // disables the filtering everywhere, not just the buttons.
         $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0, $sort);
+        $data = compact('q', 'filters', 'result', 'sort', 'page', 'perPage');
+        if (($this->request->get['live'] ?? '') === '1') return $this->live($data);
         $head = $this->head()->withTitle(\App\Lang::t('search.heading'))->withCanonical('/search')->withNoindex();
         $out = $this->view->render('search/index', [
             'title' => \App\Lang::t('search.heading'), 'head' => $head, 'theme' => \App\Theme::current($this->request),
@@ -55,14 +55,42 @@ final class SearchController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'q' => $q, 'filters' => $filters, 'result' => $result, 'sort' => $sort,
             'ratings' => $result['ratings'], 'categories' => $result['categories'],
-            'page' => $this->page(), 'perPage' => $perPage, 'loggedIn' => $me !== 0,
+            'page' => $page, 'perPage' => $perPage, 'loggedIn' => $me !== 0,
         ]);
         return (new \Kip\Http\Response($out, 200))->withHeader('X-Robots-Tag', 'noindex');
     }
 
+    /** Same escaped view and gated rows as the ordinary GET response. */
+    private function live(array $data): \Kip\Http\Response
+    {
+        $result = $data['result'];
+        $counts = [];
+        foreach ($result['categories'] as $v) $counts['category:' . $v['slug']] = (int) $v['count'];
+        foreach ($result['ratings'] as $v) $counts['rating:' . $v['id']] = (int) $v['count'];
+        foreach (array_merge($result['tags'], $result['selected']) as $v) {
+            $counts['tag:' . $v['id']] = (int) $v['count'];
+            $counts['xtag:' . $v['id']] = (int) $v['excludedCount'];
+        }
+        foreach ($result['counts']['status'] as $v => $n) $counts['status:' . $v] = (int) $n;
+        foreach ($result['counts']['language'] as $v => $n) $counts['language:' . $v] = (int) $n;
+        $suggestions = array_map(static fn (array $row): array => [
+            'label' => (string) $row['title'], 'url' => '/story/view/' . rawurlencode($row['slug']),
+        ], array_slice($result['rows'], 0, 5));
+        $message = $result['mode'] === 'none'
+            ? \App\Lang::t($data['q'] === '' ? 'search.hint' : 'search.no_match')
+            : \App\Lang::t($result['total'] === 1 ? 'search.live_one' : 'search.live_count', ['count' => (int) $result['total']]);
+        $body = json_encode(['html' => $this->view->render('search/_results', $data),
+            'suggestions' => $suggestions, 'counts' => $counts, 'message' => $message],
+            JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+        return (new \Kip\Http\Response($body, 200))->withHeader('Content-Type', 'application/json; charset=utf-8')
+            ->withHeader('Cache-Control', 'private, no-store')->withHeader('Vary', 'Cookie')->withHeader('X-Robots-Tag', 'noindex');
+    }
+
     private function positiveId(string $key): ?int
     {
-        $raw = (string) ($this->request->get[$key] ?? '');
+        $raw = $this->request->get[$key] ?? '';
+        if (!is_string($raw) && !is_int($raw)) return null;
+        $raw = (string) $raw;
         return ctype_digit($raw) && strlen($raw) <= 18 && (int) $raw > 0 ? (int) $raw : null;
     }
 
@@ -78,7 +106,8 @@ final class SearchController
     /** Coerced page param: junk, zero and negatives become page 1. */
     private function page(): int
     {
-        return max(1, (int) ($this->request->get['page'] ?? 1));
+        $raw = $this->request->get['page'] ?? '1';
+        return (is_string($raw) || is_int($raw)) && ctype_digit((string) $raw) ? max(1, (int) $raw) : 1;
     }
 
     /** Overflow guard: (page - 1) * perPage must stay an int, or a hostile
@@ -86,8 +115,8 @@ final class SearchController
      *  TypeError turns the listing into a 500. Cap page so it cannot. */
     private function paginate(): array
     {
-        $perPage = max(1, (int) $this->app->config('items_per_page', 20));
-        $page = min($this->page(), intdiv(PHP_INT_MAX, $perPage));
-        return [$perPage, ($page - 1) * $perPage];
+        $perPage = max(1, min(100, (int) $this->app->config('items_per_page', 20)));
+        $page = min($this->page(), intdiv(PHP_INT_MAX, $perPage) - 1);
+        return [$perPage, $page, ($page - 1) * $perPage];
     }
 }

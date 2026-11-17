@@ -47,6 +47,46 @@ final class CliTest extends TestCase
         return [$code, implode("\n", $out)];
     }
 
+    public function test_direct_cli_migration_waits_for_configured_exchange_lock(): void
+    {
+        $lock = realpath(sys_get_temp_dir()) . '/kip-cli-lock-' . bin2hex(random_bytes(5));
+        file_put_contents($lock, 'v1');
+        chmod($lock, 0600);
+        $env = 'KIP_MIGRATION_LOCK_FILE=' . escapeshellarg($lock);
+        $holder = fopen($lock, 'r+');
+        try {
+            self::assertTrue(flock($holder, LOCK_EX | LOCK_NB));
+            [$code, $out] = $this->kip('migrate', '', $env);
+            self::assertNotSame(0, $code);
+            self::assertStringContainsString('Migration lock is held', $out);
+            self::assertSame(0, (int) (new \PDO('sqlite:' . $this->path))->query(
+                "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = '_migrations'"
+            )->fetchColumn());
+        } finally {
+            fclose($holder);
+        }
+        try {
+            [$code, $out] = $this->kip('migrate', '', $env);
+            self::assertSame(0, $code, $out);
+            $db = new \PDO('sqlite:' . $this->path);
+            $count = (int) $db->query('SELECT count(*) FROM _migrations')->fetchColumn();
+            self::assertGreaterThan(0, $count);
+            $holder = fopen($lock, 'r+');
+            self::assertIsResource($holder);
+            self::assertTrue(flock($holder, LOCK_EX | LOCK_NB));
+            try {
+                [$code, $out] = $this->kip('rollback', '', $env);
+                self::assertNotSame(0, $code);
+                self::assertStringContainsString('Migration lock is held', $out);
+                self::assertSame($count, (int) $db->query('SELECT count(*) FROM _migrations')->fetchColumn());
+            } finally {
+                fclose($holder);
+            }
+        } finally {
+            unlink($lock);
+        }
+    }
+
     public function test_words_recount_fixes_stale_chapter_and_story_totals_and_is_idempotent(): void
     {
         $this->kip('migrate');
@@ -193,24 +233,29 @@ final class CliTest extends TestCase
         $this->assertNotSame($a, $b);
     }
 
-    public function test_cache_clear_deletes_the_page_cache_db_and_its_sidecars(): void
+    public function test_cache_clear_and_pages_prune_keep_open_cache_connections_valid(): void
     {
         $dir = sys_get_temp_dir() . '/kiption-cli-cache-' . uniqid();
         mkdir($dir);
         $file = $dir . '/cache.sqlite';
-        foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
-            file_put_contents($f, 'x');
+        $old = new Database('sqlite:' . $file);
+        $new = new Database('sqlite:' . $file);
+        $cache = new \Kip\Cache\PageCache($old);
+        foreach (['cache:clear', 'pages:prune'] as $command) {
+            $cache->put('/stale', '', new \Kip\Http\Response('stale'), ['pages']);
+            [$code, $out] = $this->kip($command, 'sqlite:' . $file);
+            $this->assertSame(0, $code, $out);
+            $this->assertFileExists($file);
+            $this->assertSame(0, (int) $old->one('SELECT COUNT(*) n FROM pages')['n']);
+            $this->assertSame(0, (int) $new->one('SELECT COUNT(*) n FROM page_tags')['n']);
+            $cache->put('/after-' . $command, '', new \Kip\Http\Response('after'), ['pages']);
+            $this->assertSame(1, (int) $new->one('SELECT COUNT(*) n FROM pages')['n']);
+            $old->query('DELETE FROM page_tags');
+            $old->query('DELETE FROM pages');
         }
-        [$code, $out] = $this->kip('cache:clear', 'sqlite:' . $file);
-        $this->assertSame(0, $code, $out);
-        $this->assertStringContainsString('framework page cache: ' . $file, $out,
-            'both cache layers are named in the clear output');
-        $this->assertStringContainsString('static layer:', $out);
-        foreach ([$file, $file . '-wal', $file . '-shm'] as $f) {
-            $this->assertFileDoesNotExist($f, "{$f} must be gone");
-        }
+        $this->assertStringContainsString('framework page cache', $out);
         // Absent files are a silent success: exit 0, no error text.
-        [$code, $out] = $this->kip('cache:clear', 'sqlite:' . $file);
+        [$code, $out] = $this->kip('cache:clear', 'sqlite:' . $dir . '/absent.sqlite');
         $this->assertSame(0, $code, $out);
         $this->assertStringNotContainsString('error', strtolower($out));
         // A memory cache has no file to clear: the framework layer is
@@ -219,6 +264,7 @@ final class CliTest extends TestCase
         $this->assertSame(0, $code, $out);
         $this->assertStringNotContainsString('framework page cache', $out);
         $this->assertStringContainsString('static layer:', $out);
+        unset($cache, $old, $new);
         exec('rm -rf ' . escapeshellarg($dir));
     }
 

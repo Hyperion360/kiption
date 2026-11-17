@@ -113,8 +113,9 @@ final class TaxonomyFilterTest extends TaxonomyCase
     public function test_the_pager_and_form_carry_the_filters(): void
     {
         $this->twoStories();
-        $body = $this->client()->get('/search', ['tag' => '7', 'character' => '9'])->body;
-        $this->assertStringContainsString('name="tag" value="7"', $body);
+        $fantasy = $this->tagId('Fantasy');
+        $body = $this->client()->get('/search', ['tag' => (string) $fantasy, 'character' => '9'])->body;
+        $this->assertStringContainsString('name="tag[]" value="' . $fantasy . '" checked', $body);
         $this->assertStringContainsString('name="character" value="9"', $body);
     }
 

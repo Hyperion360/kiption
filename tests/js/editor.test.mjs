@@ -1,4 +1,7 @@
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -79,4 +82,68 @@ test('break inserts a scene break with a blank line before it', () => {
   const box = fakeBox('The end.', 8, 8);
   editor.run('break', box);
   assert.equal(box.value, 'The end.\n\n---');
+});
+
+
+// Exercise the actual browser listener and smart module, including event.isComposing.
+function wiredEditor(value, caret) {
+  const listeners = {};
+  const box = {
+    value, selectionStart: caret, selectionEnd: caret, dataset: {},
+    setRangeText(text, start, end) {
+      this.value = this.value.slice(0, start) + text + this.value.slice(end);
+      this.selectionStart = this.selectionEnd = start + text.length;
+    },
+    setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; },
+    addEventListener(name, fn) { (listeners[name] ||= []).push(fn); },
+    dispatchEvent(event) { (listeners[event.type] || []).forEach(fn => fn(event)); },
+    closest() { return null; }
+  };
+  const doc = {
+    querySelectorAll() { return [box]; },
+    createElement() { return { setAttribute() {}, appendChild() {} }; }
+  };
+  const ready = [];
+  const context = vm.createContext({ Kip: { init(fn) { ready.push(fn); } }, Event, document: doc });
+  for (const file of ['subset', 'text-edit', 'smart', 'editor']) {
+    const path = new URL(`../../public/assets/${file}.js`, import.meta.url);
+    vm.runInContext(readFileSync(path, 'utf8'), context, { filename: fileURLToPath(path) });
+  }
+  ready.forEach(fn => fn(doc));
+  const key = (key, extra = {}) => {
+    const event = { type: 'keydown', key, ctrlKey: false, metaKey: false, altKey: false,
+      prevented: false, preventDefault() { this.prevented = true; }, ...extra };
+    box.dispatchEvent(event);
+    return event;
+  };
+  return { box, key };
+}
+
+test('browser composition state blocks punctuation before smart conversion, then resumes it', () => {
+  const { box, key } = wiredEditor('wait-', 5);
+  box.dispatchEvent({ type: 'compositionstart' });
+  assert.equal(key('-').prevented, false);
+  assert.equal(box.value, 'wait-');
+  assert.equal(key('b', { ctrlKey: true }).prevented, false);
+  box.dispatchEvent({ type: 'compositionend' });
+  assert.equal(key('-').prevented, true);
+  assert.equal(box.value, 'wait\u2014');
+});
+
+test('native isComposing blocks punctuation and shortcuts without compositionstart', () => {
+  const { box, key } = wiredEditor('word', 4);
+  assert.equal(key('"', { isComposing: true }).prevented, false);
+  assert.equal(key('b', { ctrlKey: true, isComposing: true }).prevented, false);
+  assert.equal(box.value, 'word');
+});
+
+test('the wired punctuation listener preserves link targets and escaped markers', () => {
+  for (const [text, caret, pressed] of [
+    ['see [x](https://x/a-b)', 19, '-'],
+    ['x \\-', 4, '-']
+  ]) {
+    const { box, key } = wiredEditor(text, caret);
+    assert.equal(key(pressed).prevented, false);
+    assert.equal(box.value, text);
+  }
 });

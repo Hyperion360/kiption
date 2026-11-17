@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inline Editor Local Comparison</title>
+  <link rel="stylesheet" href="/public/assets/inline-editor/editor.css">
+</head>
+<body>
+  <main>
+    <h1>Inline Editor Local Comparison</h1>
+    <p>Local source and selection fixture. No content is sent to a server.</p>
+    <form id="chapter-form" action="#" method="post">
+      <label for="chapter">Chapter Text</label>
+      <textarea id="chapter" name="text" required>**Words**</textarea>
+      <button type="submit">Save Chapter</button>
+    </form>
+    <div id="editor"></div>
+    <p id="summary" role="status">Checks not run.</p>
+    <ol id="results"></ol>
+  </main>
+  <script src="/public/assets/inline-editor/source.js"></script>
+  <script src="/public/assets/inline-editor/syntax.js"></script>
+  <script src="/public/assets/inline-editor/projection.js"></script>
+  <script src="/public/assets/inline-editor/input.js"></script>
+  <script src="/public/assets/inline-editor/editor.js"></script>
+  <script src="/tests/manual/inline-editor-dom.js"></script>
+</body>
+</html>

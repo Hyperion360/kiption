@@ -29,6 +29,7 @@ final class CoauthorTest extends TestCase
 
     protected function tearDown(): void
     {
+        \App\Features::reset();
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
         @unlink($this->mailLog);
     }
@@ -87,6 +88,94 @@ final class CoauthorTest extends TestCase
         // non-owner cannot add
         $co = $this->client($this->otherId());
         $this->assertSame(404, $co->postWithToken('/coauthor/add/the-rabbit-hole', ['penname' => 'betafriend'])->status);
+    }
+
+    public function test_failed_coauthor_add_retains_the_complete_story_form_without_warnings(): void
+    {
+        $storyId = (int) $this->db->one("SELECT id FROM stories WHERE slug='the-rabbit-hole'")['id'];
+        $type = (int) $this->db->one("SELECT id FROM tag_types WHERE name='genre'")['id'];
+        $this->db->query('INSERT INTO tags(tag_type_id,name) VALUES (?,?)', [$type, 'Saved Genre']);
+        $tag = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO story_tags(story_id,tag_id) VALUES (?,?)', [$storyId, $tag]);
+        $this->db->query("INSERT INTO characters(name,slug) VALUES ('Saved Character','saved-character')");
+        $character = (int) $this->db->lastInsertId();
+        $this->db->query('INSERT INTO story_characters(story_id,character_id) VALUES (?,?)', [$storyId, $character]);
+        $this->db->query("INSERT INTO tag_suggestions(story_id,tag_type_id,name,suggested_by,created_at) VALUES (?,?,'Pending Genre',?,?)",
+            [$storyId, $type, $this->authorId(), date('c')]);
+        $this->db->query("INSERT INTO settings(key,value) VALUES ('tag_policy','suggest') ON CONFLICT(key) DO UPDATE SET value=excluded.value");
+        \App\Features::init($this->db, []);
+        $this->db->query("UPDATE stories SET title='Saved Metadata',summary=?,notes=?,language='fr',completed=1,
+            is_restricted=1,round_robin=1,is_original=1,gift_to='A Reader' WHERE id=?",
+            ["A summary\nwith <escaped> text.", "**Saved notes**\nSecond line.", $storyId]);
+        $owner = $this->client($this->authorId());
+        foreach (['canonical_url', 'crosspost_url'] as $syndication) {
+            $this->db->query('UPDATE stories SET canonical_url=?,crosspost_url=? WHERE id=?',
+                [$syndication === 'canonical_url' ? 'https://example.test/original' : null,
+                 $syndication === 'crosspost_url' ? 'https://example.test/copy' : null, $storyId]);
+            $before = $this->db->one('SELECT title,summary,notes,rating_id,language,completed,is_restricted,round_robin,is_original,gift_to,canonical_url,crosspost_url FROM stories WHERE id=?', [$storyId]);
+            $warnings = [];
+            set_error_handler(static function (int $level, string $message) use (&$warnings): bool {
+                $warnings[] = $message;
+                return true;
+            });
+            try {
+                $response = $owner->postWithToken('/coauthor/add/the-rabbit-hole', ['penname' => 'missing-coauthor']);
+            } finally {
+                restore_error_handler();
+            }
+            $this->assertSame(422, $response->status);
+            $this->assertSame([], $warnings, 'the shared form has a complete render context');
+            $doc = new \DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            try { $doc->loadHTML($response->body); } finally { libxml_clear_errors(); libxml_use_internal_errors($previous); }
+            $x = new \DOMXPath($doc);
+            $form = $x->query('//*[@id="story-editor-form"]')->item(0);
+            $this->assertNotNull($form);
+            $this->assertSame('/story/update/the-rabbit-hole', $form->getAttribute('action'));
+            $labels = json_decode($form->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame(['unsaved' => \App\Lang::t('writer.unsaved'), 'saved' => \App\Lang::t('writer.saved'), 'saving' => \App\Lang::t('writer.saving')], $labels);
+            $this->assertSame('1', $form->getAttribute('data-writer-rejected'));
+            $this->assertSame('0', $form->getAttribute('data-writer-saved'));
+            $fields = $this->storyFormFields($x);
+            foreach (['title', 'summary', 'notes', 'rating_id', 'language', 'gift_to', 'canonical_url', 'crosspost_url'] as $name) {
+                $this->assertSame((string) ($before[$name] ?? ''), $fields[$name], $name);
+            }
+            foreach (['completed', 'restricted', 'round_robin', 'is_original'] as $name) $this->assertSame('1', $fields[$name], $name);
+            $this->assertSame('', $fields['access_password']);
+            $this->assertArrayNotHasKey('access_clear', $fields);
+            $this->assertArrayNotHasKey('withdraw', $fields);
+            $this->assertSame('', $fields['suggest'][$type]);
+            $this->assertContains((string) $tag, $fields['tags']);
+            $this->assertSame([(string) $character], $fields['characters']);
+            $this->assertNotEmpty($fields['categories']);
+            $this->assertStringNotContainsString('Enter the story password again before saving.', $response->body);
+            $this->assertSame(0, $x->query('//select[@name="rating_id"]/option[@disabled and @selected]')->length);
+            $saved = $owner->postWithToken($form->getAttribute('action'), $fields);
+            $this->assertSame(302, $saved->status, $saved->body);
+            $this->assertSame($before, $this->db->one('SELECT title,summary,notes,rating_id,language,completed,is_restricted,round_robin,is_original,gift_to,canonical_url,crosspost_url FROM stories WHERE id=?', [$storyId]));
+        }
+    }
+
+    /** Serialize the story form as a browser would, excluding separate coauthor forms. */
+    private function storyFormFields(\DOMXPath $x): array
+    {
+        $pairs = [];
+        foreach ($x->query('//*[@id="story-editor-form"]//*[@name]') as $node) {
+            if ($node->hasAttribute('disabled')) continue;
+            if ($node->getAttribute('type') === 'checkbox' && !$node->hasAttribute('checked')) continue;
+            if ($node->nodeName === 'select') {
+                $option = $x->query('option[@selected]', $node)->item(0) ?? $x->query('option', $node)->item(0);
+                $value = $option?->getAttribute('value') ?? '';
+            } elseif ($node->nodeName === 'textarea') {
+                // Legacy libxml retains the first LF consumed by HTML browsers.
+                $value = str_starts_with($node->textContent, "\n") ? substr($node->textContent, 1) : $node->textContent;
+            } else {
+                $value = $node->getAttribute('value');
+            }
+            $pairs[] = rawurlencode($node->getAttribute('name')) . '=' . rawurlencode($value);
+        }
+        parse_str(implode('&', $pairs), $fields);
+        return $fields;
     }
 
     public function test_coauthor_cannot_add_other_coauthors(): void

@@ -342,6 +342,30 @@ label:has(+ p.hint) { margin-block-end: 0; }
 }
 .btn-primary:hover,
 .site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)):hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
+.writer-actions {
+  position: sticky;
+  top: .5rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  padding: .65rem;
+  margin-block: 0 1rem;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+}
+.writer-actions button { min-height: 44px; }
+.writer-actions [role="status"] { font: 14px/1.4 var(--sans); }
+@media print { .writer-actions { display: none; } }
+.writer-comfort { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
+.writer-comfort button { min-height: 44px; }
+.writer-comfort [aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
+.writer-focus { max-width: 72ch; margin-inline: auto; }
+.writer-focus textarea[name="content"] { margin-block: 1.5rem; }
+.writer-caret-mirror { position: fixed; left: -100000px; top: 0; visibility: hidden; pointer-events: none; height: auto; overflow: visible; }
+@media print { .writer-comfort, .writer-caret-mirror { display: none; } }
 /* A link that does a button job (Export, Remove content) wears the button box. */
 a.btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -605,6 +629,16 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .search-form .search-q { flex: 1; margin: 0; }
 .search-form .search-q input { width: 100%; max-width: none; min-height: 52px; font-size: 18px; }
 .search-row .btn-primary { min-height: 52px; }
+/* Live search uses the existing page colors and ordinary document flow. */
+.site-main [data-search-suggestions] { list-style: none; padding: 0; margin: 8px 0 0; border: 1px solid var(--line); background: var(--surface); }
+.site-main [data-search-suggestions][hidden] { display: none; }
+[data-search-suggestions] [role="option"] { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
+[data-search-suggestions] [role="option"] + [role="option"] { border-block-start: 1px solid var(--line); }
+[data-search-suggestions] [aria-selected="true"] { background: var(--hover); outline: 2px solid var(--accent); outline-offset: -2px; }
+.search-form .search-q { min-width: 0; }
+.search-form fieldset .hint { flex-basis: 100%; }
+@media (max-width: 400px) { .search-row { flex-wrap: wrap; } .search-row .search-q { flex-basis: 100%; } }
+
 .search-refine { margin-block-start: 14px; }
 .search-refine summary { cursor: pointer; font: 500 14px var(--sans); color: var(--ink-2); min-height: 32px; display: inline-flex; align-items: center; }
 .search-refine summary:hover { color: var(--ink); }
@@ -1937,3 +1971,20 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .look-preview-body p { margin: 0 0 12px; }
 .look-preview-body a { color: var(--accent); }
 .look-preview-button { display: inline-block; padding: 8px 16px; background: var(--btn); color: var(--btn-ink); font: 500 14px/1.4 var(--sans); }
+
+/* The formatted writer is one reading column. The active block reveals its
+   exact source in place without acquiring the chrome of a second form. */
+.writer-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
+.writer-modes button { min-height: 44px; }
+.writer-modes [aria-pressed="true"] { box-shadow: inset 0 -3px 0 currentColor; }
+.writer-surface { max-width: var(--read-width); margin-inline: auto; padding: clamp(1rem, 3vw, 2rem); border: 0; background: var(--bg); color: var(--ink); font: 400 var(--read-size)/var(--read-lh) var(--serif); }
+.writer-surface .writer-block, .writer-surface .writer-active { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: inherit; }
+.writer-block { margin: 0; min-height: 1em; }
+.writer-block.writer-gap { min-height: .75em; height: .75em; overflow: hidden; font-size: 0; line-height: 0; }
+.writer-surface .writer-active { display: block; width: 100%; min-height: 1.6em; margin: 0; resize: none; overflow: hidden; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; box-shadow: inset 0 -1px 0 var(--line-strong); box-sizing: border-box; }
+.writer-active:focus-visible { outline: 0; box-shadow: inset 0 -2px 0 var(--accent); }
+.writer-quote, .writer-active[data-writer-block="quote"] { padding-inline-start: 1em; border-inline-start: 2px solid var(--line-strong); }
+.writer-break hr { border: 0; border-block-start: 1px solid var(--line-strong); }
+.writer-link { color: var(--accent); text-decoration: underline; }
+.writer-surface[hidden], .writer-rich [hidden] { display: none; }
+@media (max-width: 40rem) { .writer-surface { padding: 1rem .5rem; } }

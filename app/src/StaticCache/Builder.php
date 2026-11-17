@@ -143,12 +143,37 @@ final class Builder
      *  one spelling the gate compares against. */
     public const UNCONFIGURED_BASE_URL = 'http://localhost:8080';
 
-    /** Wipe the static layer and the framework page cache. */
-    public static function prune(string $cacheDir, string $appDir): void
+    /** Path to a file-backed SQLite page cache, or null for other DSNs. */
+    public static function cacheDbPath(string $dsn): ?string
+    {
+        if (!str_starts_with($dsn, 'sqlite:') || str_contains($dsn, ':memory:')) return null;
+        $path = explode('?', substr($dsn, strlen('sqlite:')), 2)[0];
+        return str_starts_with($path, '/') ? $path : null;
+    }
+
+    /** Wipe the static layer and the configured framework page cache. */
+    public static function prune(string $cacheDir, string $cacheDbDsn): void
     {
         (new Cache($cacheDir))->purgeAll();
-        foreach (['', '-wal', '-shm'] as $suffix) {
-            @unlink($appDir . '/cache.sqlite' . $suffix);
+        self::purgeLivePageCache($cacheDbDsn);
+    }
+
+    /** Clear a live SQLite page cache in place so concurrent readers keep one database. */
+    public static function purgeLivePageCache(string $dsn): void
+    {
+        $path = self::cacheDbPath($dsn);
+        if ($path === null || !is_file($path)) return;
+        $db = new Database($dsn);
+        $tables = array_column($db->all("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('pages', 'page_tags')"), 'name');
+        if ($tables === []) return;
+        $db->begin();
+        try {
+            if (in_array('page_tags', $tables, true)) $db->query('DELETE FROM page_tags');
+            if (in_array('pages', $tables, true)) $db->query('DELETE FROM pages');
+            $db->commit();
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            throw $e;
         }
     }
 }

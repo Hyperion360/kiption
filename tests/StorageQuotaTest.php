@@ -57,6 +57,32 @@ final class StorageQuotaTest extends TestCase
         $this->assertFalse($q->reserve(1, admin: true)); // exactly full, one byte over refused
     }
 
+    public function test_a_seeded_counter_reads_in_one_query_without_reseeding(): void
+    {
+        $q = $this->quota(cap: 1000, files: ['a.png' => 100]);
+        $this->assertSame(100, $q->used());
+        $queries = [];
+        $q->db()->onQuery(static function (string $sql) use (&$queries): void { $queries[] = $sql; });
+        try {
+            $this->assertSame(100, $q->used());
+            $this->assertCount(1, $queries, 'the capped image page needs one counter read');
+            $this->assertTrue($q->reserve(50, admin: true));
+            $q->release(50);
+        } finally {
+            $q->db()->onQuery(static function (): void {});
+        }
+        $this->assertSame([], array_values(array_filter($queries,
+            static fn (string $sql): bool => str_starts_with($sql, 'CREATE TABLE') || str_starts_with($sql, 'INSERT OR IGNORE'))),
+            'steady-state quota calls must not recreate or reseed the counter');
+    }
+
+    public function test_human_quota_labels_keep_significant_zeroes(): void
+    {
+        $this->assertSame('10 MB', StorageQuota::human(10 * 1024 ** 2));
+        $this->assertSame('20 MB', StorageQuota::human(20 * 1024 ** 2));
+        $this->assertSame('10 GB', StorageQuota::human(10 * 1024 ** 3));
+    }
+
     public function test_the_reserve_statement_casts_its_text_bound_values(): void
     {
         // Kip's Database binds every statement parameter as TEXT, and SQLite

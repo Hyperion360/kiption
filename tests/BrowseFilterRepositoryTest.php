@@ -68,6 +68,19 @@ final class BrowseFilterRepositoryTest extends TaxonomyCase
         $this->assertSame(['A'], $this->titles(['tag' => [$this->tag('Fantasy'), $this->tag('Adventure')]]));
     }
 
+    public function test_boundary_name_inclusions_and_exclusions_preserve_the_normalized_query(): void
+    {
+        $prefix = str_repeat('x', 63);
+        $type = (int) $this->row('SELECT id FROM tag_types LIMIT 1')['id'];
+        foreach (['Short' => $prefix, 'Boundary' => $prefix . ' '] as $title => $name) {
+            $story = $this->story($title);
+            $this->db->query('INSERT INTO tags (tag_type_id, name) VALUES (?, ?)', [$type, $name]);
+            $this->tagStory($story, (int) $this->db->lastInsertId());
+        }
+        $this->assertSame(['Boundary'], $this->titles(['tags' => $prefix . ' suffix']));
+        $this->assertSame(['Short'], $this->titles(['xtags' => $prefix . ' suffix']));
+    }
+
     public function test_exclude_removes_stories(): void
     {
         $a = $this->story('A', ['updated' => '2026-02-01T00:00:00Z']);
@@ -256,7 +269,7 @@ final class BrowseFilterRepositoryTest extends TaxonomyCase
 
     public function test_query_coerces_junk_to_defaults(): void
     {
-        $q = BrowseQuery::fromQuery(['status' => ['x'], 'sort' => 'hax', 'language' => 'x', 'wmin' => 'abc', 'wmax' => '99999999999', 'cat' => ['a'], 'page' => '-3']);
+        $q = BrowseQuery::fromQuery(['status' => ['x'], 'sort' => 'hax', 'language' => 'x', 'wmin' => 'abc', 'wmax' => '99999999999', 'cat' => [['a']], 'page' => '-3']);
         $this->assertSame(['any', 'updated', '', null, BrowseQuery::WORDS_CAP, '', 1], [$q->status, $q->sort, $q->language, $q->wmin, $q->wmax, $q->cat, $q->page]);
         $this->assertSame(1, BrowseQuery::fromQuery(['page' => '99999999999999999999999'])->page > 1 ? 1 : 0, 'a huge page stays an int');
     }

@@ -33,13 +33,13 @@
   <?php if (\App\Features::on('feeds')): ?>
   <link rel="alternate" type="application/atom+xml" title="<?= $this->e(\App\Lang::t('common.feed_title')) ?>" href="/feed">
   <?php endif; ?>
-  <link rel="icon" href="/favicon.ico" sizes="32x32">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="stylesheet" href="/assets/reader.css">
-  <link rel="stylesheet" href="/assets/skins/manuscript.css">
+  <link rel="icon" href="<?= \App\AssetUrl::icon('favicon.ico') ?>" sizes="32x32">
+  <link rel="icon" href="<?= \App\AssetUrl::icon('favicon.svg') ?>" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="<?= \App\AssetUrl::icon('apple-touch-icon.png') ?>">
+  <link rel="stylesheet" href="<?= \App\AssetUrl::for('reader.css') ?>">
+  <link rel="stylesheet" href="<?= \App\AssetUrl::for('skins/manuscript.css') ?>">
   <?= $this->render('_look_link') ?>
-  <script src="/assets/app.js" defer></script>
+  <script src="<?= \App\AssetUrl::for('app.js') ?>" defer></script>
 </head>
 <body class="skin-manuscript<?= ($focus ?? false) ? ' focus' : '' ?>">
 <?php if (($isAdmin ?? false) && \App\Maintenance::on()): ?>

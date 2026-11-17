@@ -4,10 +4,12 @@
  * pager links). Feature modules live in their own files (prefs.js,
  * position.js, keys.js, infinite.js, toggle.js) and load only when their
  * module marker is present in the markup; the loader below appends them with
- * defer so helpers exist before any module runs. Wiring travels in
+ * async=false so dynamic classic scripts execute in dependency order. Wiring travels in
  * data-js-* attributes set by the views; this file contains no content. */
 'use strict';
 (function () {
+  var scriptUrl = document.currentScript && document.currentScript.src || '/assets/app.js';
+  var assetBase = scriptUrl.slice(0, scriptUrl.lastIndexOf('/') + 1);
   var Kip = {
     $: function (sel, root) { return (root || document).querySelector(sel); },
     $$: function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); },
@@ -49,6 +51,35 @@
   };
   window.Kip = Kip;
   document.documentElement.classList.add('js'); /* CSS reveals JS-only affordances */
+  // Remember password edits while writer helpers load, even if the author
+  // clears the field again. Only this boolean is retained, never its value.
+  document.addEventListener('input', function (e) {
+    var field = e.target, form = field.form;
+    if (field.type === 'password' && form && (' ' + form.getAttribute('data-js-module') + ' ').indexOf(' writer-status ') > -1) {
+      form.kipPasswordTouched = true;
+    }
+  });
+  // Sign-out must clear tab recovery even while its lazy helpers are pending.
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    var submitter = e.submitter;
+    var action;
+    try { action = new URL((submitter && submitter.getAttribute('formaction')) || form.action, location.href); }
+    catch (_) { return; }
+    var method = (submitter && submitter.getAttribute('formmethod')) || form.method;
+    if (action.origin !== location.origin || action.pathname !== '/auth/logout' || method.toLowerCase() !== 'post') return;
+    Kip.writerLogout = true;
+    try {
+      var store = window.sessionStorage;
+      for (var i = store.length - 1; i >= 0; i--) {
+        var key = store.key(i);
+        if (key && key.indexOf('kiption:writer:v1:') === 0) {
+          try { store.removeItem(key); } catch (_) { /* Native logout still proceeds. */ }
+        }
+      }
+    } catch (_) { /* Storage access must never block native logout. */ }
+  }, true);
   /* Double-submission guard, core rather than a module because it serves
    * every form on the site (stories, chapters, reviews, kudos): on submit
    * the clicked button disables until the POST navigates away, so a double
@@ -78,21 +109,27 @@
   /* [module, helpers to load before it] - the helpers load first, in
    * order, when the page asks for the module. A box can carry several
    * modules: data-js-module splits on spaces. */
+  var loaded = Object.create(null);
+  function load(name) {
+    if (loaded[name]) return;
+    loaded[name] = true;
+    var script = document.createElement('script');
+    script.src = assetBase + name + '.js';
+    script.async = false;
+    document.head.appendChild(script);
+  }
   [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['adminforms'], ['look'],
-   ['paste'], ['editor', ['subset', 'text-edit', 'smart']]].forEach(function (entry) {
+   ['search'], ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']], ['draft-form', ['draft-store']], ['writer-comfort'],
+   ['rich-editor', ['subset', 'source-document', 'rich-projection', 'rich-active', 'text-edit', 'smart', 'paste', 'editor']]].forEach(function (entry) {
     var m = entry[0];
     var wanted = function (el) { return (' ' + el.getAttribute('data-js-module') + ' ').indexOf(' ' + m + ' ') > -1; };
     if (Array.prototype.some.call(document.querySelectorAll('[data-js-module]'), wanted)) {
-      (entry.slice(1)[0] || []).forEach(function (helper) {
-        var h = document.createElement('script');
-        h.src = '/assets/' + helper + '.js';
-        h.defer = true;
-        document.head.appendChild(h);
-      });
-      var s = document.createElement('script');
-      s.src = '/assets/' + m + '.js';
-      s.defer = true;
-      document.head.appendChild(s);
+      (entry[1] || []).forEach(load);
+      load(m);
     }
   });
+  if (document.querySelector('[data-js-module~="draft-cleanup"], form[action="/auth/logout"]')) {
+    load('draft-store');
+    load('draft-form');
+  }
 })();

@@ -33,9 +33,9 @@ final class SearchTest extends TestCase
         return new Database('sqlite:' . $this->path);
     }
 
-    private function newApp(): App
+    private function newApp(array $config = []): App
     {
-        return new App([
+        return new App($config + [
             'app_dir' => dirname(__DIR__, 4) . '/app',
             'env' => 'prod',
             'views' => dirname(__DIR__, 4) . '/app/views',
@@ -228,7 +228,7 @@ final class SearchTest extends TestCase
         $this->assertSame(200, $bare->status);
         $this->assertStringContainsString('Search', $bare->body);
         // nothing asked yet: the hint, never an empty-result verdict
-        $this->assertStringContainsString('Quotes match an exact phrase.', $bare->body);
+        $this->assertStringContainsString(\App\Lang::t('search.hint'), $bare->body);
         $this->assertStringNotContainsString('No stories matched', $bare->body);
         $this->assertStringNotContainsString('rel="next"', $bare->body);
         $junk = $this->client()->get('/search', ['q' => '   ', 'category' => 'nope', 'rating' => 'abc', 'completed' => 'maybe', 'language' => '!!!', 'sort' => 'sideways', 'page' => '0']);
@@ -465,7 +465,7 @@ final class SearchTest extends TestCase
         $this->assertStringContainsString('/browse/filter', $c->get('/search', ['tag' => (string) $tag])->body);
     }
 
-    public function test_the_tag_name_constraint_never_scans_story_tags(): void
+    public function test_tag_name_membership_is_indexed_in_the_page_and_count_base(): void
     {
         $db = $this->db();
         $this->storyRow('Embers', 'embers', 'A quiet night in the north.');
@@ -473,15 +473,23 @@ final class SearchTest extends TestCase
         $this->attachTag((int) $db->one("SELECT id FROM stories WHERE slug = 'embers'")['id'], $tag);
         $sqls = [];
         $db->onQuery(function (string $sql) use (&$sqls): void { $sqls[] = $sql; });
-        (new \App\Repositories\SearchRepository($db))->searchWithTaxonomies('night', ['tags' => 'slow burn'], 20, 0, 0);
+        $result = (new \App\Repositories\SearchRepository($db))->searchWithTaxonomies('night', ['tags' => 'slow burn'], 20, 0, 0);
         $db->onQuery(fn () => null);
         $stmt = array_values(array_filter($sqls, fn (string $s): bool => str_contains($s, 'COALESCE(tf.canonical_id')));
         $this->assertCount(1, $stmt, 'the tag-name constraint rode the one ranking statement');
-        $details = array_column($db->query('EXPLAIN QUERY PLAN ' . $stmt[0])->fetchAll(), 'detail');
-        $scan = array_values(array_filter($details, fn (string $d): bool => str_contains($d, 'SCAN x') || str_contains($d, 'SCAN story_tags')));
-        $this->assertSame([], $scan, 'story_tags must be sought, never scanned: ' . implode(' | ', $details));
-        $this->assertTrue((bool) array_filter($details, fn (string $d): bool => str_contains($d, 'SEARCH x USING')), 'the EXISTS seeks story_tags');
-        $this->assertTrue((bool) array_filter($details, fn (string $d): bool => str_contains($d, 'SEARCH tf USING')), 'the name probe seeks the tags row');
+        $plan = $db->query('EXPLAIN QUERY PLAN ' . $stmt[0])->fetchAll();
+        $details = array_column($plan, 'detail', 'id');
+        $tagAccess = array_values(array_filter($plan, fn (array $row): bool => preg_match('/^(?:SCAN|SEARCH) (?:x|story_tags)(?: |$)/', $row['detail']) === 1));
+        $this->assertCount(2, $tagAccess, 'one membership set per inline page and materialized count base');
+        // Resolve matching tag IDs once, then seek their story attachments.
+        // Never repeat this work in a correlated predicate per candidate story.
+        foreach ($tagAccess as $access) {
+            $this->assertStringStartsWith('LIST SUBQUERY', $details[$access['parent']] ?? '', implode(' | ', $details));
+            $this->assertStringContainsString('SEARCH x USING COVERING INDEX idx_story_tags_rev', $access['detail']);
+        }
+        $this->assertDoesNotMatchRegularExpression('/SCAN (?:x|story_tags)(?: |$)/m', implode("\n", $details));
+        $this->assertStringContainsString('SEARCH tags USING INDEX idx_tags_name (name=?)', implode(' | ', $details));
+        $this->assertSame(['embers'], array_column($result['rows'], 'slug'));
     }
 
     /** Perf regression guard (qa-full 2026-10-07, probed on a 1,500-story /
@@ -503,7 +511,7 @@ final class SearchTest extends TestCase
         $db->onQuery(fn () => null);
         $fts = array_values(array_filter($sqls, fn (string $s): bool => str_contains($s, 'bm25(')));
         $this->assertCount(1, $fts, 'exactly one FTS ranking statement per search');
-        $this->assertStringContainsString('WITH fts_matches', $fts[0], 'the per-story aggregate rides a CTE');
+        $this->assertStringContainsString('fts_matches AS (', $fts[0], 'the per-story aggregate rides a CTE after spelling bindings');
         $this->assertStringContainsString('CROSS JOIN stories s', $fts[0], 'the CTE is pinned as the outer loop');
         $st = $db->query('EXPLAIN QUERY PLAN ' . $fts[0]);
         $details = array_column($st->fetchAll(), 'detail');
@@ -514,4 +522,22 @@ final class SearchTest extends TestCase
         // and the page still answers through the guarded statement
         $this->assertSame('the-rabbit-hole', $repo->searchWithTaxonomies('rabbit', [], 20, 0, 0)['rows'][0]['slug'] ?? null);
     }
+    public function test_configured_large_pages_keep_all_rows_reachable(): void
+    {
+        $author = (int) $this->db->one('SELECT id FROM users LIMIT 1')['id'];
+        $rating = (int) $this->db->one('SELECT id FROM ratings LIMIT 1')['id'];
+        $archive = new \App\Tests\Support\SearchArchive($this->db, $author, $rating);
+        $archive->clear();
+        for ($i = 0; $i < 201; $i++) $archive->story('River Page ' . $i);
+        $client = new TestClient($this->newApp(['items_per_page' => 200]));
+        $links = [];
+        foreach ([1 => 100, 2 => 100, 3 => 1] as $page => $count) {
+            $body = $client->get('/search', ['q' => 'river', 'page' => (string) $page])->body;
+            preg_match_all('#href="/story/view/([^"]+)"#', $body, $matches);
+            $this->assertCount($count, $matches[1]);
+            array_push($links, ...$matches[1]);
+        }
+        $this->assertCount(201, array_unique($links));
+    }
+
 }

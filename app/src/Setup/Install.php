@@ -63,7 +63,15 @@ final class Install
      */
     public static function migrate(array $config): array
     {
-        return (new Migrator(new Database((string) $config['db']['dsn']), self::migrationDirs($config)))->migrate();
+        return MigrationLock::run($config['migration_lock_file'] ?? null,
+            static fn (): array => (new Migrator(new Database((string) $config['db']['dsn']), self::migrationDirs($config)))->migrate());
+    }
+
+    /** @return list<string> */
+    public static function rollback(array $config): array
+    {
+        return MigrationLock::run($config['migration_lock_file'] ?? null,
+            static fn (): array => (new Migrator(new Database((string) $config['db']['dsn']), self::migrationDirs($config)))->rollback());
     }
 
     /**

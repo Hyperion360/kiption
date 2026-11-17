@@ -110,6 +110,14 @@ final class MailGuard
         return max(0, (int) $this->app->config('mail_monthly_cap', 0));
     }
 
+    /** Unix timestamps construct UTC dates regardless of PHP's default timezone.
+     *  @return array{string, string} inclusive month start and exclusive next month */
+    private static function utcMonthBounds(int $now): array
+    {
+        $month = (new \DateTimeImmutable('@' . $now))->modify('first day of this month');
+        return [$month->format('Y-m-d'), $month->modify('+1 month')->format('Y-m-d')];
+    }
+
     /** Consult and increment in ONE statement (the rate_limits counting
      *  upsert), so a send attempt pays exactly one query in the steady
      *  state; the day's first counted send adds one prune DELETE (the same
@@ -132,8 +140,7 @@ final class MailGuard
         } else {
             $monthlyCap = $this->monthlyCap();
             if ($monthlyCap > 0) {
-                $monthStart = gmdate('Y-m-01', $now);
-                $nextMonthStart = gmdate('Y-m-01', strtotime('first day of next month', $now));
+                [$monthStart, $nextMonthStart] = self::utcMonthBounds($now);
                 $row = $this->db->one(self::GATED_UPSERT_MONTHLY,
                     [$day, $reserveAt, $monthStart, $nextMonthStart, $monthlyCap,
                      $reserveAt, $monthStart, $nextMonthStart, $monthlyCap]);
@@ -185,7 +192,7 @@ final class MailGuard
         $now = ($this->clock)();
         $today = (int) ($this->db->one('SELECT sent FROM mail_sends WHERE day = ?', [gmdate('Y-m-d', $now)])['sent'] ?? 0);
         $month = (int) ($this->db->one('SELECT COALESCE(SUM(sent), 0) AS s FROM mail_sends WHERE day >= ? AND day < ?',
-            [gmdate('Y-m-01', $now), gmdate('Y-m-01', strtotime('first day of next month', $now))])['s'] ?? 0);
+            self::utcMonthBounds($now))['s'] ?? 0);
         $dailyUsable = max(0, $dailyCap - self::RESERVE);
         $dailyRoom = max(0, $dailyUsable - $today);
         $monthlyRoom = $monthlyCap > 0 ? max(0, $monthlyCap - $month) : PHP_INT_MAX;

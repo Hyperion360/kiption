@@ -4,16 +4,23 @@
   <h1><?= $story === null ? \App\Lang::t('story.new_heading') : \App\Lang::t('story.edit_heading') ?></h1>
   <?php if (($notice ?? '') !== ''): ?><div class="prose notice"><?= $notice /* Markdown, every character escaped */ ?></div><?php endif; ?>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-  <form method="post" action="<?= $story === null ? '/story/create' : '/story/update/' . $this->e($story['slug']) ?>">
+  <form id="story-editor-form" data-js-module="writer-status" data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>"
+    data-writer-saved="<?= ($error ?? null) === null && ($notice ?? '') !== '' ? '1' : '0' ?>"
+    data-writer-rejected="<?= ($error ?? null) !== null ? '1' : '0' ?>" method="post" action="<?= $story === null ? '/story/create' : '/story/update/' . $this->e($story['slug']) ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-    <label><?= \App\Lang::t('common.title') ?> <input name="title" required maxlength="200" value="<?= $this->e($story['title'] ?? '') ?>"></label>
-    <label><?= \App\Lang::t('common.summary') ?> <textarea name="summary" maxlength="1000" rows="3"><?= $this->e($story['summary'] ?? '') ?></textarea></label>
-    <label><?= \App\Lang::t('story.notes') ?> <textarea name="notes" rows="2"><?= $this->e($story['notes'] ?? '') ?></textarea></label>
-    <label><?= \App\Lang::t('common.language_hint') ?> <input name="language" maxlength="10" value="<?= $this->e($story['language'] ?? '') ?>"></label>
+    <div class="writer-actions">
+      <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
+      <span data-writer-state role="status" aria-live="polite" aria-atomic="true"><?= $this->e(($error ?? null) !== null ? $writerLabels['unsaved'] : (($notice ?? '') !== '' ? $writerLabels['saved'] : '')) ?></span>
+    </div>
+    <label><?= \App\Lang::t('common.title') ?> <input name="title" required maxlength="200" value="<?= $this->e($values['title'] ?? '') ?>"></label>
+    <label><?= \App\Lang::t('common.summary') ?> <textarea name="summary" maxlength="1000" rows="3"><?= "\n" . $this->e($values['summary'] ?? '') ?></textarea></label>
+    <label><?= \App\Lang::t('story.notes') ?> <textarea name="notes" rows="2"><?= "\n" . $this->e($values['notes'] ?? '') ?></textarea></label>
+    <label><?= \App\Lang::t('common.language_hint') ?> <input name="language" maxlength="10" value="<?= $this->e($values['language'] ?? '') ?>"></label>
     <label><?= \App\Lang::t('story.rating') ?>
-      <select name="rating_id">
+      <select name="rating_id" required>
+        <?php if ($ratingInvalid): ?><option value="" selected disabled><?= \App\Lang::t('story.choose_rating') ?></option><?php endif; ?>
         <?php foreach ($ratings as $r): ?>
-          <option value="<?= (int) $r['a'] ?>" <?= $story !== null && (int) $story['rating_id'] === (int) $r['a'] ? 'selected' : '' ?>><?= $this->e($r['b']) ?></option>
+          <option value="<?= (int) $r['a'] ?>" <?= isset($values['rating_id']) && (int) $values['rating_id'] === (int) $r['a'] ? 'selected' : '' ?>><?= $this->e($r['b']) ?></option>
         <?php endforeach; ?>
       </select>
     </label>
@@ -22,7 +29,7 @@
       <?php foreach ($categories as $c): ?>
         <label class="inline">
           <input type="checkbox" name="categories[]" value="<?= (int) $c['a'] ?>"
-            <?= $story !== null && in_array((string) $c['a'], array_map('strval', $selectedCategories), true) ? 'checked' : '' ?>>
+            <?= in_array((string) $c['a'], array_map('strval', $selectedCategories), true) ? 'checked' : '' ?>>
           <?= $this->e($c['b']) ?>
         </label>
       <?php endforeach; ?>
@@ -39,14 +46,14 @@
         </label>
         <?php endforeach; ?>
         <?php if (($tagPolicy ?? 'off') !== 'off'): ?>
-        <label><?= \App\Lang::t('story.suggest_label') ?> <input name="suggest[<?= (int) $typeId ?>]" maxlength="300"></label>
+        <label><?= \App\Lang::t('story.suggest_label') ?> <input name="suggest[<?= (int) $typeId ?>]" maxlength="300" value="<?= $this->e($draftSuggest[$typeId] ?? '') ?>"></label>
         <?php endif; ?>
         <?php $pending = $suggestions[$typeId]['pending'] ?? []; $rejected = $suggestions[$typeId]['rejected'] ?? []; ?>
         <?php if ($pending !== [] || $rejected !== []): ?>
         <p class="chapter-meta"><?= \App\Lang::t('story.suggest_pending') ?></p>
         <?php foreach ($pending as $s): ?>
         <label class="inline">
-          <input type="checkbox" name="withdraw[]" value="<?= (int) $s['id'] ?>"> <?= $this->e($s['name']) ?> (<?= \App\Lang::t('story.suggest_withdraw') ?>)
+          <input type="checkbox" name="withdraw[]" value="<?= (int) $s['id'] ?>"<?= in_array((string) $s['id'], array_map('strval', $draftWithdraw), true) ? ' checked' : '' ?>> <?= $this->e($s['name']) ?> (<?= \App\Lang::t('story.suggest_withdraw') ?>)
         </label>
         <?php endforeach; ?>
         <?php foreach ($rejected as $s): ?>
@@ -77,20 +84,20 @@
       <?php endforeach; ?>
     </fieldset>
     <?php endif; ?>
-    <label class="inline"><input type="checkbox" name="completed" value="1" <?= $story !== null && (int) $story['completed'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.completed') ?></label>
-    <label class="inline"><input type="checkbox" name="restricted" value="1" <?= $story !== null && (int) $story['restricted'] === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.registered_only') ?></label>
+    <label class="inline"><input type="checkbox" name="completed" value="1" <?= (int) ($values['completed'] ?? 0) === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.completed') ?></label>
+    <label class="inline"><input type="checkbox" name="restricted" value="1" <?= (int) ($values['restricted'] ?? 0) === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.registered_only') ?></label>
+    <?php if ($passwordDiscarded): ?><p class="hint"><?= \App\Lang::t('story.password_reenter') ?></p><?php endif; ?>
     <label><?= \App\Lang::t('story.access_password_label') ?> <input type="password" name="access_password" autocomplete="new-password"></label>
-    <label class="inline"><input type="checkbox" name="access_clear" value="1"> <?= \App\Lang::t('story.access_clear_label') ?></label>
-    <label class="inline"><input type="checkbox" name="round_robin" value="1" <?= $story !== null && (int) ($story['round_robin'] ?? 0) === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.round_robin') ?></label>
-    <label class="inline"><input type="checkbox" name="is_original" value="1"<?= $story !== null && (int) ($story['is_original'] ?? 0) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('story.is_original_label') ?></label>
+    <label class="inline"><input type="checkbox" name="access_clear" value="1"<?= !empty($values['access_clear']) ? ' checked' : '' ?>> <?= \App\Lang::t('story.access_clear_label') ?></label>
+    <label class="inline"><input type="checkbox" name="round_robin" value="1" <?= (int) ($values['round_robin'] ?? 0) === 1 ? 'checked' : '' ?>> <?= \App\Lang::t('story.round_robin') ?></label>
+    <label class="inline"><input type="checkbox" name="is_original" value="1"<?= (int) ($values['is_original'] ?? 0) === 1 ? ' checked' : '' ?>> <?= \App\Lang::t('story.is_original_label') ?></label>
     <p class="hint"><?= \App\Lang::t('story.is_original_help') ?></p>
-    <label><?= \App\Lang::t('story.gift_to_label') ?> <input name="gift_to" maxlength="120" value="<?= $this->e($story['gift_to'] ?? '') ?>"></label>
+    <label><?= \App\Lang::t('story.gift_to_label') ?> <input name="gift_to" maxlength="120" value="<?= $this->e($values['gift_to'] ?? '') ?>"></label>
     <?php if ($story !== null): ?>
-    <label><?= \App\Lang::t('story.canonical_label') ?> <input name="canonical_url" maxlength="200" value="<?= $this->e($story['canonical_url'] ?? '') ?>"></label>
-    <label><?= \App\Lang::t('story.crosspost_label') ?> <input name="crosspost_url" maxlength="200" value="<?= $this->e($story['crosspost_url'] ?? '') ?>"></label>
+    <label><?= \App\Lang::t('story.canonical_label') ?> <input name="canonical_url" maxlength="200" value="<?= $this->e($values['canonical_url'] ?? '') ?>"></label>
+    <label><?= \App\Lang::t('story.crosspost_label') ?> <input name="crosspost_url" maxlength="200" value="<?= $this->e($values['crosspost_url'] ?? '') ?>"></label>
     <p class="chapter-meta"><?= \App\Lang::t('story.syndication_help') ?></p>
     <?php endif; ?>
-    <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
   </form>
   <?php if ($story !== null): ?>
     <form class="form-aside" method="post" action="/story/cover/<?= $this->e($story['slug']) ?>" enctype="multipart/form-data">

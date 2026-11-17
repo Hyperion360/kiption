@@ -56,11 +56,20 @@ final class Palette
         $hover = $accent->mix($ink, 0.20);
         $onAccent = Color::contrast(Color::white(), $accent) >= Color::contrast(Color::black(), $accent) ? Color::white() : Color::black();
         $surface = $bg->luminance() > 0.5 ? $bg->mix(Color::white(), 0.55) : $bg->mix(Color::white(), 0.05);
+        // Keep tinted surfaces within reach of readable text on the ink side.
+        // Otherwise a boundary palette can have no color that reads on all three.
+        $inkLimit = $darker ? Color::black() : Color::white();
+        $surface = $surface->ensureContrast($inkLimit, Rules::TEXT_MIN, !$darker);
+        $pill = $bg->mix($accent, 0.12)->ensureContrast($inkLimit, Rules::TEXT_MIN, !$darker);
+        $secondary = $ink->mix($bg, 0.25);
+        foreach ([$bg, $surface, $pill] as $background) {
+            $secondary = $secondary->ensureContrast($background, Rules::TEXT_MIN, $darker);
+        }
         $visited = $accent->mix($ink, 0.50)->ensureContrast($bg, 4.5, $darker);
         return [
             '--bg' => $bg->hex(),
             '--ink' => $ink->hex(),
-            '--ink-2' => $ink->mix($bg, 0.25)->hex(),
+            '--ink-2' => $secondary->hex(),
             '--muted' => $muted->hex(),
             '--line' => $line->hex(),
             '--line-strong' => $bg->mix($ink, 0.18)->hex(),
@@ -72,7 +81,7 @@ final class Palette
             '--track' => $line->hex(),
             '--surface' => $surface->hex(),
             '--scrim' => sprintf('rgba(%d,%d,%d,.45)', $ink->r, $ink->g, $ink->b),
-            '--pill-bg' => $bg->mix($accent, 0.12)->hex(),
+            '--pill-bg' => $pill->hex(),
             '--btn' => $accent->hex(),
             '--btn-ink' => $onAccent->hex(),
         ];

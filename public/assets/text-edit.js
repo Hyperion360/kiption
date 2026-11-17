@@ -44,12 +44,11 @@
       return;
     }
     if (v.slice(s - before.length, s) === before && v.slice(e, e + after.length) === after) {
-      /* already wrapped: unwrap, keep the inner text selected (it lands
-       * exactly where the selection already is once the markers go) */
+      /* Already wrapped: removing the opening marker shifts the inner selection. */
       var inner0 = v.slice(s, e);
       box.setSelectionRange(s - before.length, e + after.length);
       insertText(box, inner0, doc);
-      box.setSelectionRange(s, s + inner0.length);
+      box.setSelectionRange(s - before.length, s - before.length + inner0.length);
       return;
     }
     var sel = v.slice(s, e);

@@ -8,17 +8,22 @@ $dataDir = defined('KIPTION_SHARED_DIR') ? KIPTION_SHARED_DIR : __DIR__ . '/app'
 $deploymentFile = $dataDir . '/deployment.php';
 $deployment = is_file($deploymentFile) ? (require $deploymentFile) : [];
 $publicDir = defined('KIPTION_PUBLIC_DIR') ? KIPTION_PUBLIC_DIR : ($deployment['public_dir'] ?? __DIR__ . '/public');
+$uploadsDir = defined('KIPTION_UPLOADS_DIR') ? KIPTION_UPLOADS_DIR : ($deployment['uploads_dir'] ?? $publicDir . '/uploads');
 // The footer legal line's links: KIP_FOOTER_LINKS carries them as a JSON
 // array of {label,url} pairs; unreadable JSON reads as no links (the
 // FooterLegal init filters malformed pairs itself, the NavLinks stance).
 $footerLinks = json_decode((string) (getenv('KIP_FOOTER_LINKS') ?: '[]'), true);
 $footerLinks = is_array($footerLinks) ? $footerLinks : [];
 return [
+    // Unreleased comparison. Enable only after required browser/device validation.
+    'editor_formatted' => false,
+
     'env'     => getenv('KIP_ENV') ?: 'prod', // prod default, D4 info-disclosure rule
     'data_dir' => $dataDir, // the private writable tree: databases, backups, nav, setup state (release layout: site/shared; flat layout: app/)
     'site_text_dir' => getenv('KIP_SITE_TEXT_DIR') ?: $dataDir . '/site-text', // compiled owner text (App\SiteText\Compiler); KIP_SITE_TEXT_DIR: tests/CLI point it at a throwaway dir
     'site_look_dir' => getenv('KIP_SITE_LOOK_DIR') ?: $dataDir . '/site-look', // compiled owner colors and layout (App\Look\Compiler); KIP_SITE_LOOK_DIR: tests/CLI point it at a throwaway dir
     'db'      => ['dsn' => getenv('KIP_DB_DSN') ?: 'sqlite:' . $dataDir . '/data.sqlite'], // KIP_DB_DSN: tests/CLI point bin/kip at a throwaway DB
+    'migration_lock_file' => getenv('KIP_MIGRATION_LOCK_FILE') ?: null, // optional pre-created private v1 flock file shared with an external code switch
     'log_db'  => ['dsn' => 'sqlite:' . $dataDir . '/logs.sqlite', 'retention_days' => 30],
     'cache_db' => ['dsn' => getenv('KIP_CACHE_DB_DSN') ?: 'sqlite:' . $dataDir . '/cache.sqlite', 'ttl_seconds' => 3600], // KIP_CACHE_DB_DSN: tests/CLI point kip cache:clear at a throwaway file
     'rate_limit' => [   // per first URL segment, fixed window, non-GET/HEAD only; table rate_limits (migration 025)
@@ -43,7 +48,7 @@ return [
     'app_dir' => __DIR__ . '/app',
     'trusted_proxy' => (bool) getenv('KIP_TRUSTED_PROXY'),
     'admin'   => ['enabled' => true],   // /admin CRUD panel, gate: users.is_admin = 1
-    'uploads' => ['dir' => $publicDir . '/uploads', 'max_bytes' => 2097152,
+    'uploads' => ['dir' => $uploadsDir, 'max_bytes' => 2097152,
                   'ext' => ['png', 'jpg', 'jpeg', 'webp', 'gif']],
     'base_url' => getenv('KIP_BASE_URL') ?: ($deployment['base_url'] ?? 'http://localhost:8080'),   // absolute links in emails; setup records the canonical HTTPS URL in deployment.php
     'mail'     => $deployment['mail'] ?? ['transport' => 'log', 'log_path' => $dataDir . '/mail.log', 'from' => 'noreply@localhost'],

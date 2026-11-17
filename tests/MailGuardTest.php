@@ -219,6 +219,49 @@ final class MailGuardTest extends TestCase
         $this->assertSame(5, $this->sentCount());
     }
 
+    /** @return array<string, array{string, string, string, string, string}> */
+    public static function utcMonthBoundaries(): array
+    {
+        return [
+            'utc-control' => ['UTC', '2026-11-01T00:30:00Z', '2026-10-31', '2026-11-01', '2026-12-01'],
+            'west-at-month-start' => ['America/New_York', '2026-11-01T00:30:00Z', '2026-10-31', '2026-11-01', '2026-12-01'],
+            'east-at-month-end' => ['Asia/Tokyo', '2026-11-30T23:30:00Z', '2026-10-31', '2026-11-30', '2026-12-01'],
+            'west-at-year-start' => ['America/New_York', '2027-01-01T00:30:00Z', '2026-12-31', '2027-01-01', '2027-02-01'],
+            'east-at-year-end' => ['Asia/Tokyo', '2026-12-31T23:30:00Z', '2026-11-30', '2026-12-31', '2027-01-01'],
+            'west-after-leap-day' => ['America/New_York', '2028-03-01T00:30:00Z', '2028-02-29', '2028-03-01', '2028-04-01'],
+            'east-on-leap-day' => ['Asia/Tokyo', '2028-02-29T23:30:00Z', '2028-01-31', '2028-02-29', '2028-03-01'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('utcMonthBoundaries')]
+    public function test_monthly_usage_and_admission_use_utc_boundaries(
+        string $timezone, string $instant, string $previousDay, string $today, string $nextMonth
+    ): void {
+        $previousTimezone = date_default_timezone_get();
+        try {
+            date_default_timezone_set($timezone);
+            $now = (new \DateTimeImmutable($instant))->getTimestamp();
+            $guard = $this->cappedGuard(daily: 100, monthly: 1, clock: static fn () => $now);
+            $this->db->query('INSERT INTO mail_sends (day, sent) VALUES (?, 9), (?, 20), (?, 50)',
+                [$previousDay, $nextMonth, 'c:' . $today]);
+
+            $this->assertSame(0, $guard->usage()['month'], 'past, future, and critical rows are outside the bulk month');
+            $this->assertTrue($guard->send('first@x.test', 's', 'b'));
+            $this->withErrorLog(fn () => $this->assertFalse($guard->send('second@x.test', 's', 'b')));
+            $usage = $guard->usage();
+            $this->assertSame(1, $usage['today']);
+            $this->assertSame(1, $usage['month']);
+            $this->assertSame(0, $usage['room']);
+            $this->assertSame('month', $usage['binding']);
+            $this->assertSame(1, $this->sentCount(), 'a refused send never reaches the transport');
+            $this->assertTrue($guard->send('critical@x.test', 'v', 'b', MailGuard::CRITICAL));
+            $this->assertSame(51, $this->criticalSent($today));
+            $this->assertSame(1, $guard->usage()['month'], 'critical admission does not spend monthly room');
+        } finally {
+            date_default_timezone_set($previousTimezone);
+        }
+    }
+
     public function test_a_new_month_starts_the_count_over(): void
     {
         $now = strtotime('2026-11-30 12:00:00 UTC');

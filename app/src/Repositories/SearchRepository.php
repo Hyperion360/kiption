@@ -6,7 +6,7 @@ final class SearchRepository
 {
     private const MAX_TOKENS = 8;
     private ?bool $fts = null;
-    private ?bool $tri = null;
+    private ?bool $spelling = null;
 
     public function __construct(private Database $db) {}
 
@@ -20,14 +20,6 @@ final class SearchRepository
         return $this->fts;
     }
 
-    /** The trigram arm's presence, learned the finding-6 way: the first
-     *  failed prepare of the arm IS the probe, memoized negative. No query
-     *  is ever spent probing for the table. */
-    private function triOn(): bool
-    {
-        return $this->tri !== false;
-    }
-
     /** @param array{category?:string,rating_id?:int,completed?:bool,language?:string} $filters
      *  Thin wrapper over the page fold: /search uses searchWithTaxonomies()
      *  directly so the filter taxonomies ride the same statement; the Task 2
@@ -39,175 +31,58 @@ final class SearchRepository
         return ['rows' => $r['rows'], 'hasMore' => $r['hasMore'], 'mode' => $r['mode']];
     }
 
-    /** ONE statement for the whole /search page: the filter taxonomies (k='r'
-     *  ratings, k='c' categories) ride the SAME compound as the paged, gated
-     *  results (k='s', the queue-fold shape), so the surface stays budget-1
-     *  including the filter UI. Finding 4: no ORDER BY inside compound
-     *  branches; section order rides output columns k ('c' < 'r' < 's', form
-     *  order) and p, the RAW INTEGER section position - taxonomy rows carry
-     *  their real position, results carry ROW_NUMBER mirroring the
-     *  subselect's own ordering. Probed on this runtime: ORDER BY
-     *  k, CAST(p AS INTEGER) does NOT prepare in a compound ("2nd ORDER BY
-     *  term does not match any column in the result set"), so p is emitted
-     *  raw and ordered bare (the /top finding-5 lesson). Empty token set:
-     *  taxonomy-only compound, mode 'none', no results query. FTS failures
-     *  (missing virtual tables, PDOException) memoize the negative and fall
-     *  back to the LIKE fold (finding 6: never probe ftsAvailable() here).
- *  Binds, strictly by SQL text order (COUNT the ?s against the array):
- *  taxonomy branches carry none; the results subselect keeps the Task 2
- *  bind orders verbatim with the Task 2 mute viewer slotted immediately
- *  after the restricted-gate $me (the clause rides right after fromGates'
- *  CAST in text) - FTS [$match, $match, $me, $viewer,
- *  ...filters..., perPage+1, $offset] (the MATCH ?s live in the fts_matches
- *  CTE, binding before fromGates' WHERE CAST), LIKE [$me,
- *  $viewer, ...filters..., $like x4, perPage+1, $offset]. Anonymous
-     *  callers ($viewer = 0) keep the exact pre-mute statements.
-     *  @param array{category?:string,rating_id?:int,completed?:bool,language?:string} $filters
+    /** The page's taxonomy rows share one statement with the gated result page.
+     *  The result subquery owns ranking and pagination; partition preserves its
+     *  encounter order and sorts taxonomy rows independently by position.
+     *  Missing optional spelling objects retry exact FTS once. Missing FTS
+     *  objects fall back to LIKE; other database errors remain visible.
      *  @return array{rows:array,hasMore:bool,mode:string,capped:bool,ratings:array,categories:array} */
     public function searchWithTaxonomies(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0, string $sort = 'relevance'): array
     {
         $tokens = self::sanitizedTokens($q);
         $capped = count($tokens) > self::MAX_TOKENS;
-        $taxonomy = "SELECT 'r' k, r.position p, CAST(r.id AS TEXT) a, r.label b, NULL c, NULL d, NULL e, NULL f, NULL g, NULL h FROM ratings r
-                     UNION ALL
-                     SELECT 'c', c.position, c.slug, c.name, NULL, NULL, NULL, NULL, NULL, NULL FROM categories c";
-        if ($tokens === [] && self::tagFilter($filters)->isEmpty() && empty($filters['character'])) {
-            return $this->partition($this->db->all($taxonomy . ' ORDER BY k, p'), $perPage, 'none', $capped);
+        if ($tokens !== []) {
+            $rows = $this->ftsRows($q, $filters, $perPage, $offset, $me, $viewer, $sort);
+            if ($rows !== null) return $this->partition($rows, $perPage, 'fts', $capped, $filters);
         }
-        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
-        if ($tokens === []) {
-            // A tag or character link with no words: list the filtered stories,
-            // newest first. Same gates as the LIKE arm, minus the text match.
-            $params = [$me];
-            if ($viewer > 0) $params[] = $viewer;
-            $filter = $this->filterSql($filters, $params);
-            $params[] = $perPage + 1; $params[] = $offset;
-            $rows = $this->db->all(
-                $taxonomy . " UNION ALL
-                SELECT 's', ROW_NUMBER() OVER (ORDER BY st.updated_at DESC, st.id DESC), st.slug, st.title, st.summary,
-                       st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-                FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$mute}{$filter}
-                      AND s.access_hash IS NULL
-                      ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?) st
-                ORDER BY k, p",
-                $params
-            );
-            return $this->partition($rows, $perPage, 'filter', $capped);
-        }
-        if ($this->fts !== false) {
-            // Two attempts at most: with the trigram arm, then without. The
-            // finding-6 doctrine applies to each: a failure IS the probe,
-            // memoized. The arm's failure (no 069 table on this build) drops
-            // only the arm; an FTS failure drops to LIKE below.
-            for ($attempt = 0; $attempt < 2; $attempt++) {
-                try {
-                    $match = self::matchExpression($q);
-                    // slice 10: the typo arm's MATCH bind rides right after the
-                    // two MATCH binds of the CTE (strict SQL text order)
-                    $triExpr = $this->triOn() ? self::trigramExpression($q) : '';
-                    $params = [$match, $match];
-                    if ($triExpr !== '') { $params[] = $triExpr; }
-                    $params[] = $me;
-                    if ($viewer > 0) $params[] = $viewer;
-                    $filter = $this->filterSql($filters, $params);
-                    $params[] = $perPage + 1; $params[] = $offset;
-                    // The rank order is the FTS arm's native sort; the updated
-                    // choice shares the documented TEMP B-TREE exception. The
-                    // inner statement orders and pages on the same expression.
-                    $order = $sort === 'updated' ? 'st.updated_at DESC, st.id DESC' : 'st.rank ASC';
-                    $rows = $this->db->all(
-                        $taxonomy . " UNION ALL
-                        SELECT 's', ROW_NUMBER() OVER (ORDER BY {$order}), st.slug, st.title, st.summary,
-                               st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-                        FROM ({$this->ftsStatement($mute, $filter, $sort, $triExpr)}) st
-                        ORDER BY k, p",
-                        $params
-                    );
-                    return $this->partition($rows, $perPage, 'fts', $capped);
-                } catch (\PDOException) {
-                    if ($attempt === 0 && $this->tri !== false) {
-                        $this->tri = false;
-                        continue;
-                    }
-                    $this->fts = false;
-                }
-            }
-        }
-        $like = self::likePattern($q);
-        $params = [$me];
-        if ($viewer > 0) $params[] = $viewer;
-        $filter = $this->filterSql($filters, $params);
-        $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
-        $params[] = $perPage + 1; $params[] = $offset;
-        $rows = $this->db->all(
-            $taxonomy . " UNION ALL
-            SELECT 's', ROW_NUMBER() OVER (ORDER BY st.updated_at DESC, st.id DESC), st.slug, st.title, st.summary,
-                   st.completed, st.word_count, st.updated_at, st.penname, st.rating_label
-            FROM (SELECT {$this->selectList()}, s.id FROM stories s {$this->fromGates()}{$mute}{$filter}
-                  AND s.access_hash IS NULL AND {$this->likeGroup()}
-                 ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?) st
-            ORDER BY k, p",
-            $params
-        );
-        return $this->partition($rows, $perPage, 'like', $capped);
+        [$filter] = DiscoveryFilter::sql($filters);
+        $mode = $tokens !== [] ? 'like' : ($filter !== '' ? 'filter' : 'none');
+        [$sql, $binds] = $this->plainStatement($tokens !== [] ? $q : '', $filters, $perPage, $offset,
+            $me, $viewer, $mode !== 'none');
+        return $this->partition($this->db->all($sql, $binds), $perPage, $mode, $capped, $filters);
     }
 
-    /** Split the fold into its sections; result rows normalize to the browse
-     *  listing shape so the views share the row markup. The perPage+1 probe
-     *  row rides the 's' rows and is sliced off here (hasMore). */
-    private function partition(array $rows, int $perPage, string $mode, bool $capped): array
+    private function partition(array $rows, int $perPage, string $mode, bool $capped, array $filters, bool $ranked = false): array
     {
-        $ratings = [];
-        $categories = [];
-        $stories = [];
-        foreach ($rows as $r) {
-            if ($r['k'] === 'r') { $ratings[] = ['id' => (int) $r['a'], 'label' => (string) $r['b']]; continue; }
-            if ($r['k'] === 'c') { $categories[] = ['slug' => (string) $r['a'], 'name' => (string) $r['b']]; continue; }
-            $stories[] = [
-                'slug' => (string) $r['a'], 'title' => (string) $r['b'], 'summary' => (string) $r['c'],
-                'completed' => (int) $r['d'], 'word_count' => (int) $r['e'], 'updated_at' => (string) $r['f'],
-                'penname' => (string) $r['g'], 'rating_label' => (string) $r['h'],
-            ];
+        $tags = $filters['tag_filter'] ?? TagFilter::fromQuery($filters);
+        $result = DiscoveryFold::partition($rows, $perPage, array_merge($tags->include, $tags->exclude));
+        if (!$ranked) {
+            foreach ($result['rows'] as &$row) unset($row['rank']);
+            unset($row);
         }
-        return [
-            'rows' => array_slice($stories, 0, $perPage),
-            'hasMore' => count($stories) > $perPage,
-            'mode' => $mode,
-            'capped' => $capped,
-            'ratings' => $ratings,
-            'categories' => $categories,
-        ];
-    }
-
-    private static function tagFilter(array $filters): TagFilter
-    {
-        return TagFilter::fromQuery(['tag' => $filters['tag'] ?? [], 'xtag' => $filters['xtag'] ?? [], 'tags' => $filters['tags'] ?? '', 'xtags' => $filters['xtags'] ?? '']);
-    }
-
-    private function filterSql(array $filters, array &$params): string
-    {
-        $sql = '';
-        if (!empty($filters['category'])) {
-            $sql .= ' AND EXISTS (SELECT 1 FROM story_categories sc JOIN categories cc ON cc.id = sc.category_id WHERE sc.story_id = s.id AND cc.slug = ?)';
-            $params[] = $filters['category'];
-        }
-        if (!empty($filters['rating_id'])) { $sql .= ' AND s.rating_id = ?'; $params[] = (int) $filters['rating_id']; }
-        if (isset($filters['completed']) && $filters['completed'] !== null) { $sql .= ' AND s.completed = ?'; $params[] = $filters['completed'] ? 1 : 0; }
-        if (!empty($filters['language'])) { $sql .= ' AND s.language = ?'; $params[] = $filters['language']; }
-        // Tag include, leave-out and name constraints live in TagFilter (the
-        // synonym-through-canonical rule included). Its binds land here, before
-        // character, so the documented bind order is unchanged.
-        $sql .= self::tagFilter($filters)->sql($params, 's');
-        if (!empty($filters['character'])) {
-            $sql .= ' AND EXISTS (SELECT 1 FROM story_characters scf WHERE scf.story_id = s.id AND scf.character_id = ?)';
-            $params[] = (int) $filters['character'];
-        }
-        return $sql;
+        return $result + ['mode' => $mode, 'capped' => $capped];
     }
 
     private function selectList(): string
     {
-        return 's.slug, s.title, s.summary, s.completed, s.word_count, s.updated_at, u.penname, u.profile_slug, r.label AS rating_label';
+        return 's.id,s.slug,s.title,s.summary,s.completed,s.word_count,s.updated_at,s.created_at,
+            s.author_id,s.rating_id,s.language,u.penname,u.profile_slug,r.label AS rating_label';
+    }
+
+    /** The text and visibility binds precede the shared facet binds. */
+    private function plainStatement(string $q, array $filters, int $perPage, int $offset,
+        int $me, int $viewer, bool $listStories = true): array
+    {
+        $source = "SELECT {$this->selectList()},0 tier,0 distance,0 field_rank,0.0 rank
+            FROM stories s {$this->fromGates()}";
+        $binds = [$me];
+        if ($viewer > 0) { $source .= MuteRepository::clause('s'); $binds[] = $viewer; }
+        $source .= ' AND s.access_hash IS NULL';
+        if ($q !== '') {
+            $source .= ' AND ' . $this->likeGroup();
+            array_push($binds, ...array_fill(0, 4, self::likePattern($q)));
+        }
+        return DiscoveryFold::statement($source, $binds, $filters, 'updated', $perPage, $offset, false, $listStories);
     }
 
     private function fromGates(): string
@@ -232,71 +107,63 @@ final class SearchRepository
 
     public function searchFts(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0, string $sort = 'relevance'): array
     {
-        $match = self::matchExpression($q);
-        // slice 10: the typo arm's MATCH bind rides after the two MATCH binds
-        $triExpr = $this->triOn() ? self::trigramExpression($q) : '';
-        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
-        // Bind order (finding 2, probed): the two MATCH ?s live in the fts_matches
-        // CTE, which binds BEFORE fromGates' CAST in the WHERE; the trigram
-        // MATCH sits with them (its CTE follows in text); the Task 2 mute
-        // viewer sits immediately after that CAST (the clause's text position);
-        // then filter params in filterSql's fixed order; then LIMIT/OFFSET.
-        $params = [$match, $match];
-        if ($triExpr !== '') { $params[] = $triExpr; }
-        $params[] = $me;
-        if ($viewer > 0) $params[] = $viewer;
-        $filter = $this->filterSql($filters, $params);
-        $params[] = $perPage + 1; $params[] = $offset;
-        try {
-            $rows = $this->db->all($this->ftsStatement($mute, $filter, $sort, $triExpr), $params);
-        } catch (\PDOException) {
-            // the arm's failure is the probe (finding 6): drop it, retry once
-            $this->tri = false;
-            $params = [$match, $match, $me];
-            if ($viewer > 0) $params[] = $viewer;
-            $filter = $this->filterSql($filters, $params);
-            $params[] = $perPage + 1; $params[] = $offset;
-            $rows = $this->db->all($this->ftsStatement($mute, $filter, $sort), $params);
-        }
-        $hasMore = count($rows) > $perPage;
-        return ['rows' => array_slice($rows, 0, $perPage), 'hasMore' => $hasMore, 'mode' => 'fts'];
-        // Finding 3, probed: bm25() CANNOT sit inside MIN(...) GROUP BY in the
-        // chapters arm ("unable to use function bm25 in the requested context");
-        // the plain UNION arm is correct because the fts_matches CTE already
-        // aggregates both arms per story before the join.
+        $rows = $this->ftsRows($q, $filters, $perPage, $offset, $me, $viewer, $sort);
+        if ($rows === null) return $this->searchLike($q, $filters, $perPage, $offset, $me, $viewer);
+        $result = $this->partition($rows, $perPage, 'fts', false, $filters, true);
+        return ['rows' => $result['rows'], 'hasMore' => $result['hasMore'], 'mode' => 'fts'];
     }
 
-    /** The FTS ranking statement, shared by /search (wrapped in the taxonomy
-     *  fold) and the searchFts seam. Perf finding 2026-10-07, probed on a
-     *  1,500-story / 6,000-chapter synthetic archive: the old shape
-     *  (JOIN stories ... GROUP BY s.id, ... ORDER BY rank LIMIT) let the
-     *  planner flip stories to the OUTER loop and re-ran the FTS co-routine
-     *  once per grouped output row, so a token matching every chapter cost
-     *  10.0-13.1s median and even a rare token cost 0.78s. The fix aggregates
-     *  per story in the fts_matches CTE first, then pins the CTE as the OUTER
-     *  loop with CROSS JOIN (SQLite's documented join-order constraint; plain
-     *  JOIN is free to reorder and does). Same plan class as the old statement
-     *  in the fast cases, 12.4ms median for the common token after (was
-     *  10,000ms+). Bind positions are unchanged: MATCH, MATCH, the gate CAST,
-     *  then the mute viewer and filter ?s, then LIMIT/OFFSET. Story-level
-     *  gates (validated, deleted, restricted), the mute clause, and the facet
-     *  filters apply AFTER the per-story fold, which is the same result set
-     *  because every one of them is a per-story predicate; the chapter gate
-     *  stays per-f-row inside the CTE, where a story whose only match is an
-     *  unvalidated chapter is dropped before the fold. WITH needs SQLite
-     *  3.8.3 (2014), far below the FTS5 floor this table feature-detects. */
-    /** The trigram MATCH input for slice 10's typo arm: the one-letter
-     *  deletion neighborhood of each token, OR'd. The trigram tokenizer
-     *  matches SUBSTRINGS (the probed fact behind this whole slice), so a
-     *  deletion variant of the typed word lands only when a story carries a
-     *  word the typo is one dropped or added letter away from. That is the
-     *  honest scope this slice shipped under: dropped and doubled letters
-     *  and mid-word fragments reach their words; a substituted-letter typo
-     *  ("wonderlend" for "wonderland") does not, because the trigram
-     *  tokenizer is substring-like rather than edit-distance, exactly the
-     *  caveat the plan recorded when the owner took this slice. Budget:
-     *  thirty variants, tokens of at least four characters (variants of
-     *  three stay above the tokenizer's floor). */
+    /** The spelling JSON binds precede the two MATCH binds, then visibility,
+     *  mute, filters, and pagination. A failed optional prepare is its probe. */
+    private function ftsRows(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer,
+        string $sort): ?array
+    {
+        if ($this->fts === false) return null;
+        $probes = \App\Search\Spelling::probes($q);
+        $match = self::matchExpression($q);
+        // Only a plain single word has the same exact FTS prefix as its
+        // normalized spelling token. Punctuation can leave one spelling
+        // token while changing the FTS expression, so retain that prefix.
+        $exactPrefix = $probes['count'] === 1
+            && preg_match('/\A[\p{L}\p{N}]+\z/u', trim($q)) === 1
+            && mb_strtolower($match, 'UTF-8') === '"' . $probes['tokens'][0] . '"*';
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            [$spell, $params] = $this->spelling !== false
+                ? \App\Search\SpellingSql::ctes($probes, true, $exactPrefix) : ['', []];
+            array_push($params, $match, $match, $me);
+            $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
+            if ($viewer > 0) $params[] = $viewer;
+            [$sql, $params] = DiscoveryFold::statement($this->ftsSource($mute, $spell), $params,
+                $filters, $sort === 'updated' ? 'updated' : 'relevance', $perPage, $offset, true);
+            try {
+                return $this->db->all($sql, $params);
+            } catch (\PDOException $e) {
+                if ($spell !== '' && $this->spelling !== false && self::missingSpelling($e)) {
+                    $this->spelling = false;
+                    continue;
+                }
+                if (self::missingFts($e)) {
+                    $this->fts = false;
+                    return null;
+                }
+                throw $e;
+            }
+        }
+        return null;
+    }
+
+    private static function missingSpelling(\PDOException $e): bool
+    {
+        return preg_match('/no such table: (?:main\.)?(search_words|search_deletes|search_word_posts)\b/', $e->getMessage()) === 1;
+    }
+
+    private static function missingFts(\PDOException $e): bool
+    {
+        return preg_match('/no such table: (?:main\.)?(stories_fts|chapters_fts)\b|no such module: fts5\b/', $e->getMessage()) === 1;
+    }
+
+    /** Legacy trigram expression helper, retained for callers of the older
+     *  optional index. Live search uses the bounded spelling vocabulary. */
     public static function trigramExpression(string $q): string
     {
         $parts = [];
@@ -317,70 +184,35 @@ final class SearchRepository
         return implode(' OR ', $parts);
     }
 
-    private function ftsStatement(string $mute, string $filter, string $sort = 'relevance', string $triExpr = ''): string
+    /** Rank exact matches before spelling matches, with a stable ID tie-break.
+     *  The per-story FTS aggregate stays outside the stories primary-key seek;
+     *  chapter validation and access checks remain inside that aggregate. */
+    private function ftsSource(string $mute, string $spell = ''): string
     {
-        // Slice 3 ranking: per-column bm25 weights make a title hit outrank a
-        // tag hit, which outranks a summary hit (columns: title, summary,
-        // tags). The updated choice swaps the rank sort for the recency sort,
-        // sharing the documented rank-order TEMP B-TREE exception.
-        $order = $sort === 'updated' ? 's.updated_at DESC, s.id DESC' : 'rank ASC';
-        // Slice 10's typo arm: the trigram copy of the story index rides the
-        // SAME statement as a guarded second source, so the budget stays one
-        // query. Its per-story rows enter only where the normal arm has no
-        // row, so nothing is contributed twice. The rank scales of the two
-        // tables are not comparable, which is fine: a fuzzy hit only ever
-        // surfaces where the exact hit is absent, under the same documented
-        // rank-order sort exception.
-        $triCte = '';
-        $triSelect = '';
-        if ($triExpr !== '') {
-            $triCte = ", tri_matches AS (
-                SELECT rowid AS story_id, bm25(stories_trigram) AS rank FROM stories_trigram WHERE stories_trigram MATCH ?
-            )";
-            $triSelect = " UNION ALL SELECT t.story_id, t.rank FROM tri_matches t
-                WHERE NOT EXISTS (SELECT 1 FROM fts_matches f2 WHERE f2.story_id = t.story_id)";
-        }
-        return "WITH fts_matches AS (
+        $prefix = $spell === '' ? '' : $spell . ', ';
+        $spelling = $spell === '' ? ''
+            : ' UNION ALL SELECT p.story_id, 0.0, 1, p.distance, p.field_rank FROM spell_matches p';
+        return "WITH {$prefix}fts_matches AS (
                 SELECT f.story_id AS story_id, MIN(f.rank) AS rank FROM (
                     SELECT NULL AS chapter_id, rowid AS story_id, bm25(stories_fts, 10.0, 1.0, 5.0) AS rank FROM stories_fts WHERE stories_fts MATCH ?
                     UNION
                     SELECT rowid AS chapter_id, story_id, bm25(chapters_fts) AS rank FROM chapters_fts WHERE chapters_fts MATCH ?
                 ) f{$this->chapterGate()}
                 GROUP BY f.story_id
-            ){$triCte}
-            SELECT {$this->selectList()}, s.id AS id, m.rank AS rank FROM (
-                SELECT m.story_id, m.rank FROM fts_matches m{$triSelect}
+            )
+            SELECT {$this->selectList()}, m.rank AS rank, m.tier, m.distance, m.field_rank FROM (
+                SELECT m.story_id, m.rank, 0 AS tier, 0 AS distance, 0 AS field_rank FROM fts_matches m{$spelling}
             ) m
             CROSS JOIN stories s
             JOIN users u ON u.id = s.author_id JOIN ratings r ON r.id = s.rating_id
-            WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND s.access_hash IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}{$filter}
-            ORDER BY {$order} LIMIT ? OFFSET ?";
+            WHERE s.id = m.story_id AND s.validated = 1 AND s.deleted_at IS NULL AND s.access_hash IS NULL AND (s.is_restricted = 0 OR CAST(? AS INTEGER) != 0){$mute}";
     }
 
     public function searchLike(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0): array
     {
-        $like = self::likePattern($q);
-        $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
-        // Bind order (finding 7, probed): fromGates' CAST ? first, then the
-        // Task 2 mute viewer (the clause rides immediately after the CAST in
-        // text), then the filter ?s, then the four LIKE ?s of likeGroup(),
-        // then LIMIT/OFFSET - strictly the SQL text order. The draft's
-        // [$me, $like xN] + filters misbinds whenever any filter is set and
-        // fails SILENTLY (empty results); the viewer bind must not reopen
-        // that trap.
-        $params = [$me];
-        if ($viewer > 0) $params[] = $viewer;
-        $filter = $this->filterSql($filters, $params);
-        $params[] = $like; $params[] = $like; $params[] = $like; $params[] = $like;
-        $params[] = $perPage + 1; $params[] = $offset;
-        $rows = $this->db->all(
-            "SELECT {$this->selectList()} FROM stories s {$this->fromGates()}{$mute}{$filter}
-              AND s.access_hash IS NULL AND {$this->likeGroup()}
-             ORDER BY s.updated_at DESC, s.id DESC LIMIT ? OFFSET ?",
-            $params
-        );
-        $hasMore = count($rows) > $perPage;
-        return ['rows' => array_slice($rows, 0, $perPage), 'hasMore' => $hasMore, 'mode' => 'like'];
+        [$sql, $binds] = $this->plainStatement($q, $filters, $perPage, $offset, $me, $viewer);
+        $result = $this->partition($this->db->all($sql, $binds), $perPage, 'like', false, $filters);
+        return ['rows' => $result['rows'], 'hasMore' => $result['hasMore'], 'mode' => 'like'];
     }
 
     /** Quote-stripped, whitespace-split tokens of the query, empties dropped:
@@ -407,7 +239,7 @@ final class SearchRepository
         $last = count($tokens) - 1;
         $parts = [];
         foreach ($tokens as $i => $t) {
-            $parts[] = '"' . $t . '"' . ($i === $last && mb_strlen($t) >= 2 ? '*' : '');
+            $parts[] = '"' . $t . '"' . ($i === $last && mb_strlen($t, 'UTF-8') >= 2 ? '*' : '');
         }
         return implode(' ', $parts);
     }

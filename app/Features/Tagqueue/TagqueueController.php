@@ -45,16 +45,18 @@ final class TagqueueController extends AdminScreen
         // The merge picker's options: the live tags of the row's own type,
         // retired synonyms excluded (a retired target would resolve to its
         // canonical, which the select already offers directly).
+        $tagsByType = [];
         foreach ($rows as $r) {
             if ($r['k'] !== 't') continue;
             $typeId = (int) $r['b'];
-            foreach ($groups as &$g) {
-                if ($g['typeId'] === $typeId) { $g['tags'][] = ['id' => (int) $r['a'], 'name' => (string) $r['c']]; break; }
-            }
-            unset($g);
+            $tagsByType[$typeId][] = ['id' => (int) $r['a'], 'name' => (string) $r['c']];
         }
+        foreach ($tagsByType as &$tags) {
+            usort($tags, fn (array $x, array $y): int => strcasecmp($x['name'], $y['name']));
+        }
+        unset($tags);
         foreach ($groups as &$g) {
-            usort($g['tags'], fn (array $x, array $y): int => strcasecmp($x['name'], $y['name']));
+            $g['tags'] = $tagsByType[$g['typeId']] ?? [];
         }
         unset($g);
         usort($groups, fn (array $x, array $y): int => [$typeOrder[$x['typeId']][0], $x['name']] <=> [$typeOrder[$y['typeId']][0], $y['name']]);
@@ -123,6 +125,8 @@ final class TagqueueController extends AdminScreen
             });
         } catch (\App\SuggestionTypeMismatch) {
             return new Response(Lang::t('error.not_found'), 404);
+        } catch (\App\SuggestionNameConflict) {
+            return new Response(Lang::t('tagqueue.err_conflict'), 422);
         }
         if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.approve', "type {$typeId}: {$name}");
@@ -146,6 +150,8 @@ final class TagqueueController extends AdminScreen
             });
         } catch (\App\SuggestionTypeMismatch) {
             return new Response(Lang::t('tagqueue.err_type'), 422);
+        } catch (\App\SuggestionNameConflict) {
+            return new Response(Lang::t('tagqueue.err_conflict'), 422);
         }
         if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.merge', "type {$typeId}: {$name} -> tag {$targetId}");
@@ -161,7 +167,10 @@ final class TagqueueController extends AdminScreen
         if (($g = $this->gate()) !== null) return $g;
         [$typeId, $name] = $this->keyInput();
         $me = (int) $this->session->get('user_id');
-        $touched = (new \App\Repositories\TagSuggestionRepository($this->db))->reject($typeId, $name, $me);
+        $touched = [];
+        $this->atomically(function () use (&$touched, $typeId, $name, $me): void {
+            $touched = (new \App\Repositories\TagSuggestionRepository($this->db))->reject($typeId, $name, $me);
+        });
         if ($touched === []) return new Response(Lang::t('error.not_found'), 404);
         \App\ActivityLog::by($this->db, $this->session, 'tag_suggestion.reject', "type {$typeId}: {$name}");
         $this->notify($touched, 'tag_suggestion_rejected', $me, $name);

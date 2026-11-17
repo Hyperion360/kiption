@@ -24,7 +24,7 @@ final class EditorContractTest extends TestCase
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
-    private function client(): TestClient
+    private function client(mixed $formatted = false): TestClient
     {
         $app = new App([
             'app_dir' => dirname(__DIR__, 1) . '/app',
@@ -33,8 +33,9 @@ final class EditorContractTest extends TestCase
             'db' => ['dsn' => 'sqlite:' . $this->path],
             'log_db' => ['dsn' => 'sqlite::memory:'],
             'mail' => ['transport' => 'log', 'log_path' => $this->path . '.mail', 'from' => 'noreply@localhost'],
-            'uploads' => [sys_get_temp_dir() . '/kiption-editor-upl'],
+            'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-editor-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+            'editor_formatted' => $formatted,
         ]);
         return (new TestClient($app))->actingAs(1);
     }
@@ -52,6 +53,27 @@ final class EditorContractTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $html, 'no inline script');
     }
 
+    public function test_formatted_mode_requires_the_explicit_boolean_config_and_retains_native_save(): void
+    {
+        foreach ([false, 'true', 1, true] as $enabled) {
+            $html = $this->client($enabled)->get('/chapter/new/the-rabbit-hole', ['editor_formatted' => '1'])->body;
+            [$form, $xpath] = $this->writerForm($html, 'chapter-editor-form');
+            $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
+            $this->assertSame($enabled === true, str_contains($box->getAttribute('data-js-module'), 'rich-editor'));
+            $this->assertFalse($box->hasAttribute('hidden'));
+            $this->assertTrue($box->hasAttribute('required'));
+            $this->assertFalse($box->hasAttribute('disabled'));
+            $this->assertSame('Enter chapter text before saving.', $form->getAttribute('data-content-required'));
+            $labels = json_decode($box->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame('Formatted', $labels['formatted']);
+            $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $form)->length);
+        }
+        $config = (string) file_get_contents(dirname(__DIR__) . '/config.php');
+        $this->assertStringContainsString("'editor_formatted' => false", $config);
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("['rich-editor', ['subset', 'source-document', 'rich-projection', 'rich-active', 'text-edit', 'smart', 'paste', 'editor']]", $js);
+    }
+
     public function test_the_loader_lists_the_editor_module_and_the_files_exist(): void
     {
         $js = (string) file_get_contents(dirname(__DIR__, 1) . '/public/assets/app.js');
@@ -61,12 +83,176 @@ final class EditorContractTest extends TestCase
         }
     }
 
+    public function test_editor_forms_keep_one_native_primary_save_action(): void
+    {
+        foreach ([
+            ['/chapter/new/the-rabbit-hole', 'chapter-editor-form', '/chapter/create/the-rabbit-hole', 'Save Chapter'],
+            ['/chapter/edit/the-rabbit-hole/1', 'chapter-editor-form', '/chapter/update/the-rabbit-hole/1', 'Save Chapter'],
+            ['/story/new', 'story-editor-form', '/story/create', 'Create'],
+            ['/story/edit/the-rabbit-hole', 'story-editor-form', '/story/update/the-rabbit-hole', 'Save'],
+        ] as [$path, $id, $action, $label]) {
+            $r = $this->client()->get($path);
+            $this->assertSame(200, $r->status, $path);
+            $doc = new \DOMDocument();
+            @$doc->loadHTML($r->body);
+            $xpath = new \DOMXPath($doc);
+            $form = $xpath->query('//form[@id="' . $id . '"]')->item(0);
+            $this->assertInstanceOf(\DOMElement::class, $form, $path);
+            $this->assertSame('post', $form->getAttribute('method'));
+            $this->assertSame($action, $form->getAttribute('action'));
+            $this->assertSame(1, $xpath->query('.//input[@name="_token"]', $form)->length);
+            $buttons = $xpath->query('.//button[@type="submit"]', $form);
+            $this->assertSame(1, $buttons->length, $path);
+            $this->assertSame($label, trim($buttons->item(0)->textContent));
+            $this->assertSame('btn-primary', $buttons->item(0)->getAttribute('class'));
+        }
+    }
+
     public function test_the_editor_language_keys_exist(): void
     {
         $lang = require dirname(__DIR__, 1) . '/app/lang/en.php';
         foreach (['chapter.editor_bold', 'chapter.editor_italic', 'chapter.editor_link', 'chapter.editor_quote', 'chapter.editor_break', 'chapter.editor_hint'] as $key) {
             $this->assertArrayHasKey($key, $lang, $key);
         }
+    }
+
+    public function test_comfort_enhancement_has_labels_but_no_inert_script_free_buttons(): void
+    {
+        [$form, $xpath] = $this->writerForm($this->client()->get('/chapter/new/the-rabbit-hole')->body, 'chapter-editor-form');
+        $this->assertStringContainsString('writer-comfort', $form->getAttribute('data-js-module'));
+        $labels = json_decode($form->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('Focus Mode', $labels['focus']);
+        $this->assertSame('Typewriter Scrolling', $labels['typewriter']);
+        $this->assertSame(0, $xpath->query('.//button[@aria-pressed]', $form)->length);
+        $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $form)->length);
+        $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
+        $this->assertTrue($box->hasAttribute('required'));
+        $this->assertFalse($box->hasAttribute('hidden'));
+        [$story] = $this->writerForm($this->client()->get('/story/new')->body, 'story-editor-form');
+        $this->assertStringNotContainsString('writer-comfort', $story->getAttribute('data-js-module'));
+        $this->assertStringContainsString("['writer-comfort']", file_get_contents(dirname(__DIR__) . '/public/assets/app.js'));
+    }
+
+    private function writerForm(string $html, string $id): array
+    {
+        $doc = new \DOMDocument();
+        @$doc->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        $xpath = new \DOMXPath($doc);
+        $form = $xpath->query('//form[@id="' . $id . '"]')->item(0);
+        $this->assertInstanceOf(\DOMElement::class, $form);
+        return [$form, $xpath];
+    }
+
+    public function test_writer_status_has_explicit_server_state_and_accessible_nonlive_word_count(): void
+    {
+        foreach (['chapter' => '/chapter/edit/the-rabbit-hole/1', 'story' => '/story/edit/the-rabbit-hole'] as $kind => $path) {
+            [$form, $xpath] = $this->writerForm($this->client()->get($path)->body, $kind . '-editor-form');
+            $this->assertSame('0', $form->getAttribute('data-writer-saved'));
+            $this->assertSame('0', $form->getAttribute('data-writer-rejected'));
+            $labels = json_decode($form->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
+            $this->assertSame('You have unsaved changes.', $labels['unsaved']);
+            $state = $xpath->query('.//*[@data-writer-state]', $form);
+            $this->assertSame(1, $state->length);
+            $this->assertSame('status', $state->item(0)->getAttribute('role'));
+            $this->assertSame('polite', $state->item(0)->getAttribute('aria-live'));
+            $this->assertSame('true', $state->item(0)->getAttribute('aria-atomic'));
+            $this->assertSame('', $state->item(0)->textContent);
+            [$saved, $savedXpath] = $this->writerForm($this->client()->get($path, ['saved' => '1'])->body, $kind . '-editor-form');
+            $this->assertSame('1', $saved->getAttribute('data-writer-saved'));
+            $this->assertSame('All changes shown here are saved.', $savedXpath->query('.//*[@data-writer-state]', $saved)->item(0)->textContent);
+            if ($kind === 'chapter') {
+                $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
+                $count = $xpath->query('.//*[@data-writer-count]', $form)->item(0);
+                $this->assertStringContainsString($count->getAttribute('id'), $box->getAttribute('aria-describedby'));
+                $this->assertSame(\App\Markdown::wordCount($box->textContent) . ' words', $count->textContent);
+                $this->assertSame('off', $count->getAttribute('aria-live'));
+                $button = $xpath->query('.//button[@data-writer-count-selection]', $form)->item(0);
+                $this->assertSame('button', $button->getAttribute('type'));
+                $this->assertTrue($button->hasAttribute('hidden'));
+                $this->assertSame('Count Selection', $button->textContent);
+            } else {
+                $this->assertSame(0, $xpath->query('.//*[@data-writer-count]', $form)->length);
+            }
+        }
+    }
+
+    public function test_rejected_forms_are_immediately_unsaved_even_with_a_saved_query_parameter(): void
+    {
+        foreach ([
+            ['/chapter/create/the-rabbit-hole', ['content' => ''], 422, 'chapter'],
+            ['/chapter/update/the-rabbit-hole/1', ['content' => 'Retained text', 'base_revision' => str_repeat('0', 64)], 409, 'chapter'],
+            ['/story/create', ['title' => ''], 422, 'story'],
+        ] as [$path, $data, $status, $kind]) {
+            $client = $this->client();
+            $response = $client->request('POST', $path, ['saved' => '1'], $data + ['_token' => $client->csrfToken()]);
+            $this->assertSame($status, $response->status);
+            [$form, $xpath] = $this->writerForm($response->body, $kind . '-editor-form');
+            $this->assertSame('1', $form->getAttribute('data-writer-rejected'));
+            $this->assertSame('0', $form->getAttribute('data-writer-saved'));
+            $this->assertSame('You have unsaved changes.', $xpath->query('.//*[@data-writer-state]', $form)->item(0)->textContent);
+            $this->assertSame(1, $xpath->query('.//button[@type="submit" and not(@name)]', $form)->length);
+        }
+    }
+
+    public function test_recovery_contract_uses_saved_fields_stable_identity_and_no_secrets(): void
+    {
+        $db = new \Kip\Database('sqlite:' . $this->path);
+        $db->query("UPDATE chapters SET content = ?, notes_before = ?, publish_at = ? WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole') AND position = 1", ['Archive <script> text', 'Before', '2026-12-01T12:30:00']);
+        $client = $this->client();
+        $saved = $client->get('/chapter/edit/the-rabbit-hole/1');
+        [$form] = $this->writerForm($saved->body, 'chapter-editor-form');
+        $this->assertMatchesRegularExpression('/^chapter:[1-9][0-9]*$/D', $form->getAttribute('data-writer-chapter'));
+        $this->assertMatchesRegularExpression('/^[1-9][0-9]*$/D', $form->getAttribute('data-writer-owner'));
+        $this->assertSame('/chapter/edit/the-rabbit-hole/1', $form->getAttribute('data-writer-check-url'));
+        $this->assertSame('0', $form->getAttribute('data-writer-protected'));
+        $server = json_decode($form->getAttribute('data-writer-server'), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['title', 'content', 'notes_before', 'notes_after', 'publish_at'], array_keys($server));
+        $this->assertSame('Archive <script> text', $server['content']);
+        $this->assertSame('2026-12-01T12:30', $server['publish_at']);
+        $this->assertSame(0, substr_count($saved->body, '<script> text'));
+        $rejected = $client->postWithToken('/chapter/update/the-rabbit-hole/1', ['content' => 'Rejected draft', 'base_revision' => str_repeat('0', 64)]);
+        $this->assertSame(409, $rejected->status);
+        [$failed, $xpath] = $this->writerForm($rejected->body, 'chapter-editor-form');
+        $this->assertSame($server, json_decode($failed->getAttribute('data-writer-server'), true, 512, JSON_THROW_ON_ERROR));
+        $this->assertSame($form->getAttribute('data-writer-base'), $failed->getAttribute('data-writer-base'));
+        $this->assertSame(str_repeat('0', 64), $xpath->query('.//input[@name="base_revision"]', $failed)->item(0)->getAttribute('value'));
+        $this->assertSame('Rejected draft', $xpath->query('.//textarea[@name="content"]', $failed)->item(0)->textContent);
+        foreach (['stories', 'chapters'] as $table) {
+            $db->query("UPDATE $table SET access_hash = ?", ['private-hash-canary']);
+            [$protected] = $this->writerForm($client->get('/chapter/edit/the-rabbit-hole/1')->body, 'chapter-editor-form');
+            $this->assertSame('1', $protected->getAttribute('data-writer-protected'));
+            $this->assertStringNotContainsString('private-hash-canary', $protected->ownerDocument->saveHTML());
+            $db->query("UPDATE $table SET access_hash = NULL");
+        }
+        $db->query("UPDATE chapters SET content = ? WHERE position = 1", ["Legacy \xff text"]);
+        $legacy = $client->get('/chapter/edit/the-rabbit-hole/1');
+        $this->assertSame(200, $legacy->status);
+        [$legacyForm] = $this->writerForm($legacy->body, 'chapter-editor-form');
+        $this->assertSame("Legacy \u{FFFD} text", json_decode($legacyForm->getAttribute('data-writer-server'), true, 512, JSON_THROW_ON_ERROR)['content']);
+        [$new] = $this->writerForm($client->get('/chapter/new/the-rabbit-hole')->body, 'chapter-editor-form');
+        $this->assertMatchesRegularExpression('/^new:[1-9][0-9]*$/D', $new->getAttribute('data-writer-chapter'));
+        $this->assertSame('new', $new->getAttribute('data-writer-base'));
+        $this->assertSame('/chapter/new/the-rabbit-hole', $new->getAttribute('data-writer-check-url'));
+    }
+
+    public function test_rejected_password_keeps_recovery_off_after_the_secret_is_discarded(): void
+    {
+        $response = $this->client()->postWithToken('/chapter/update/the-rabbit-hole/1', [
+            'content' => '', 'notes_before' => 'Private draft note', 'access_password' => 'password-canary',
+        ]);
+        $this->assertSame(422, $response->status);
+        [$form] = $this->writerForm($response->body, 'chapter-editor-form');
+        $this->assertSame('1', $form->getAttribute('data-writer-protected'));
+        $this->assertStringNotContainsString('password-canary', $response->body);
+        $this->assertStringContainsString('Private draft note', $response->body);
+    }
+
+    public function test_login_loads_cleanup_and_loader_reuses_recovery_asset(): void
+    {
+        $this->assertStringContainsString('data-js-module="draft-cleanup"', $this->client()->get('/auth/login')->body);
+        $loader = file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
+        $this->assertStringContainsString("['draft-form', ['draft-store']]", $loader);
+        $this->assertStringContainsString("load('draft-form')", $loader);
     }
 
     /** The JS rule tables cannot drift from the PHP renderer: the scene-break

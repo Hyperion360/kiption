@@ -167,6 +167,22 @@ final class TagSuggestionRepository
         );
     }
 
+    /** Resolve an already live name deterministically. The base tags schema
+     *  has binary uniqueness, so old data may contain case variants. Never
+     *  guess between different canonical tags or across tag types. */
+    private function resolvedName(int $typeId, string $name): ?int
+    {
+        $rows = $this->db->all('SELECT id, canonical_id, tag_type_id FROM tags WHERE name = ? COLLATE NOCASE ORDER BY id', [$name]);
+        $resolved = null;
+        foreach ($rows as $row) {
+            if ((int) $row['tag_type_id'] !== $typeId) throw new \App\SuggestionNameConflict();
+            $id = (int) ((int) $row['canonical_id'] ?: (int) $row['id']);
+            if ($resolved !== null && $resolved !== $id) throw new \App\SuggestionNameConflict();
+            $resolved = $id;
+        }
+        return $resolved;
+    }
+
     /** Create the tag (or find the one a racing admin already made), attach
      *  every pending story, delete the rows. The audit trail is the activity
      *  log; approved rows leave no suggestion behind. */
@@ -174,10 +190,13 @@ final class TagSuggestionRepository
     {
         $rows = $this->pending($typeId, $name);
         if ($rows === []) { return []; }
-        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) VALUES (?, ?)', [$typeId, $name]);
-        $tag = $this->db->one('SELECT id, canonical_id FROM tags WHERE tag_type_id = ? AND name = ? COLLATE NOCASE', [$typeId, $name]);
-        if ($tag === null) { return []; } // unreachable outside a broken type; the INSERT decided
-        $tagId = (int) ((int) $tag['canonical_id'] ?: (int) $tag['id']);
+        $tagId = $this->resolvedName($typeId, $name);
+        if ($tagId === null) {
+            $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name) SELECT ?, ? WHERE NOT EXISTS '
+                . '(SELECT 1 FROM tags WHERE name = ? COLLATE NOCASE)', [$typeId, $name, $name]);
+            $tagId = $this->resolvedName($typeId, $name);
+        }
+        if ($tagId === null) throw new \App\SuggestionNameConflict();
         return $this->attachAndClear($tagId, $typeId, $name);
     }
 
@@ -195,26 +214,30 @@ final class TagSuggestionRepository
             throw new \App\SuggestionTypeMismatch();
         }
         $real = (int) ((int) $target['canonical_id'] ?: (int) $target['id']);
-        // Record the retirement (INSERT OR IGNORE: a racing admin may have
-        // created the name first; the UNIQUE on (tag_type_id, name) decides),
-        // then resolve whatever row now holds the name and attach through it.
-        $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) VALUES (?, ?, ?)', [$typeId, $name, $real]);
-        $held = $this->db->one('SELECT id, canonical_id FROM tags WHERE tag_type_id = ? AND name = ? COLLATE NOCASE', [$typeId, $name]);
-        if ($held !== null) { $real = (int) ((int) $held['canonical_id'] ?: (int) $held['id']); }
+        $held = $this->resolvedName($typeId, $name);
+        if ($held !== null && $held !== $real) throw new \App\SuggestionNameConflict();
+        if ($held === null) {
+            $this->db->query('INSERT OR IGNORE INTO tags (tag_type_id, name, canonical_id) '
+                . 'SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM tags WHERE name = ? COLLATE NOCASE)',
+                [$typeId, $name, $real, $name]);
+            $held = $this->resolvedName($typeId, $name);
+        }
+        if ($held !== $real) throw new \App\SuggestionNameConflict();
         return $this->attachAndClear($real, $typeId, $name);
     }
 
-    /** Mark the rows rejected with who decided. Nothing attaches, nothing
-     *  public changes, so the caller purges nothing. */
+    /** Mark pending rows rejected and return only those this decision changed.
+     *  A competing decision must never produce stale rejection recipients.
+     *  Nothing attaches or changes publicly, so the caller purges nothing. */
     public function reject(int $typeId, string $name, int $adminId): array
     {
-        $rows = $this->pending($typeId, $name);
-        if ($rows === []) { return []; }
-        $this->db->query(
+        $rows = $this->db->all(
             "UPDATE tag_suggestions SET status = 'rejected', resolved_at = ?, resolved_by = ?
-             WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE",
+             WHERE status = 'pending' AND tag_type_id = ? AND name = ? COLLATE NOCASE
+             RETURNING id, suggested_by, story_id",
             [date('c'), $adminId, $typeId, $name]
         );
+        usort($rows, fn (array $a, array $b): int => (int) $a['id'] <=> (int) $b['id']);
         return array_map(fn (array $r): array => ['user' => (int) $r['suggested_by'], 'story' => (int) $r['story_id']], $rows);
     }
 

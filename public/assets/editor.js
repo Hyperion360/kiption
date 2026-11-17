@@ -12,6 +12,7 @@
   if (root.Kip) {
     root.Kip.editorHandleKey = api.handleKey;
     root.Kip.editorRun = api.run;
+    root.Kip.editorInit = api.init;
     if (root.Kip.init) { root.Kip.init(api.init); }
   }
 })(typeof window !== 'undefined' ? window : globalThis, function (root) {
@@ -97,6 +98,7 @@
       box.addEventListener('compositionstart', function () { state.composing = true; });
       box.addEventListener('compositionend', function () { state.composing = false; });
       box.addEventListener('keydown', function (e) {
+        if (box.kipWriter || state.composing || e.isComposing) { return; }
         /* smart punctuation consumes the keystroke first (a plain quote,
          * hyphen or dot, no modifiers); the shortcuts read the modifiers */
         if (smart && !e.ctrlKey && !e.metaKey && !e.altKey && smart.apply(box, e.key)) {
@@ -121,10 +123,11 @@
         b.className = 'btn-quiet editor-btn';
         b.setAttribute('aria-label', labels[def[0]]);
         b.textContent = labels[def[0]];
+        b.addEventListener('pointerdown', function () { if (box.kipWriter) box.kipWriter.capture(); });
         b.addEventListener('click', function (ev) {
           ev.preventDefault();
-          run(def[0], box);
-          box.focus();
+          if (box.kipWriter) box.kipWriter.command(def[0]);
+          else { run(def[0], box); box.focus(); }
         });
         bar.appendChild(b);
       });

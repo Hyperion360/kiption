@@ -65,8 +65,41 @@ final class BuilderTest extends TestCase
     public function test_prune_empties_the_layer(): void
     {
         Builder::build($this->config(), $this->cacheDir);
-        Builder::prune($this->cacheDir, dirname(__DIR__) . '/app');
+        Builder::prune($this->cacheDir, 'sqlite:' . $this->path . '.cache');
         $cache = new Cache($this->cacheDir);
         $this->assertNull($cache->serve(new Request('GET', '/', [], [], [])));
+    }
+
+    public function test_prune_clears_configured_cache_in_place_for_open_connections(): void
+    {
+        $cacheDb = $this->path . '.cache';
+        $codeDir = $this->path . '.code';
+        mkdir($codeDir);
+        file_put_contents($codeDir . '/cache.sqlite', 'immutable code sentinel');
+        $old = new Database('sqlite:' . $cacheDb);
+        $new = new Database('sqlite:' . $cacheDb);
+        (new \Kip\Cache\PageCache($old))->put('/stale', '', new \Kip\Http\Response('stale'), ['pages']);
+        try {
+            Builder::prune($this->cacheDir, 'sqlite:' . $cacheDb);
+            $this->assertFileExists($cacheDb);
+            $this->assertSame(0, (int) $old->one('SELECT COUNT(*) n FROM pages')['n']);
+            $this->assertSame(0, (int) $new->one('SELECT COUNT(*) n FROM page_tags')['n']);
+            $old->query("INSERT INTO pages (key, body, headers, etag, created_at) VALUES ('next', 'next', '{}', 'x', 1)");
+            $this->assertSame('next', $new->one("SELECT body FROM pages WHERE key = 'next'")['body']);
+            $this->assertSame('immutable code sentinel', file_get_contents($codeDir . '/cache.sqlite'));
+        } finally {
+            unset($old, $new);
+            foreach (['', '-wal', '-shm'] as $suffix) @unlink($cacheDb . $suffix);
+            @unlink($codeDir . '/cache.sqlite');
+            @rmdir($codeDir);
+        }
+    }
+
+    public function test_cache_database_path_handles_uri_parameters_and_memory(): void
+    {
+        self::assertSame('/tmp/cache.sqlite', Builder::cacheDbPath('sqlite:/tmp/cache.sqlite?mode=ro'));
+        self::assertNull(Builder::cacheDbPath('sqlite::memory:'));
+        self::assertNull(Builder::cacheDbPath('sqlite:relative.sqlite'));
+        self::assertNull(Builder::cacheDbPath('mysql:cache'));
     }
 }
