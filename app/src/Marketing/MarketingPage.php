@@ -41,6 +41,7 @@ final class MarketingPage
             'navFile' => (string) $app->config('nav_file', ''),
             'page' => ['slug' => $slug, 'title' => (string) $row['title'], 'body' => $body, 'updated_at' => (string) $row['updated_at']],
             'marketing' => $marketing,
+            'cloudUrl' => (string) $app->config('cloud_url', 'https://kiption.com/cloud'),
             'loggedIn' => \App\Viewer::id($request, $session, $db) !== 0,
         ];
         return $noindex

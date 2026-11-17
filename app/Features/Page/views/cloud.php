@@ -1,67 +1,17 @@
 <?php // app/Features/Page/views/cloud.php
 /** @var array{slug:string,title:string,body:string,updated_at:string} $page
  *  @var array $marketing */
-// The hosted-page landing shape: hero (kicker + title split + the body's own
-// first paragraph as the lede), plan cards and the launch-offer callout from
-// the cloud_marketing config, the page body as the long-form middle, and a
-// close band repeating the header's promise. No config: hero and body only.
-$m = is_array($marketing ?? null) ? $marketing : [];
-$ctaLabel = (string) ($m['cta_label'] ?? '');
-$ctaUrl = (string) ($m['cta_url'] ?? '');
-$plans = isset($m['plans']) && is_array($m['plans']) ? $m['plans'] : [];
-$close = isset($m['close']) && is_array($m['close']) ? $m['close'] : null;
-
-$title = (string) $page['title'];
-$colon = strpos($title, ': ');
-$kicker = $colon !== false ? substr($title, 0, $colon) : '';
-$h1 = $colon !== false ? substr($title, $colon + 2) : $title;
-
-// The lede is the body's first paragraph (the subheader naming how the claim
-// works); the rest keeps its own rhythm below the plans.
-$body = (string) $page['body'];
-$break = strpos($body, "\n\n");
-$lede = $break !== false ? substr($body, 0, $break) : '';
-$rest = $break !== false ? substr($body, $break + 2) : $body;
+// The simplified /cloud page every install ships: the page row's own title
+// and text (admin-editable) plus one link to the hosted-service URL from the
+// cloud_url setting. Nothing about plans or prices lives here; the full
+// landing (cloud_landing) renders only where a flagship config supplies it.
+$url = (string) ($cloudUrl ?? '');
 ?>
 <?php $this->layout('layout'); ?>
-<article class="cloud-page">
-  <header class="cloud-hero">
-<?php if ($kicker !== ''): ?>
-    <p class="cloud-kicker"><?= $this->e($kicker) ?></p>
-<?php endif; ?>
-    <h1><?= $this->e($h1) ?></h1>
-<?php if ($lede !== ''): ?>
-    <div class="cloud-lede"><?= \App\Markdown::render($lede) ?></div>
-<?php endif; ?>
-<?php if ($ctaUrl !== ''): ?>
-    <p class="cta-row">
-      <a class="cta-primary" href="<?= $this->e($ctaUrl) ?>"><?= $this->e($ctaLabel) ?></a>
-      <?php if ($plans !== []): ?><a class="cta-secondary" href="#plans"><?= $this->e((string) ($m['plans_cta'] ?? 'See the plans')) ?></a><?php endif; ?>
-    </p>
-<?php endif; ?>
-<?php if (!empty($m['proof'])): ?>
-    <p class="proof-line"><?= $this->e((string) $m['proof']) ?></p>
-<?php endif; ?>
-  </header>
-
-<?php if ($plans !== []): ?>
-  <section class="plans-band" id="plans">
-<?= $this->render('page/_cloud_plans', ['m' => $m, 'plans' => $plans, 'ctaUrl' => $ctaUrl, 'tag' => 'h2']) ?>
-  </section>
-<?php endif; ?>
-
-  <section class="cloud-body">
-    <div class="prose"><?= \App\Markdown::render($rest) /* markdown at rest; raw HTML cannot be stored */ ?></div>
-    <p class="chapter-meta"><?= \App\Lang::t('page.last_updated', ['date' => $this->e(\App\Dates::format($page['updated_at']))]) ?></p>
-  </section>
-
-<?php if ($close !== null && $ctaUrl !== ''): ?>
-  <section class="close-band">
-    <h2><?= $this->e((string) ($close['heading'] ?? $ctaLabel)) ?></h2>
-<?php if (!empty($close['body'])): ?>
-    <p><?= $this->e((string) $close['body']) ?></p>
-<?php endif; ?>
-    <a class="cta-primary" href="<?= $this->e($ctaUrl) ?>"><?= $this->e($ctaLabel) ?></a>
-  </section>
+<article class="cloud-page cloud-simple">
+  <h1><?= $this->e((string) $page['title']) ?></h1>
+  <div class="prose"><?= \App\Markdown::render((string) $page['body']) /* markdown at rest; raw HTML cannot be stored */ ?></div>
+<?php if ($url !== ''): ?>
+  <p class="cloud-link"><a class="cta-primary" href="<?= $this->e($url) ?>"><?= $this->e(\App\Lang::t('cloud.learn_more')) ?></a></p>
 <?php endif; ?>
 </article>

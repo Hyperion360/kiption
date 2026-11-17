@@ -800,6 +800,7 @@ return [
     'page.slug' => 'Address',
     'page.slug_placeholder' => 'about',
     'page.body_placeholder' => 'Markdown welcome',
+    'cloud.learn_more' => 'Learn More About Kiption Cloud',
     'page.last_updated' => 'Last updated {date}',
 
     // The validation queue.

@@ -22,7 +22,7 @@ final class CloudLandingTest extends TestCase
         $db = new Database('sqlite:' . $this->path);
         (new Migrator($db, \App\Tests\Support\AppLayout::migrations()))->migrate();
         \App\Seeder::run($db);
-        $db->query('INSERT INTO pages (slug, title, body) VALUES (?, ?, ?)',
+        $db->query('INSERT OR REPLACE INTO pages (slug, title, body) VALUES (?, ?, ?)',
             ['cloud', 'Hosted: your archive, kept running', "Lede paragraph.\n\nTerms record paragraph."]);
     }
 
@@ -89,7 +89,7 @@ final class CloudLandingTest extends TestCase
         $r = (new TestClient($this->app(['cloud_marketing' => $m])))->get('/cloud');
         $this->assertSame(200, $r->status);
         $this->assertStringNotContainsString('lp-', $r->body);
-        $this->assertStringContainsString('cloud-hero', $r->body);
+        $this->assertStringContainsString('cloud-simple', $r->body, 'a config without a landing falls to the simplified tier');
     }
 
     public function test_nav_lists_every_item_in_order_with_absolute_subdomain_links(): void
@@ -185,7 +185,7 @@ final class CloudLandingTest extends TestCase
         $this->assertStringContainsString('backups', $text);
         $lp = $cfg['landing'] ?? [];
         $labels = array_column($lp['nav'] ?? [], 0);
-        $this->assertSame(['How It Works', 'Features', 'Migration', 'Pricing', 'Compare', 'Blog', 'Docs', 'Status'], $labels);
+        $this->assertSame(['How It Works', 'Features', 'Migration', 'Pricing', 'Compare', 'Blog', 'Docs', 'Status', 'Sign In'], $labels);
         foreach ($lp['nav'] as [$label, $url]) {
             $this->assertMatchesRegularExpression('#^(\#|https://cloud\.kiption\.com/)#', $url, $label);
         }
