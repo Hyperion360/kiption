@@ -44,16 +44,17 @@ final class AdminmembersController
         // One statement: the counts row (k = 'c') comes first, then the page of
         // members (k = 'm'). The counts row reuses the member columns: id is the
         // total for this search and filter, then penname, email, role,
-        // is_locked, approved_at and email_verified_at carry the counts for
-        // all, members, moderators, admins, locked and waiting.
+        // is_locked, approved_at, email_verified_at and profile_slug carry the
+        // counts for all, trusted authors, moderators, admins, locked, waiting
+        // and email unverified.
         $all = $this->db->all(
             "SELECT 'c' AS k, (SELECT COUNT(*) FROM users WHERE {$where}) AS id, (SELECT COUNT(*) FROM users) AS penname,
-                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['member'] . ") AS email,
+                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['validated_author'] . ") AS email,
                     (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['moderator'] . ") AS role,
                     (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['admin'] . ") AS is_locked,
                     (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['locked'] . ") AS approved_at,
                     (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['waiting'] . ") AS email_verified_at,
-                    NULL AS profile_slug, NULL AS stories, NULL AS open_reports, NULL AS last_signin
+                    (SELECT COUNT(*) FROM users WHERE " . self::FILTERS['unverified'] . ") AS profile_slug, NULL AS stories, NULL AS open_reports, NULL AS last_signin
              UNION ALL
              SELECT * FROM (SELECT 'm', id, penname, email, role, is_locked, approved_at, email_verified_at, profile_slug,
                     (SELECT COUNT(*) FROM stories s WHERE s.author_id = users.id AND s.deleted_at IS NULL),
@@ -76,9 +77,12 @@ final class AdminmembersController
             'perPage' => $perPage,
             'filter' => $filter,
             'filters' => [
-                'all' => (int) $counts['penname'], 'member' => (int) $counts['email'], 'moderator' => (int) $counts['role'],
-                'admin' => (int) $counts['is_locked'], 'locked' => (int) $counts['approved_at'], 'waiting' => (int) $counts['email_verified_at'],
+                'all' => (int) $counts['penname'], 'admin' => (int) $counts['is_locked'], 'moderator' => (int) $counts['role'],
+                'validated_author' => (int) $counts['email'], 'waiting' => (int) $counts['email_verified_at'],
+                'locked' => (int) $counts['approved_at'], 'unverified' => (int) $counts['profile_slug'],
             ],
+            'from' => $total === 0 ? 0 : $offset + 1,
+            'to' => $offset + count($rows),
             'hasMore' => $offset + count($rows) < $total,
             'roles' => Adminness::ROLES,
             'q' => $q,
@@ -94,11 +98,13 @@ final class AdminmembersController
      *  show. Fixed text, never built from the request. */
     private const FILTERS = [
         'all' => '1 = 1',
-        'member' => "role = 'member'",
+        'member' => "role = 'member'", // no chip, but old links to it keep working
+        'validated_author' => "role = 'validated_author'",
         'moderator' => "role = 'moderator'",
         'admin' => "role = 'admin'",
         'locked' => 'is_locked = 1',
         'waiting' => 'approved_at IS NULL AND email_verified_at IS NOT NULL AND is_locked = 0',
+        'unverified' => 'email_verified_at IS NULL AND is_locked = 0',
     ];
 
     /** The role select's form: the same write as the per-role links, with the

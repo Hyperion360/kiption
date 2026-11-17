@@ -2524,3 +2524,30 @@ body:has(.reader) .site-foot { display: none; }
   .hd2 .nav-browse[open] > summary::after { transform: rotate(180deg); }
 }
 /* ==== Site header and navigation (end) ==== */
+
+/* Admin Members, design pass: header with count, borderless search, chips, plain table, range pager. */
+.member-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.member-head h1 { margin-block-end: 0; }
+.member-count { color: var(--muted); font: 500 18px/1 var(--sans); }
+.member-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; margin-inline-start: auto; }
+.member-search { margin-block: 14px 0; }
+.member-search input[type="search"] { width: 100%; max-width: 420px; min-height: 44px; border: 0; border-block-end: 1px solid var(--line-strong); background: none; color: var(--ink); font: 16px var(--sans); }
+.member-name { font-weight: 600; }
+.member-you, .member-reports { margin-inline-start: 6px; color: var(--muted); font: 400 13px/1.4 var(--sans); }
+.member-reports { color: var(--accent); }
+.member-email { display: block; color: var(--muted); font: 400 13px/1.4 var(--sans); overflow-wrap: anywhere; }
+.member-num { font-variant-numeric: tabular-nums; text-align: end; }
+.member-status::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-inline-end: 6px; border-radius: 50%; background: currentColor; }
+.member-status { padding: 0; border: 0; font: 500 14px/1.5 var(--sans); }
+.member-status.is-active { color: var(--ink-2); }
+.member-status.is-unapproved, .member-status.is-unverified { color: var(--ink-2); }
+.member-approve { margin-inline-start: 8px; font: 500 14px var(--sans); }
+.member-menu > summary { min-width: 44px; min-height: 44px; justify-content: center; font-size: 20px; }
+.member-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-block-start: 16px; }
+.member-range { color: var(--muted); font: 14px var(--sans); }
+.pager-off { color: var(--muted); opacity: .6; }
+@media (max-width:1023px) {
+  .member-table td.member-num { text-align: start; }
+  .member-table td.member-act { margin-block-start: 8px; }
+  .member-shortcuts { margin-inline-start: 0; width: 100%; }
+}
