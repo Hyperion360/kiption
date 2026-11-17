@@ -46,7 +46,7 @@ final class SearchController
         // Finding 9: the mute gate rides here in the controller, so flag off
         // disables the filtering everywhere, not just the buttons.
         $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0, $sort);
-        $data = compact('q', 'filters', 'result', 'sort', 'page', 'perPage');
+        $data = compact('q', 'filters', 'result', 'sort', 'page', 'perPage') + ['chips' => $this->chips($q, $filters, $sort, $result)];
         if (($this->request->get['live'] ?? '') === '1') return $this->live($data);
         $head = $this->head()->withTitle(\App\Lang::t('search.heading'))->withCanonical('/search')->withNoindex();
         $out = $this->view->render('search/index', [
@@ -55,9 +55,19 @@ final class SearchController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'q' => $q, 'filters' => $filters, 'result' => $result, 'sort' => $sort,
             'ratings' => $result['ratings'], 'categories' => $result['categories'],
-            'page' => $page, 'perPage' => $perPage, 'loggedIn' => $me !== 0,
+            'page' => $page, 'perPage' => $perPage, 'loggedIn' => $me !== 0, 'chips' => $data['chips'],
         ]);
         return (new \Kip\Http\Response($out, 200))->withHeader('X-Robots-Tag', 'noindex');
+    }
+
+    /** Names for the active-filter chips, taken from rows the one query already returned. */
+    private function chips(string $q, array $filters, string $sort, array $result): array
+    {
+        $names = ['category' => [], 'rating' => [], 'tag' => [], 'status' => [1 => \App\Lang::t('browse.status_complete'), 0 => \App\Lang::t('browse.status_wip')]];
+        foreach ($result['categories'] as $v) $names['category'][$v['slug']] = (string) $v['name'];
+        foreach ($result['ratings'] as $v) $names['rating'][(int) $v['id']] = (string) $v['label'];
+        foreach (array_merge($result['tags'], $result['selected']) as $v) $names['tag'][(int) $v['id']] = (string) $v['name'];
+        return \App\Search\ActiveFilters::chips($q, $filters, $sort, $names);
     }
 
     /** Same escaped view and gated rows as the ordinary GET response. */

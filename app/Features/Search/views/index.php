@@ -4,12 +4,7 @@
      // it, the filters as a quiet "Refine" group, results as the M6 story
      // cards (the shared _story_cards partial), and the outline pager. A bare
      // visit with nothing asked shows a hint, not an empty-result message.
-     $this->layout('layout');
-     $refined = ($filters['category'] ?? []) !== [] || ($filters['rating_id'] ?? null) !== null
-         || ($filters['completed'] ?? null) !== null || (string) ($filters['language'] ?? '') !== ''
-         || ($filters['tag'] ?? null) !== null || ($filters['character'] ?? null) !== null
-         || (string) ($filters['tags'] ?? '') !== '' || (string) ($filters['xtags'] ?? '') !== ''
-         || ($filters['xtag'] ?? null) !== null; ?>
+     $this->layout('layout'); ?>
 <div class="page page-search">
   <header class="page-head">
     <h1><?= \App\Lang::t('search.heading') ?></h1>
@@ -25,8 +20,9 @@
     </div>
     <ul id="search-suggestions" data-search-suggestions hidden></ul>
     <p id="search-status" data-search-status class="hint" role="status" aria-live="polite" aria-atomic="true"></p>
-    <details class="search-refine"<?= $refined ? ' open' : '' ?>>
-      <summary><?= \App\Lang::t('search.refine') ?></summary>
+    <a class="rail-open" href="#search-rail"><?= \App\Lang::t('search.filters') ?><?= $chips !== [] ? ' (' . count($chips) . ')' : '' ?></a>
+    <aside id="search-rail" class="search-rail" aria-label="<?= $this->e(\App\Lang::t('search.filters')) ?>">
+      <div class="rail-head"><h2><?= \App\Lang::t('search.filters') ?></h2><a class="rail-close" href="#search-status"><?= \App\Lang::t('search.close_filters') ?></a></div>
       <div class="refine-grid">
         <fieldset>
           <legend><?= \App\Lang::t('search.categories') ?></legend>
@@ -79,7 +75,8 @@
         <?php endif; ?>
       </div>
 <?= $this->render('browse/_tag_picker', ['result' => $result, 'tagFilter' => $filters['tag_filter']]) ?>
-    </details>
+      <button type="submit" class="btn-primary rail-apply"><?= \App\Lang::t('search.apply') ?></button>
+    </aside>
   </form>
-<div id="search-results" data-search-results><?= $this->render('search/_results', compact('q', 'filters', 'result', 'sort', 'page', 'perPage')) ?></div>
+<div id="search-results" data-search-results><?= $this->render('search/_results', compact('q', 'filters', 'result', 'sort', 'page', 'perPage', 'chips')) ?></div>
 </div>
