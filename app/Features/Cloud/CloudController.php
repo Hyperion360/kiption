@@ -12,6 +12,10 @@ final class CloudController
      *  page row and the cloud_marketing config. */
     public function index(): Response|string
     {
-        return \App\Marketing\MarketingPage::render($this->view, $this->request, $this->db, $this->session, $this->app, 'cloud', 'page/cloud');
+        // A 'landing' array in cloud_marketing switches to the full landing
+        // template; without it the page keeps the hero + plans + body shape.
+        $m = $this->app->config('cloud_marketing', []);
+        $template = is_array($m) && !empty($m['landing']) ? 'page/cloud_landing' : 'page/cloud';
+        return \App\Marketing\MarketingPage::render($this->view, $this->request, $this->db, $this->session, $this->app, 'cloud', $template);
     }
 }
