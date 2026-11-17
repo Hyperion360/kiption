@@ -90,7 +90,7 @@ final class ManageController extends AdminScreen
         // valid() has just read the viewer's role, so a member or moderator is
         // refused here, before the dashboard's count query runs at all.
         if (\App\SessionGuard::role() !== 'admin') return new Response(\App\Lang::t('error.forbidden'), 403);
-        $waiting = ['stories' => 0, 'chapters' => 0, 'members' => 0, 'reports' => 0, 'new' => 0];
+        $waiting = ['stories' => 0, 'chapters' => 0, 'members' => 0, 'reports' => 0, 'tags' => 0, 'new' => 0];
         $recent = [];
         $admin = false;
         $stillOwner = false;
@@ -105,6 +105,9 @@ final class ManageController extends AdminScreen
             if (isset($link[3]) && !\App\Features::on($link[3])) continue;
             $groups[$link[0]][] = ['url' => $link[1], 'label' => $link[2]];
         }
+        // The sidebar and the phone Queue tab carry the same numbers the home
+        // already holds, so no other query is spent on them.
+        \App\AdminNav::waiting(['/queue' => $waiting['stories'] + $waiting['chapters'] + $waiting['members'] + $waiting['reports'], '/tagqueue' => $waiting['tags']]);
         // The raw table editor: hidden when the archive turns it off (config admin.enabled).
         $database = (bool) (((array) $this->app->config('admin', []))['enabled'] ?? true);
         return $this->page('manage/index', 'manage.heading', '/manage', [
@@ -134,6 +137,8 @@ final class ManageController extends AdminScreen
              SELECT '1members', COUNT(*), '', '', '', '' FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "
              UNION ALL
              SELECT '1reports', COUNT(*), '', '', '', '' FROM reports WHERE resolved_at IS NULL
+             UNION ALL
+             SELECT '1tags', COUNT(DISTINCT s.tag_type_id || ':' || lower(s.name)), '', '', '', '' FROM tag_suggestions s WHERE s.status = 'pending'
              UNION ALL
              SELECT '1new', COUNT(*), '', '', '', '' FROM users WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', '-7 days')
              UNION ALL

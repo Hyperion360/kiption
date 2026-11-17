@@ -2005,3 +2005,13 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .admin-tabs a { position: relative; }
 .admin-tabs .tab-count { position: absolute; top: 6px; left: calc(50% + 6px); }
 @media (min-width:1024px) { .admin-nav-section > summary { min-height: 34px; margin-block-start: 6px; } }
+
+/* Admin redesign, home: the waiting list is one row per kind of work, each with its own button. */
+.site-main .home-todo { list-style: none; margin: 12px 0 8px; padding: 0; border-block-start: 1px solid var(--line); }
+.home-todo li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-block-end: 1px solid var(--line); }
+.home-todo .home-n { min-width: 44px; font-size: 28px; color: var(--accent); }
+.home-todo .home-label { flex: 1; font-size: 15px; }
+.home-total { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; background: var(--accent); color: var(--on-accent); font: 600 14px/1.5 var(--sans); vertical-align: middle; }
+.home-new { margin-block: 12px 28px; font: 15px/1.5 var(--sans); }
+.home-n-small { font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .home-todo li { flex-wrap: wrap; } .home-todo .btn { width: 100%; text-align: center; } }

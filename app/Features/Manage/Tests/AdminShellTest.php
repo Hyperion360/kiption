@@ -144,7 +144,9 @@ final class AdminShellTest extends TestCase
         \App\ActivityLog::record($this->db, $this->adminId, 'settings.save', 'site_name');
         $body = $this->client($this->adminId)->get('/manage')->body;
         $this->assertStringContainsString(Lang::t('manage.now_waiting'), $body);
-        $this->assertStringContainsString('<a href="/queue" class="is-urgent"><span class="home-n">1</span> <span class="home-label">' . Lang::t('manage.wait_member') . '</span>', $body);
+        $this->assertStringContainsString('<span class="home-n">1</span> <span class="home-label">' . Lang::t('manage.wait_member') . '</span> <a class="btn" href="/queue?tab=members">' . Lang::t('manage.cta_approve') . '</a>', $body);
+        $this->assertStringContainsString('<span class="admin-nav-count">1</span>', $body, 'the sidebar Queue link carries the same count, with no extra query');
+        $this->assertStringContainsString('<span class="tab-count">', $body);
         $this->assertStringContainsString(Lang::t('activity.a.settings.save') . ': site_name', $body);
         $this->assertStringContainsString('<a href="/activity">', $body);
     }

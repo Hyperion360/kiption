@@ -31,6 +31,7 @@ final class AdminNav
     public static function init(array $config): void
     {
         self::$database = (bool) (((array) ($config['admin'] ?? []))['enabled'] ?? true);
+        self::$waiting = [];
     }
 
     public static function reset(): void
