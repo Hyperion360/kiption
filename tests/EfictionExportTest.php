@@ -93,7 +93,7 @@ final class EfictionExportTest extends TestCase
         $token = str_repeat('a', 64);
         file_put_contents($this->root . '/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
         [$html, $code] = \EfictionExporter::runner($this->root, 'fxs_', $token, true, true, false, true);
-        $this->assertStringContainsString('Download ready', $html);
+        $this->assertStringContainsString('Download Ready', $html);
         // PharData bundle carries all three parts (runner writes out-*/ under the install root)
         $bundles = glob($this->root . '/out-*/kiption-export.tar.gz');
         $this->assertNotEmpty($bundles);
@@ -105,7 +105,7 @@ final class EfictionExportTest extends TestCase
         // wrong token: identical form page, no oracle, no bundle
         [$html2, $code2] = \EfictionExporter::runner($this->root, 'fxs_', str_repeat('b', 64), true, true, false, true);
         $this->assertSame(200, $code2);
-        $this->assertStringNotContainsString('Download ready', $html2);
+        $this->assertStringNotContainsString('Download Ready', $html2);
         // maintenance off + no force: refuses with instructions
         $fx->pdo->exec('UPDATE fxs_fanfiction_settings SET maintenance = 0');
         [$html3, $code3] = \EfictionExporter::runner($this->root, 'fxs_', $token, false, true, false, false);
@@ -128,7 +128,7 @@ final class EfictionExportTest extends TestCase
         copy(dirname(__DIR__) . '/resources/efiction-export.php', $exporterCopy);
         [$html2, $code2] = \EfictionExporter::runner($this->root, 'fxs_', $token, true, false, true, false, $exporterCopy);
         $this->assertSame(200, $code2);
-        $this->assertStringContainsString('Cleaned up', $html2);
+        $this->assertStringContainsString('Cleaned Up', $html2);
         $this->assertFileDoesNotExist($this->root . '/export-token.php');
         $this->assertFileDoesNotExist($exporterCopy);
         $this->assertFileExists(dirname(__DIR__) . '/resources/efiction-export.php', 'the repo file must survive');
@@ -149,7 +149,7 @@ final class EfictionExportTest extends TestCase
         // the runbook says "paste the token": the gate form needs a visible
         // entry field or the browser flow cannot authenticate at all
         $this->assertMatchesRegularExpression('/<input[^>]*type="password"[^>]*name="token"[^>]*>/', $none);
-        $this->assertStringNotContainsString('Download ready', $none);
+        $this->assertStringNotContainsString('Download Ready', $none);
     }
 
     #[Group('process')]
@@ -218,7 +218,7 @@ final class EfictionExportTest extends TestCase
         file_put_contents($this->root . '/export-token.php', "<?php return '" . hash('sha256', $token) . "';");
         [$html, $code] = \EfictionExporter::runner($this->root, 'fxs_', $token, true, false, false, false);
         $this->assertSame(200, $code);
-        $this->assertStringContainsString('Export ready', $html);
+        $this->assertStringContainsString('Export Ready', $html);
         $this->assertStringContainsString(htmlspecialchars($token, ENT_QUOTES), $html, 'authenticated form re-carries the token hidden');
     }
 

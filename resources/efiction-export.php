@@ -232,11 +232,11 @@ HTML;
     {
         $hashFile = $installRoot . '/export-token.php';
         if (!is_file($hashFile)) {
-            return [self::page('Export not authorized', '<p>Create <code>export-token.php</code> next to this file first (see the token command on your new archive), then reload.</p>'), 403];
+            return [self::page('Export Not Authorized', '<p>Create <code>export-token.php</code> next to this file first (see the token command on your new archive), then reload.</p>'), 403];
         }
         $expected = trim((string) require $hashFile); // finding 11: admin-added whitespace must not break the compare
         if ($token === '' || !hash_equals($expected, hash('sha256', $token))) {
-            return [self::page('Export not authorized', self::formHtml('')), 200]; // no oracle: same page shape
+            return [self::page('Export Not Authorized', self::formHtml('')), 200]; // no oracle: same page shape
         }
         if ($selfdelete) {
             @unlink($hashFile);
@@ -252,15 +252,15 @@ HTML;
                     @rmdir($outDir);
                 }
             }
-            return [self::page('Cleaned up', '<p>Exporter, token file, and any exported bundle directories were deleted. You can close this page.</p>'), 200];
+            return [self::page('Cleaned Up', '<p>Exporter, token file, and any exported bundle directories were deleted. You can close this page.</p>'), 200];
         }
         $settings = dbquery('SELECT maintenance FROM ' . escapestring($settingsPrefix) . "fanfiction_settings WHERE sitekey = '" . escapestring(SITEKEY) . "'");
         $maintenance = (int) (dbassoc($settings)['maintenance'] ?? 0);
         if ($maintenance !== 1 && !$force) {
-            return [self::page('Enable maintenance mode', '<p>Your archive is live and writable, so the export could capture an inconsistent snapshot. Enable maintenance mode (Admin &gt; Settings), then reload, or tick the force box if you accept the risk.</p>'), 409];
+            return [self::page('Enable Maintenance Mode', '<p>Your archive is live and writable, so the export could capture an inconsistent snapshot. Enable maintenance mode (Admin &gt; Settings), then reload, or tick the force box if you accept the risk.</p>'), 409];
         }
         if (!$run) {
-            return [self::page('Export ready', self::formHtml($token)), 200];
+            return [self::page('Export Ready', self::formHtml($token)), 200];
         }
         // Pre-3.0 gate, before any table is read: version older than 3.0 OR
         // the 3.x ladder's fanfiction_coauthors table absent (the structural
@@ -274,7 +274,7 @@ HTML;
             if ($v !== null && $v['version'] !== null && $v['version'] !== '') $version = (string) $v['version'];
         }
         if (($version !== '' && version_compare($version, '3.0', '<')) || !self::tableExists(TABLEPREFIX . 'fanfiction_coauthors')) {
-            return [self::page('This archive is too old to export', self::TOO_OLD_HTML), 422];
+            return [self::page('This Archive Is Too Old to Export', self::TOO_OLD_HTML), 422];
         }
         $outDir = $installRoot . '/out-' . bin2hex(random_bytes(6));
         mkdir($outDir, 0775, true);
@@ -309,11 +309,11 @@ HTML;
             unlink($tarPath);
         }
         $counts = htmlspecialchars(json_encode($manifest['counts'], JSON_UNESCAPED_SLASHES), ENT_QUOTES);
-        return [self::page('Download ready', "<p>Rows exported: <code>{$counts}</code></p>"
+        return [self::page('Download Ready', "<p>Rows exported: <code>{$counts}</code></p>"
             . '<p>Download: <a href="out-' . basename($outDir) . '/kiption-export.tar.gz">kiption-export.tar.gz</a> '
             . '(treat it as a password file: it contains emails and legacy hashes).</p>'
             . '<form method="post"><input type="hidden" name="token" value="' . htmlspecialchars($token, ENT_QUOTES) . '">'
-            . '<button name="selfdelete" value="1">Delete exporter and token now</button></form>'), 200];
+            . '<button name="selfdelete" value="1">Delete Exporter and Token Now</button></form>'), 200];
     }
 
     private static function formHtml(string $token): string
@@ -328,8 +328,8 @@ HTML;
         return <<<HTML
         <form method="post">
           {$field}
-          <label><input type="checkbox" name="force" value="1"> export without maintenance mode (risk an inconsistent snapshot)</label><br>
-          <button name="run" value="1">Run export</button>
+          <label><input type="checkbox" name="force" value="1"> Export without Maintenance Mode (risk an inconsistent snapshot)</label><br>
+          <button name="run" value="1">Run Export</button>
         </form>
         HTML;
     }
@@ -337,7 +337,7 @@ HTML;
     private static function page(string $title, string $body): string
     {
         $title = htmlspecialchars($title, ENT_QUOTES);
-        return "<!doctype html><meta charset=\"utf-8\"><title>Kiption export: {$title}</title><h1>{$title}</h1>{$body}";
+        return "<!doctype html><meta charset=\"utf-8\"><title>Kiption Export: {$title}</title><h1>{$title}</h1>{$body}";
     }
 }
 
