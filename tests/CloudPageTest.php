@@ -133,4 +133,21 @@ final class CloudPageTest extends TestCase
         $this->assertSame(301, $r->status);
         $this->assertSame('/cloud', $r->headers['Location'] ?? '');
     }
+
+    public function test_the_simplified_page_stays_inside_the_one_query_budget(): void
+    {
+        $app = new App([
+            'app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod', 'views' => dirname(__DIR__) . '/app/views',
+            'db' => ['dsn' => 'sqlite:' . $this->path], 'log_db' => ['dsn' => 'sqlite::memory:'],
+            'mail' => ['transport' => 'log', 'log_path' => sys_get_temp_dir() . '/kiption-landing.log', 'from' => 'noreply@localhost'],
+            'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
+        ]);
+        $db = $app->container->make(Database::class);
+        $n = 0;
+        \App\Tests\Support\QueryTap::on($db, function () use (&$n): void { $n++; });
+        $res = $app->handle(new \Kip\Http\Request('GET', '/cloud', [], [], []));
+        \App\Tests\Support\QueryTap::off($db);
+        $this->assertSame(200, $res->status);
+        $this->assertSame(1, $n, '/cloud runs exactly one content query');
+    }
 }
