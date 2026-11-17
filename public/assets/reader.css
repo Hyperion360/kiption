@@ -1750,7 +1750,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
   /* Admin screens are tools, not reading pages: a smaller heading with no
      rule, and the whole column beside the sidebar (drawn A1 to A3). */
   :is(.admin-body .site-main > h1:first-child, .admin-body .site-main > :is(section, article):first-child > h1:first-child) { font-size: 36px; padding-block-end: 0; margin-block-end: 8px; border-block-end: 0; }
-  .admin-shell .admin-body .site-main { max-width: 1120px; }
+  .admin-shell .admin-body .site-main:not(:has(table)) { max-width: 1120px; }
 }
 
 /* The admin menu: each screen is one row with its name and a line saying
@@ -2149,6 +2149,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 }
 .chip-list { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 2px 8px 2px 12px; border: 1px solid var(--line-strong); border-radius: 0; background: var(--surface); font: 400 13.5px var(--sans); }
+.chip-exclude { border-style: dashed; }
 .chip-kind { color: var(--ink-2); }
 .chip a { color: var(--ink); }
 .chip-x { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
