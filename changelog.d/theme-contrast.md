@@ -1,4 +1,5 @@
 ### Fixed
+- In the formatted chapter editor, the mode button no longer does nothing on a chapter it cannot show as formatted text or would have to rewrite, such as one with a * * * scene break. It now says why, and offers to convert the chapter when that is possible.
 - The formatted chapter editor now follows the site theme. With Night chosen on a computer set to light mode, the chapter text was dark gray on a near-black page and almost impossible to read. The editor also uses its full width again instead of a narrow column.
 - Form fields have a clearer edge in every theme, and placeholder text is easier to read on Sepia and Night. Custom site colors get the same: the field edge and placeholder text are worked out from the chosen colors, so they stay readable even when the text color is only just dark enough to pass, and the Colors and Layout preview now shows a sample field.
 - On phones, the header logo, the menu's theme buttons, the search Filters link, the member list controls and the hosting page's top links are now easier to tap. A signed-in member's phone header no longer scrolls sideways by a pixel.
