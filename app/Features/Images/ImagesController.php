@@ -34,7 +34,7 @@ final class ImagesController
             $name = basename($f);
             $files[] = ['name' => $name, 'human' => self::humanSize($bytes), 'inUse' => isset($inUse[$name])];
         }
-        // The storage line renders only when a hosting operator set a cap; an
+        // The storage line renders only when the site administrator set a cap; an
         // uncapped archive renders the page exactly as before.
         $quota = \App\StorageQuota::forApp($this->app);
         $storage = null;

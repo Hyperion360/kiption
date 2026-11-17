@@ -53,8 +53,8 @@ return [
     'base_url' => getenv('KIP_BASE_URL') ?: ($deployment['base_url'] ?? 'http://localhost:8080'),   // absolute links in emails; setup records the canonical HTTPS URL in deployment.php
     'mail'     => $deployment['mail'] ?? ['transport' => 'log', 'log_path' => $dataDir . '/mail.log', 'from' => 'noreply@localhost'],
     'signup_terms_url' => getenv('KIP_SIGNUP_TERMS_URL') ?: '', // when set, the register form links it (https or /-relative only)
-    'mail_daily_cap' => (int) (getenv('KIP_MAIL_DAILY_CAP') ?: 0), // the provider's daily send cap (Brevo free: 300); 0 = no guard. Non-critical mail pauses near the cap, verification and resets have their own daily bucket (App\MailGuard).
-    'mail_monthly_cap' => (int) (getenv('KIP_MAIL_MONTHLY_CAP') ?: 0), // optional monthly cap on bulk mail (a hosting operator may set this key); 0 = off. Counts the bulk rows of the UTC month, never verification mail
+    'mail_daily_cap' => (int) (getenv('KIP_MAIL_DAILY_CAP') ?: 0), // the provider's daily send cap; 0 = no guard. Non-critical mail pauses near the cap, verification and resets have their own daily bucket (App\MailGuard).
+    'mail_monthly_cap' => (int) (getenv('KIP_MAIL_MONTHLY_CAP') ?: 0), // optional monthly cap on bulk mail (the site administrator may set this key); 0 = off. Counts the bulk rows of the UTC month, never verification mail
     'storage_cap_bytes' => (int) (getenv('KIP_STORAGE_CAP_BYTES') ?: 0), // optional cap on total uploaded bytes under public/uploads; 0 = off. New uploads are refused at the cap, nothing is ever deleted (App\StorageQuota)
     'site_name' => 'Kiption',
     'adult_rta' => '',   // site-wide RTA label (the RTA-5042 declaration, e.g. 'RTA-5042-1996-1400-1577-RTA'); empty = off. The /settings board's adult_rta row overrides

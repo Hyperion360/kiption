@@ -284,7 +284,7 @@ final class MailGuardTest extends TestCase
 
     public function test_a_monthly_cap_with_daily_zero_does_nothing_and_is_documented(): void
     {
-        // The guard is off at daily 0 (existing behavior); a hosting operator's
+        // The guard is off at daily 0 (existing behavior); the site administrator's
         // config is validated to refuse stamping this combination.
         $guard = $this->cappedGuard(daily: 0, monthly: 3);
         for ($i = 0; $i < 10; $i++) $this->assertTrue($guard->send("a$i@x.test", 's', 'b'));
@@ -465,7 +465,7 @@ final class MailGuardTest extends TestCase
 
     public function test_a_stamped_shape_config_keeps_sending_on_a_small_cap(): void
     {
-        // End to end on the config shape a hosting operator stamps: two bulk
+        // End to end on the config shape the site administrator stamps: two bulk
         // sends deliver, the third is refused, critical mail still delivers.
         $guard = $this->cappedGuard(daily: 12, monthly: 20);
         $this->assertTrue($guard->send('a@e.test', 'Story update: A', 'b'));

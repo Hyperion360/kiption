@@ -12,7 +12,7 @@ final class AuthController
      *  15-minute window, thirty per IP, counted whether or not an account
      *  exists, so the limit adds no account-existence oracle. What it caps
      *  is the MAIL COUNT per address across IPs, the thing that burns a
-     *  hosting operator's provider quota. */
+     *  site administrator's provider quota. */
     private const MAIL_ADDR_MAX_PER_ADDRESS = 3;
     private const MAIL_ADDR_MAX_PER_IP = 30;
 
