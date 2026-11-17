@@ -160,4 +160,25 @@ final class QueueTest extends TestCase
         $text = implode(' ', array_column($plan, 'detail'));
         $this->assertStringNotContainsString('SCAN', $text);
     }
+
+    public function test_the_queue_shows_one_tab_with_a_detail_pane_and_an_in_place_remove_that_works_without_scripts(): void
+    {
+        $c = $this->clientAs(1);
+        $body = $c->get('/queue')->body;
+        $this->assertStringContainsString('<a href="/queue?tab=stories" aria-current="page">', $body);
+        $this->assertStringContainsString('<a href="/queue?tab=chapters">', $body);
+        $this->assertStringContainsString('class="queue-detail"', $body);
+        $this->assertStringContainsString('<summary class="btn">' . \App\Lang::t('common.remove') . '</summary>', $body, 'Remove opens its reason in place, a plain details element');
+        $this->assertStringContainsString('name="confirmed" value="1"', $body, 'the opened form is itself the confirmation, so no second page');
+        $this->assertStringContainsString('name="reason_preset"', $body);
+        $this->assertStringContainsString('action="/queue/story/' . $this->pendingStoryId . '/remove"', $body);
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated) VALUES ('Live Home', 'live-home', 'S.', ?, 2, 1)", [$this->memberId]);
+        $this->db->query("INSERT INTO chapters (story_id, position, title, content, validated, word_count) VALUES (?, 1, 'Next', 'Opening lines here.', 0, 3)", [(int) $this->db->lastInsertId()]);
+        $liveChapter = (int) $this->db->lastInsertId();
+        $ch = $c->get('/queue', ['tab' => 'chapters', 'item' => (string) $liveChapter])->body;
+        $this->assertStringContainsString('Opening lines here.', $ch, 'the chapter opening is in the pane');
+        $this->assertStringContainsString('3 words', $ch);
+        $this->assertStringNotContainsString('name="reason_preset"', $ch, 'a chapter removal sends no reason');
+        $this->assertStringContainsString('Pending Work', $c->get('/queue', ['tab' => 'nonsense', 'item' => '99999'])->body, 'an unknown tab or item falls back to the first with something waiting');
+    }
 }

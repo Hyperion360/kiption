@@ -2015,3 +2015,25 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .home-new { margin-block: 12px 28px; font: 15px/1.5 var(--sans); }
 .home-n-small { font-weight: 600; font-variant-numeric: tabular-nums; }
 @media (max-width: 520px) { .home-todo li { flex-wrap: wrap; } .home-todo .btn { width: 100%; text-align: center; } }
+
+/* Admin redesign, review queue: tabs with counts, a list, and the one item in a detail pane. */
+.queue-tabs { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-block: 16px; border-block-end: 1px solid var(--line); }
+.queue-tabs a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding-inline: 2px; color: var(--ink-2); text-decoration: none; border-block-end: 3px solid transparent; font: 500 15px/1.3 var(--sans); }
+.queue-tabs a[aria-current="page"] { color: var(--accent); border-block-end-color: var(--accent); font-weight: 600; }
+.queue-tab-n { padding: 0 6px; background: var(--pill-bg); color: var(--ink); font: 600 12px/1.6 var(--sans); font-variant-numeric: tabular-nums; }
+.queue-split { display: grid; gap: 20px; }
+@media (min-width: 900px) { .queue-split { grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); align-items: start; } }
+.site-main .queue-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); background: var(--surface); }
+.queue-list li + li { border-block-start: 1px solid var(--line); }
+.queue-list a { display: flex; flex-direction: column; gap: 2px; min-height: 44px; padding: 10px 14px 10px 11px; border-inline-start: 3px solid transparent; color: var(--ink); text-decoration: none; font: 15px/1.35 var(--sans); }
+.queue-list a:hover { background: var(--hover); }
+.queue-list a[aria-current="true"] { background: var(--pill-bg); border-inline-start-color: var(--accent); }
+.queue-list-meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.queue-detail { padding: 20px; border: 1px solid var(--line); background: var(--surface); }
+.queue-detail h2 { margin-block-start: 0; }
+.queue-excerpt { max-width: 62ch; white-space: pre-line; color: var(--ink-2); }
+.queue-detail .queue-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-block-start: 16px; }
+.queue-remove > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; }
+.queue-remove > summary::-webkit-details-marker { display: none; }
+.queue-remove[open] { flex-basis: 100%; padding: 14px; border: 1px solid var(--line-strong); }
+.queue-remove form { display: grid; gap: 8px; max-width: 420px; margin-block-start: 12px; }
