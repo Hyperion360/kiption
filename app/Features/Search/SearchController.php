@@ -82,6 +82,7 @@ final class SearchController
             $counts['xtag:' . $v['id']] = (int) $v['excludedCount'];
         }
         foreach ($result['counts']['status'] as $v => $n) $counts['status:' . $v] = (int) $n;
+        $counts['status:any'] = array_sum(array_map('intval', $result['counts']['status']));
         foreach ($result['counts']['language'] as $v => $n) $counts['language:' . $v] = (int) $n;
         $suggestions = array_map(static fn (array $row): array => [
             'label' => (string) $row['title'], 'url' => '/story/view/' . rawurlencode($row['slug']),
@@ -90,7 +91,7 @@ final class SearchController
             ? \App\Lang::t($data['q'] === '' ? 'search.hint' : 'search.no_match')
             : \App\Lang::t($result['total'] === 1 ? 'search.live_one' : 'search.live_count', ['count' => (int) $result['total']]);
         $body = json_encode(['html' => $this->view->render('search/_results', $data),
-            'suggestions' => $suggestions, 'counts' => $counts, 'message' => $message],
+            'suggestions' => $suggestions, 'counts' => $counts, 'total' => (int) $result['total'], 'message' => $message],
             JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
         return (new \Kip\Http\Response($body, 200))->withHeader('Content-Type', 'application/json; charset=utf-8')
             ->withHeader('Cache-Control', 'private, no-store')->withHeader('Vary', 'Cookie')->withHeader('X-Robots-Tag', 'noindex');

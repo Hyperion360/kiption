@@ -137,7 +137,9 @@ final class SearchLiveTest extends TaxonomyCase
         $full = $this->document($this->request(array_diff_key($get, ['live' => 1]))->body);
         foreach ($full->query('//form[@action="/search"]//*[@data-search-count]') as $el) {
             $key = $el->getAttribute('data-search-count');
-            $this->assertSame($el->getAttribute('data-count-label') . ' (' . ($before['counts'][$key] ?? 0) . ')', trim($el->textContent));
+            $n = (string) ($before['counts'][$key] ?? 0);
+            $label = $el->getAttribute('data-count-label');
+            $this->assertSame($label === '' ? $n : $label . ' (' . $n . ')', trim($el->textContent));
         }
         foreach ([['validated' => 0], ['restricted' => 1], ['deleted' => '2026-01-02'], ['locked' => 'hash']] as $options) {
             $this->a->story('River Secretcanary', $options + ['categories' => [$cat], 'tags' => [$tag]]);

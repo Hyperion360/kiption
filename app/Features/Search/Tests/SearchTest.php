@@ -436,7 +436,7 @@ final class SearchTest extends TestCase
         $this->assertStringContainsString('name="xtags"', $res->body);
         $this->assertStringContainsString('value="gore"', $res->body, 'the leave-out field is pre-filled');
         $this->assertStringContainsString('name="sort"', $res->body);
-        $this->assertStringContainsString('selected', $res->body, 'the chosen sort is selected');
+        $this->assertStringContainsString('aria-current="true">Recently Updated', $res->body, 'the chosen sort is marked');
         $this->assertStringContainsString('/browse/filter', $res->body, 'the browse link is on the page');
         // No inline script: every script tag on the page loads an external file
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $res->body, 'no inline script');
