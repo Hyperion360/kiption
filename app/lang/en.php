@@ -113,7 +113,7 @@ return [
     'nav.start_heading' => 'Not Sure Where to Start?',
     'nav.start_story' => 'Read a Complete Story under 20,000 Words',
     'foot.legal' => 'Legal',
-    'foot.blurb' => 'A self-hosted fiction archive, built with',
+    'foot.blurb' => 'An open source fiction archive, built with',
 
     // The default meta description (Head's fallback) and the home page.
     'site.meta_description' => 'An open source fiction archive, built with Kip.',
