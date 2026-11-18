@@ -11,7 +11,7 @@
 $member = $loggedIn ?? false;
 $inbox = $member ? \App\SessionGuard::unreadNotifications() + (\App\Features::on('pms') ? \App\SessionGuard::unreadMessages() : 0) : 0;
 $penname = $member ? \App\SessionGuard::penname() : '';
-$initial = $penname !== '' ? mb_strtoupper(mb_substr($penname, 0, 1)) : '•';
+$initial = $member && \App\SessionGuard::initial() !== '' ? \App\SessionGuard::initial() : '•';
 ?>
   <header class="site-head hd2" data-js-module="sitehead">
     <a class="brand" href="/"><?= $this->e(\App\SiteName::get()) ?></a>

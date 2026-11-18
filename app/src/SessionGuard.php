@@ -25,7 +25,7 @@ final class SessionGuard
      *  member's own stories. Scalar subqueries on indexed columns keep it one statement, and
      *  tests exempt it from the content-query budget by comparing to this
      *  constant. */
-    public const SQL = "SELECT password_hash, is_locked, role, penname, profile_slug,
+    public const SQL = "SELECT password_hash, is_locked, role, penname, profile_slug, email,
         (SELECT COUNT(*) FROM notifications WHERE user_id = users.id AND read_at IS NULL) AS unread_notes,
         (SELECT COUNT(*) FROM messages WHERE recipient_id = users.id AND read_at IS NULL) AS unread_msgs,
         CASE WHEN role IN ('admin', 'moderator') THEN
@@ -42,6 +42,7 @@ final class SessionGuard
     private static string $role = '';
     private static string $penname = '';
     private static string $slug = '';
+    private static string $email = '';
     private static int $notes = 0;
     private static int $msgs = 0;
     private static int $waiting = 0;
@@ -50,6 +51,13 @@ final class SessionGuard
 
     public static function penname(): string { return self::$penname; }
     public static function profileSlug(): string { return self::$slug; }
+    /** The capital letter the avatar chip shows: the pen name's first letter,
+     *  or the sign-in email's when the member has no pen name yet. Empty when signed out. */
+    public static function initial(): string
+    {
+        $name = self::$penname !== '' ? self::$penname : self::$email;
+        return $name === '' ? '' : mb_strtoupper(mb_substr($name, 0, 1));
+    }
     public static function unreadNotifications(): int { return self::$notes; }
     public static function unreadMessages(): int { return self::$msgs; }
     /** Library stories the member is part-way through (account menu note). */
@@ -70,7 +78,7 @@ final class SessionGuard
     /** The kernel does the same epoch compare, so this stands in for Auth::sessionValid(). */
     public static function valid(Database $db, Session $session): bool
     {
-        self::$role = self::$penname = self::$slug = '';
+        self::$role = self::$penname = self::$slug = self::$email = '';
         self::$notes = self::$msgs = self::$waiting = self::$progress = self::$mine = 0;
         $id = $session->get('user_id');
         $epoch = $session->get('pwd_epoch');
@@ -91,6 +99,7 @@ final class SessionGuard
         self::$role = (string) $user['role'];
         self::$penname = (string) ($user['penname'] ?? '');
         self::$slug = (string) ($user['profile_slug'] ?? '');
+        self::$email = (string) ($user['email'] ?? '');
         self::$notes = (int) $user['unread_notes'];
         self::$msgs = (int) $user['unread_msgs'];
         self::$waiting = (int) $user['waiting'];

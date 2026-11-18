@@ -7,7 +7,7 @@
    Takes loggedIn, csrf, navFile, request, navOn. */
 $member = $loggedIn ?? false;
 $penname = $member ? \App\SessionGuard::penname() : '';
-$initial = $penname !== '' ? mb_strtoupper(mb_substr($penname, 0, 1)) : '•';
+$initial = $member && \App\SessionGuard::initial() !== '' ? \App\SessionGuard::initial() : '•';
 $inbox = $member ? \App\SessionGuard::unreadNotifications() + (\App\Features::on('pms') ? \App\SessionGuard::unreadMessages() : 0) : 0;
 $menuRead = ['/browse' => \App\Lang::t('nav.browse')];
 if ($navOn['/browse/recent']) $menuRead['/browse/recent'] = \App\Lang::t('nav.way_recent');

@@ -74,6 +74,19 @@ final class SessionGuardBadgesTest extends TestCase
         $this->assertSame(0, SessionGuard::waiting());
     }
 
+    public function test_the_avatar_initial_is_the_pen_name_letter_then_the_email_letter(): void
+    {
+        $id = $this->member();
+        SessionGuard::valid($this->db, $this->session($id));
+        $this->assertSame('B', SessionGuard::initial());
+        $this->db->query('UPDATE users SET penname = NULL, email = ? WHERE id = ?', ['zed@e.test', $id]);
+        SessionGuard::valid($this->db, $this->session($id));
+        $this->assertSame('Z', SessionGuard::initial(), 'no pen name yet: the email letter, never a bare bullet');
+        $store = [];
+        SessionGuard::valid($this->db, new Session($store));
+        $this->assertSame('', SessionGuard::initial());
+    }
+
     public function test_a_failed_check_clears_the_badge_state(): void
     {
         SessionGuard::valid($this->db, $this->session($this->member()));
