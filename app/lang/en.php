@@ -714,6 +714,7 @@ return [
     'adminmembers.remove_stories_legend' => 'What Should Happen to Their Stories?',
     'adminmembers.remove_move' => 'Keep Them, and Move Them to Another Member',
     'adminmembers.remove_move_to' => 'Their Pen Name',
+    'adminmembers.remove_no_stories' => 'They have no stories, so there is nothing to keep or remove.',
     'adminmembers.remove_penname_placeholder' => 'Their pen name',
     'adminmembers.remove_remove' => 'Remove the Stories Too',
     'adminmembers.remove_submit' => 'Delete {name}',

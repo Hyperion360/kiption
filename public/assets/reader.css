@@ -2345,6 +2345,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .delete-found:empty { display: none; }
 .delete-found[data-state="problem"] { color: var(--danger); }
 .delete-note { padding-inline-start: 30px; color: var(--muted); font: 13px/1.45 var(--sans); }
+.member-delete-panel form > .delete-note { padding-inline-start: 0; margin-block: 16px; font-size: 14px; }
 .delete-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; align-items: center; margin: 0; padding-block-start: 4px; }
 .delete-actions .btn, .delete-actions .btn-danger { min-height: 44px; padding-inline: 16px; }
 .delete-actions .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--bg); font-weight: 600; }

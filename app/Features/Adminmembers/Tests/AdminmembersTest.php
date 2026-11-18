@@ -602,4 +602,26 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('class="delete-found" data-heir-status aria-live="polite"', $body);
         $this->assertStringContainsString('The stories keep their reviews and kudos.', $body);
     }
+
+    public function test_delete_page_for_a_member_with_no_stories_hides_the_question_and_says_so(): void
+    {
+        $this->db->query('DELETE FROM stories WHERE author_id = ?', [$this->targetId]);
+        $body = $this->client($this->adminId)->get('/adminmembers/remove/' . $this->targetId)->body;
+        $this->assertStringContainsString('leaving-member@e.test · 0 stories · ', $body, 'the facts line still shows the count');
+        $this->assertStringNotContainsString('What should happen to their', $body);
+        $this->assertStringNotContainsString('type="radio"', $body);
+        $this->assertStringNotContainsString('name="penname"', $body);
+        $this->assertStringContainsString('They have no stories, so there is nothing to keep or remove.', $body);
+        $this->assertStringContainsString('>Delete leaving-member</button>', $body);
+    }
+
+    public function test_a_member_with_no_stories_can_be_deleted_from_that_page(): void
+    {
+        $this->db->query('DELETE FROM stories WHERE author_id = ?', [$this->targetId]);
+        $page = $this->client($this->adminId)->get('/adminmembers/remove/' . $this->targetId)->body;
+        $this->assertSame(1, preg_match('~<input type="hidden" name="stories" value="(\w+)">~', $page, $m), 'the form still sends a choice');
+        $res = $this->client($this->adminId)->postWithToken('/adminmembers/destroy/' . $this->targetId, ['stories' => $m[1]]);
+        $this->assertSame(302, $res->status);
+        $this->assertSame(1, (int) $this->db->one('SELECT is_locked FROM users WHERE id = ?', [$this->targetId])['is_locked']);
+    }
 }
