@@ -78,4 +78,22 @@ final class ChapterImagesTest extends TestCase
         $this->assertSame('chapter.err_image_library',
             ChapterImages::refusal($this->db, 1, '', '![x](' . self::A . ') ![y](' . self::B . ')', true));
     }
+
+    public function test_the_same_new_image_used_twice_needs_only_one_library_row(): void
+    {
+        $this->owns(1, self::A);
+        $md = '![one](' . self::A . ') and ![two](' . self::A . ')';
+        $this->assertNull(ChapterImages::refusal($this->db, 1, '', $md, true));
+    }
+
+    public function test_a_long_chapter_of_new_images_is_checked_whole(): void
+    {
+        $srcs = [];
+        for ($i = 0; $i < 150; $i++) { $srcs[] = sprintf('/uploads/%016x.png', $i + 1); }
+        foreach ($srcs as $s) $this->owns(1, $s);
+        $md = implode("\n", array_map(static fn($s) => "![pic]($s)", $srcs));
+        $this->assertNull(ChapterImages::refusal($this->db, 1, '', $md, true));
+        $this->db->query('DELETE FROM author_images WHERE path = ?', [$srcs[149]]);
+        $this->assertSame('chapter.err_image_library', ChapterImages::refusal($this->db, 1, '', $md, true));
+    }
 }

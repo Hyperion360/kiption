@@ -48,10 +48,12 @@ final class ChapterImages
         if (!$imagesOn) return 'chapter.err_image_off';
         foreach ($added as $n) {
             if (trim($n['alt']) === '') return 'chapter.err_image_alt';
-            if ($db->one('SELECT 1 AS x FROM author_images WHERE owner_id = ? AND path = ?', [$userId, $n['src']]) === null) {
-                return 'chapter.err_image_library';
-            }
         }
-        return null;
+        // One statement for the whole save, however many images it adds: how many of the distinct
+        // sources sit in this author's library, against how many were asked for.
+        $wanted = array_values(array_unique(array_column($added, 'src')));
+        $owned = (int) ($db->one('SELECT COUNT(DISTINCT path) AS n FROM author_images WHERE owner_id = ? AND path IN (SELECT value FROM json_each(?))',
+            [$userId, json_encode($wanted, JSON_THROW_ON_ERROR)])['n'] ?? 0);
+        return $owned === count($wanted) ? null : 'chapter.err_image_library';
     }
 }
