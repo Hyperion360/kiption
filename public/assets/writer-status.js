@@ -46,7 +46,7 @@
     function say(message) { if (state && state.textContent !== message) state.textContent = message; }
     function dirty() { return rejected || touchedPassword || snapshot(form) !== initial; }
     function protect() {
-      var needed = dirty() && !submitting;
+      var needed = form.getAttribute('data-writer-guard') !== 'off' && dirty() && !submitting;
       if (needed === bound) return;
       env[needed ? 'addEventListener' : 'removeEventListener']('beforeunload', unload);
       bound = needed;

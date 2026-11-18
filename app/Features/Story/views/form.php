@@ -4,18 +4,28 @@
   <h1><?= $story === null ? \App\Lang::t('story.new_heading') : \App\Lang::t('story.edit_heading') ?></h1>
   <?php if (($notice ?? '') !== ''): ?><div class="prose notice"><?= $notice /* Markdown, every character escaped */ ?></div><?php endif; ?>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
-  <form id="story-editor-form" data-js-module="writer-status" data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>"
+  <form id="story-editor-form" data-js-module="writer-status<?= $story === null ? ' story-draft' : '' ?>"<?= $story === null ? ' data-writer-guard="off"' : '' ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>"
     data-writer-saved="<?= ($error ?? null) === null && ($notice ?? '') !== '' ? '1' : '0' ?>"
     data-writer-rejected="<?= ($error ?? null) !== null ? '1' : '0' ?>" method="post" action="<?= $story === null ? '/story/create' : '/story/update/' . $this->e($story['slug']) ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <?php if ($story === null): ?><p class="hint story-intro"><?= \App\Lang::t('story.new_intro') ?></p><?php endif; ?>
+    <?php if ($story !== null): ?>
     <div class="writer-actions">
       <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
       <span data-writer-state role="status" aria-live="polite" aria-atomic="true"><?= $this->e(($error ?? null) !== null ? $writerLabels['unsaved'] : (($notice ?? '') !== '' ? $writerLabels['saved'] : '')) ?></span>
     </div>
+    <?php endif; ?>
     <label><?= \App\Lang::t('common.title') ?> <input name="title" required maxlength="200" value="<?= $this->e($values['title'] ?? '') ?>"></label>
     <label><?= \App\Lang::t('common.summary') ?> <textarea name="summary" maxlength="1000" rows="3"><?= "\n" . $this->e($values['summary'] ?? '') ?></textarea></label>
-    <label><?= \App\Lang::t('story.notes') ?> <textarea name="notes" rows="2"><?= "\n" . $this->e($values['notes'] ?? '') ?></textarea></label>
-    <label><?= \App\Lang::t('common.language_hint') ?> <input name="language" maxlength="10" value="<?= $this->e($values['language'] ?? '') ?>"></label>
+    <?php $chosenLanguage = (string) ($values['language'] ?? ($story === null ? \App\Languages::DEFAULT : '')); ?>
+    <label><?= \App\Lang::t('common.language') ?>
+      <select name="language">
+        <option value=""<?= $chosenLanguage === '' ? ' selected' : '' ?>><?= \App\Lang::t('story.language_unset') ?></option>
+        <?php foreach (\App\Languages::options($chosenLanguage) as $code => $name): ?>
+          <option value="<?= $this->e($code) ?>"<?= $chosenLanguage === $code ? ' selected' : '' ?>><?= $this->e($name) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
     <label><?= \App\Lang::t('story.rating') ?>
       <select name="rating_id" required>
         <?php if ($ratingInvalid): ?><option value="" selected disabled><?= \App\Lang::t('story.choose_rating') ?></option><?php endif; ?>
@@ -34,6 +44,16 @@
         </label>
       <?php endforeach; ?>
     </fieldset>
+    <?php if ($story === null): ?>
+    <div class="writer-actions story-create">
+      <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>
+      <span data-writer-state role="status" aria-live="polite" aria-atomic="true"><?= $this->e(($error ?? null) !== null ? $writerLabels['unsaved'] : (($notice ?? '') !== '' ? $writerLabels['saved'] : '')) ?></span>
+    </div>
+    <details class="more-options">
+      <summary><?= \App\Lang::t('story.more_options') ?></summary>
+      <p class="hint"><?= \App\Lang::t('story.more_options_hint') ?></p>
+    <?php endif; ?>
+    <label><?= \App\Lang::t('story.notes') ?> <textarea name="notes" rows="2"><?= "\n" . $this->e($values['notes'] ?? '') ?></textarea></label>
     <?php if ($tagGroups !== []): ?>
     <fieldset>
       <legend><?= \App\Lang::t('story.tags') ?></legend>
@@ -98,6 +118,7 @@
     <label><?= \App\Lang::t('story.crosspost_label') ?> <input name="crosspost_url" maxlength="200" value="<?= $this->e($values['crosspost_url'] ?? '') ?>"></label>
     <p class="chapter-meta"><?= \App\Lang::t('story.syndication_help') ?></p>
     <?php endif; ?>
+    <?php if ($story === null): ?></details><?php endif; ?>
   </form>
   <?php if ($story !== null): ?>
     <form class="form-aside" method="post" action="/story/cover/<?= $this->e($story['slug']) ?>" enctype="multipart/form-data">

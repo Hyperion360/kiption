@@ -119,7 +119,7 @@
     document.head.appendChild(script);
   }
   [['prefs'], ['position'], ['keys'], ['infinite'], ['toggle'], ['sitehead'], ['chips'], ['confirm'], ['adminnav'], ['saved'], ['listfilter'], ['queue-keys'], ['adminforms'], ['heir-lookup'], ['look'],
-   ['search'], ['tagchips'], ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']], ['draft-form', ['draft-store']], ['writer-comfort'],
+   ['search'], ['tagchips'], ['paste'], ['editor', ['subset', 'text-edit', 'smart']], ['writer-status', ['wordcount']], ['story-draft'], ['draft-form', ['draft-store']], ['writer-comfort'],
    ['rich-editor', ['subset', 'source-document', 'rich-projection', 'rich-active', 'text-edit', 'smart', 'paste', 'editor']], ['epigraph-boot', ['paste', 'epigraph']]].forEach(function (entry) {
     var m = entry[0];
     var wanted = function (el) { return (' ' + el.getAttribute('data-js-module') + ' ').indexOf(' ' + m + ' ') > -1; };

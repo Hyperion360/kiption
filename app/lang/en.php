@@ -9,6 +9,7 @@ return [
     'common.summary' => 'Summary',
     'common.body' => 'Body',
     'common.create' => 'Create',
+    'common.language' => 'Language',
     'common.save' => 'Save',
     'common.cover_rejected' => 'Cover rejected: choose a PNG, JPG, WEBP, or GIF under 2 MiB.',
     'common.pages_aria' => 'Pages',
@@ -464,6 +465,10 @@ return [
 
     // The story authoring form.
     'story.new_heading' => 'New Story',
+    'story.new_intro' => 'Start with a title. Everything else can wait, and you can change any of it later.',
+    'story.language_unset' => 'Not Set',
+    'story.more_options' => 'More Options',
+    'story.more_options_hint' => 'Tags, notes, passwords and other extras. None of these are required.',
     'story.edit_heading' => 'Edit Story',
     'story.notes' => 'Notes',
     'story.rating' => 'Rating',

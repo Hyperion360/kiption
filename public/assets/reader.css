@@ -425,6 +425,11 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .form-card label + p.chapter-meta { margin-block: 0 20px; }
 .form-card .section-label { margin-block-end: 12px; }
 .form-card > .section-label:first-of-type { margin-block-start: 0; }
+.story-intro { max-width: 60ch; margin-block: 0 24px; }
+.story-create { margin-block: 8px 28px; }
+.more-options { margin-block: 0 24px; padding: 4px 20px 8px; border: 1px solid var(--line); }
+.more-options > summary { display: flex; align-items: center; min-height: 44px; margin-inline: -4px; cursor: pointer; font: 600 15px/1.4 var(--sans); color: var(--ink); }
+.more-options > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* Alerts (S5): a tinted box with the message and its fix; notices are the
    quiet green twin. */
@@ -2728,3 +2733,4 @@ body:has(.reader) .site-foot { display: none; }
   .site-foot.ft2 .poweredby > a, .story-info .meta a { display: inline-flex; align-items: center; min-height: 44px; }
   .rating-pips label { min-width: 44px; justify-content: center; }
 }
+.story-create { padding: 0; background: none; border: 0; }

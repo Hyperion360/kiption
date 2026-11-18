@@ -60,6 +60,10 @@ final class StoryDraftTest extends TaxonomyCase
     {
         $node = $x->query('//*[@id="story-editor-form"]//*[@name="' . $name . '"]')->item(0);
         self::assertNotNull($node, $name);
+        if ($node->nodeName === 'select') {
+            $picked = $x->query('.//option[@selected]', $node)->item(0);
+            return $picked === null ? '' : $picked->getAttribute('value');
+        }
         if ($node->nodeName !== 'textarea') return $node->getAttribute('value');
         // libxml's legacy parser retains the initial LF that HTML browsers consume.
         return str_starts_with($node->textContent, "\n") ? substr($node->textContent, 1) : $node->textContent;
