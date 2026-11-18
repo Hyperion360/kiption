@@ -77,8 +77,11 @@ final class SessionGuard
         if ($id === null || !is_string($epoch)) return false;
         try {
             $user = $db->one(self::SQL, [$id]);
-        } catch (\PDOException) {
-            return false;
+        } catch (\PDOException $e) {
+            // A schema still catching up mid-deploy reads as signed out. Anything else (a busy or locked
+            // file) fails the request instead, so a passing hiccup never ends a member's session.
+            if (preg_match('/no such (?:table|column)/', $e->getMessage()) === 1) return false;
+            throw $e;
         }
         if ($user === null || !hash_equals(substr((string) $user['password_hash'], 0, Auth::EPOCH_LEN), $epoch)) return false;
         if ((int) $user['is_locked'] === 1) {
