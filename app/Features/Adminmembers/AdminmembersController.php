@@ -236,15 +236,23 @@ final class AdminmembersController
         $choice = $this->request->postStr('stories');
         if (!in_array($choice, ['move', 'remove'], true)) return $refuse('adminmembers.err_choose');
         $heir = null;
+        $findHeir = fn (): ?array => $this->db->one(
+            'SELECT id FROM users WHERE penname = ? COLLATE NOCASE AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL AND is_locked = 0 AND id != ?',
+            [trim($this->request->postStr('penname')), (int) $target['id']]);
         if ($choice === 'move') {
-            $heir = $this->db->one(
-                'SELECT id FROM users WHERE penname = ? COLLATE NOCASE AND approved_at IS NOT NULL AND email_verified_at IS NOT NULL AND is_locked = 0 AND id != ?',
-                [trim($this->request->postStr('penname')), (int) $target['id']]);
+            $heir = $findHeir();
             if ($heir === null) return $refuse('adminmembers.err_heir');
         }
         $uid = (int) $target['id'];
+        $avatarFile = '';
         $this->db->begin();
         try {
+            // The heir was checked before the transaction opened; a lock or delete
+            // in between must not leave the stories on a locked account.
+            if ($heir !== null && ($heir = $findHeir()) === null) {
+                $this->db->rollBack();
+                return $refuse('adminmembers.err_heir');
+            }
             if ($heir !== null) {
                 $heirId = (int) $heir['id'];
                 $this->db->query('DELETE FROM coauthors WHERE user_id = ? AND story_id IN (SELECT id FROM stories WHERE author_id = ?)', [$heirId, $uid]);
@@ -256,14 +264,12 @@ final class AdminmembersController
             $this->db->query('DELETE FROM coauthors WHERE user_id = ?', [$uid]);
             // The picture is scrubbed with the account, not left serving from
             // /uploads (the self-delete path unlinks it too). basename() keeps
-            // the delete inside the configured uploads dir; the storage
-            // counter drops with the file (release before the unlink, the
-            // delete-path order).
+            // the delete inside the configured uploads dir. The file goes only
+            // after the commit, so a failed commit never leaves a row pointing
+            // at a missing file.
             if ((string) ($target['avatar_path'] ?? '') !== '') {
                 $dir = rtrim((string) ($this->app->config('uploads')['dir'] ?? dirname(__DIR__, 3) . '/public/uploads'), '/');
-                $file = $dir . '/' . basename((string) $target['avatar_path']);
-                \App\StorageQuota::forApp($this->app)->release((int) @filesize($file));
-                @unlink($file);
+                $avatarFile = $dir . '/' . basename((string) $target['avatar_path']);
             }
             // Pending tokens die with the account; the email-keyed ones need
             // the address from before the scrub.
@@ -278,6 +284,10 @@ final class AdminmembersController
                 ['deleted-' . $uid . \App\AccountSecurity::DELETED_EMAIL_SUFFIX, password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $uid]);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+        if ($avatarFile !== '') {
+            \App\StorageQuota::forApp($this->app)->release((int) @filesize($avatarFile)); // release before the unlink, the delete-path order
+            @unlink($avatarFile);
+        }
         \App\ActivityLog::record($this->db, (int) $gate['id'], 'members.delete', 'member ' . $uid . ($heir !== null ? ', stories moved' : ', stories removed'));
         // Stories, series and author pages all changed hands: clear the lot.
         \App\CachePurge::run($this->app, $this->db);
