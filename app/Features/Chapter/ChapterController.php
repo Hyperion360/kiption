@@ -6,6 +6,9 @@ use App\Repositories\AuthoringRepository;
 
 final class ChapterController
 {
+    /** A save-key retry only follows a lost response, so keys older than two weeks are dead weight. */
+    private const SAVE_KEY_TTL = 14 * 86400;
+
     private array $formRows = [];
     private array $currentRevisions = [];
 
@@ -246,8 +249,7 @@ final class ChapterController
     {
         if ($this->saveKey === null) return null;
         return function (int $chapterId) use ($op, $redirect): void {
-            // A retry only follows a lost response, so keys older than two weeks are dead weight.
-            $this->db->query('DELETE FROM chapter_save_requests WHERE user_id = ? AND created_at < ?', [$this->uid(), date('c', time() - 14 * 86400)]);
+            $this->db->query('DELETE FROM chapter_save_requests WHERE user_id = ? AND created_at < ?', [$this->uid(), date('c', time() - self::SAVE_KEY_TTL)]);
             $this->db->query('INSERT INTO chapter_save_requests (user_id, save_key, request_hash, chapter_id, operation, redirect, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [$this->uid(), $this->saveKey, $this->saveHash, $chapterId, $op, $redirect, date('c')]);
         };
