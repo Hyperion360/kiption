@@ -37,7 +37,7 @@ function fixture({ content = "don't stop", saved = false, rejected = false, befo
   const root = Object.assign(env, { Kip: { wordCount, init() {} }, document: {} });
   vm.runInNewContext(source(), { window: root }, { filename: new URL('../../public/assets/writer-status.js', import.meta.url).pathname });
   const api = root.Kip.writerStatus;
-  beforeAttach(form);
+  beforeAttach(form, env);
   const attached = api.attach(form, env);
   function change(target = box, type = 'input') {
     const event = new Event(type); Object.defineProperty(event, 'target', { value: target }); form.dispatchEvent(event);
@@ -75,7 +75,7 @@ test('dirty state reflects fields independently of word count', () => {
 test('initial counts and saved status come from the page; updates protect immediately and counts debounce', () => {
   const f = fixture({ saved: true });
   assert.equal(f.count.textContent, '2 words'); assert.equal(f.state.textContent, labels.saved);
-  assert.equal(f.env.count('beforeunload'), 0); assert.equal(f.button.hidden, false);
+  assert.equal(f.env.count('beforeunload'), 0); assert.equal(f.button.hidden, true);
   f.box.value = 'one two three'; f.change();
   assert.equal(f.state.textContent, labels.unsaved); assert.equal(f.env.count('beforeunload'), 1);
   assert.equal(f.count.textContent, '2 words'); f.env.flush(); assert.equal(f.count.textContent, '3 words');
@@ -105,6 +105,19 @@ test('selection count is on demand and independent of live typing', () => {
   assert.equal(f.selected.textContent, ''); f.change(); assert.equal(f.selected.textContent, '');
   f.button.dispatchEvent(new Event('click')); assert.equal(f.selected.textContent, '1 selected words');
   f.box.selectionEnd = 0; f.button.dispatchEvent(new Event('click')); assert.equal(f.selected.textContent, '0 selected words'); f.attached.destroy();
+});
+
+test('the count button shows only while text is selected, in the preview or the source', () => {
+  let page = '';
+  const f = fixture({ beforeAttach(form, env) { env.document = Object.assign(new Target(), { getSelection: () => page }); } });
+  const pick = () => f.env.document.dispatchEvent(new Event('selectionchange'));
+  assert.equal(f.button.hidden, true);
+  page = 'two words'; pick(); assert.equal(f.button.hidden, false);
+  f.button.dispatchEvent(new Event('click')); assert.equal(f.selected.textContent, '2 selected words');
+  page = ''; f.box.selectionStart = 0; f.box.selectionEnd = 0; pick();
+  assert.equal(f.button.hidden, true); assert.equal(f.selected.textContent, '');
+  f.box.selectionStart = 0; f.box.selectionEnd = 5; pick(); assert.equal(f.button.hidden, false);
+  f.attached.destroy();
 });
 
 test('story metadata works without chapter text or count controls', () => {

@@ -56,7 +56,7 @@
       var label = doc.createElement('label'); label.textContent = pair[1];
       pair[0].readOnly = true; pair[0].setAttribute('aria-label', pair[1]); label.appendChild(pair[0]); compare.appendChild(label);
     });
-    host.className = 'writer-recovery'; host.append(status, actions, compare); form.appendChild(host);
+    host.className = 'writer-recovery'; host.append(status, actions, compare); ((form.querySelector && form.querySelector('[data-writer-panel-body]')) || form).appendChild(host);
     function button(label, fn) { var el = doc.createElement('button'); el.type = 'button'; el.textContent = label; el.addEventListener('click', fn); actions.appendChild(el); return el; }
     function on(target, type, fn, opts) { target.addEventListener(type, fn, opts); listeners.push(function () { target.removeEventListener(type, fn, opts); }); }
     function stop() { env.window.clearTimeout(timer); timer = null; checking = false; generation++; }

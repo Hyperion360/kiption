@@ -121,3 +121,12 @@ test('invalid initialization leaves no controls and repeated init attaches only 
   const doc = { querySelectorAll: () => [bad, f.form] };
   comfort.init(doc); comfort.init(doc); assert.ok(f.form.kipComfort); assert.equal(f.form.children.filter(n => n.className === 'writer-comfort').length, 1); f.form.kipComfort.destroy();
 });
+
+test('schedule times convert between the stored UTC value and the writer\'s own clock', () => {
+  const utc = '2099-01-01T09:00';
+  assert.equal(comfort.localToUtc(comfort.utcToLocal(utc)), utc);
+  const local = new Date(utc + ':00Z');
+  assert.equal(comfort.utcToLocal(utc).slice(11, 13), String(local.getHours()).padStart(2, '0'));
+  assert.equal(comfort.utcToLocal(''), ''); assert.equal(comfort.localToUtc(''), '');
+  assert.equal(comfort.utcToLocal('not a time'), ''); assert.equal(comfort.localToUtc('nope'), '');
+});

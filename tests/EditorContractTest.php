@@ -99,10 +99,10 @@ final class EditorContractTest extends TestCase
             $this->assertSame('post', $form->getAttribute('method'));
             $this->assertSame($action, $form->getAttribute('action'));
             $this->assertSame(1, $xpath->query('.//input[@name="_token"]', $form)->length);
-            $buttons = $xpath->query('.//button[@type="submit"]', $form);
+            $buttons = $xpath->query('.//button[@type="submit" and not(@form)]', $form);
             $this->assertSame(1, $buttons->length, $path);
             $this->assertSame($label, trim($buttons->item(0)->textContent));
-            $this->assertSame('btn-primary', $buttons->item(0)->getAttribute('class'));
+            $this->assertStringStartsWith('btn-primary', $buttons->item(0)->getAttribute('class'));
         }
     }
 
@@ -188,7 +188,7 @@ final class EditorContractTest extends TestCase
             $this->assertSame('1', $form->getAttribute('data-writer-rejected'));
             $this->assertSame('0', $form->getAttribute('data-writer-saved'));
             $this->assertSame('You have unsaved changes.', $xpath->query('.//*[@data-writer-state]', $form)->item(0)->textContent);
-            $this->assertSame(1, $xpath->query('.//button[@type="submit" and not(@name)]', $form)->length);
+            $this->assertSame(1, $xpath->query('.//button[@type="submit" and not(@name) and not(@form)]', $form)->length);
         }
     }
 

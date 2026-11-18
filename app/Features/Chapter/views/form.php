@@ -1,8 +1,8 @@
 <?php // app/views/chapter/form.php ?>
 <?php $this->layout('layout'); ?>
 <section>
-  <h1><?= $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit', ['n' => (int) $position]) ?></h1>
-  <p class="chapter-meta"><?= \App\Lang::t('chapter.for') ?> <a href="/story/edit/<?= $this->e($story['slug']) ?>"><?= $this->e($story['story_title']) ?></a></p>
+  <h1 class="visually-hidden"><?= $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit', ['n' => (int) $position]) ?></h1>
+  <p class="visually-hidden"><?= \App\Lang::t('chapter.for') ?> <a href="/story/edit/<?= $this->e($story['slug']) ?>"><?= $this->e($story['story_title']) ?></a></p>
   <?php if (($error ?? null) !== null): ?><p class="error"><?= $this->e($error) ?></p><?php endif; ?>
   <?php if (($notice ?? '') !== ''): ?><p class="notice"><?= $this->e($notice) ?></p><?php endif; ?>
   <form data-content-required="<?= $this->e(\App\Lang::t('chapter.content_required')) ?>" id="chapter-editor-form" data-js-module="writer-status draft-form writer-comfort" data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>"
@@ -21,8 +21,32 @@
       <input type="hidden" name="base_revision" value="<?= $this->e($baseRevision) ?>">
     <?php endif; ?>
     <div class="writer-actions">
-      <button type="submit" class="btn-primary"><?= \App\Lang::t('chapter.save') ?></button>
+      <a class="writer-back" href="/story/edit/<?= $this->e($story['slug']) ?>"><?= $this->e($story['story_title']) ?></a>
       <span data-writer-state role="status" aria-live="polite" aria-atomic="true"><?= $this->e(($error ?? null) !== null ? $writerLabels['unsaved'] : (($notice ?? '') !== '' ? $writerLabels['saved'] : '')) ?></span>
+      <details class="writer-panel"<?= ($error ?? null) !== null && trim((string) ($story['publish_at'] ?? '')) !== '' ? ' open' : '' ?>>
+        <summary><?= $this->e(\App\Lang::t('chapter.options')) ?></summary>
+        <div class="writer-panel-body" data-writer-panel-body data-writer-theme-labels="<?= $this->e(json_encode(['title' => \App\Lang::t('nav.theme_toggle'), 'paper' => \App\Lang::t('theme.paper'), 'sepia' => \App\Lang::t('theme.sepia'), 'night' => \App\Lang::t('theme.night'), 'auto' => \App\Lang::t('theme.auto')], JSON_THROW_ON_ERROR)) ?>">
+          <label><?= \App\Lang::t('chapter.note_before') ?> <textarea name="notes_before" rows="3"><?= $this->e($story['notes_before'] ?? '') ?></textarea></label>
+          <label><?= \App\Lang::t('chapter.note_after') ?> <textarea name="notes_after" rows="3"><?= $this->e($story['notes_after'] ?? '') ?></textarea></label>
+          <label><?= \App\Lang::t('chapter.publish_at') ?> <input type="datetime-local" name="publish_at" data-writer-schedule value="<?= $this->e(($error ?? null) !== null ? (string) ($story['publish_at'] ?? '') : substr((string) ($story['publish_at'] ?? ''), 0, 16)) ?>"></label>
+          <p class="chapter-meta"><?= \App\Lang::t('chapter.publish_hint') ?> <span data-utc-note><?= \App\Lang::t('chapter.utc_note') ?></span></p>
+          <label><?= \App\Lang::t('chapter.access_password_label') ?> <input type="password" name="access_password" autocomplete="new-password"></label>
+<?php if ($writerProtected || ($story['access_clear'] ?? false)): ?>
+          <label class="inline"><input type="checkbox" name="access_clear" value="1"<?= ($story['access_clear'] ?? false) ? ' checked' : '' ?>> <?= \App\Lang::t('chapter.access_clear_label') ?></label>
+<?php endif; ?>
+          <details class="writer-help">
+            <summary><?= $this->e(\App\Lang::t('chapter.format_help')) ?></summary>
+            <p class="chapter-meta"><?= \App\Lang::t('chapter.markdown_help') ?></p>
+            <p class="chapter-meta"><?= \App\Lang::t('chapter.paste_hint') ?></p>
+            <p class="chapter-meta"><?= \App\Lang::t('chapter.editor_hint') ?></p>
+            <p class="chapter-meta"><?= \App\Lang::t('chapter.source_shortcut') ?></p>
+          </details>
+<?php if ($position !== null): ?>
+          <button type="submit" class="btn-danger" form="chapter-delete-form"><?= \App\Lang::t('chapter.delete') ?></button>
+<?php endif; ?>
+        </div>
+      </details>
+      <button type="submit" class="btn-primary writer-save"><?= \App\Lang::t('chapter.save') ?></button>
     </div>
     <?php if ($conflict ?? false): ?>
       <section aria-labelledby="chapter-conflict-heading">
@@ -41,33 +65,24 @@
         <button class="btn" type="submit" name="accept_revision" value="<?= $this->e($currentRevision) ?>"><?= $this->e(\App\Lang::t('chapter.replace_shown')) ?></button>
       </section>
     <?php endif; ?>
-    <label><?= \App\Lang::t('chapter.title') ?> <input name="title" maxlength="200" value="<?= $this->e($story['title'] ?? '') ?>"></label>
-    <label><?= \App\Lang::t('chapter.note_before') ?> <textarea name="notes_before" rows="2"><?= $this->e($story['notes_before'] ?? '') ?></textarea></label>
-    <label><?= \App\Lang::t('chapter.text') ?> <textarea name="content" rows="18" required aria-describedby="writer-count" data-js-module="paste epigraph-boot"<?php if ($imagesOn) : ?> data-epigraph-upload-url="/authorimages/upload" data-epigraph-csrf="<?= $this->e($csrf) ?>"<?php endif; ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
+    <label class="writer-title"><span class="visually-hidden"><?= \App\Lang::t('chapter.title') ?></span> <input name="title" maxlength="200" placeholder="<?= $this->e(\App\Lang::t('chapter.title')) ?>" value="<?= $this->e($story['title'] ?? '') ?>"></label>
+    <label class="writer-body"><span class="visually-hidden"><?= \App\Lang::t('chapter.text') ?></span> <textarea name="content" rows="18" required aria-describedby="writer-count" data-js-module="paste epigraph-boot"<?php if ($imagesOn) : ?> data-epigraph-upload-url="/authorimages/upload" data-epigraph-csrf="<?= $this->e($csrf) ?>"<?php endif; ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
         'bold' => \App\Lang::t('chapter.editor_bold'),
         'italic' => \App\Lang::t('chapter.editor_italic'),
         'link' => \App\Lang::t('chapter.editor_link'),
         'quote' => \App\Lang::t('chapter.editor_quote'),
         'break' => \App\Lang::t('chapter.editor_break'),
     ], JSON_UNESCAPED_UNICODE)) ?>"><?= $this->e($story['content'] ?? '') ?></textarea></label>
-    <div class="chapter-meta">
+    <div class="writer-foot chapter-meta">
       <output id="writer-count" data-writer-count aria-live="off"><?= $this->e(\App\Lang::t('writer.words', ['n' => \App\Markdown::wordCount((string) ($story['content'] ?? ''))])) ?></output>
       <button type="button" data-writer-count-selection hidden><?= $this->e(\App\Lang::t('writer.count_selection')) ?></button>
       <span data-writer-selection role="status" aria-live="polite" aria-atomic="true"></span>
+      <span class="writer-tools" data-writer-tools></span>
     </div>
-    <p class="chapter-meta"><?= \App\Lang::t('chapter.markdown_help') ?></p>
-    <p class="chapter-meta"><?= \App\Lang::t('chapter.paste_hint') ?></p>
-    <p class="chapter-meta"><?= \App\Lang::t('chapter.editor_hint') ?></p>
-    <label><?= \App\Lang::t('chapter.note_after') ?> <textarea name="notes_after" rows="2"><?= $this->e($story['notes_after'] ?? '') ?></textarea></label>
-    <label><?= \App\Lang::t('chapter.publish_at') ?> <input type="datetime-local" name="publish_at" value="<?= $this->e(($error ?? null) !== null ? (string) ($story['publish_at'] ?? '') : substr((string) ($story['publish_at'] ?? ''), 0, 16)) ?>"></label>
-    <p class="chapter-meta"><?= \App\Lang::t('chapter.publish_hint') ?></p>
-    <label><?= \App\Lang::t('chapter.access_password_label') ?> <input type="password" name="access_password" autocomplete="new-password"></label>
-    <label class="inline"><input type="checkbox" name="access_clear" value="1"<?= ($story['access_clear'] ?? false) ? ' checked' : '' ?>> <?= \App\Lang::t('chapter.access_clear_label') ?></label>
   </form>
-  <?php if ($position !== null): ?>
-    <form method="post" action="/chapter/delete/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>">
-      <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-      <button type="submit"><?= \App\Lang::t('chapter.delete') ?></button>
-    </form>
-  <?php endif; ?>
+<?php if ($position !== null): ?>
+  <form id="chapter-delete-form" method="post" action="/chapter/delete/<?= $this->e($story['slug']) ?>/<?= (int) $position ?>">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+  </form>
+<?php endif; ?>
 </section>

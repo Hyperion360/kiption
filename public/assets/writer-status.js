@@ -68,11 +68,21 @@
       }
     });
     on(env, 'pageshow', function () { submitting = false; update(); });
-    if (button && box && selected) on(button, 'click', function () {
-      var text = box.value.slice(box.selectionStart, box.selectionEnd);
-      selected.textContent = labels.selection.replace('{n}', root.Kip.wordCount(text));
-    });
-    update(); words(); if(button)button.hidden=false;
+    // The preview and the source both count: read the page selection first, then the textarea's own.
+    function chosen() {
+      var page = env.document && env.document.getSelection ? String(env.document.getSelection()) : '';
+      return page || (box ? box.value.slice(box.selectionStart, box.selectionEnd) : '');
+    }
+    if (button && box && selected) {
+      on(button, 'click', function () { selected.textContent = labels.selection.replace('{n}', root.Kip.wordCount(chosen())); });
+      // The button only shows while something is selected. Keyboard users keep it: it stays focusable until the selection clears.
+      if (env.document && env.document.addEventListener) on(env.document, 'selectionchange', function () {
+        var has = chosen().trim() !== '';
+        if (button.hidden === has) button.hidden = !has;
+        if (!has) selected.textContent = '';
+      });
+    }
+    update(); words();
     return { dirty: dirty, destroy: function () {
       env.clearTimeout(timer); listeners.forEach(function (off) { off(); }); env.removeEventListener('beforeunload', unload);
     } };

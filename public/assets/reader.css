@@ -384,8 +384,6 @@ label:has(+ p.hint) { margin-block-end: 0; }
 .writer-comfort { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: .75rem; }
 .writer-comfort button { min-height: 44px; }
 .writer-comfort [aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
-.writer-focus { max-width: 72ch; margin-inline: auto; }
-.writer-focus textarea[name="content"] { margin-block: 1.5rem; }
 .writer-caret-mirror { position: fixed; left: -100000px; top: 0; visibility: hidden; pointer-events: none; height: auto; overflow: visible; }
 @media print { .writer-comfort, .writer-caret-mirror { display: none; } }
 /* A link that does a button job (Export, Remove content) wears the button box. */
@@ -2741,3 +2739,44 @@ body:has(.reader) .site-foot { display: none; }
   .rating-pips label { min-width: 44px; justify-content: center; }
 }
 .story-create { padding: 0; background: none; border: 0; }
+
+/* Chapter editor: a quiet page with just the title and the text. Everything
+   else lives in the Options drawer. Focus mode hides chrome and never changes
+   the column width. */
+#chapter-editor-form { max-width: 46rem; margin-inline: auto; }
+#chapter-editor-form .writer-actions { background: var(--bg); border: 0; border-bottom: 1px solid var(--line-strong); top: 0; padding: .5rem 0; margin-bottom: 1.5rem; gap: .5rem 1rem; }
+#chapter-editor-form .writer-back { margin-inline-end: auto; color: var(--muted); text-decoration: none; font: 14px/1.4 var(--sans); }
+#chapter-editor-form .writer-title input,
+#chapter-editor-form .writer-body textarea { width: 100%; border: 0; background: transparent; color: var(--ink); box-shadow: none; padding-inline: 0; }
+#chapter-editor-form .writer-title input { font: 600 2.25rem/1.2 var(--serif); margin-block: 0 1rem; }
+#chapter-editor-form .writer-body textarea { font: 1.25rem/1.7 var(--serif); min-height: 60vh; resize: none; }
+#chapter-editor-form .writer-body .epigraph { border: 0; font-size: 1.25rem; line-height: 1.7; min-height: 60vh; }
+#chapter-editor-form .writer-foot { position: sticky; bottom: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem 0; background: var(--bg); border-top: 1px solid var(--line-strong); }
+#chapter-editor-form .writer-foot .writer-tools { margin-inline-start: auto; }
+#chapter-editor-form .writer-foot .writer-comfort { margin: 0; }
+#chapter-editor-form .writer-foot .writer-comfort button { min-height: 36px; }
+.writer-panel > summary { cursor: pointer; list-style: none; min-height: 44px; display: inline-flex; align-items: center; padding-inline: .75rem; border: 1px solid var(--line-strong); font: 14px/1 var(--sans); }
+.writer-panel > summary::-webkit-details-marker { display: none; }
+.writer-panel[open] > summary { box-shadow: inset 0 0 0 2px var(--ink); }
+.writer-panel-body { display: grid; gap: .75rem; padding: 1rem; margin-top: .5rem; background: var(--surface); border: 1px solid var(--line-strong); }
+.writer-panel-body label { display: grid; gap: .25rem; font: 14px/1.4 var(--sans); }
+.writer-panel-body label.inline { display: flex; align-items: center; gap: .5rem; }
+.writer-panel-body .writer-theme { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; font: 14px/1.4 var(--sans); }
+.writer-panel-body .writer-theme button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
+@media (min-width: 1100px) {
+  .writer-panel[open] > .writer-panel-body { position: fixed; top: 9rem; inset-inline-end: 0; bottom: 0; width: 22rem; max-width: 100vw; box-sizing: border-box; margin: 0; padding: 1.25rem 1.5rem 2rem; overflow-y: auto; z-index: 20; align-content: start; background: var(--surface, var(--bg)); border-inline-start: 1px solid var(--line-strong); box-shadow: -8px 0 24px rgba(0,0,0,.18); }
+  .writer-panel[open] > summary { position: relative; z-index: 21; }
+}
+/* Focus mode: the page, the title and the text. The column keeps its width. */
+body:has(.writer-focus) :is(.site-head, .site-foot) { display: none; }
+body:has(.writer-focus) .writer-panel[open] > .writer-panel-body { top: 0; }
+.writer-focus .writer-back, .writer-focus .writer-panel, .writer-focus .writer-actions [data-writer-state] { display: none; }
+.writer-focus .writer-actions { border-bottom-color: transparent; }
+
+#chapter-editor-form .writer-actions .writer-source { min-height: 44px; padding: 0 .9rem; border: 1px solid transparent; background: transparent; color: var(--ink-2); font: 14px/1 var(--sans); cursor: pointer; margin-inline-start: auto; }
+#chapter-editor-form .writer-actions .writer-source:hover, #chapter-editor-form .writer-actions .writer-source:focus-visible { border-color: var(--line-strong); color: var(--ink); }
+body:has(.writer-focus) .writer-actions .writer-source { display: none; }
+#chapter-editor-form .writer-foot [data-writer-count-selection] { min-height: 32px; font: 14px/1 var(--sans); }
+#chapter-editor-form .writer-foot [data-writer-count-selection][hidden] { display: none; }
+#chapter-editor-form.writer-has-twin .writer-body .epigraph-mode { display: none; }
+#chapter-editor-form .writer-back::before { content: '\2190\00a0'; }

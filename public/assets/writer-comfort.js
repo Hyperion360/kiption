@@ -96,16 +96,98 @@
     });
     on(env, 'wheel', pause); on(env, 'touchmove', pause); on(env, 'pointerdown', pause);
     on(env, 'keydown', function (e) { if (['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) pause(); });
-    doc.body.appendChild(mirror); (box.closest('label') || box).insertAdjacentElement('beforebegin', bar);
-    return { destroy: function () {
+    doc.body.appendChild(mirror);
+    (box.closest('label') || box).insertAdjacentElement('beforebegin', bar);
+    return { bar: bar, destroy: function () {
       pause(); listeners.forEach(function (off) { off(); }); form.classList.remove('writer-focus'); bar.remove(); mirror.remove();
     } };
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  // The server keeps schedules in UTC. Writers see and pick their own time.
+  function utcToLocal(utc) {
+    var d = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(utc || '') ? new Date(utc + ':00Z') : null;
+    if (!d || isNaN(d.getTime())) return '';
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function localToUtc(local) {
+    var d = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local || '') ? new Date(local) : null;
+    return !d || isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 16);
+  }
+  function schedule(form, doc) {
+    var field = form.querySelector('[data-writer-schedule]');
+    if (!field) return;
+    var note = form.querySelector('[data-utc-note]'); if (note) note.remove();
+    var local = doc.createElement('input'); local.type = 'datetime-local'; local.value = utcToLocal(field.value);
+    var owner = field.closest('label'); local.setAttribute('aria-label', owner ? owner.textContent.trim() : 'Schedule');
+    // The named field stays a datetime-local so the unsaved-changes check still sees it; it just holds the UTC value out of sight.
+    field.hidden = true; field.setAttribute('aria-hidden', 'true'); field.tabIndex = -1; field.after(local);
+    local.addEventListener('input', function () {
+      field.value = localToUtc(local.value); field.dispatchEvent(new root.Event('input', { bubbles: true }));
+    });
+  }
+  // A background post, so the theme changes in place and the chapter form is never submitted or reloaded.
+  function theme(form, doc, env) {
+    var body = form.querySelector('[data-writer-panel-body]'), token = form.elements.namedItem('_token');
+    if (!body || !body.dataset.writerThemeLabels || !token) return;
+    var labels = JSON.parse(body.dataset.writerThemeLabels), root_ = doc.documentElement;
+    var row = doc.createElement('div'), title = doc.createElement('span'), buttons = [];
+    row.className = 'writer-theme'; title.textContent = labels.title; row.appendChild(title);
+    function mark(value) { buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.value === value)); }); }
+    ['paper', 'sepia', 'night', 'auto'].forEach(function (value) {
+      var b = doc.createElement('button'); b.type = 'button'; b.value = value; b.textContent = labels[value];
+      b.addEventListener('click', function () {
+        if (value === 'auto') root_.removeAttribute('data-theme'); else root_.setAttribute('data-theme', value);
+        mark(value);
+        var data = new env.FormData(); data.set('theme', value); data.set('_token', token.value); data.set('return_to', env.location.pathname);
+        env.fetch('/reader/settings', { method: 'POST', body: data, credentials: 'same-origin', redirect: 'manual' }).catch(function () {});
+      });
+      buttons.push(b); row.appendChild(b);
+    });
+    mark(root_.getAttribute('data-theme') || 'auto');
+    var help = body.querySelector('.writer-help'); if (help) body.insertBefore(row, help); else body.appendChild(row);
+  }
+  // Ctrl or Cmd plus / flips between the formatted page and the source.
+  function shortcut(form, doc) {
+    var bar = form.querySelector('.writer-actions');
+    // Epigraph builds its own Source toggle later and wires its notices to it, so that one stays put.
+    // A twin in the header's top right mirrors its label and presses it.
+    var twin = null;
+    function seat() {
+      var mode = form.querySelector('.epigraph-mode');
+      if (!mode || !bar) return !!mode;
+      if (twin) return true;
+      twin = doc.createElement('button'); twin.type = 'button'; twin.className = 'writer-source';
+      twin.setAttribute('aria-keyshortcuts', 'Control+/ Meta+/'); twin.title = 'Ctrl or Cmd + /';
+      var sync = function () { twin.textContent = mode.textContent; };
+      sync();
+      twin.addEventListener('click', function () { mode.click(); });
+      bar.insertBefore(twin, bar.querySelector('.writer-panel') || null);
+      if (root.MutationObserver) new root.MutationObserver(sync).observe(mode, { childList: true, characterData: true, subtree: true });
+      form.classList.add('writer-has-twin');
+      return true;
+    }
+    if (!seat() && root.MutationObserver) {
+      var watch = new root.MutationObserver(function () { if (seat()) watch.disconnect(); });
+      watch.observe(form, { childList: true, subtree: true });
+    }
+    doc.addEventListener('keydown', function (e) {
+      if (e.key !== '/' || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+      var toggle = form.querySelector('.epigraph-mode');
+      if (!toggle) return;
+      e.preventDefault(); toggle.click();
+    });
   }
   function init(doc) {
     doc.querySelectorAll('form[data-js-module~="writer-comfort"]').forEach(function (form) {
       if (form.kipComfort) return;
       try { form.kipComfort = attach(form); } catch (_) { /* Native editing remains available. */ }
+      // The page gives the controls a quiet home in its footer; without one they stay above the text.
+      var slot = form.kipComfort && form.kipComfort.bar && form.querySelector('[data-writer-tools]');
+      if (slot && slot !== form.kipComfort.bar) slot.appendChild(form.kipComfort.bar);
+      [schedule, theme, shortcut].forEach(function (step) {
+        try { step(form, doc, doc.defaultView || root); } catch (_) { /* Each extra is optional. */ }
+      });
     });
   }
-  return { scrollTarget: scrollTarget, attach: attach, init: init };
+  return { scrollTarget: scrollTarget, attach: attach, init: init, utcToLocal: utcToLocal, localToUtc: localToUtc };
 });
