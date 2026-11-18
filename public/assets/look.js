@@ -52,7 +52,9 @@
         .catch(function () { /* the saved page still works; the preview just stays as it was */ });
     }
 
-    form.addEventListener('input', function () {
+    form.addEventListener('input', function (e) {
+      var hex = e.target.type === 'color' ? e.target.parentNode.querySelector('.look-hex') : null;
+      if (hex) { hex.textContent = e.target.value; }
       clearTimeout(timer);
       timer = setTimeout(refresh, 150);
     });

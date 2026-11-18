@@ -2094,6 +2094,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
    and they ride --look-* names so the panes never rebind the page's real
    --read-* tokens (only :root and the member's own prefs set those). */
 .look-form input[type="color"] { width: 64px; height: 40px; padding: 2px; }
+.look-hex { margin-inline-start: 10px; font: 500 14px var(--mono); color: var(--ink-2); text-transform: uppercase; }
 .look-live .look-form [data-look-preview-button] { display: none; }
 .look-live-error { color: var(--danger); font: 500 14px/1.5 var(--sans); margin: 0 0 12px; }
 .look-panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-block: 12px 28px; }

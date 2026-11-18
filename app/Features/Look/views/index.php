@@ -26,6 +26,7 @@ $presetFields = ['width' => 'look.width', 'size' => 'look.size', 'density' => 'l
   <?php foreach ($colorFields as $field => $label): ?>
   <label><?= $t($label) ?>
     <input type="color" <?= 'name="' . $field . '" value="' . $this->e($values[$field]) . '"' ?> pattern="#[0-9a-fA-F]{6}" required>
+    <code class="look-hex"><?= $this->e($values[$field]) ?></code>
   </label>
   <?php endforeach; ?>
   <h2 class="form-card-title"><?= $t('look.layout') ?></h2>

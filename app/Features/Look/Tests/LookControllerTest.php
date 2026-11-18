@@ -115,6 +115,7 @@ final class LookControllerTest extends TestCase
         foreach (['accent', 'bg', 'ink', 'width', 'size', 'density', 'header'] as $f) {
             $this->assertStringContainsString('name="' . $f . '"', $r->body);
         }
+        $this->assertSame(3, preg_match_all('~<code class="look-hex">#[0-9a-fA-F]{6}</code>~', $r->body), 'each color shows its hex value');
         $this->assertStringContainsString('data-look-pane="light"', $r->body);
         $this->assertStringContainsString('data-look-pane="night"', $r->body);
         $this->assertStringContainsString('data-js-module="look"', $r->body);
