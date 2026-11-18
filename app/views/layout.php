@@ -54,6 +54,7 @@
 <?php if (($isAdmin ?? false) && \App\Maintenance::on()): ?>
   <p class="maintenance-banner" role="status"><?= \App\Lang::t('maintenance.banner') ?> <a href="/settings"><?= \App\Lang::t('maintenance.banner_link') ?></a></p>
 <?php endif; ?>
+  <a class="skip-link" href="#main"><?= \App\Lang::t('nav.skip') ?></a>
   <?php $navOn = \App\NavLinks::builtIns($navFile ?? ''); ?>
 <?= $this->render('site_head', ['loggedIn' => $loggedIn ?? false, 'csrf' => $csrf ?? '', 'navFile' => $navFile ?? '', 'request' => $request ?? null, 'navOn' => $navOn]) ?>
   <?= $this->render('admin_main', ['content' => $content, 'isAdmin' => $isAdmin ?? false, 'staff' => $staff ?? false,

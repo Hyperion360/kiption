@@ -98,6 +98,17 @@ final class LayoutShellTest extends TestCase
 
     /** The footer: brand line plus Read, Write, site-name and Legal columns,
      *  identical for every visitor, hidden under the reader by CSS. */
+    public function test_every_layout_opens_with_a_skip_link_to_the_main_landmark(): void
+    {
+        $html = $this->renderLayout([]);
+        $this->assertLessThan(strpos($html, '<header'), strpos($html, 'class="skip-link" href="#main"'), 'the skip link comes before the header');
+        $this->assertStringContainsString('<main class="site-main" id="main" tabindex="-1">', $html);
+        foreach (['classic', 'manuscript'] as $skin) {
+            $layout = (string) file_get_contents(dirname(__DIR__) . "/app/skins/$skin/views/layout.php");
+            $this->assertStringContainsString('class="skip-link" href="#main"', $layout, "$skin skin keeps the skip link");
+        }
+    }
+
     public function test_site_footer_carries_secondary_destinations(): void
     {
         $body = $this->client()->get('/')->body;

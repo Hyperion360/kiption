@@ -60,6 +60,7 @@ return [
     'nav.authors' => 'Authors',
     'nav.series' => 'Series',
     'nav.menu' => 'Menu',
+    'nav.skip' => 'Skip to Content',
     'nav.theme_toggle' => 'Theme',
     'nav.theme_to_dark' => 'Switch to the Night theme',
     'nav.theme_to_light' => 'Switch to the Paper theme',

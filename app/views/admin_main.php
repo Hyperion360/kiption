@@ -32,7 +32,7 @@
   </div>
   <?php endif; ?>
   <?php endif; ?>
-  <main class="site-main"><?= $content ?? '' ?></main>
+  <main class="site-main" id="main" tabindex="-1"><?= $content ?? '' ?></main>
   <?php if ($admin !== null): ?>
   </div>
   </div>

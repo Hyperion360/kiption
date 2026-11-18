@@ -205,6 +205,9 @@ body:has(.sheet:target) .scrim {
   background: var(--scrim);
 }
 /* An empty hash-target for the Done links to land on; never visible. */
+.skip-link { position: fixed; inset-block-start: 8px; inset-inline-start: 8px; z-index: 100; padding: 10px 16px; background: var(--surface); color: var(--ink); border: 2px solid var(--accent); font: 600 15px var(--sans); transform: translateY(-200%); }
+.skip-link:focus { transform: none; }
+.site-main:focus { outline: none; }
 .skip-close { position: fixed; inset-block-start: 0; inset-inline-start: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
 /* Typography: serif headings at weight 400, balanced wrapping, tabular

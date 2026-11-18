@@ -45,6 +45,7 @@
 <?php if (($isAdmin ?? false) && \App\Maintenance::on()): ?>
   <p class="maintenance-banner" role="status"><?= \App\Lang::t('maintenance.banner') ?> <a href="/settings"><?= \App\Lang::t('maintenance.banner_link') ?></a></p>
 <?php endif; ?>
+  <a class="skip-link" href="#main"><?= \App\Lang::t('nav.skip') ?></a>
   <header class="site-head">
     <a class="brand" href="/"><?= $this->e(\App\SiteName::get()) ?></a>
     <?php if (($tagline = \App\Settings::get('slogan')) !== ''): ?><span class="tagline"><?= $this->e($tagline) ?></span><?php endif; ?>
