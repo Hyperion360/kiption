@@ -86,6 +86,18 @@ final class SchemaTemplate
                 hash_update($ctx, (string) file_get_contents($f) . "\0");
             }
         }
+        // The runner and database layer build the schema too: a change there must not reuse a stale cache.
+        foreach ([$root . '/tests/Support/AppLayout.php', $root . '/composer.lock'] as $f) {
+            hash_update($ctx, is_file($f) ? (string) file_get_contents($f) : '');
+        }
+        $fw = $root . '/vendor/kip/framework';
+        if (is_dir($fw)) {
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($fw . '/src', \FilesystemIterator::SKIP_DOTS));
+            $files = [];
+            foreach ($it as $f) if ($f->isFile()) $files[] = $f->getPathname();
+            sort($files);
+            foreach ($files as $f) hash_update($ctx, (string) file_get_contents($f) . "\0");
+        }
         hash_update($ctx, PHP_VERSION);
         return self::$fingerprint = substr(hash_final($ctx), 0, 16);
     }
