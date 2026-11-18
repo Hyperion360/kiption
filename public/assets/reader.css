@@ -25,7 +25,6 @@ html[data-theme="night"]{
   --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --visited:#c3aecd;
   --track:#262d29; --surface:#1b201d; --scrim:rgba(0,0,0,.55);
   --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
-  --btn:#8fc9b0; --btn-ink:#121513; --cover-bg:#1f4f42;
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark){
@@ -35,7 +34,6 @@ html[data-theme="night"]{
     --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
     --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d; --visited:#c3aecd;
     --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027; color-scheme:dark;
-    --btn:#8fc9b0; --btn-ink:#121513; --cover-bg:#1f4f42;
   }
 }
 /* Field borders. Form controls need a 3:1 edge against both the page and
@@ -726,7 +724,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   display: flex; flex-direction: column; justify-content: space-between;
   aspect-ratio: 2 / 3; padding: 22px 20px;
   /* fixed brand green (A.1): the cover card does not re-theme */
-  background: var(--cover-bg, var(--btn)); color: var(--cover-ink);
+  background: var(--btn); color: var(--cover-ink);
 }
 .cover-kicker { font: 11px/1.4 var(--sans); letter-spacing: .16em; text-transform: uppercase; opacity: .8; }
 .cover-title { font-family: var(--serif); font-size: 28px; line-height: 1.1; }
