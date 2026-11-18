@@ -116,4 +116,21 @@ final class ThemeContrastTokensTest extends TestCase
         $css = self::css('public/assets/reader.css');
         $this->assertMatchesRegularExpression('~:root \.epigraph\s*\{[^}]*--ink:\s*inherit[^}]*--bg:\s*inherit[^}]*--muted:\s*inherit[^}]*--accent:\s*inherit~', $css);
     }
+
+    // Night kept the Paper button fill (dark green), which sat on the near
+    // black page at about 2:1. The fill now flips to the mint accent in Night
+    // only. The fill needs 3:1 against the page, the label 4.5:1 on the fill.
+    public function test_night_primary_button_reads_on_the_page(): void
+    {
+        $t = self::themes('public/assets/reader.css');
+        foreach (['night', 'auto-dark'] as $theme) {
+            $fill = Color::parse($t[$theme]['--btn']);
+            $this->assertGreaterThanOrEqual(3.0, Color::contrast($fill, Color::parse($t[$theme]['--bg'])), "$theme fill on page");
+            $this->assertGreaterThanOrEqual(4.5, Color::contrast(Color::parse($t[$theme]['--btn-ink']), $fill), "$theme label on fill");
+        }
+        // The cover card is fixed brand green with light ink, so it keeps its fill.
+        $this->assertSame('#1f4f42', $t['night']['--cover-bg']);
+        $this->assertSame('#1f4f42', $t['paper']['--btn']);
+        $this->assertSame('#1f4f42', $t['sepia']['--btn']);
+    }
 }
