@@ -225,15 +225,17 @@ final class AdminShellTest extends TestCase
         $this->assertSame(1, $statements, 'the detail rides the one home statement');
     }
 
-    public function test_the_members_row_says_when_the_signup_question_was_answered(): void
+    public function test_the_members_row_makes_no_claim_about_the_signup_question(): void
     {
         $this->db->query('INSERT INTO users (email, password_hash, penname, role, is_admin, email_verified_at, profile_slug) VALUES (?, ?, ?, ?, ?, ?, ?)',
             ['wait@e.test', 'x', 'tallow', 'member', 0, date('c'), 'tallow']);
         [$plain] = $this->homeStatements();
-        $this->assertStringNotContainsString('signup question', $plain, 'no question asked, nothing to claim');
+        $this->assertStringNotContainsString('signup question', $plain);
         $this->db->query("INSERT INTO signup_check (id, enabled, question, answer) VALUES (1, 1, 'Name?', 'Kiption')");
         [$body, $statements] = $this->homeStatements();
-        $this->assertMatchesRegularExpression('#<span class="home-preview">tallow signed up [^<]* and answered the signup question\.</span>#', $body);
+        // The database does not record who answered, so the line must not say they did.
+        $this->assertMatchesRegularExpression('#<span class="home-preview">tallow signed up [^<]*\.</span>#', $body);
+        $this->assertStringNotContainsString('answered', $body);
         $this->assertSame(1, $statements);
     }
 

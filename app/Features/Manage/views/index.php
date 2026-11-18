@@ -19,8 +19,6 @@ $memberName = (string) ($info['members']['a'] ?? '') !== '' ? (string) $info['me
 $memberPreview = $waiting['members'] === 1
     ? \App\Lang::t('manage.preview_member', ['name' => $memberName, 'ago' => $ago((string) ($info['members']['d'] ?? ''))])
     : \App\Lang::t('manage.preview_members', ['name' => $memberName, 'ago' => $ago((string) ($info['members']['d'] ?? ''))]);
-// With the owner's signup question on, a waiting member has passed it, so say so.
-if ((string) ($info['members']['c'] ?? '0') === '1') $memberPreview = rtrim($memberPreview, '.') . ' ' . \App\Lang::t('manage.preview_answered');
 // Up to two open reports, "One on Title (reason) and one on a review of Title", then how many more.
 $reportBits = [];
 foreach (array_filter(explode("\x1e", (string) ($info['reports']['c'] ?? ''))) as $packed) {

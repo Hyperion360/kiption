@@ -13,6 +13,10 @@ $stories = (int) $member['stories'];
   <?php if (($error ?? null) !== null): ?><p class="error" role="alert"><?= $this->e($error) ?></p><?php endif; ?>
   <form method="post" action="/adminmembers/destroy/<?= (int) $member['id'] ?>">
     <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <?php if ($stories === 0): ?>
+    <input type="hidden" name="stories" value="remove">
+    <p class="delete-note"><?= \App\Lang::t('adminmembers.remove_no_stories') ?></p>
+    <?php else: ?>
     <fieldset class="delete-choices">
       <legend><?= \App\Lang::t('adminmembers.remove_legend_n', ['stories' => $count($stories, 'adminmembers.stories')]) ?></legend>
       <div class="delete-card" data-js-module="heir-lookup" data-heir-url="/adminmembers/heir?for=<?= (int) $member['id'] ?>">
@@ -27,6 +31,7 @@ $stories = (int) $member['stories'];
         <span class="delete-note"><?= \App\Lang::t('adminmembers.remove_leaves', ['stories' => $count($stories, 'adminmembers.stories'), 'chapters' => $count((int) $member['chapters'], 'adminmembers.chapters')]) ?></span>
       </div>
     </fieldset>
+    <?php endif; ?>
     <p class="delete-actions"><a class="btn" href="/adminmembers"><?= \App\Lang::t('adminmembers.cancel') ?></a> <button type="submit" class="btn-danger"><?= \App\Lang::t('adminmembers.remove_submit', ['name' => $this->e($name)]) ?></button></p>
   </form>
 </section>

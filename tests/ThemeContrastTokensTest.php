@@ -116,4 +116,41 @@ final class ThemeContrastTokensTest extends TestCase
         $css = self::css('public/assets/reader.css');
         $this->assertMatchesRegularExpression('~:root \.epigraph\s*\{[^}]*--ink:\s*inherit[^}]*--bg:\s*inherit[^}]*--muted:\s*inherit[^}]*--accent:\s*inherit~', $css);
     }
+
+    // A locked member is a warning state, so the chip is red (the design's
+    // Locked color) instead of the brand green that reads as "fine".
+    public function test_locked_member_chip_is_danger_red_and_readable(): void
+    {
+        $css = self::css('public/assets/reader.css');
+        $this->assertMatchesRegularExpression('~\.member-status\.is-locked\s*\{[^}]*color:\s*var\(--danger\)[^}]*border-color:\s*var\(--danger\)~', $css);
+        foreach (self::themes('public/assets/reader.css') as $theme => $t) {
+            $this->assertGreaterThanOrEqual(4.5, Color::contrast(Color::parse($t['--danger']), Color::parse($t['--bg'])), "$theme red text on page");
+            $this->assertGreaterThanOrEqual(3.0, Color::contrast(Color::parse($t['--danger']), Color::parse($t['--bg'])), "$theme red chip edge on page");
+        }
+    }
+
+    // Night keeps the Paper button fill (dark forest green, the brand look),
+    // which sits on the near black page at about 2:1. A thin muted sage edge
+    // carries the 3:1 non-text contrast (WCAG 1.4.11) against the page and
+    // the card surfaces, and the label stays 4.5:1 on the fill.
+    public function test_night_primary_button_keeps_forest_fill_with_a_sage_edge(): void
+    {
+        $css = self::css('public/assets/reader.css');
+        $t = self::themes('public/assets/reader.css');
+        foreach (['night', 'auto-dark'] as $theme) {
+            $this->assertSame('#1f4f42', $t[$theme]['--btn'], "$theme fill is the forest green");
+            $this->assertSame('#ffffff', $t[$theme]['--btn-ink'], "$theme label");
+            $edge = Color::parse($t[$theme]['--btn-edge']);
+            foreach (['--bg', '--surface', '--hover'] as $ground) {
+                $this->assertGreaterThanOrEqual(3.0, Color::contrast($edge, Color::parse($t[$theme][$ground])), "$theme edge on $ground");
+            }
+            $this->assertGreaterThanOrEqual(4.5, Color::contrast(Color::parse($t[$theme]['--btn-ink']), Color::parse($t[$theme]['--btn'])), "$theme label on fill");
+        }
+        $this->assertArrayNotHasKey('--btn-edge', $t['paper']);
+        $this->assertArrayNotHasKey('--btn-edge', $t['sepia']);
+        $this->assertMatchesRegularExpression('~\.btn-primary,[^{]*\{[^}]*border-color:\s*var\(--btn-edge,\s*var\(--btn\)\)~', $css);
+        $this->assertMatchesRegularExpression('~\.home-todo \.btn\s*\{[^}]*border-color:\s*var\(--btn-edge,\s*var\(--btn\)\)~', $css);
+        $this->assertMatchesRegularExpression('~\.cta-primary\s*\{[^}]*border:\s*1px solid var\(--btn-edge,\s*var\(--btn\)\)~', $css);
+        $this->assertMatchesRegularExpression('~\.continue-cta\s*\{[^}]*box-shadow:\s*inset 0 0 0 1px var\(--btn-edge,\s*var\(--btn\)\)~', $css);
+    }
 }
