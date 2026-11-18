@@ -79,7 +79,7 @@
           if ((string) $r['m'] !== '') $bits[] = $this->e((string) $r['m']);
       }
       ?>
-      <p class="queue-what"><?php if ($r['k'] === 'chapter'): ?><?= \App\Lang::t('queue.in') ?> <a class="tap-link" href="/story/edit/<?= $this->e($r['c']) ?>"><?= $this->e($r['c']) ?></a> <?php endif; ?><?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?><?= $bits === [] ? '' : ' · ' . implode(' · ', $bits) ?></p>
+      <p class="queue-what"><?php if ($r['k'] === 'chapter'): ?><?= \App\Lang::t('queue.in') ?> <a class="tap-link" href="/story/edit/<?= $this->e($r['c']) ?>"><?= $this->e((string) ($r['p'] ?? '') !== '' ? (string) $r['p'] : $r['c']) ?></a> <?php endif; ?><?= \App\Lang::t('story.by') ?> <?= $this->e($r['d']) ?><?= $bits === [] ? '' : ' · ' . implode(' · ', $bits) ?></p>
       <?php
       $tagNames = array_filter(explode("\x1f", (string) $r['i']), 'strlen');
       $newTags = array_filter(explode("\x1f", (string) $r['j']), 'strlen');

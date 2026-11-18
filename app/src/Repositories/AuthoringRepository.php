@@ -30,6 +30,8 @@ final class AuthoringRepository
                 (SELECT GROUP_CONCAT(n, char(31)) FROM (SELECT cg.name AS n FROM story_categories sc JOIN categories cg ON cg.id = sc.category_id WHERE sc.story_id = s.id ORDER BY cg.position, cg.name)),
                 (SELECT c2.title || char(31) || substr(c2.content, 1, 500) FROM chapters c2 WHERE c2.story_id = s.id ORDER BY c2.position LIMIT 1)";
     private const NO_PANE = 'NULL, NULL, NULL, NULL, NULL, NULL, NULL';
+    /** A chapter row has no story pane; its p slot carries the story title so the detail pane links by title, not slug. */
+    private const CHAPTER_PANE = 'NULL, NULL, NULL, NULL, NULL, s.title, NULL';
 
     public function __construct(private Database $db) {}
 
@@ -638,11 +640,11 @@ final class AuthoringRepository
             "SELECT '0gate' AS k, u.id AS a, u.penname AS b, u.role AS c, NULL AS d, NULL AS e, NULL AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS m, NULL AS n, NULL AS o, NULL AS p, NULL AS q
              FROM users u WHERE u.id = ? AND u.role IN ('moderator', 'admin')
              UNION ALL
-             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, " . self::AUTHOR_FACTS . ", substr(s.summary, 1, 600), s.word_count, " . self::STORY_PANE . "
+             SELECT 'story', s.id, s.title, s.slug, au.penname, s.updated_at, " . self::AUTHOR_FACTS . ", substr(s.summary, 1, 600) || CASE WHEN length(s.summary) > 600 THEN '...' ELSE '' END, s.word_count, " . self::STORY_PANE . "
              FROM stories s JOIN users au ON au.id = s.author_id
              WHERE " . self::WAITING_STORY . "
              UNION ALL
-             SELECT 'chapter', ch.id, ch.title, s.slug, au.penname, ch.updated_at, " . self::AUTHOR_FACTS . ", substr(ch.content, 1, 600), ch.word_count, " . self::NO_PANE . "
+             SELECT 'chapter', ch.id, ch.title, s.slug, au.penname, ch.updated_at, " . self::AUTHOR_FACTS . ", substr(ch.content, 1, 600) || CASE WHEN length(ch.content) > 600 THEN '...' ELSE '' END, ch.word_count, " . self::CHAPTER_PANE . "
              FROM chapters ch JOIN stories s ON s.id = ch.story_id JOIN users au ON au.id = s.author_id
              WHERE " . self::WAITING_CHAPTER . "
              UNION ALL

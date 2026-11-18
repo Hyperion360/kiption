@@ -253,6 +253,16 @@ final class QueueTest extends TestCase
         $this->assertStringContainsString('<a class="queue-open" href="/story/view/pending-work">' . \App\Lang::t('queue.open_story') . '</a>', $body);
     }
 
+    // Regression: ISSUE-002 (qa-full catch-up): the chapter pane linked by slug and cut the excerpt mid-word with no ellipsis.
+    public function test_a_waiting_chapter_links_its_story_by_title_and_marks_a_cut_excerpt(): void
+    {
+        $this->db->query('UPDATE stories SET validated = 1 WHERE id = ?', [$this->pendingStoryId]);
+        $this->db->query('UPDATE chapters SET content = ? WHERE id = ?', [str_repeat('word ', 200), $this->pendingChapterId]);
+        $body = $this->clientAs(1)->get('/queue')->body;
+        $this->assertStringContainsString('href="/story/edit/pending-work">Pending Work</a>', $body);
+        $this->assertMatchesRegularExpression('/<p class="queue-excerpt">[^<]{600}\.\.\.<\/p>/', $body);
+    }
+
     public function test_keyboard_hints_are_hidden_until_the_script_runs_and_the_script_is_wired(): void
     {
         $body = $this->clientAs(1)->get('/queue')->body;
