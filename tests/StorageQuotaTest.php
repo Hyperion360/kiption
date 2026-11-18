@@ -253,6 +253,17 @@ final class StorageQuotaTest extends TestCase
         $this->assertFileExists($q->dir() . '/a.png');
     }
 
+    public function test_remove_files_retires_every_unused_file_and_keeps_the_referenced_one(): void
+    {
+        $q = $this->quota(cap: 2000, files: ['a.png' => 600, 'b.png' => 300, 'keep.png' => 200]);
+        $q->db()->query("INSERT INTO users (email, password_hash, penname, avatar_path) VALUES ('ref@e.test', 'x', 'ref', '/uploads/keep.png')");
+        $this->assertSame(2, $q->removeFiles(['a.png', 'b.png', 'keep.png', 'gone.png', '../x.png', '']));
+        $this->assertSame(200, $q->used(), 'only the two retired files released their bytes');
+        $this->assertFileExists($q->dir() . '/keep.png');
+        $this->assertFileDoesNotExist($q->dir() . '/a.png');
+        $this->assertSame(0, $q->removeFiles([]));
+    }
+
     public function test_interleaved_reservations_never_admit_more_than_the_cap(): void
     {
         // Two StorageQuota objects on one database file, alternating. This

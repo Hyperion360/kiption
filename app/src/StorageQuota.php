@@ -139,8 +139,29 @@ final class StorageQuota
      *  is refused. Returns whether the file was removed. */
     public function removeFile(string $name): bool
     {
+        return $this->retire($name, $this->inUseNames());
+    }
+
+    /** Retire several files with one in-use scan. A failure on one file never stops the rest;
+     *  the post-commit callers must still reach their redirect. Returns how many were removed. */
+    public function removeFiles(array $names): int
+    {
+        if ($names === []) return 0;
+        $gone = 0;
+        try {
+            $inUse = $this->inUseNames();
+            foreach ($names as $name) {
+                if ($this->retire((string) $name, $inUse)) $gone++;
+            }
+        } catch (\Throwable) {} // a busy database leaves the rest for the next reconcile
+        return $gone;
+    }
+
+    /** The one unlink: a bare file name nothing references, bytes released first. */
+    private function retire(string $name, array $inUse): bool
+    {
         if ($name === '' || strpbrk($name, "/\\") !== false || $name !== basename($name)) return false;
-        if (isset($this->inUseNames()[$name])) return false;
+        if (isset($inUse[$name])) return false;
         $target = $this->uploadsDir . '/' . $name;
         if (!is_file($target)) return false;
         $bytes = (int) @filesize($target);

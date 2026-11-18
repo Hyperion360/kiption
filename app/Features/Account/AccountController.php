@@ -163,8 +163,7 @@ final class AccountController
         // Removing the stories removes their library rows; the files and their quota bytes go with them.
         // Keeping them hands the rows to Anonymous, which keeps the files in use, so removeFile skips them.
         if ($stories === 'remove') {
-            $quota = \App\StorageQuota::forApp($this->app);
-            foreach ($images as $name) $quota->removeFile($name);
+            \App\StorageQuota::forApp($this->app)->removeFiles($images);
         }
         $this->afterDelete($avatar === null ? null : (string) $avatar);
         return Response::redirect('/')

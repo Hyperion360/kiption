@@ -295,7 +295,7 @@ final class AdminmembersController
                 ['deleted-' . $uid . \App\AccountSecurity::DELETED_EMAIL_SUFFIX, password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $uid]);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
-        foreach ($retired as $name) \App\StorageQuota::forApp($this->app)->removeFile($name); // the row is gone, so the in-use check lets it go
+        \App\StorageQuota::forApp($this->app)->removeFiles($retired); // the rows are gone, so the in-use check lets them go
         if ($avatarFile !== '') {
             \App\StorageQuota::forApp($this->app)->release((int) @filesize($avatarFile)); // release before the unlink, the delete-path order
             @unlink($avatarFile);
