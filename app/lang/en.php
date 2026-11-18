@@ -1730,7 +1730,6 @@ return [
     'manage.preview_member' => '{name} signed up {ago}.',
     'manage.preview_members' => 'The newest, {name}, signed up {ago}.',
     'manage.preview_reports' => 'The oldest was filed {ago}.',
-    'manage.preview_answered' => 'and answered the signup question.',
     'manage.preview_report_story' => 'one on {title}',
     'manage.preview_report_review' => 'one on a review of {title}',
     'manage.preview_plus_more' => 'plus {n} more',
