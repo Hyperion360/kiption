@@ -152,4 +152,11 @@ final class LangTest extends TestCase
         }
         $this->assertTrue(true);
     }
+
+    // Regression: ISSUE-001 (qa-full catch-up): the footer still said "self-hosted" after the tagline changed.
+    public function testFooterBlurbMatchesTheMetaDescriptionTagline(): void
+    {
+        $en = require dirname(__DIR__) . '/app/lang/en.php';
+        $this->assertSame(rtrim($en['site.meta_description'], " ."), $en['foot.blurb'] . ' Kip');
+    }
 }
