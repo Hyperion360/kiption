@@ -32,4 +32,25 @@ final class TouchCssTest extends TestCase
         $rules = self::blocks('~hover:\s*none|pointer:\s*coarse~');
         $this->assertMatchesRegularExpression('~\.hint-keys:not\(\[hidden\]\)\s*\{[^}]*display:\s*none~', $rules);
     }
+
+    /** @return list<array{string}> */
+    public static function targets(): array
+    {
+        return [
+            ['.skip-link'], ['.site-head.hd2 .head-post'], ['.hd2 .nav-search input'], ['.theme-seg button'],
+            ['.nav-me-logout .link-btn'], ['.story-info .byline .follow-btn'], ['.rating-pips label'],
+            ['.hd2 .browse-panel a'], ['.tag-chip'], ['.site-foot.ft2 .foot-col a'], ['.action-aux a'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('targets')]
+    public function test_touch_devices_get_a_44px_floor_on_the_audited_controls(string $selector): void
+    {
+        $found = false;
+        preg_match_all('~([^{}]+)\{([^{}]*)\}~', self::blocks('~^\s*\(pointer:\s*coarse\)\s*$~'), $m, PREG_SET_ORDER);
+        foreach ($m as $r) {
+            if (in_array($selector, array_map('trim', explode(',', $r[1])), true) && preg_match('~min-height\s*:\s*44px~', $r[2])) $found = true;
+        }
+        $this->assertTrue($found, "$selector needs min-height: 44px under (pointer: coarse)");
+    }
 }

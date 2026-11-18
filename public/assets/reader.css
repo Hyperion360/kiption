@@ -2715,3 +2715,16 @@ body:has(.reader) .site-foot { display: none; }
   .site-main .search-form .search-rail .rail-group select, .site-main .search-form .search-rail .tag-find input[type="search"], .site-main .search-form .search-rail .rail-by-name input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; }
   .search-refine summary { min-height: 44px; }
 }
+
+/* Touch devices at any width: the controls the measured audit found under the
+   44px floor (design review, 2026-11-18). Last in the file so it outranks the
+   per-component rules above. Inline links inside running prose
+   are exempt, as in WCAG 2.5.8. */
+@media (pointer: coarse) {
+  .skip-link, .nav-me-list a, .site-head.hd2 .head-post, .hd2 .nav-me summary, .theme-seg button, .nav-me-logout .link-btn,
+  .hd2 .nav-search input, .report-disclosure :is(input, button), .story-info .byline .follow-btn, .rating-pips label { min-height: 44px; }
+  .hd2 .browse-panel a, .hd2 .browse-panel .bp-all, .hd2 .browse-panel .bp-start a, .action-aux a, .report-disclosure summary,
+  .byline a, .tag-chip, .section-links a, .site-foot.ft2 .foot-col a, .site-foot.ft2 .foot-brand > a,
+  .site-foot.ft2 .poweredby > a, .story-info .meta a { display: inline-flex; align-items: center; min-height: 44px; }
+  .rating-pips label { min-width: 44px; justify-content: center; }
+}
