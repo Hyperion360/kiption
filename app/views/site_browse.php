@@ -43,7 +43,7 @@ $ways = [['/browse/recent', 'nav.way_recent', 'nav.way_recent_note', $navOn['/br
       </ul>
 <?php endif; ?>
       <a class="bp-all" href="/browse/filter"><?= \App\Lang::t('nav.filter_tags') ?></a>
-      <p class="bp-start"><strong><?= \App\Lang::t('nav.start_heading') ?></strong><a href="/browse/filter?status=complete&amp;wmax=20000"><?= \App\Lang::t('nav.start_story') ?></a></p>
+      <p class="bp-start"><strong><?= \App\Lang::t('nav.start_heading') ?></strong><a href="/browse/filter?status=complete&amp;wmax=<?= \App\Repositories\BrowseQuery::SHORT_STORY_WORDS ?>"><?= \App\Lang::t('nav.start_story') ?></a></p>
     </section>
   </div>
 </div>

@@ -9,6 +9,8 @@ final class BrowseQuery
 {
     public const PER_PAGE = 20;
     public const WORDS_CAP = 10_000_000;
+    /** The "short story" ceiling the browse panel's start-here link filters by. */
+    public const SHORT_STORY_WORDS = 20_000;
     public const STATUSES = ['any', 'complete', 'wip'];
     public const SORTS = ['updated', 'created', 'words', 'title'];
 
