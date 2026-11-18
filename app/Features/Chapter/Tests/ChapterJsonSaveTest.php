@@ -119,6 +119,19 @@ final class ChapterJsonSaveTest extends TestCase
         $this->assertSame(200, $this->create()->status);
     }
 
+    /** Regression: ISSUE-005 / Found by /qa on 2026-11-18. Save keys were kept
+     *  forever; a retry only ever needs the last few days. */
+    public function test_a_new_save_prunes_that_members_stale_keys_and_keeps_recent_ones(): void
+    {
+        $row = fn(string $key, string $when) => $this->db->query(
+            "INSERT INTO chapter_save_requests (user_id, save_key, request_hash, chapter_id, operation, redirect, created_at) VALUES (1, ?, 'h', (SELECT id FROM chapters LIMIT 1), 'update', '/x', ?)", [$key, $when]);
+        $row('cccccccc-cccc-4ccc-8ccc-cccccccccccc', date('c', time() - 30 * 86400));
+        $row('dddddddd-dddd-4ddd-8ddd-dddddddddddd', date('c', time() - 86400));
+        $this->assertSame(200, $this->create()->status);
+        $keys = array_column($this->db->all('SELECT save_key FROM chapter_save_requests ORDER BY save_key'), 'save_key');
+        $this->assertSame([self::K1, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'], $keys);
+    }
+
     public function test_json_update_retries_even_though_the_revision_moved(): void
     {
         $rev = $this->revision();
