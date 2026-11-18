@@ -70,8 +70,8 @@ final class AuthorimagesController
             $this->db->commit();
         } catch (\Throwable $e) {
             try { $this->db->rollBack(); } catch (\Throwable) {}
-            // Not in the catalog yet: retires the file and refunds the bytes. A failure here must not hide the real reply.
-            try { $quota->removeFile(basename($path)); } catch (\Throwable) {}
+            // Not in the catalog yet: retires the file and refunds the bytes. removeFiles swallows its own failures, so the real reply is never hidden.
+            $quota->removeFiles([basename($path)]);
             if ($key !== null && !($e instanceof \LengthException)) {
                 $won = $this->db->one('SELECT id, path, content_sha256 FROM author_images WHERE owner_id = ? AND upload_key = ?', [$uid, $key]);
                 if ($won !== null && hash_equals((string) $won['content_sha256'], $digest)) {
