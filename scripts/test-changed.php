@@ -10,11 +10,10 @@ declare(strict_types=1);
  * untracked files) and maps each one:
  *
  *   app/Features/<Name>/Tests/...     that test file, or that slice's tests
- *   app/Features/<Name>/<other>       every test in that slice (controller, views)
+ *   app/Features/<Name>/<other>       every test in that slice (controller, views), or the full
+ *                                     suite when the slice has no Tests folder of its own
  *   tests/<Name>Test.php              that one test file
  *   tests/js/...                      the Node tests only (test.php --js-only)
- *   app/Features/<Name>/<other>       with no Tests folder of its own: the full
- *                                     suite, since other tests may cover it
  *   docs, *.md, changelog.d, .gitignore   nothing to run
  *   anything else                     the full suite: app/src, app/migrations,
  *                                     a feature's migrations, app/views,
