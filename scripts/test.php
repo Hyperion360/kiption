@@ -11,6 +11,11 @@ declare(strict_types=1);
  *   --exclude-group=NAME   skip a size group, e.g. --exclude-group=large,process
  *   --random[=SEED]        run each worker in random order and print the seed
  *   --stop-on-failure      stop each worker at its first failure
+ *   --js-only              run only the Node tests (tests/js), nothing else
+ *
+ * A full run (no paths, no group filters) also runs the Node tests, as CI does,
+ * and fails if any discovered test file produced no results. Set
+ * TEST_SKIP_JS=1 to skip the Node tests on a machine without node.
  *
  * With no paths it runs every test file the suite lists (tests/ and each
  * app/Features/<Name>/Tests). Test files are split across workers by the
@@ -25,7 +30,7 @@ declare(strict_types=1);
  */
 
 $root = dirname(__DIR__);
-$opts = ['jobs' => min(8, max(2, cpuCount())), 'group' => null, 'exclude' => null, 'random' => null, 'stop' => false];
+$opts = ['jobs' => min(8, max(2, cpuCount())), 'group' => null, 'exclude' => null, 'random' => null, 'stop' => false, 'jsOnly' => false];
 $paths = [];
 foreach (array_slice($argv, 1) as $arg) {
     if (preg_match('/^--jobs=(\d+)$/', $arg, $m)) $opts['jobs'] = max(1, (int) $m[1]);
@@ -34,9 +39,12 @@ foreach (array_slice($argv, 1) as $arg) {
     elseif ($arg === '--random') $opts['random'] = (string) random_int(1, 999999);
     elseif (preg_match('/^--random=(\d+)$/', $arg, $m)) $opts['random'] = $m[1];
     elseif ($arg === '--stop-on-failure') $opts['stop'] = true;
+    elseif ($arg === '--js-only') $opts['jsOnly'] = true;
     elseif ($arg[0] === '-') { fwrite(STDERR, "unknown option {$arg}\n"); exit(2); }
     else $paths[] = $arg;
 }
+
+if ($opts['jsOnly']) exit(runNodeTests($root));
 
 $files = discover($root, $paths);
 if ($files === []) { fwrite(STDERR, "no test files found\n"); exit(2); }
@@ -92,9 +100,40 @@ $rm($work);
 printf("\n%d tests, %d assertions, %d failures, %d errors, %d skipped, %d workers, %.1fs%s\n",
     $totals['tests'], $totals['assertions'], $totals['failures'], $totals['errors'], $totals['skipped'],
     count($shards), microtime(true) - $started, $opts['random'] !== null ? ", random seed {$opts['random']}" : '');
+
+$fullRun = $paths === [] && $opts['group'] === null && $opts['exclude'] === null;
+if ($fullRun) {
+    // A test file that loads but reports nothing (a fatal in a shard, a bad filename) must not pass quietly.
+    $silent = array_diff(array_map(static fn($f) => ltrim(substr($f, strlen($root)), '/'), $files), array_keys($newTimings));
+    if ($silent !== [] && $exit === 0) {
+        echo "\n" . count($silent) . " test file(s) produced no results:\n  " . implode("\n  ", $silent) . "\n";
+        $exit = 1;
+    }
+    $exit = max($exit, runNodeTests($root));
+}
 exit($exit);
 
 // ---------------------------------------------------------------------------
+
+/** The Node tests CI runs. Returns 0 on success, 1 on failure or when node is missing and not waived. */
+function runNodeTests(string $root): int
+{
+    if (getenv('TEST_SKIP_JS') === '1') { echo "Node tests skipped (TEST_SKIP_JS=1)\n"; return 0; }
+    $files = glob($root . '/tests/js/*.test.mjs') ?: [];
+    if ($files === []) return 0;
+    $node = trim((string) @shell_exec('command -v node 2>/dev/null'));
+    if ($node === '') { echo "node not found: install it or set TEST_SKIP_JS=1 to skip the Node tests\n"; return 1; }
+    echo "\nNode tests (" . count($files) . " files)\n";
+    $cmd = array_merge([$node, '--test'], $files);
+    $proc = proc_open($cmd, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes, $root);
+    if (!is_resource($proc)) { echo "cannot start node\n"; return 1; }
+    $out = (string) stream_get_contents($pipes[1]);
+    $code = proc_close($proc);
+    if ($code !== 0) { echo $out; return 1; }
+    foreach (['tests', 'pass', 'fail'] as $k) if (preg_match('/^# ' . $k . ' (\d+)/m', $out, $m)) echo "{$k} {$m[1]}  ";
+    echo "\n";
+    return 0;
+}
 
 function cpuCount(): int
 {

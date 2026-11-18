@@ -12,6 +12,9 @@ declare(strict_types=1);
  *   app/Features/<Name>/Tests/...     that test file, or that slice's tests
  *   app/Features/<Name>/<other>       every test in that slice (controller, views)
  *   tests/<Name>Test.php              that one test file
+ *   tests/js/...                      the Node tests only (test.php --js-only)
+ *   app/Features/<Name>/<other>       with no Tests folder of its own: the full
+ *                                     suite, since other tests may cover it
  *   docs, *.md, changelog.d, .gitignore   nothing to run
  *   anything else                     the full suite: app/src, app/migrations,
  *                                     a feature's migrations, app/views,
@@ -43,16 +46,20 @@ $changed = lines(git($root, ['diff', '--name-only', $base, '--']));
 $changed = array_values(array_unique(array_merge($changed, lines(git($root, ['ls-files', '--others', '--exclude-standard'])))));
 if ($changed === []) { echo "nothing changed against {$base}; nothing to run\n"; exit(0); }
 
-$targets = []; $full = null;
+$targets = []; $full = null; $js = false;
 foreach ($changed as $path) {
     $r = route($path);
     if ($r === 'full') { $full = $path; break; }
+    if ($r === 'js') { $js = true; continue; }
     if ($r !== 'none') $targets[$r] = true;
 }
 
 if ($full !== null) {
     echo "full suite: {$full} is outside any slice\n";
     $cmd = [PHP_BINARY, $root . '/scripts/test.php', ...$pass];
+} elseif ($targets === [] && $js) {
+    echo "only the Node tests changed\n";
+    $cmd = [PHP_BINARY, $root . '/scripts/test.php', '--js-only'];
 } elseif ($targets === []) {
     echo "only docs changed; nothing to run\n";
     exit(0);
@@ -67,9 +74,19 @@ if ($full !== null) {
     }
     array_push($cmd, ...$paths);
 }
-if ($dry) { echo implode(' ', array_map('escapeshellarg', $cmd)) . "\n"; exit(0); }
+$jsToo = $js && $full === null && $targets !== []; // slices ran, and the Node tests changed too
+if ($dry) {
+    echo implode(' ', array_map('escapeshellarg', $cmd)) . "\n";
+    if ($jsToo) echo implode(' ', array_map('escapeshellarg', [PHP_BINARY, $root . '/scripts/test.php', '--js-only'])) . "\n";
+    exit(0);
+}
 $proc = proc_open($cmd, [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes, $root);
-exit(proc_close($proc));
+$code = proc_close($proc);
+if ($jsToo) {
+    $proc = proc_open([PHP_BINARY, $root . '/scripts/test.php', '--js-only'], [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes, $root);
+    $code = max($code, proc_close($proc));
+}
+exit($code);
 
 // ---------------------------------------------------------------------------
 
@@ -80,9 +97,11 @@ function route(string $p): string
     if (preg_match('#^app/Features/([^/]+)/Tests/#', $p, $m)) return "app/Features/{$m[1]}/Tests"; // a helper or fixture in the slice
     if (preg_match('#^app/Features/([^/]+)/migrations/#', $p)) return 'full'; // changes the schema every DB test builds
     if (preg_match('#^app/Features/([^/]+)/#', $p, $m)) {
-        return is_dir(dirname(__DIR__) . "/app/Features/{$m[1]}/Tests") ? "app/Features/{$m[1]}/Tests" : 'none';
+        // No Tests folder of its own: top-level tests may cover it, so run everything rather than nothing.
+        return is_dir(dirname(__DIR__) . "/app/Features/{$m[1]}/Tests") ? "app/Features/{$m[1]}/Tests" : 'full';
     }
     if (preg_match('#^tests/[A-Za-z0-9_]+Test\.php$#', $p)) return $p;
+    if (preg_match('#^tests/js/#', $p)) return 'js';
     if (preg_match('#^(docs/|changelog\.d/|[^/]+\.md$|\.gitignore$|\.github/)#', $p)) return 'none';
     return 'full';
 }
