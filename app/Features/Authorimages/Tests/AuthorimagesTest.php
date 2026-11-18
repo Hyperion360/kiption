@@ -192,4 +192,40 @@ final class AuthorimagesTest extends TestCase
     {
         $this->assertSame(403, $this->client($this->alice)->post('/authorimages/upload', [])->status);
     }
+
+    // Regression: ISSUE-001
+    // Found by /qa on 2026-11-18
+    // Report: .gstack/qa-reports/ (member delete scrubs the row, so the cascade never fires)
+    public function test_admin_delete_with_removed_stories_retires_images_files_and_save_keys(): void
+    {
+        $admin = $this->user('boss'); $this->db->query("UPDATE users SET role = 'admin' WHERE id = ?", [$admin]);
+        $j = json_decode($this->send($this->client($this->alice), $this->png())->body, true);
+        $this->seedSaveRequest($this->alice);
+        $res = $this->client($admin)->postWithToken('/adminmembers/destroy/' . $this->alice, ['stories' => 'remove']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images WHERE owner_id = ?', [$this->alice])['n']);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM chapter_save_requests WHERE user_id = ?', [$this->alice])['n']);
+        $this->assertFileDoesNotExist($this->root . '/upl/' . basename($j['src']));
+    }
+
+    public function test_admin_delete_with_an_heir_hands_the_library_to_the_heir_and_keeps_the_file(): void
+    {
+        $admin = $this->user('boss'); $this->db->query("UPDATE users SET role = 'admin' WHERE id = ?", [$admin]);
+        $j = json_decode($this->send($this->client($this->alice), $this->png())->body, true);
+        $this->seedSaveRequest($this->alice);
+        $res = $this->client($admin)->postWithToken('/adminmembers/destroy/' . $this->alice, ['stories' => 'move', 'penname' => 'bob']);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame($this->bob, (int) $this->db->one('SELECT owner_id FROM author_images WHERE id = ?', [$j['id']])['owner_id']);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM chapter_save_requests WHERE user_id = ?', [$this->alice])['n']);
+        $this->assertFileExists($this->root . '/upl/' . basename($j['src']));
+    }
+
+    private function seedSaveRequest(int $uid): void
+    {
+        $this->db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count) VALUES (?, ?, ?, ?, 1, 1, 1, 1)', ['T', 't-' . $uid, 's', $uid]);
+        $sid = (int) $this->db->lastInsertId();
+        $this->db->query("INSERT INTO chapters (story_id, position, title, content, word_count) VALUES (?, 1, 'c', 'b', 1)", [$sid]);
+        $this->db->query("INSERT INTO chapter_save_requests (user_id, save_key, request_hash, chapter_id, operation, redirect, created_at) VALUES (?, 'k1', 'h', ?, 'update', '/x', ?)",
+            [$uid, (int) $this->db->lastInsertId(), date('c')]);
+    }
 }

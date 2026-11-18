@@ -245,6 +245,7 @@ final class AdminmembersController
         }
         $uid = (int) $target['id'];
         $avatarFile = '';
+        $retired = [];
         $this->db->begin();
         try {
             // The heir was checked before the transaction opened; a lock or delete
@@ -262,6 +263,16 @@ final class AdminmembersController
                 $this->db->query('UPDATE stories SET deleted_at = ? WHERE author_id = ? AND deleted_at IS NULL', [date('c'), $uid]);
             }
             $this->db->query('DELETE FROM coauthors WHERE user_id = ?', [$uid]);
+            // The row is scrubbed, not dropped, so the cascade never retires
+            // the editor's rows. Save keys die with the account. Uploaded
+            // images follow the stories: to the heir, or out with them.
+            $this->db->query('DELETE FROM chapter_save_requests WHERE user_id = ?', [$uid]);
+            if ($heir !== null) {
+                $this->db->query('UPDATE author_images SET owner_id = ?, upload_key = NULL WHERE owner_id = ?', [(int) $heir['id'], $uid]);
+            } else {
+                foreach ($this->db->all('SELECT path FROM author_images WHERE owner_id = ?', [$uid]) as $img) $retired[] = basename((string) $img['path']);
+                $this->db->query('DELETE FROM author_images WHERE owner_id = ?', [$uid]);
+            }
             // The picture is scrubbed with the account, not left serving from
             // /uploads (the self-delete path unlinks it too). basename() keeps
             // the delete inside the configured uploads dir. The file goes only
@@ -284,6 +295,7 @@ final class AdminmembersController
                 ['deleted-' . $uid . \App\AccountSecurity::DELETED_EMAIL_SUFFIX, password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT), $uid]);
             $this->db->commit();
         } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
+        foreach ($retired as $name) \App\StorageQuota::forApp($this->app)->removeFile($name); // the row is gone, so the in-use check lets it go
         if ($avatarFile !== '') {
             \App\StorageQuota::forApp($this->app)->release((int) @filesize($avatarFile)); // release before the unlink, the delete-path order
             @unlink($avatarFile);
