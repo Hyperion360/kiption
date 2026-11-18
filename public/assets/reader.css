@@ -25,6 +25,7 @@ html[data-theme="night"]{
   --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --visited:#c3aecd;
   --track:#262d29; --surface:#1b201d; --scrim:rgba(0,0,0,.55);
   --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027;
+  --btn-edge:#55806e;
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark){
@@ -34,6 +35,7 @@ html[data-theme="night"]{
     --line:#262d29; --line-strong:#38413c; --hover:#1f2522;
     --accent:#8fc9b0; --accent-hover:#8fc9b0; --on-accent:#121513; --track:#262d29; --surface:#1b201d; --visited:#c3aecd;
     --scrim:rgba(0,0,0,.55); --pill-bg:#1e2b25; --cover-ink:#f1efe8; --danger:#f0856d; --danger-bg:#2e1d19; --danger-line:#5a3027; color-scheme:dark;
+    --btn-edge:#55806e;
   }
 }
 /* Field borders. Form controls need a 3:1 edge against both the page and
@@ -355,7 +357,7 @@ label:has(+ p.hint) { margin-block-end: 0; }
 .btn-primary,
 .site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)) {
   min-height: 48px; padding-inline: 24px;
-  background: var(--btn); border-color: var(--btn); color: var(--btn-ink); font-weight: 500;
+  background: var(--btn); border-color: var(--btn-edge, var(--btn)); color: var(--btn-ink); font-weight: 500;
 }
 .btn-primary:hover,
 .site-main form:where(:not(.inline):not(.text-settings)):has(:is(input:not([type="hidden"]), select, textarea)) > button:last-of-type:where(:not(.link-btn):not(.reset-link):not(.btn-secondary)):hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
@@ -736,6 +738,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   display: flex; flex-direction: column; gap: 3px; justify-content: center;
   min-height: 60px; padding: 10px 18px;
   background: var(--btn); color: var(--btn-ink); text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--btn-edge, var(--btn));
 }
 .continue-cta:hover { opacity: .92; color: var(--btn-ink); }
 .continue-label { font: 600 16px/1.3 var(--sans); }
@@ -1864,7 +1867,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .cta-primary {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 52px; padding: 12px 32px;
-  background: var(--btn); color: var(--btn-ink); border: 1px solid var(--btn);
+  background: var(--btn); color: var(--btn-ink); border: 1px solid var(--btn-edge, var(--btn));
   font: 500 16px/1 var(--sans); text-decoration: none;
 }
 .cta-primary:hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
@@ -2234,7 +2237,7 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .home-todo .home-n { min-width: 44px; font-size: 28px; color: var(--accent); }
 .home-todo .home-label { flex: 1; font-size: 15px; }
 /* Each waiting row's one action is the filled button (drawn A1). */
-.home-todo .btn { background: var(--btn); border-color: var(--btn); color: var(--btn-ink); font-weight: 500; }
+.home-todo .btn { background: var(--btn); border-color: var(--btn-edge, var(--btn)); color: var(--btn-ink); font-weight: 500; }
 .home-todo .btn:hover { background: var(--btn); color: var(--btn-ink); opacity: .92; }
 .home-total { display: inline-block; margin-inline-start: 6px; padding: 1px 8px; background: var(--accent); color: var(--on-accent); font: 600 14px/1.5 var(--sans); vertical-align: middle; }
 .home-new { margin-block: 12px 28px; font: 15px/1.5 var(--sans); }
