@@ -113,6 +113,8 @@ final class ChapterController
             [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt, $accessPassword, $accessClear, $revision,
                 $this->saveRecorder('update', \App\Saved::url('/chapter/edit/' . $slug . '/' . $position)));
         } catch (\App\ChapterChanged $e) {
+            // An identical save that raced ahead moved the revision; answer from its recorded key, not a 409.
+            if (($won = $this->replayAfterRace()) !== null) return $won;
             $key = $slug . ':' . $position;
             $this->formRows[$key] = array_replace($this->formRows[$key], $e->savedFields());
             $this->currentRevisions[$key] = $e->savedRevision();
