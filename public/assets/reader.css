@@ -2316,7 +2316,8 @@ html:has(.admin-tabs) { scroll-padding-block-end: calc(72px + env(safe-area-inse
 .member-role select { min-height: 36px; }
 .member-status { display: inline-block; padding: 1px 8px; border: 1px solid var(--line-strong); font: 600 13px/1.5 var(--sans); color: var(--ink-2); }
 .member-status.is-active { border-color: var(--line); color: var(--muted); font-weight: 500; }
-.member-status.is-locked, .member-status.is-deleted { color: var(--accent); border-color: var(--accent); }
+.member-status.is-deleted { color: var(--accent); border-color: var(--accent); }
+.member-status.is-locked { color: var(--danger); border-color: var(--danger); }
 .member-menu { position: relative; display: inline-block; margin-inline-start: 8px; }
 .member-menu > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 36px; padding-inline: 8px; color: var(--ink-2); font: 500 14px/1 var(--sans); }
 .member-menu > summary::-webkit-details-marker { display: none; }

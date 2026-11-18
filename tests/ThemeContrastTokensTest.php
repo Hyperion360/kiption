@@ -133,4 +133,16 @@ final class ThemeContrastTokensTest extends TestCase
         $this->assertSame('#1f4f42', $t['paper']['--btn']);
         $this->assertSame('#1f4f42', $t['sepia']['--btn']);
     }
+
+    // A locked member is a warning state, so the chip is red (the design's
+    // Locked color) instead of the brand green that reads as "fine".
+    public function test_locked_member_chip_is_danger_red_and_readable(): void
+    {
+        $css = self::css('public/assets/reader.css');
+        $this->assertMatchesRegularExpression('~\.member-status\.is-locked\s*\{[^}]*color:\s*var\(--danger\)[^}]*border-color:\s*var\(--danger\)~', $css);
+        foreach (self::themes('public/assets/reader.css') as $theme => $t) {
+            $this->assertGreaterThanOrEqual(4.5, Color::contrast(Color::parse($t['--danger']), Color::parse($t['--bg'])), "$theme red text on page");
+            $this->assertGreaterThanOrEqual(3.0, Color::contrast(Color::parse($t['--danger']), Color::parse($t['--bg'])), "$theme red chip edge on page");
+        }
+    }
 }
