@@ -699,7 +699,7 @@ return [
     'adminmembers.since' => 'member since {date}',
     'adminmembers.chapters' => '{n} chapters',
     'adminmembers.chapters_one' => '{n} chapter',
-    'adminmembers.remove_legend_n' => 'What should happen to their {stories}?',
+    'adminmembers.remove_legend_n' => 'What Should Happen to Their {stories}?',
     'adminmembers.remove_move_note' => 'The stories keep their reviews and kudos.',
     'adminmembers.heir_found' => 'Found {name}, {role}.',
     'adminmembers.heir_none' => 'No active member goes by that name.',

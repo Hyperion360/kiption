@@ -206,7 +206,7 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('name="penname"', $body);
         $this->assertStringContainsString('<h1>Delete leaving-member?</h1>', $body, 'the title names who is going');
         $this->assertStringContainsString('leaving-member@e.test · 1 story · 0 open reports · member since ', $body, 'the facts come first');
-        $this->assertStringContainsString('What should happen to their 1 story?', $body);
+        $this->assertStringContainsString('What Should Happen to Their 1 story?', $body);
         $this->assertStringContainsString('>Delete leaving-member</button>', $body, 'the button says what it deletes');
         $this->assertStringContainsString('href="/adminmembers">Cancel</a>', $body);
     }
@@ -608,7 +608,7 @@ final class AdminmembersTest extends TestCase
         $this->db->query('DELETE FROM stories WHERE author_id = ?', [$this->targetId]);
         $body = $this->client($this->adminId)->get('/adminmembers/remove/' . $this->targetId)->body;
         $this->assertStringContainsString('leaving-member@e.test · 0 stories · ', $body, 'the facts line still shows the count');
-        $this->assertStringNotContainsString('What should happen to their', $body);
+        $this->assertStringNotContainsString('What Should Happen to Their', $body);
         $this->assertStringNotContainsString('type="radio"', $body);
         $this->assertStringNotContainsString('name="penname"', $body);
         $this->assertStringContainsString('They have no stories, so there is nothing to keep or remove.', $body);
