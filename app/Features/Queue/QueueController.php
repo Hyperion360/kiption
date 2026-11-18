@@ -149,7 +149,8 @@ final class QueueController
     {
         $isAdmin = !(Adminness::requireAdmin($this->db, $this->session) instanceof Response);
         return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, $question, $yes, '/queue', $isAdmin,
-            ['reason' => mb_substr(trim($this->request->postStr('reason')), 0, 1000)]));
+            ['reason' => mb_substr(trim($this->request->postStr('reason')), 0, 1000),
+             'reason_preset' => in_array($this->request->postStr('reason_preset'), self::PRESETS, true) ? $this->request->postStr('reason_preset') : '']));
     }
 
     private function moderator(): bool

@@ -102,6 +102,16 @@ final class QueueDecisionMailTest extends TestCase
         $this->assertStringContainsString('content policy', $this->mail());
     }
 
+    public function test_the_no_script_confirm_page_keeps_the_chosen_reason_preset(): void
+    {
+        $sid = $this->pendingStory();
+        $page = $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/remove', ['reason' => '', 'reason_preset' => 'spam']);
+        $this->assertSame(200, $page->status);
+        $this->assertMatchesRegularExpression('/name="reason_preset"[^>]*value="spam"|value="spam"[^>]*name="reason_preset"/', $page->body);
+        $this->client($this->moderatorId)->postWithToken('/queue/story/' . $sid . '/remove', ['confirmed' => '1', 'reason' => '', 'reason_preset' => 'spam']);
+        $this->assertStringContainsString(\App\Lang::t('queue.preset_spam'), $this->mail());
+    }
+
     public function test_removing_a_story_twice_mails_once(): void
     {
         $sid = $this->pendingStory();
