@@ -112,7 +112,6 @@ return [
     'nav.way_challenges_note' => 'Prompts with a deadline',
     'nav.start_heading' => 'Not Sure Where to Start?',
     'nav.start_story' => 'Read a Complete Story under 20,000 Words',
-    'nav.search_hint' => 'Press / to search',
     'foot.legal' => 'Legal',
     'foot.blurb' => 'A self-hosted fiction archive, built with',
 
