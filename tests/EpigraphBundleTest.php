@@ -4,8 +4,8 @@ use Kip\App;
 use Kip\Testing\TestClient;
 use PHPUnit\Framework\TestCase;
 
-/** The vendored Epigraph bundle is pinned by digest, loads only behind
- *  editor_formatted, and leaves the plain textarea untouched. */
+/** The vendored Epigraph bundle is pinned by digest, is the only editor,
+ *  and leaves the plain textarea untouched. */
 final class EpigraphBundleTest extends TestCase
 {
     private string $path = '';
@@ -24,7 +24,7 @@ final class EpigraphBundleTest extends TestCase
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
-    private function box(bool $formatted): \DOMElement
+    private function box(): \DOMElement
     {
         $app = new App([
             'app_dir' => dirname(__DIR__) . '/app',
@@ -35,7 +35,6 @@ final class EpigraphBundleTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->path . '.mail', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-epigraph-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-            'editor_formatted' => $formatted,
         ]);
         $html = (new TestClient($app))->actingAs(1)->get('/chapter/new/the-rabbit-hole')->body;
         $doc = new \DOMDocument();
@@ -57,26 +56,21 @@ final class EpigraphBundleTest extends TestCase
 
     public function test_image_uploads_are_offered_only_when_the_site_switch_is_on(): void
     {
-        $this->assertFalse($this->box(true)->hasAttribute('data-epigraph-upload-url'));
+        $this->assertFalse($this->box()->hasAttribute('data-epigraph-upload-url'));
         \App\Features::init(new \Kip\Database('sqlite:' . $this->path), []);
         \App\Settings::put('chapter_images_on', '1');
-        $box = $this->box(true);
+        $box = $this->box();
         $this->assertSame('/authorimages/upload', $box->getAttribute('data-epigraph-upload-url'));
         $this->assertNotSame('', $box->getAttribute('data-epigraph-csrf'));
-        $this->assertFalse($this->box(false)->hasAttribute('data-epigraph-upload-url'));
     }
 
-    public function test_the_editor_loads_only_when_the_formatted_flag_is_on(): void
+    public function test_epigraph_is_the_only_editor_and_the_plain_textarea_is_the_scriptless_fallback(): void
     {
-        $off = $this->box(false);
-        $this->assertSame('paste editor', $off->getAttribute('data-js-module'));
-        $this->assertTrue($off->hasAttribute('required'));
-        $on = $this->box(true);
-        $this->assertSame('paste epigraph-boot', $on->getAttribute('data-js-module'));
-        $this->assertTrue($on->hasAttribute('required'), 'the plain form stays valid without scripting');
-        $this->assertFalse($on->hasAttribute('hidden'), 'the server never hides the textarea');
-        $config = (string) file_get_contents(dirname(__DIR__) . '/config.php');
-        $this->assertStringContainsString("'editor_formatted' => false", $config);
+        $box = $this->box();
+        $this->assertSame('paste epigraph-boot', $box->getAttribute('data-js-module'));
+        $this->assertTrue($box->hasAttribute('required'), 'the plain form stays valid without scripting');
+        $this->assertFalse($box->hasAttribute('hidden'), 'the server never hides the textarea');
+        $this->assertStringNotContainsString('editor_formatted', (string) file_get_contents(dirname(__DIR__) . '/config.php'));
     }
 
     public function test_the_loader_lists_the_epigraph_files_in_order(): void

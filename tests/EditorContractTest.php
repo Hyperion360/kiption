@@ -25,7 +25,7 @@ final class EditorContractTest extends TestCase
         @unlink($this->path); @unlink($this->path . '-wal'); @unlink($this->path . '-shm');
     }
 
-    private function client(mixed $formatted = false): TestClient
+    private function client(): TestClient
     {
         $app = new App([
             'app_dir' => dirname(__DIR__, 1) . '/app',
@@ -36,7 +36,6 @@ final class EditorContractTest extends TestCase
             'mail' => ['transport' => 'log', 'log_path' => $this->path . '.mail', 'from' => 'noreply@localhost'],
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-editor-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
-            'editor_formatted' => $formatted,
         ]);
         return (new TestClient($app))->actingAs(1);
     }
@@ -44,7 +43,7 @@ final class EditorContractTest extends TestCase
     public function test_chapter_box_carries_the_editor_marker_labels_and_still_works_without_scripting(): void
     {
         $html = $this->client()->get('/chapter/new/the-rabbit-hole')->body;
-        $this->assertMatchesRegularExpression('/<textarea[^>]*name="content"[^>]*data-js-module="paste editor"/', $html);
+        $this->assertMatchesRegularExpression('/<textarea[^>]*name="content"[^>]*data-js-module="paste epigraph-boot"/', $html);
         $this->assertMatchesRegularExpression('/data-editor-labels="[^"]*Bold[^"]*"/', $html, 'the toolbar labels ride the box');
         foreach (['Italic', 'Add Link', 'Quote', 'Scene Break'] as $label) {
             $this->assertStringContainsString($label, $html);
@@ -54,13 +53,13 @@ final class EditorContractTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $html, 'no inline script');
     }
 
-    public function test_formatted_mode_requires_the_explicit_boolean_config_and_retains_native_save(): void
+    public function test_epigraph_is_always_loaded_and_the_form_retains_native_save(): void
     {
-        foreach ([false, 'true', 1, true] as $enabled) {
-            $html = $this->client($enabled)->get('/chapter/new/the-rabbit-hole', ['editor_formatted' => '1'])->body;
+        foreach ([1] as $_) {
+            $html = $this->client()->get('/chapter/new/the-rabbit-hole')->body;
             [$form, $xpath] = $this->writerForm($html, 'chapter-editor-form');
             $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
-            $this->assertSame($enabled === true, str_contains($box->getAttribute('data-js-module'), 'epigraph-boot'));
+            $this->assertStringContainsString('epigraph-boot', $box->getAttribute('data-js-module'));
             $this->assertFalse($box->hasAttribute('hidden'));
             $this->assertTrue($box->hasAttribute('required'));
             $this->assertFalse($box->hasAttribute('disabled'));
@@ -69,8 +68,6 @@ final class EditorContractTest extends TestCase
             $this->assertSame('Formatted', $labels['formatted']);
             $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $form)->length);
         }
-        $config = (string) file_get_contents(dirname(__DIR__) . '/config.php');
-        $this->assertStringContainsString("'editor_formatted' => false", $config);
         $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         $this->assertStringContainsString("['epigraph-boot', ['paste', 'epigraph']]", $js);
     }
