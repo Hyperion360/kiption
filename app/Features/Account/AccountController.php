@@ -146,6 +146,8 @@ final class AccountController
         $stories = $this->request->postStr('stories');
         $mine = $this->db->one('SELECT avatar_path, penname FROM users WHERE id = ?', [$me]);
         $avatar = $mine['avatar_path'] ?? null;
+        $images = array_map(static fn(array $r): string => basename((string) $r['path']),
+            $this->db->all('SELECT path FROM author_images WHERE owner_id = ?', [$me]));
         $title = \App\Lang::t('account.delete_heading');
         $err = !\in_array($stories, ['keep', 'remove'], true) ? 'account.err_delete_choice'
             : $this->security()->deleteAccount($me, $this->request->postStr('current_password'), $stories === 'keep', $this->request->ip);
@@ -158,6 +160,12 @@ final class AccountController
         }
         // The account is scrubbed, so the log keeps who it was in the detail.
         \App\ActivityLog::record($this->db, null, 'account.delete', 'member ' . $me . ' (' . (string) ($mine['penname'] ?? '') . ')');
+        // Removing the stories removes their library rows; the files and their quota bytes go with them.
+        // Keeping them hands the rows to Anonymous, which keeps the files in use, so removeFile skips them.
+        if ($stories === 'remove') {
+            $quota = \App\StorageQuota::forApp($this->app);
+            foreach ($images as $name) $quota->removeFile($name);
+        }
         $this->afterDelete($avatar === null ? null : (string) $avatar);
         return Response::redirect('/')
             ->withAddedHeader('Set-Cookie', \App\Cookie::long('lang', ''))

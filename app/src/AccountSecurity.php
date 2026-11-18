@@ -174,6 +174,8 @@ final class AccountSecurity
                 $anon = $this->anonymousId();
                 $this->db->query('UPDATE stories SET author_id = ? WHERE author_id = ?', [$anon, $userId]);
                 $this->db->query('UPDATE series SET owner_id = ? WHERE owner_id = ?', [$anon, $userId]);
+                // The kept chapters still show these images, so their files stay in use.
+                $this->db->query('UPDATE author_images SET owner_id = ?, upload_key = NULL WHERE owner_id = ?', [$anon, $userId]);
             }
             $this->db->query('DELETE FROM password_resets WHERE email = (SELECT email FROM users WHERE id = ?)', [$userId]);
             $this->db->query('DELETE FROM email_verifications WHERE email = (SELECT email FROM users WHERE id = ?)', [$userId]);

@@ -102,6 +102,42 @@ final class DeleteAccountTest extends TestCase
         $this->assertNull($this->db->one('SELECT 1 AS x FROM users WHERE email = ?', [\App\AccountSecurity::ANON_EMAIL]), 'no placeholder needed');
     }
 
+    /** Regression: ISSUE-002 / Found by /qa on 2026-11-18. The library rows
+     *  cascaded away with the user, so the files and their quota bytes stayed
+     *  behind (remove) or the kept stories lost their library owner (keep). */
+    private function seedLibraryImage(int $owner, string $name): string
+    {
+        $dir = sys_get_temp_dir() . '/kiption-del-upl';
+        if (!is_dir($dir)) mkdir($dir, 0775, true);
+        $file = $dir . '/' . $name;
+        file_put_contents($file, str_repeat('x', 2048));
+        $this->db->query('INSERT INTO author_images (owner_id, path, content_sha256, created_at) VALUES (?, ?, ?, ?)',
+            [$owner, '/uploads/' . $name, hash('sha256', $name), date('c')]);
+        return $file;
+    }
+
+    public function test_remove_retires_the_library_files(): void
+    {
+        $demo = $this->id('Demo Author');
+        $file = $this->seedLibraryImage($demo, 'del-remove-' . getmypid() . '.png');
+        $res = $this->as('Demo Author')->postWithToken('/account/destroy', $this->body('remove'));
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertFileDoesNotExist($file, 'the stories are gone, so the library files go too');
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) c FROM author_images')['c']);
+    }
+
+    public function test_keep_hands_the_library_to_anonymous_and_keeps_the_file(): void
+    {
+        $demo = $this->id('Demo Author');
+        $file = $this->seedLibraryImage($demo, 'del-keep-' . getmypid() . '.png');
+        $res = $this->as('Demo Author')->postWithToken('/account/destroy', $this->body('keep'));
+        $this->assertSame(302, $res->status, $res->body);
+        $anon = (int) $this->db->one('SELECT id FROM users WHERE email = ?', [\App\AccountSecurity::ANON_EMAIL])['id'];
+        $this->assertFileExists($file, 'the kept chapters still show it');
+        $this->assertSame($anon, (int) $this->db->one('SELECT owner_id FROM author_images')['owner_id']);
+        @unlink($file);
+    }
+
     public function test_the_session_ends_and_the_old_password_no_longer_signs_in(): void
     {
         $me = $this->as('betafriend');
