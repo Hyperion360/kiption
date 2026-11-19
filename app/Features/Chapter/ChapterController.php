@@ -203,13 +203,12 @@ final class ChapterController
 
     private function wantsJson(): bool
     {
-        return str_contains(strtolower((string) $this->request->header('accept')), 'application/json');
+        return \App\JsonReply::wanted($this->request);
     }
 
     private function json(array $body, int $status = 200, array $headers = []): Response
     {
-        return new Response(json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), $status,
-            $headers + ['Content-Type' => 'application/json', 'Cache-Control' => 'no-store']);
+        return \App\JsonReply::of($body, $status, $headers);
     }
 
     private function notFound(): Response
