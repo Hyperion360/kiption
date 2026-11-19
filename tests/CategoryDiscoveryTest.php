@@ -83,7 +83,7 @@ final class CategoryDiscoveryTest extends TaxonomyCase
         $first = $this->get('/search', ['q' => 'river', 'category' => ['multi-a', 'multi-b'], 'xtags' => 'Gore', 'sort' => 'updated']);
         $xpath = $this->document($first->body);
         self::assertSame(2, $xpath->query('//input[@name="category[]" and @checked]')->length);
-        $href = $xpath->query('//nav[contains(@class,"pager")]/a[@rel="next"]')->item(0)->getAttribute('href');
+        $href = $xpath->query('//nav[contains(@class,"pager")]//a[@rel="next"]')->item(0)->getAttribute('href');
         parse_str(parse_url($href, PHP_URL_QUERY), $next);
         self::assertSame(['multi-a', 'multi-b'], $next['category']);
         self::assertSame('Gore', $next['xtags']);
@@ -91,7 +91,7 @@ final class CategoryDiscoveryTest extends TaxonomyCase
         $second = $this->get('/search', $next);
         $xpath = $this->document($second->body);
         self::assertSame(1, $xpath->query('//ul[contains(@class,"story-list")]/li')->length);
-        $back = $xpath->query('//nav[contains(@class,"pager")]/a[@rel="prev"]')->item(0)->getAttribute('href');
+        $back = $xpath->query('//nav[contains(@class,"pager")]//a[@rel="prev"]')->item(0)->getAttribute('href');
         parse_str(parse_url($back, PHP_URL_QUERY), $previous);
         self::assertSame(['multi-a', 'multi-b'], $previous['category']);
         $browse = $this->document($this->get('/browse/filter', ['cat' => ['multi-a', 'multi-b']])->body);
@@ -125,7 +125,7 @@ final class CategoryDiscoveryTest extends TaxonomyCase
         $xpath = $this->document($this->get('/browse/filter', [
             'cat' => ['multi-a', 'multi-b'], 'xtags' => 'Gore', 'sort' => 'title',
         ])->body);
-        $href = $xpath->query('//nav[contains(@class,"pager")]/a[@rel="next"]')->item(0)->getAttribute('href');
+        $href = $xpath->query('//nav[contains(@class,"pager")]//a[@rel="next"]')->item(0)->getAttribute('href');
         parse_str(parse_url($href, PHP_URL_QUERY), $next);
         self::assertSame(['multi-a', 'multi-b'], $next['cat']);
         self::assertSame('Gore', $next['xtags']);

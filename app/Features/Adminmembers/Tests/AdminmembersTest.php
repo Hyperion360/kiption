@@ -489,7 +489,9 @@ final class AdminmembersTest extends TestCase
         $this->assertStringContainsString('<span class="member-status is-locked">Locked</span>', $body);
         $this->assertStringContainsString('<span class="member-status is-active">Active</span>', $body);
         $this->assertStringContainsString('<span class="member-status is-unapproved">Waiting</span>', $body);
-        $this->assertStringContainsString('<a class="member-approve" href="/queue?tab=members">Approve</a>', $body);
+        $this->assertStringContainsString('action="/queue/member/' . $this->heirId . '/approve"', $body, 'approve happens in place');
+        $this->assertStringContainsString('name="back" value="/adminmembers"', $body);
+        $this->assertStringContainsString('<button type="submit" class="member-approve">Approve</button>', $body);
         $this->assertStringContainsString('<details class="member-menu">', $body);
         $this->assertStringContainsString('action="/adminmembers/unlock/' . $this->targetId . '"', $body, 'inside the menu, a plain form');
     }

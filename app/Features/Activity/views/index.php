@@ -31,7 +31,7 @@
   <ul class="home-log log-list">
     <?php foreach ($entries as $burst): $r = $burst[0]; $what = $this->e(\App\Lang::t('activity.a.' . $r['action'])); ?>
     <?php if (count($burst) === 1): ?>
-    <li><span class="home-log-what"><?= $what ?><?= (string) $r['detail'] !== '' ? ': ' . $this->e($r['detail']) : '' ?></span>
+    <li><span class="home-log-what"><?= $what ?><?= rtrim((string) $r['detail'], ': ') !== '' ? ': ' . $this->e(rtrim((string) $r['detail'], ': ')) : '' ?></span>
       <span class="home-log-meta"><?= $name($r) ?>, <time datetime="<?= $this->e($r['created_at']) ?>"><?= $clock($r) ?></time></span></li>
     <?php else: ?>
     <li class="log-burst"><details>
@@ -39,7 +39,7 @@
         <span class="home-log-meta"><?= $name($r) ?>, <?php $from = $clock($burst[count($burst) - 1]); $to = $clock($r); ?><?= $from === $to ? $to : $from . ' ' . \App\Lang::t('activity.to') . ' ' . $to ?></span></summary>
       <ul>
         <?php foreach ($burst as $one): ?>
-        <li><time datetime="<?= $this->e($one['created_at']) ?>"><?= $clock($one) ?></time><?= (string) $one['detail'] !== '' ? ' ' . $this->e($one['detail']) : '' ?></li>
+        <li><time datetime="<?= $this->e($one['created_at']) ?>"><?= $clock($one) ?></time><?= rtrim((string) $one['detail'], ': ') !== '' ? ' ' . $this->e(rtrim((string) $one['detail'], ': ')) : '' ?></li>
         <?php endforeach; ?>
       </ul>
     </details></li>

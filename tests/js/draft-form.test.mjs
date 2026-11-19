@@ -220,3 +220,54 @@ test('already-consented early typing and rejected drafts queue their first recov
     assert.equal(f.timers.size,1);f.flush();assert.equal(storeApi.read(f.store,f.key,1001).fields.content,'Earlier work');f.attached.destroy();
   }
 });
+
+test('a story editor names its own fields in data-writer-fields', () => {
+  const form = new Form();
+  form.elements = ['chapter_title', 'content', 'title'].map(name => Object.assign(new Element('input'), { name, value: name + '!' }));
+  form.elements.namedItem = name => form.elements.find(x => x.name === name) || null;
+  assert.deepEqual(api.values(form, ['chapter_title', 'content']), { chapter_title: 'chapter_title!', content: 'content!' });
+  assert.deepEqual(Object.keys(api.values(form)), names, 'no names given means the chapter five');
+  assert.equal(api.equal({ chapter_title: 'a' }, { chapter_title: 'a' }, ['chapter_title']), true);
+  assert.equal(api.equal({ chapter_title: 'a' }, { chapter_title: 'b' }, ['chapter_title']), false);
+});
+
+test('data-writer-fields chooses which fields recovery keeps, and a malformed list falls back to the chapter five', () => {
+  const run = list => {
+    const f = fixture({ consent: true, before: ({ form }) => { form.dataset.writerFields = list; } });
+    f.input('content', 'Work'); f.input('title', 'Named'); f.flush();
+    const rec = JSON.parse(f.store.getItem(f.key));
+    f.attached.destroy();
+    return Object.keys(rec.fields);
+  };
+  assert.deepEqual(run(JSON.stringify(['content', 'notes_after'])), ['content', 'notes_after']);
+  for (const bad of ['{nope', '[]', '[1,2]', '"x"']) assert.deepEqual(run(bad), names, bad);
+});
+
+test('the offer banner shows a title and detail, orders Restore then Copy then Discard, and keeps the result visible', () => {
+  Object.assign(labels, { recoveryOffer: 'A recovery copy is available', recoveryOfferDetail: 'Kept at {time} with {n} words.', recoveryOfferDetailOne: 'Kept at {time} with 1 word.', recoveryOfferDetailSame: 'Kept at {time}, differs.' });
+  try {
+    const f = fixture({ consent: true, record: 'Archive plus three more' });
+    const status = f.attached.host.children[0];
+    assert.equal(status.children[0].tagName, 'STRONG');
+    assert.equal(status.children[0].textContent, 'A recovery copy is available');
+    assert.match(status.children[1].textContent, /with 3 words\./);
+    assert.deepEqual(f.attached.host.children[1].children.map(x => x.textContent).filter(x => [labels.restore, labels.copy, labels.discard].includes(x)), [labels.restore, labels.copy, labels.discard]);
+    assert.equal(f.attached.host.dataset.offer, '1');
+    f.click('discard');
+    assert.equal(f.attached.host.dataset.offer, '');
+    assert.equal(f.attached.host.dataset.notice, '1', 'the discard result stays on screen');
+    f.input('content', 'Typed after');
+    assert.equal(f.attached.host.dataset.notice, '', 'typing clears the result');
+    f.attached.destroy();
+    const one = fixture({ consent: true, record: 'Archive one' });
+    assert.match(one.attached.host.children[0].children[1].textContent, /with 1 word\./);
+    one.click('restore');
+    assert.equal(one.attached.host.dataset.notice, '1', 'the restore result stays on screen');
+    one.attached.destroy();
+    const same = fixture({ consent: true, record: 'Different' });
+    assert.match(same.attached.host.children[0].children[1].textContent, /differs\./);
+    same.attached.destroy();
+  } finally {
+    ['recoveryOfferDetail', 'recoveryOfferDetailOne', 'recoveryOfferDetailSame'].forEach(k => delete labels[k]); labels.recoveryOffer = 'recoveryOffer';
+  }
+});

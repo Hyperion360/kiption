@@ -5,8 +5,12 @@ namespace App\Repositories;
 final class DiscoveryFold
 {
     public static function statement(string $source, array $sourceBinds, array $filters,
-        string $order, int $limit, int $offset, bool $materialize, bool $listStories = true): array
+        string $order, int $limit, int $offset, bool $materialize, bool $listStories = true, array $extras = []): array
     {
+        // $extras rides the same statement: 'passage' (query tokens: the first
+        // matching chapter's excerpt per page row), 'drops' (filter variants whose
+        // story counts are computed only when nothing matched), 'suggest' (the
+        // typed query: author and tag type-ahead rows).
         $orders = [
           'relevance'=>'s.tier,s.distance,s.field_rank,s.rank,s.id',
           'updated'=>'s.updated_at DESC,s.id DESC',
@@ -71,9 +75,23 @@ final class DiscoveryFold
         foreach (['language'=>'language','rating'=>'rating_id','status'=>'completed'] as $kind=>$column) {
             $ctes[] = $kind.'_counts AS (SELECT '.$column.',COUNT(*) n FROM '.$kind.'_base facet_rows GROUP BY '.$column.')';
         }
+        $passageJson = ''; $passageBinds = [];
+        $terms = array_slice(array_values(array_filter(is_array($extras['passage'] ?? null) ? $extras['passage'] : [], 'is_string')), 0, 8);
+        if ($terms !== []) {
+            $like = '';
+            $passageBinds[] = mb_strtolower($terms[0], 'UTF-8');
+            foreach ($terms as $t) {
+                $like .= " AND REPLACE(c.content, '’', '''') LIKE ? ESCAPE '\\'";
+                $passageBinds[] = SearchRepository::likePattern($t);
+            }
+            $passageJson = ",'chapter',json((SELECT json_object('position',c.position,'title',c.title,"
+                . "'text',substr(c.content,MAX(1,instr(lower(c.content),?)-90),360)) FROM chapters c "
+                . "WHERE c.story_id=page_rows.id AND c.validated=1 AND c.access_hash IS NULL{$like} ORDER BY c.position LIMIT 1)),"
+                . "'tags',(SELECT group_concat(pt.name,char(31)) FROM story_tags pst JOIN tags pt ON pt.id=pst.tag_id WHERE pst.story_id=page_rows.id)";
+        }
         $json = "json_object('id',page_rows.id,'slug',page_rows.slug,'title',page_rows.title,'summary',page_rows.summary,'completed',page_rows.completed,
             'word_count',page_rows.word_count,'updated_at',page_rows.updated_at,'penname',page_rows.penname,'profile_slug',page_rows.profile_slug,'rating_label',page_rows.rating_label,
-            'tier',page_rows.tier,'distance',page_rows.distance,'field_rank',page_rows.field_rank,'rank',page_rows.rank)";
+            'tier',page_rows.tier,'distance',page_rows.distance,'field_rank',page_rows.field_rank,'rank',page_rows.rank{$passageJson})";
         $sql = 'WITH ' . implode(',', $ctes) . "
           SELECT 's' k,0 p,{$json} payload
             FROM (SELECT * FROM page_matches s ORDER BY {$orders[$order]} LIMIT ? OFFSET ?) page_rows
@@ -93,14 +111,42 @@ final class DiscoveryFold
           UNION ALL SELECT 'l',0,json_object('value',l.language,'count',COALESCE(lc.n,0))
             FROM (SELECT DISTINCT language FROM source WHERE language<>'') l
             LEFT JOIN language_counts lc ON lc.language=l.language";
+        array_push($binds, ...$passageBinds);
         array_push($binds, $listStories ? max(1,min(100,$limit))+1 : 0,max(0,$offset));
+        // Drop counts: one row per filter variant (then the unfiltered query). The
+        // CASE is lazy, so the counting subselect runs only when nothing matched.
+        $variants = array_values($extras['drops'] ?? []);
+        foreach ($variants as $i=>$variant) {
+            [$where,$more] = DiscoveryFilter::sql($variant);
+            $sql .= "\n          UNION ALL SELECT 'd',{$i},json_object('n',CASE WHEN (SELECT COUNT(*) FROM matches)=0"
+                . ' THEN (SELECT COUNT(*) FROM source s WHERE 1=1' . $where . ') END)';
+            array_push($binds,...$more);
+        }
+        $typed = trim((string) ($extras['suggest'] ?? ''));
+        if ($typed !== '') {
+            $first = preg_split('/\s+/', $typed)[0];
+            $head = substr(SearchRepository::likePattern($first), 1);   // prefix pattern: the typed word, then anything
+            $whole = substr(SearchRepository::likePattern($typed), 1);
+            $public = 's2.validated=1 AND s2.deleted_at IS NULL AND s2.access_hash IS NULL AND s2.is_restricted=0';
+            $sql .= "\n          UNION ALL SELECT 'a',0,json_object('penname',a.penname,'slug',a.profile_slug,'stories',a.n) FROM ("
+                . "SELECT * FROM (SELECT u.penname,u.profile_slug,(SELECT COUNT(*) FROM stories s2 WHERE s2.author_id=u.id AND {$public}) n "
+                . "FROM users u WHERE u.penname LIKE ? ESCAPE '\\' AND u.is_locked=0 AND u.approved_at IS NOT NULL "
+                . "AND u.email_verified_at IS NOT NULL AND u.profile_slug IS NOT NULL) WHERE n>0 "
+                . "ORDER BY (penname LIKE ? ESCAPE '\\') DESC,n DESC,penname COLLATE NOCASE LIMIT 3) a"
+                . "\n          UNION ALL SELECT 'x',0,json_object('id',x.id,'name',x.name,'count',x.n) FROM ("
+                . "SELECT * FROM (SELECT t.id,t.name,(SELECT COUNT(DISTINCT st.story_id) FROM story_tags st JOIN stories s2 ON s2.id=st.story_id "
+                . "WHERE (st.tag_id=t.id OR st.tag_id IN (SELECT id FROM tags WHERE canonical_id=t.id)) AND {$public}) n "
+                . "FROM tags t WHERE t.canonical_id IS NULL AND t.name LIKE ? ESCAPE '\\') WHERE n>0 "
+                . "ORDER BY (name LIKE ? ESCAPE '\\') DESC,n DESC,name COLLATE NOCASE LIMIT 3) x";
+            array_push($binds,$head,$whole,$head,$whole);
+        }
         return [$sql,$binds];
     }
     public static function partition(array $rows, int $limit, array $selected = []): array
     {
         $limit = max(1, min(100, $limit));
         $out=['rows'=>[],'categories'=>[],'types'=>[],'tags'=>[],'ratings'=>[],'languages'=>[],
-            'selected'=>[],'counts'=>['status'=>[],'language'=>[]],'total'=>0,'hasMore'=>false];
+            'selected'=>[],'drops'=>[],'authors'=>[],'suggestTags'=>[],'counts'=>['status'=>[],'language'=>[]],'total'=>0,'hasMore'=>false];
         $stories=[];
         foreach ($rows as $row) {
             $v=json_decode($row['payload'],true,512,JSON_THROW_ON_ERROR);
@@ -116,6 +162,9 @@ final class DiscoveryFold
                 break;
               case 'r': $v['position']=(int)$row['p']; $out['ratings'][]=$v; break;
               case 'v': $out['counts']['status'][(int)$v['value']]=(int)$v['count']; break;
+              case 'd': $out['drops'][(int)$row['p']] = $v['n'] === null ? null : (int)$v['n']; break;
+              case 'a': $out['authors'][] = $v; break;
+              case 'x': $out['suggestTags'][] = $v; break;
               case 'l': $out['languages'][]=$v['value']; $out['counts']['language'][$v['value']]=(int)$v['count']; break;
             }
         }

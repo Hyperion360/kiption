@@ -232,6 +232,15 @@ final class ActivityCoverageTest extends TestCase
 
     // ---- group 3: member content ----
 
+    public function test_an_old_activity_row_with_a_trailing_colon_reads_clean(): void
+    {
+        \App\ActivityLog::record($this->db, $this->adminId, 'chapter.create', 'untitled-story: ');
+        $this->db->query("UPDATE activity_log SET detail = 'untitled-story: ' WHERE id = (SELECT MAX(id) FROM activity_log)");
+        $body = $this->client($this->adminId)->get('/activity')->body;
+        $this->assertStringContainsString('Posted a chapter: untitled-story<', $body);
+        $this->assertStringNotContainsString('untitled-story:<', $body);
+    }
+
     public function test_story_chapter_review_and_message_actions_are_logged(): void
     {
         $rating = (string) $this->db->one("SELECT id FROM ratings LIMIT 1")['id'];

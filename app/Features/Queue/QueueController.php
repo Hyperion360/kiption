@@ -15,6 +15,8 @@ final class QueueController
     /** The ready-made reasons the in-place Remove offers. The page posts the
      *  key; the words come from the language file here, never from the form. */
     public const PRESETS = ['policy', 'content', 'spam', 'quality'];
+    /** Ready-made reasons for turning down a sign-up. */
+    public const MEMBER_PRESETS = ['rules', 'spam', 'verify'];
 
     #[AuthAttr]
     public function index(): Response|string
@@ -37,7 +39,7 @@ final class QueueController
             'rows' => $rows,
             'tab' => (string) ($this->request->get['tab'] ?? ''),
             'item' => (int) ($this->request->get['item'] ?? 0),
-            'presets' => self::PRESETS,
+            'presets' => self::PRESETS, 'memberPresets' => self::MEMBER_PRESETS,
             'csrf' => $this->session->csrfToken(),
             'loggedIn' => true,
             // the gate row already carries the viewer's role (c): the layout's
@@ -108,7 +110,7 @@ final class QueueController
             if ($who !== null && $locked === 1) {
                 $this->mailApplicant('member_rejected', (string) $who['email'], [
                     '{penname}' => (string) ($who['penname'] ?? ''),
-                    '{reason}' => $this->reason('queue.default_member_reason'),
+                    '{reason}' => $this->reason('queue.default_member_reason', true),
                 ]);
             }
         }
@@ -116,16 +118,21 @@ final class QueueController
         // approval-mode member, reject locks them out of the listing.
         (\App\StaticCache\Cache::configured($this->app))->purgeAuthors();
         \App\CachePurge::run($this->app, $this->db); // the edge holds public pages for hours; lockouts must reach it too
-        return \App\Saved::to('/queue', $op === 'approve' ? 'approved' : 'rejected');
+        // Approving from the members list goes back to that list, same filter and page.
+        $back = $this->request->postStr('back');
+        $to = preg_match('#^/adminmembers(\?[A-Za-z0-9_=&%.+-]*)?$#D', $back) === 1 ? $back : '/queue';
+        return \App\Saved::to($to, $op === 'approve' ? 'approved' : 'rejected');
     }
 
     /** The moderator's typed reason, or a polite default when left empty. */
-    private function reason(string $defaultKey): string
+    private function reason(string $defaultKey, bool $member = false): string
     {
         $reason = trim($this->request->postStr('reason'));
         if ($reason === '') {
             $preset = $this->request->postStr('reason_preset');
-            if (in_array($preset, self::PRESETS, true)) $reason = \App\Lang::t('queue.preset_' . $preset);
+            if (in_array($preset, $member ? self::MEMBER_PRESETS : self::PRESETS, true)) {
+                $reason = \App\Lang::t(($member ? 'queue.mpreset_' : 'queue.preset_') . $preset);
+            }
         }
         return $reason !== '' ? $reason : \App\Lang::t($defaultKey);
     }
@@ -150,7 +157,7 @@ final class QueueController
         $isAdmin = !(Adminness::requireAdmin($this->db, $this->session) instanceof Response);
         return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, $question, $yes, '/queue', $isAdmin,
             ['reason' => mb_substr(trim($this->request->postStr('reason')), 0, 1000),
-             'reason_preset' => in_array($this->request->postStr('reason_preset'), self::PRESETS, true) ? $this->request->postStr('reason_preset') : '']));
+             'reason_preset' => in_array($this->request->postStr('reason_preset'), array_merge(self::PRESETS, self::MEMBER_PRESETS), true) ? $this->request->postStr('reason_preset') : '']));
     }
 
     private function moderator(): bool

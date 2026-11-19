@@ -32,10 +32,34 @@ final class SearchRailTest extends TaxonomyCase
     {
         $tag = $this->a->tag('Chip Tag');
         $this->a->story('River Chip', ['tags' => [$tag]]);
+        $this->a->story('River Kept');
         $body = $this->body(['q' => 'river', 'xtag' => [$tag]]);
         $this->assertStringContainsString('Left Out:', $body);
         $this->assertStringContainsString('Remove Filter: Chip Tag', $body);
         $this->assertStringContainsString('href="/search?q=river"', $body);
+    }
+
+    public function test_the_field_has_a_clear_link_that_keeps_filters_and_the_page_names_its_state(): void
+    {
+        $this->a->story('River State');
+        $body = $this->body(['q' => 'river', 'completed' => '0']);
+        $this->assertStringContainsString('data-search-state="results"', $body);
+        $this->assertStringContainsString('data-search-clear', $body);
+        $this->assertStringContainsString('href="/search?completed=0"', $body, 'clearing the words keeps the filters');
+        $this->assertStringContainsString('data-search-state="none"', $this->body(['q' => 'nothingmatchesthis']));
+        $this->assertStringContainsString('data-search-state="start"', $this->body([]));
+        $this->assertSame('/search?completed=0', \App\Search\ActiveFilters::withoutQuery(['completed' => false], 'relevance'));
+    }
+
+    public function test_a_card_without_a_pen_name_says_so_and_the_pager_says_where_you_are(): void
+    {
+        for ($i = 0; $i < 25; $i++) $this->a->story('River Page ' . $i);
+        $this->db->query("UPDATE users SET penname = '' WHERE id = (SELECT author_id FROM stories LIMIT 1)");
+        $body = $this->body(['q' => 'river']);
+        $this->assertStringContainsString('(no pen name)', $body);
+        $this->assertStringNotContainsString('by </strong>', $body);
+        $this->assertMatchesRegularExpression('~Page 1 of \d+~', $body);
+        $this->assertStringContainsString('<span class="pager-off" aria-disabled="true">Previous</span>', $body);
     }
 
     public function test_no_match_names_each_filter_that_could_be_dropped(): void
@@ -43,8 +67,10 @@ final class SearchRailTest extends TaxonomyCase
         $this->a->category('rail-cat');
         $this->a->story('River Plain');
         $body = $this->body(['q' => 'river', 'category' => ['rail-cat']]);
-        $this->assertStringContainsString('Drop Rail-cat', $body);
-        $this->assertStringContainsString('Try Dropping One Filter', $body);
+        $this->assertStringContainsString('No Stories Match All of These', $body);
+        $this->assertStringContainsString('Without <strong>Rail-cat</strong>', $body);
+        $this->assertStringContainsString('1 story mentions', $body, 'the count of stories that mention the words');
+        $this->assertStringContainsString('Looking for a mood rather than a word?', $body);
     }
 
     public function test_bare_search_is_a_start_page_with_popular_tags_and_no_chips(): void

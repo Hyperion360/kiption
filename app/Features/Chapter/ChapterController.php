@@ -38,8 +38,13 @@ final class ChapterController
         }
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
         if (($replay = $this->replay('create', $slug, null)) !== null) return $replay;
+        $answers = null;
+        if ($this->storyDraftMode($slug, null)) {
+            [$answers, $storyError] = $this->storyAnswers();
+            if ($storyError !== null) return $this->fail($slug, null, $storyError[0], 422, [], $storyError[1], $storyError[2]);
+        }
         if (trim($content) === '') {
-            return $this->fail($slug, null, \App\Lang::t('chapter.err_text'));
+            return $this->fail($slug, null, \App\Lang::t('chapter.err_text'), 422, [], '', 'ed-f-content');
         }
         if (($wordError = $this->wordLimitError($content)) !== null) {
             return $this->fail($slug, null, $wordError);
@@ -59,11 +64,19 @@ final class ChapterController
         $rr = \App\Features::on('roundrobin');
         // The post-password field (Fictioneer parity): hashed here, stored by
         // the repository; a new chapter was never public, so no purge rider.
-        $accessPassword = trim((string) ($this->request->post['access_password'] ?? ''));
+        // On a draft story the posted password belongs to the story; the chapter's own access stays as it is.
+        $accessPassword = $answers !== null ? '' : trim((string) ($this->request->post['access_password'] ?? ''));
         $land = $this->landing($slug);
+        $draft = $this->isDraft();
+        // A draft lands back in its own editor (the position is known only once the row exists).
+        // A story-draft publish may rename the story, so its landing takes the slug the write settled on.
+        $redirect = $draft ? fn (int $chapterId, int $newPosition, string $newSlug = ''): string => \App\Saved::url('/chapter/edit/' . ($newSlug !== '' ? $newSlug : $slug) . '/' . $newPosition, 'draft')
+            : ($answers !== null ? fn (int $chapterId, int $newPosition, string $newSlug = ''): string => '/story/edit/' . ($newSlug !== '' ? $newSlug : $slug) : $land);
+        $landed = $land;
         try {
-            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr,
-                $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $this->saveRecorder('create', $land));
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs, $liveSlug, $suggestOut] = $this->repo()->createChapter($slug, $this->uid(), $title, $content, $before, $after, $auto, $publishAt, $rr,
+                $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT), $this->saveRecorder('create', $redirect, $landed), $draft, $answers);
+            $slug = $liveSlug ?? $slug;
         } catch (\RuntimeException) {
             return $this->notFound(); // non-owned or unknown story, same contract as story writes
         } catch (\PDOException $e) {
@@ -71,12 +84,13 @@ final class ChapterController
             throw $e;
         }
         $this->purge($slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs);
-        \App\ActivityLog::record($this->db, $this->uid(), 'chapter.create', $slug . ': ' . $title);
+        $this->flashSuggestRefused($suggestOut);
+        \App\ActivityLog::record($this->db, $this->uid(), 'chapter.create', rtrim($slug . ': ' . $title, ': '));
         // Finding 5: a scheduled create never fans out. storyForNotify only
         // checks live_chapters >= 1, so scheduling onto a live story would
         // notify followers about a chapter they cannot read yet.
-        if ($auto && $publishAt === null) $this->notifyPublish($slug);
-        return $this->saved($land);
+        if ($auto && $publishAt === null && !$draft) $this->notifyPublish($slug);
+        return $this->saved($landed);
     }
 
     #[AuthAttr] #[Post]
@@ -85,8 +99,13 @@ final class ChapterController
         if ($this->formRow($slug, $position) === null) return $this->notFound();
         [$title, $content, $before, $after, $rawPublishAt] = $this->chapterInput();
         if (($replay = $this->replay('update', $slug, $position)) !== null) return $replay;
+        $answers = null;
+        if ($this->storyDraftMode($slug, $position)) {
+            [$answers, $storyError] = $this->storyAnswers();
+            if ($storyError !== null) return $this->fail($slug, $position, $storyError[0], 422, [], $storyError[1], $storyError[2]);
+        }
         if (trim($content) === '') {
-            return $this->fail($slug, $position, \App\Lang::t('chapter.err_text'));
+            return $this->fail($slug, $position, \App\Lang::t('chapter.err_text'), 422, [], '', 'ed-f-content');
         }
         if (($wordError = $this->wordLimitError($content)) !== null) {
             return $this->fail($slug, $position, $wordError);
@@ -107,14 +126,29 @@ final class ChapterController
         // raw input and applies the clear-wins trio). A NULL-to-set lock on a
         // live chapter is the delete path's forever-stale case: the pre-write
         // hash decides the deferred re-purge rider below.
-        $accessPassword = trim((string) ($this->request->post['access_password'] ?? ''));
-        $accessClear = ($this->request->post['access_clear'] ?? '') === '1';
+        // On a draft story those two fields are the story's, and the chapter keeps its own access.
+        $accessPassword = $answers !== null ? '' : trim((string) ($this->request->post['access_password'] ?? ''));
+        $accessClear = $answers === null && ($this->request->post['access_clear'] ?? '') === '1';
         $locking = !$accessClear && $accessPassword !== '';
         $old = $this->formRow($slug, $position);
+        $draft = $this->isDraft();
+        // A live chapter never goes back to draft: readers would lose it. The editor
+        // comes back with the writer's text intact and a plain notice; nothing is saved.
+        // A stale form falls through so the revision check answers with its 409.
+        if ($draft && $this->isLive($old) && hash_equals(\App\ChapterRevision::of($old), $revision)) {
+            return $this->fail($slug, $position, \App\Lang::t('chapter.live_no_draft'));
+        }
+        $editUrl = \App\Saved::url('/chapter/edit/' . $slug . '/' . $position, $draft ? 'draft' : '1');
+        $recorded = $answers === null ? $editUrl : fn (int $chapterId, int $newPosition, string $newSlug = ''): string => \App\Saved::url('/chapter/edit/' . ($newSlug !== '' ? $newSlug : $slug) . '/' . $position, $draft ? 'draft' : '1');
         $wasOpen = ($old['access_hash'] ?? null) === null || (string) $old['access_hash'] === '';
         try {
-            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt, $accessPassword, $accessClear, $revision,
-                $this->saveRecorder('update', \App\Saved::url('/chapter/edit/' . $slug . '/' . $position)));
+            [$cats, $seriesSlugs, $authorSlug, $challengeSlugs, $newSlug, $suggestOut] = $this->repo()->updateChapter($slug, $position, $this->uid(), $title, $content, $before, $after, $publishAt, $accessPassword, $accessClear, $revision,
+                $this->saveRecorder('update', $recorded, $editUrl), $draft, $this->autoValidates(), $answers);
+            if ($newSlug !== null && $newSlug !== '') {
+                $slug = $newSlug;
+                $editUrl = \App\Saved::url('/chapter/edit/' . $slug . '/' . $position, $draft ? 'draft' : '1');
+            }
+            $this->flashSuggestRefused($suggestOut ?? []);
         } catch (\App\ChapterChanged $e) {
             // An identical save that raced ahead moved the revision; answer from its recorded key, not a 409.
             if (($won = $this->replayAfterRace()) !== null) return $won;
@@ -143,8 +177,8 @@ final class ChapterController
         $wasLive = (int) ($this->db->one(
             'SELECT validated FROM chapters WHERE story_id = (SELECT id FROM stories WHERE slug = ?) AND position = ?',
             [$slug, $position])['validated'] ?? 0);
-        if ($wasLive === 1) $this->notifyPublish($slug); // only an already-live chapter's edit is "news"
-        return $this->saved(\App\Saved::url('/chapter/edit/' . $slug . '/' . $position));
+        if ($wasLive === 1) $this->notifyPublish($slug); // only a live chapter's edit (or a draft just published) is "news"
+        return $this->saved($editUrl);
     }
 
     #[AuthAttr] #[Post]
@@ -184,9 +218,59 @@ final class ChapterController
     }
 
     /** The refusal as the editor's JSON {error}, or the usual form page. */
-    private function fail(string $slug, ?int $position, string $message, int $status = 422, array $headers = []): Response|string
+    private function fail(string $slug, ?int $position, string $message, int $status = 422, array $headers = [], string $row = '', string $field = ''): Response|string
     {
-        return $this->wantsJson() ? $this->json(['error' => $message], $status, $headers) : $this->form($slug, $position, $message, $status, $headers);
+        if ($this->wantsJson()) return $this->json(['error' => $message] + ($field !== '' || $row !== '' ? ['row' => $row, 'field' => $field] : []), $status, $headers);
+        $this->openRow = $row;
+        $this->focusField = $field;
+        return $this->form($slug, $position, $message, $status, $headers);
+    }
+
+    private string $openRow = '';
+    private string $focusField = '';
+
+    /** True when the chapter editor is also the story's first-publish form: the story is still a draft. */
+    private function storyDraftMode(string $slug, ?int $position): bool
+    {
+        return (int) ($this->formRow($slug, $position)['story_draft'] ?? 0) === 1;
+    }
+
+    /** The posted story answers of a draft story, ready for the repository, or a refusal [message, row, field].
+     *  A draft save needs only a rating; a publish also needs a story title. @return array{0: ?array, 1: ?array} */
+    private function storyAnswers(): array
+    {
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds,
+            $accessPassword, $accessClear, $characterIds, $suggest, $withdraw] = \App\StoryInput::from($this->request->post, 'story_title');
+        $draft = $this->isDraft();
+        if ($title === '') {
+            if (!$draft) return [null, [\App\Lang::t('story.err_title'), 'story', 'ed-f-title']];
+            $title = trim((string) ($this->request->post['title'] ?? '')) ?: \App\Lang::t('story.untitled');
+        }
+        if ($this->db->one('SELECT 1 AS x FROM ratings WHERE id = ?', [$ratingId]) === null) {
+            return [null, [\App\Lang::t($draft ? 'story.err_rating_draft' : 'story.err_rating'), 'rating', 'ed-f-rating']];
+        }
+        if ($this->repo()->lockedViolation($this->uid(), $categoryIds, null)) {
+            return [null, [\App\Lang::t('story.err_locked_category'), 'categories', 'ed-f-category']];
+        }
+        return [['title' => $title, 'summary' => $summary, 'notes' => $notes, 'rating_id' => $ratingId, 'category_ids' => $categoryIds,
+            'completed' => $completed, 'restricted' => $restricted, 'language' => $language, 'round_robin' => $roundRobin, 'gift_to' => $giftTo,
+            'is_original' => $isOriginal, 'tag_ids' => $tagIds, 'character_ids' => $characterIds, 'suggest' => $suggest, 'withdraw' => $withdraw,
+            'access_password' => $accessPassword, 'access_clear' => $accessClear], null];
+    }
+
+    /** Every story field that rides the save-key hash, so a retry with a changed story answer is a different request. */
+    private function storyHashFields(): array
+    {
+        $in = \App\StoryInput::from($this->request->post, 'story_title');
+        $in[12] = hash('sha256', (string) $in[12]); // the password never sits in the hash input
+        return $in;
+    }
+
+    private function flashSuggestRefused(array $suggestOut): void
+    {
+        $lines = [];
+        foreach ($suggestOut['refused'] ?? [] as $name => $reason) $lines[] = $name . ' (' . \App\Lang::t('story.suggest_refused_' . $reason) . ')';
+        if ($lines !== []) $this->session->set('suggest_refused', $lines);
     }
 
     /** A saved chapter: the JSON {redirect} for the editor, a 302 for a form. */
@@ -224,7 +308,8 @@ final class ChapterController
         $p = $this->request->post;
         $this->saveKey = $key;
         $this->saveHash = hash('sha256', json_encode([$op, $slug, $position, $title, $content, $before, $after, $publishAt,
-            hash('sha256', trim((string) ($p['access_password'] ?? ''))), ($p['access_clear'] ?? '') === '1'], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+            hash('sha256', trim((string) ($p['access_password'] ?? ''))), ($p['access_clear'] ?? '') === '1', $this->isDraft(),
+            $this->storyDraftMode($slug, $position) ? $this->storyHashFields() : null], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
         return $this->recorded();
     }
 
@@ -245,13 +330,16 @@ final class ChapterController
     }
 
     /** The writer's in-transaction hook that records the key, or null for a form post. */
-    private function saveRecorder(string $op, string $redirect): ?callable
+    private function saveRecorder(string $op, string|\Closure $redirect, ?string &$landed = null): ?callable
     {
-        if ($this->saveKey === null) return null;
-        return function (int $chapterId) use ($op, $redirect): void {
+        // A Closure redirect (a draft create, whose address needs the new position) always needs the hook, key or not.
+        if ($this->saveKey === null && !$redirect instanceof \Closure) return null;
+        return function (int $chapterId, int $newPosition = 0, string $newSlug = '') use ($op, $redirect, &$landed): void {
+            $landed = $redirect instanceof \Closure ? $redirect($chapterId, $newPosition, $newSlug) : $redirect;
+            if ($this->saveKey === null) return;
             $this->db->query('DELETE FROM chapter_save_requests WHERE user_id = ? AND created_at < ?', [$this->uid(), date('c', time() - self::SAVE_KEY_TTL)]);
             $this->db->query('INSERT INTO chapter_save_requests (user_id, save_key, request_hash, chapter_id, operation, redirect, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [$this->uid(), $this->saveKey, $this->saveHash, $chapterId, $op, $redirect, date('c')]);
+                [$this->uid(), $this->saveKey, $this->saveHash, $chapterId, $op, $landed, date('c')]);
         };
     }
 
@@ -259,8 +347,7 @@ final class ChapterController
      *  may be an unresolved editor placeholder. Unchanged ones always pass. */
     private function imageError(string $stored, string $submitted): ?string
     {
-        $key = \App\ChapterImages::refusal($this->db, $this->uid(), $stored, $submitted, \App\Settings::on('chapter_images_on'));
-        return $key === null ? null : \App\Lang::t($key);
+        return \App\ChapterChecks::imageError($this->db, $this->uid(), $stored, $submitted);
     }
 
     private function formRow(string $slug, ?int $position): ?array
@@ -297,63 +384,72 @@ final class ChapterController
                 $row[$field] = is_string($value) ? $value : '';
             }
             $row['access_clear'] = ($this->request->post['access_clear'] ?? null) === '1';
+            $row['is_draft'] = $this->isDraft() ? 1 : 0;
         }
-        $writerServer = [];
-        foreach (['title', 'content', 'notes_before', 'notes_after', 'publish_at'] as $field) {
-            $writerServer[$field] = (string) ($baseRow[$field] ?? '');
-        }
-        $writerServer['publish_at'] = substr($writerServer['publish_at'], 0, 16);
-        $writerLabels = [];
-        foreach (['text', 'mode', 'source', 'formatted', 'editSelection', 'scene', 'tooLarge', 'unavailable', 'inputFallback', 'unconverted', 'words', 'selection', 'unsaved', 'saved', 'saving', 'focus', 'typewriter', 'compare', 'archive', 'recovery',
-            'enable', 'disable', 'retry', 'restore', 'replaceUnsaved', 'useDraft', 'discard', 'copy',
-            'recoveryUnavailable', 'recoveryProtected', 'recoveryOff', 'recoveryTab', 'recoveryOffer',
-            'recoveryConflict', 'recoveryDiscarded', 'recoveryRestored', 'recoveryWritten',
-            'recoveryClearFailed', 'recoveryRemoveFailed', 'recoveryProtectedRetained', 'copyFallback', 'copied',
-            'modeBlocked', 'modeReview', 'convert', 'keepSource'] as $label) {
-            $writerLabels[$label] = \App\Lang::t('writer.' . $label);
-        }
-        $html = $this->view->render('chapter/form', [
+        $row['draft'] = (int) ($row['is_draft'] ?? 0);
+        $writerProtected = (int) ($baseRow['recovery_protected'] ?? 0) === 1
+            || ($error !== null && is_string($this->request->post['access_password'] ?? null)
+                && $this->request->post['access_password'] !== '');
+        $vars = \App\ChapterEditorView::vars($this->request, $this->session, $this->app, $this->uid(), [
             'title' => $position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'),
-            'head' => $this->head()->withTitle($position === null ? \App\Lang::t('chapter.new') : \App\Lang::t('chapter.edit_title'))
-                ->withCanonical($this->request->path)->withNoindex(),
-            'theme' => \App\Theme::current($this->request),
-            'request' => $this->request,
-            'navFile' => (string) $this->app->config('nav_file', ''),
-            'path' => $this->request->path,
-            'story' => $row,
-            'baseRow' => $baseRow,
-            'baseRevision' => $baseRevision,
-            'currentRevision' => $currentRevision,
-            'writerOwner' => $this->uid(),
+            'row' => $row, 'baseRow' => $baseRow, 'position' => $position, 'error' => $error,
+            'contents' => $this->contents((string) ($baseRow['contents_json'] ?? ''), $position),
+            'baseRevision' => $baseRevision, 'currentRevision' => $currentRevision, 'conflict' => isset($this->currentRevisions[$key]),
             'writerChapter' => $position === null ? 'new:' . $baseRow['story_id'] : 'chapter:' . $baseRow['chapter_id'],
-            'writerProtected' => (int) ($baseRow['recovery_protected'] ?? 0) === 1
-                || ($error !== null && is_string($this->request->post['access_password'] ?? null)
-                    && $this->request->post['access_password'] !== ''),
-            'writerServer' => $writerServer,
             'writerCheckUrl' => $position === null ? '/chapter/new/' . $slug : '/chapter/edit/' . $slug . '/' . $position,
-            'conflict' => isset($this->currentRevisions[$key]),
-            'position' => $position,
-            'csrf' => $this->session->csrfToken(),
-            'error' => $error,
-            'writerLabels' => $writerLabels,
-            'imagesOn' => \App\Settings::on('chapter_images_on') && \App\Settings::on('uploads_on'),
-            'notice' => $error === null && \App\Saved::message($this->request) === 'admin.saved_saved'
-                ? \App\Lang::t('chapter.saved') : '',
-            'loggedIn' => true,
+            'writerProtected' => $writerProtected,
         ]);
+        $extra = [];
+        if ((int) ($baseRow['story_draft'] ?? 0) === 1) {
+            $j = json_decode((string) ($baseRow['story_json'] ?? ''), true) ?: [];
+            $saved = ['title' => (string) ($j['title'] ?? ''), 'summary' => (string) ($j['summary'] ?? ''), 'notes' => (string) ($j['notes'] ?? ''),
+                'rating_id' => $j['rating_id'] ?? null, 'completed' => (int) ($j['completed'] ?? 0), 'restricted' => (int) ($j['restricted'] ?? 0),
+                'language' => (string) ($j['language'] ?? \App\Languages::DEFAULT), 'round_robin' => (int) ($j['round_robin'] ?? 0),
+                'is_original' => (int) ($j['is_original'] ?? 0), 'gift_to' => (string) ($j['gift_to'] ?? '')];
+            $cats = array_filter(explode(',', (string) ($j['cat_ids'] ?? '')), 'strlen');
+            $extra = \App\StoryFormVars::build(\App\Repositories\AuthoringRepository::storyFormRows((string) $baseRow['story_json']), $cats, $saved,
+                $error !== null ? \App\StoryInput::retry($this->request->post, 'story_title') : null);
+            $lines = $this->session->get('suggest_refused', []);
+            if ($lines !== []) $this->session->forget('suggest_refused');
+            $extra += ['mode' => 'draft-story', 'openRow' => $this->openRow, 'focusField' => $this->focusField, 'moreOpen' => $this->openRow === 'more',
+                'suggestRefused' => is_array($lines) ? $lines : []];
+            if ($error !== null) $vars['story']['story_title'] = trim((string) ($this->request->post['story_title'] ?? ''));
+        }
+        $html = $this->view->render('chapter/form', $vars + $extra);
         return $error === null ? $html : new Response($html, $status, $headers);
     }
 
-    /** The owner's per-chapter word limits (0 means none): a friendly message with the count, or null when fine. */
-    private function wordLimitError(string $content): ?string
+    /** The Contents panel rows, decoded from the form query's JSON column (no second statement).
+     *  Each: position, title, words, publish_at (string or null), draft (0/1), plus the status
+     *  computed here: state is draft, scheduled (publish_at still in the future, UTC) or published;
+     *  status is its label; current marks the chapter being edited. */
+    private function contents(string $json, ?int $position): array
     {
-        $min = (int) \App\Settings::get('min_words');
-        $max = (int) \App\Settings::get('max_words');
-        if ($min === 0 && $max === 0) return null;
-        $n = \App\Markdown::wordCount($content);
-        if ($min > 0 && $n < $min) return \App\Lang::t('chapter.too_short', ['n' => number_format($n), 'min' => number_format($min)]);
-        if ($max > 0 && $n > $max) return \App\Lang::t('chapter.too_long', ['n' => number_format($n), 'max' => number_format($max)]);
-        return null;
+        $now = gmdate('Y-m-d\TH:i:s\Z');
+        $rows = [];
+        foreach (json_decode($json === '' ? '[]' : $json, true) ?: [] as $c) {
+            $publishAt = ($c['publish_at'] ?? '') === '' ? null : (string) $c['publish_at'];
+            $draft = (int) ($c['draft'] ?? 0);
+            $state = $draft === 1 ? 'draft' : ($publishAt !== null && $publishAt > $now ? 'scheduled' : 'published');
+            $rows[] = ['position' => (int) $c['position'], 'title' => (string) $c['title'], 'words' => (int) $c['words'],
+                'publish_at' => $publishAt, 'draft' => $draft, 'state' => $state,
+                'status' => \App\Lang::t('chapter.status_' . $state), 'current' => (int) $c['position'] === $position];
+        }
+        return $rows;
+    }
+
+    /** Live means readers can open it now: not a draft, and no schedule still in the future (UTC). */
+    private function isLive(array $row): bool
+    {
+        if ((int) ($row['is_draft'] ?? 0) === 1) return false;
+        $at = (string) ($row['publish_at'] ?? '');
+        return $at === '' || $at <= gmdate('Y-m-d\TH:i:s\Z');
+    }
+
+    /** The posted draft switch: only the literal "1" saves a draft; absent means publish per the schedule. */
+    private function isDraft(): bool
+    {
+        return ($this->request->post['draft'] ?? '') === '1';
     }
 
     private function repo(): AuthoringRepository { return new AuthoringRepository($this->db); }
@@ -381,14 +477,9 @@ final class ChapterController
             rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/')))->publish($slug);
     }
 
-    private function head(): \App\Seo\Head
-    {
-        return \App\Seo\Head::make(
-            siteName: (string) $this->app->config('site_name', 'Kiption'),
-            ogImage: (string) $this->app->config('og_image', ''),
-            baseUrl: rtrim((string) $this->app->config('base_url', ''), '/'),
-        );
-    }
+    private function wordLimitError(string $content): ?string { return \App\ChapterChecks::wordLimitError($content); }
+
+    private function canonicalPublishAt(string $raw): ?string { return \App\ChapterChecks::canonicalPublishAt($raw); }
 
     /** @return array{string,string,string,string,string} */
     private function chapterInput(): array
@@ -397,30 +488,5 @@ final class ChapterController
         return [trim((string) ($p['title'] ?? '')), (string) ($p['content'] ?? ''),
             trim((string) ($p['notes_before'] ?? '')), trim((string) ($p['notes_after'] ?? '')),
             trim((string) ($p['publish_at'] ?? ''))];
-    }
-
-    /** The schedule input's normalizer (finding 1). The zone is OPTIONAL in
-     *  the accepted shape because the form's datetime-local input submits
-     *  without one; a zone-less value reads as UTC (the third createFromFormat
-     *  argument pins that, whatever the host default timezone is). Every
-     *  accepted value is canonicalized to Y-m-d\TH:i:s\Z UTC so releaseDue's
-     *  lexicographic publish_at <= now compares exact instants: raw offsets
-     *  compare wrong in both directions. Empty returns null (the immediate
-     *  path unchanged); junk throws for the 422. */
-    private function canonicalPublishAt(string $raw): ?string
-    {
-        if ($raw === '') return null;
-        if (!preg_match('#^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?$#', $raw)) {
-            throw new \InvalidArgumentException('publish_at');
-        }
-        $utc = new \DateTimeZone('UTC');
-        foreach (['Y-m-d\TH:i:s\Z', 'Y-m-d\TH:i\Z', 'Y-m-d\TH:i:sP', 'Y-m-d\TH:iP', 'Y-m-d\TH:i:s', 'Y-m-d\TH:i'] as $fmt) {
-            $dt = \DateTimeImmutable::createFromFormat($fmt, $raw, $utc);
-            $errs = \DateTimeImmutable::getLastErrors();
-            if ($dt !== false && ($errs === false || ($errs['warning_count'] === 0 && $errs['error_count'] === 0))) {
-                return $dt->setTimezone($utc)->format('Y-m-d\TH:i:s\Z');
-            }
-        }
-        throw new \InvalidArgumentException('publish_at'); // shape matched, instant did not (2099-13-45T99:99)
     }
 }

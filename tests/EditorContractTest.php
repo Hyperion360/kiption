@@ -49,8 +49,42 @@ final class EditorContractTest extends TestCase
             $this->assertStringContainsString($label, $html);
         }
         $this->assertStringContainsString('required', $html, 'the plain form is unchanged');
-        $this->assertStringContainsString('Ctrl or Cmd plus B', $html, 'the shortcut hint renders');
+        $this->assertStringContainsString('Ctrl or Cmd + /', $html, 'the shortcut list renders');
         $this->assertDoesNotMatchRegularExpression('/<script(?![^>]*\bsrc=)/', $html, 'no inline script');
+    }
+
+    public function test_the_editor_header_theme_control_names_all_four_themes_and_cycles_them(): void
+    {
+        $html = $this->client()->get('/chapter/new/the-rabbit-hole')->body;
+        $this->assertMatchesRegularExpression('/data-ed-theme-toggle[^>]*aria-label="Theme"/', $html);
+        $this->assertMatchesRegularExpression('/"themeNames":\{"paper":"Paper","sepia":"Sepia","night":"Night","auto":"Auto"\}/', html_entity_decode($html), 'the labels carry all four names');
+        $this->assertStringNotContainsString('ed.theme_dark', $html);
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/writer-comfort.js');
+        $this->assertStringContainsString("['paper', 'sepia', 'night', 'auto']", $js, 'the toggle cycles four themes, never a two-state flip');
+        $this->assertStringContainsString("/reader/settings", $js, 'the choice is posted like the rest of the site');
+    }
+
+    public function test_the_editor_keeps_the_site_menu_the_source_switch_and_all_four_formatting_hints(): void
+    {
+        $html = $this->client()->get('/chapter/new/the-rabbit-hole')->body;
+        $this->assertMatchesRegularExpression('/<a role="menuitem" class="ed-menu-link" href="#menu"[^>]*>Menu<\/a>/', $html, 'More opens the site menu');
+        $this->assertStringContainsString('id="menu"', $html, 'the site menu sheet rides the bare layout');
+        $this->assertStringContainsString('action="/auth/logout"', $html, 'Log Out is reachable from the editor');
+        $this->assertStringContainsString('class="theme-seg"', $html, 'the four-way theme control is on the page');
+        foreach (['chapter.markdown_help', 'ed.editor_hint', 'chapter.source_shortcut', 'chapter.paste_hint'] as $key) {
+            $this->assertStringContainsString(htmlspecialchars(\App\Lang::t($key), ENT_QUOTES), $html, $key);
+        }
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/writer-comfort.js');
+        $this->assertStringContainsString('ed-tool-source', $js, 'the header keeps the Source switch');
+        $this->assertStringContainsString('writer-source', $js, 'the footer carries the Source switch');
+    }
+
+    public function test_shortcuts_are_spelled_per_platform_and_escape_leaves_focus_mode(): void
+    {
+        $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/writer-comfort.js');
+        $this->assertStringContainsString("'#ed-keys kbd'", $js, 'the cheat sheet combos are rewritten for the platform');
+        $this->assertStringContainsString('function comboKeys(shift)', $js, 'one helper spells Cmd or Ctrl, with Shift');
+        $this->assertStringContainsString('panel: panelOrder.length > 0 && !(comfort && comfort.isFocus())', $js, 'hidden panels do not swallow Esc in focus mode');
     }
 
     public function test_epigraph_is_always_loaded_and_the_form_retains_native_save(): void
@@ -66,7 +100,11 @@ final class EditorContractTest extends TestCase
             $this->assertSame('Enter chapter text before saving.', $form->getAttribute('data-content-required'));
             $labels = json_decode($box->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
             $this->assertSame('Formatted', $labels['formatted']);
-            $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $form)->length);
+            // The header button, the popover's go button and Save as Draft are the only submits.
+            $this->assertSame(1, $xpath->query('.//button[@data-ed-primary and @type="submit"]', $form)->length);
+            $this->assertSame(1, $xpath->query('.//button[@data-ed-go and @type="submit"]', $form)->length);
+            $this->assertSame(1, $xpath->query('.//button[@data-ed-draft and @type="submit" and @name="draft" and @value="1"]', $form)->length);
+            $this->assertSame(3, $xpath->query('.//button[@type="submit" and not(@form)]', $form)->length);
         }
         $js = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         $this->assertStringContainsString("['epigraph-boot', ['paste', 'epigraph']]", $js);
@@ -84,9 +122,9 @@ final class EditorContractTest extends TestCase
     public function test_editor_forms_keep_one_native_primary_save_action(): void
     {
         foreach ([
-            ['/chapter/new/the-rabbit-hole', 'chapter-editor-form', '/chapter/create/the-rabbit-hole', 'Save Chapter'],
-            ['/chapter/edit/the-rabbit-hole/1', 'chapter-editor-form', '/chapter/update/the-rabbit-hole/1', 'Save Chapter'],
-            ['/story/new', 'story-editor-form', '/story/create', 'Create'],
+            ['/chapter/new/the-rabbit-hole', 'chapter-editor-form', '/chapter/create/the-rabbit-hole', 'Publish Chapter'],
+            ['/chapter/edit/the-rabbit-hole/1', 'chapter-editor-form', '/chapter/update/the-rabbit-hole/1', 'Update'],
+            ['/story/new', 'chapter-editor-form', '/story/create', 'Publish Story'],
             ['/story/edit/the-rabbit-hole', 'story-editor-form', '/story/update/the-rabbit-hole', 'Save'],
         ] as [$path, $id, $action, $label]) {
             $r = $this->client()->get($path);
@@ -99,11 +137,28 @@ final class EditorContractTest extends TestCase
             $this->assertSame('post', $form->getAttribute('method'));
             $this->assertSame($action, $form->getAttribute('action'));
             $this->assertSame(1, $xpath->query('.//input[@name="_token"]', $form)->length);
-            $buttons = $xpath->query('.//button[@type="submit" and not(@form)]', $form);
-            $this->assertSame(1, $buttons->length, $path);
+            $buttons = $xpath->query('.//button[@type="submit" and not(@form) and not(@name)]', $form);
+            $this->assertSame($id === 'chapter-editor-form' ? 2 : 1, $buttons->length, $path);
             $this->assertSame($label, trim($buttons->item(0)->textContent));
-            $this->assertStringStartsWith('btn-primary', $buttons->item(0)->getAttribute('class'));
+            if ($id === 'story-editor-form') {
+                $this->assertStringStartsWith('btn-primary', $buttons->item(0)->getAttribute('class'));
+            }
         }
+    }
+
+    public function test_the_editor_page_keeps_every_named_field_and_drops_unowned_controls(): void
+    {
+        $html = $this->client()->get('/chapter/edit/the-rabbit-hole/1')->body;
+        [$form, $xpath] = $this->writerForm($html, 'chapter-editor-form');
+        foreach (['title', 'content', 'notes_before', 'notes_after', 'publish_at', 'access_password', 'base_revision', '_token'] as $name) {
+            $this->assertGreaterThanOrEqual(1, $xpath->query('.//*[@name="' . $name . '"]', $form)->length, $name);
+        }
+        $this->assertSame(0, $xpath->query('.//*[@id="ed-date" or @id="ed-time"][@name]', $form)->length, 'helper fields are unnamed');
+        $this->assertSame(1, $xpath->query('//form[@id="chapter-delete-form"]')->length);
+        $this->assertSame(1, $xpath->query('.//*[contains(@class,"epigraph-mode") or @data-ed-write]', $form)->length >= 1 ? 1 : 0);
+        $this->assertStringNotContainsString('Smart punctuation', $html);
+        $this->assertStringNotContainsString('Restore sample chapter', $html);
+        $this->assertStringNotContainsString('<style', $html, 'no inline styles');
     }
 
     public function test_the_editor_language_keys_exist(): void
@@ -119,15 +174,16 @@ final class EditorContractTest extends TestCase
         [$form, $xpath] = $this->writerForm($this->client()->get('/chapter/new/the-rabbit-hole')->body, 'chapter-editor-form');
         $this->assertStringContainsString('writer-comfort', $form->getAttribute('data-js-module'));
         $labels = json_decode($form->getAttribute('data-writer-labels'), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('Focus Mode', $labels['focus']);
-        $this->assertSame('Typewriter Scrolling', $labels['typewriter']);
-        $this->assertSame(0, $xpath->query('.//button[@aria-pressed]', $form)->length);
-        $this->assertSame(1, $xpath->query('.//button[@type="submit"]', $form)->length);
+        $this->assertSame('Focus', $labels['focus']);
+        $this->assertSame('Typewriter', $labels['typewriter']);
+        $this->assertSame(0, $xpath->query('.//button[@aria-pressed and not(ancestor-or-self::*[contains(concat(" ", normalize-space(@class), " "), " js-only ")])]', $form)->length, 'every toggle is script-only');
+        $this->assertSame(3, $xpath->query('.//button[@type="submit" and not(@form)]', $form)->length);
         $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
         $this->assertTrue($box->hasAttribute('required'));
         $this->assertFalse($box->hasAttribute('hidden'));
-        [$story] = $this->writerForm($this->client()->get('/story/new')->body, 'story-editor-form');
-        $this->assertStringNotContainsString('writer-comfort', $story->getAttribute('data-js-module'));
+        [$story] = $this->writerForm($this->client()->get('/story/new')->body, 'chapter-editor-form');
+        $this->assertStringContainsString('writer-comfort', $story->getAttribute('data-js-module'));
+        $this->assertSame('new-story', $story->getAttribute('data-ed-mode'));
         $this->assertStringContainsString("['writer-comfort']", file_get_contents(dirname(__DIR__) . '/public/assets/app.js'));
     }
 
@@ -151,13 +207,18 @@ final class EditorContractTest extends TestCase
             $this->assertSame('You have unsaved changes.', $labels['unsaved']);
             $state = $xpath->query('.//*[@data-writer-state]', $form);
             $this->assertSame(1, $state->length);
-            $this->assertSame('status', $state->item(0)->getAttribute('role'));
-            $this->assertSame('polite', $state->item(0)->getAttribute('aria-live'));
-            $this->assertSame('true', $state->item(0)->getAttribute('aria-atomic'));
-            $this->assertSame('', $state->item(0)->textContent);
+            $wrap = $kind === 'chapter' ? $state->item(0)->parentNode : $state->item(0);
+            $this->assertSame('status', $wrap->getAttribute('role'));
+            $this->assertSame('polite', $wrap->getAttribute('aria-live'));
+            $this->assertSame('true', $wrap->getAttribute('aria-atomic'));
+            if ($kind === 'chapter') {
+                $this->assertNotSame('', trim($state->item(0)->textContent), 'the editor always names its state');
+            } else {
+                $this->assertSame('', $state->item(0)->textContent);
+            }
             [$saved, $savedXpath] = $this->writerForm($this->client()->get($path, ['saved' => '1'])->body, $kind . '-editor-form');
             $this->assertSame('1', $saved->getAttribute('data-writer-saved'));
-            $this->assertSame('All changes shown here are saved.', $savedXpath->query('.//*[@data-writer-state]', $saved)->item(0)->textContent);
+            $this->assertSame($kind === 'chapter' ? 'Saved' : 'All changes shown here are saved.', $savedXpath->query('.//*[@data-writer-state]', $saved)->item(0)->textContent);
             if ($kind === 'chapter') {
                 $box = $xpath->query('.//textarea[@name="content"]', $form)->item(0);
                 $count = $xpath->query('.//*[@data-writer-count]', $form)->item(0);
@@ -188,7 +249,7 @@ final class EditorContractTest extends TestCase
             $this->assertSame('1', $form->getAttribute('data-writer-rejected'));
             $this->assertSame('0', $form->getAttribute('data-writer-saved'));
             $this->assertSame('You have unsaved changes.', $xpath->query('.//*[@data-writer-state]', $form)->item(0)->textContent);
-            $this->assertSame(1, $xpath->query('.//button[@type="submit" and not(@name) and not(@form)]', $form)->length);
+            $this->assertSame($kind === 'chapter' ? 2 : 1, $xpath->query('.//button[@type="submit" and not(@name) and not(@form)]', $form)->length);
         }
     }
 
@@ -267,5 +328,23 @@ final class EditorContractTest extends TestCase
             $this->assertStringContainsString($needle, $subset, 'subset.js carries the escape trio and the word-edge rule');
             $this->assertStringContainsString($needle, $md, 'the php renderer carries the same');
         }
+    }
+
+    /** The recovery offer reads as a titled banner (design parity): the detail strings exist, are sent to the script, and the result stays visible. */
+    public function test_recovery_offer_has_a_title_detail_lines_and_a_visible_result(): void
+    {
+        $root = dirname(__DIR__, 1);
+        $lang = (string) file_get_contents($root . '/app/lang/en.php');
+        $view = (string) file_get_contents($root . '/app/src/ChapterEditorView.php');
+        $js = (string) file_get_contents($root . '/public/assets/draft-form.js');
+        $css = (string) file_get_contents($root . '/public/assets/reader.css');
+        foreach (['recoveryOfferDetail', 'recoveryOfferDetailOne', 'recoveryOfferDetailSame'] as $key) {
+            $this->assertStringContainsString("'writer.$key'", $lang, "$key has an English string");
+            $this->assertStringContainsString("'$key'", $view, "$key reaches the script");
+            $this->assertStringContainsString($key, $js, "$key is used by the offer");
+        }
+        $this->assertStringNotContainsString('—', substr($lang, (int) strpos($lang, "'writer.recoveryOfferDetail'"), 400), 'no em dashes in recovery copy');
+        $this->assertStringContainsString('[data-notice="1"]', $css, 'the restore and discard result stays on screen');
+        $this->assertMatchesRegularExpression('/\.ed-toast \{[^}]*inset-block-end: 60px;[^}]*padding: 12px 18px/', $css, 'the toast matches the design');
     }
 }

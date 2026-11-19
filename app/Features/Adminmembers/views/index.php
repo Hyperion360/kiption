@@ -52,7 +52,7 @@
         <?php endif; ?>
       </td>
       <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_status')) ?>">
-        <span class="member-status is-<?= $status ?>"><?= \App\Lang::t('adminmembers.status.' . $status) ?></span><?php if ($status === 'unapproved'): ?> <a class="member-approve" href="/queue?tab=members"><?= \App\Lang::t('adminmembers.approve') ?></a><?php endif; ?>
+        <span class="member-status is-<?= $status ?>"><?= \App\Lang::t('adminmembers.status.' . $status) ?></span><?php if ($status === 'unapproved'): ?> <form method="post" action="/queue/member/<?= (int) $m['id'] ?>/approve" class="inline member-approve-form"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><input type="hidden" name="back" value="<?= $this->e('/adminmembers' . ($request->get === [] ? '' : '?' . http_build_query($request->get))) ?>"><button type="submit" class="member-approve"><?= \App\Lang::t('adminmembers.approve') ?></button></form><?php endif; ?>
       </td>
       <td class="member-num" data-label="<?= $this->e(\App\Lang::t('adminmembers.column_stories')) ?>"><?= (int) $m['stories'] ?></td>
       <td data-label="<?= $this->e(\App\Lang::t('adminmembers.column_signed_in')) ?>"><?= $m['last_signin'] !== null ? $signed : \App\Lang::t('adminmembers.never_signed_in') ?></td>

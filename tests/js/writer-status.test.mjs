@@ -278,3 +278,16 @@ test('core logout survives blocked storage and respects submitter action overrid
     assert.doesNotThrow(()=>document.dispatchEvent(event));assert.equal(event.defaultPrevented,false);assert.equal(map.size,1);
   }
 });
+
+test('Ctrl+S on a draft submits through the Save as Draft button (draft=1)', () => {
+  const f = fixture(); const draftBtn = { name: 'draft', value: '1' }; let sent = null;
+  f.form.dataset.edState = 'draft';
+  const q = f.form.querySelector; f.form.querySelector = s => s === '[data-ed-draft]' ? draftBtn : q(s);
+  f.form.requestSubmit = b => { sent = b; };
+  key(f.form, {}); assert.equal(sent, draftBtn);
+});
+test('Ctrl+S on a live chapter submits the plain form', () => {
+  const f = fixture(); let sent = 'unset'; f.form.dataset.edState = 'published';
+  f.form.requestSubmit = b => { sent = b; };
+  key(f.form, {}); assert.equal(sent, undefined);
+});

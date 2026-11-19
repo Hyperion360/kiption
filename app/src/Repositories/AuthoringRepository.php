@@ -7,9 +7,12 @@ final class AuthoringRepository
 {
     /** What is waiting for a moderator, written once: the queue lists by
      *  these, and the admin home and the settings board count by them.
-     *  Aliases: stories s, chapters ch (joined to its story s), users us. */
-    public const WAITING_STORY = 's.validated = 0 AND s.deleted_at IS NULL';
-    public const WAITING_CHAPTER = 'ch.validated = 0 AND s.deleted_at IS NULL AND s.validated = 1';
+     *  Aliases: stories s, chapters ch (joined to its story s), users us.
+     *  A draft story (is_draft = 1) is stored with validated = 0 too, so it
+     *  must never read as waiting, approvable or removable by staff. */
+    public const WAITING_STORY = 's.validated = 0 AND s.is_draft = 0 AND s.deleted_at IS NULL';
+    /** A draft (is_draft = 1) is stored with validated = 0, so it must never read as waiting, releasable, approvable or removable by staff. */
+    public const WAITING_CHAPTER = 'ch.validated = 0 AND ch.is_draft = 0 AND s.deleted_at IS NULL AND s.validated = 1';
     public const WAITING_MEMBER = 'us.approved_at IS NULL AND us.email_verified_at IS NOT NULL AND us.is_locked = 0';
 
     /** What is known about author au, packed for the queue row:
@@ -26,9 +29,9 @@ final class AuthoringRepository
     private const STORY_PANE = "(SELECT GROUP_CONCAT(n, char(31)) FROM (SELECT t.name AS n FROM story_tags st JOIN tags t ON t.id = st.tag_id WHERE st.story_id = s.id ORDER BY t.name)),
                 (SELECT GROUP_CONCAT(n, char(31)) FROM (SELECT ts.name AS n FROM tag_suggestions ts WHERE ts.story_id = s.id AND ts.status = 'pending' ORDER BY ts.name)),
                 (SELECT r.label FROM ratings r WHERE r.id = s.rating_id), s.completed,
-                (SELECT COUNT(*) FROM chapters c1 WHERE c1.story_id = s.id),
+                (SELECT COUNT(*) FROM chapters c1 WHERE c1.story_id = s.id AND c1.is_draft = 0),
                 (SELECT GROUP_CONCAT(n, char(31)) FROM (SELECT cg.name AS n FROM story_categories sc JOIN categories cg ON cg.id = sc.category_id WHERE sc.story_id = s.id ORDER BY cg.position, cg.name)),
-                (SELECT c2.title || char(31) || substr(c2.content, 1, 500) FROM chapters c2 WHERE c2.story_id = s.id ORDER BY c2.position LIMIT 1)";
+                (SELECT c2.title || char(31) || substr(c2.content, 1, 500) FROM chapters c2 WHERE c2.story_id = s.id AND c2.is_draft = 0 ORDER BY c2.position LIMIT 1)";
     private const NO_PANE = 'NULL, NULL, NULL, NULL, NULL, NULL, NULL';
     /** A chapter row has no story pane; its p slot carries the story title so the detail pane links by title, not slug. */
     private const CHAPTER_PANE = 'NULL, NULL, NULL, NULL, NULL, s.title, NULL';
@@ -45,6 +48,8 @@ final class AuthoringRepository
      *  syndication pair (canonical_url, crosspost_url) the edit form
      *  prefills, then round_robin + gift_to. r rides the 's' branch only
      *  as well: the original-work attestation (is_original).
+     *  The 'r' (rating) branch carries is_adult in e and warning_text in f, so
+     *  the new-story popover can show an adult rating's own warning.
      *  The 'tag' branch (appended LAST, so its bind lands at the array's
      *  end) carries every tag with its type and canonical_id plus the
      *  story's selected tag ids as the same per-row GROUP_CONCAT on every
@@ -61,7 +66,7 @@ final class AuthoringRepository
                             (SELECT COUNT(*) FROM users cadm WHERE cadm.id = ? AND cadm.role = 'admin') AS f, NULL AS g, NULL AS h, NULL AS i, NULL AS j, NULL AS n, NULL AS o, NULL AS p, NULL AS q, NULL AS l, NULL AS m, NULL AS r
                      FROM categories c
                      UNION ALL
-                     SELECT 'r', r.id, r.label, NULL, r.position, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+                     SELECT 'r', r.id, r.label, NULL, r.position, r.is_adult, r.warning_text, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
                      FROM ratings r";
         $tags = " UNION ALL
                      SELECT 'tag' AS k, t.id AS a, t.name AS b, tt.name AS c, tt.id AS d,
@@ -102,7 +107,7 @@ final class AuthoringRepository
             "SELECT 's' AS k, s.id AS a, s.title AS b, s.summary AS c, s.notes AS d,
                     (SELECT GROUP_CONCAT(sc.category_id) FROM story_categories sc WHERE sc.story_id = s.id) AS e,
                     s.rating_id AS f, s.completed AS g,
-                    (SELECT json_group_array(json_object('position', ch.position, 'title', ch.title, 'validated', ch.validated))
+                    (SELECT json_group_array(json_object('position', ch.position, 'title', ch.title, 'validated', ch.validated, 'is_draft', ch.is_draft))
                      FROM chapters ch WHERE ch.story_id = s.id) AS h,
                     s.is_restricted AS i, s.language AS j,
                     s.canonical_url AS n, s.crosspost_url AS o, s.round_robin AS p, s.gift_to AS q,
@@ -176,17 +181,66 @@ final class AuthoringRepository
         $slug = \App\Slug::unique(fn(string $s): bool => $this->slugTaken($s), \App\Slug::make($title));
         $this->db->begin();
         try {
-            $this->db->query(
-                'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_restricted, language, round_robin, gift_to, is_original, access_hash, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0, $accessHash, $completed ? 1 : 0]);
-            $storyId = (int) $this->db->lastInsertId();
-            $this->writeCategories($storyId, $categoryIds);
-            $this->writeTags($storyId, $tagIds);
-            $this->writeCharacters($storyId, $characterIds);
-            $suggestOut = $this->writeSuggestions($storyId, $userId, $suggest, $withdraw);
+            [$storyId, $suggestOut] = $this->insertStory($userId, $slug, $title, $summary, $notes, $ratingId, $categoryIds, $validated, false,
+                $restricted, $language, $roundRobin, $giftTo, $isOriginal, $tagIds, $accessHash, $characterIds, $completed, $suggest, $withdraw);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData($storyId, $userId);
             return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut];
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /** The story row and its category, tag, character and suggestion rows,
+     *  inside the caller's transaction (no begin or commit here).
+     *  @return array{0: int, 1: array} new story id, the suggest outcome */
+    private function insertStory(int $userId, string $slug, string $title, string $summary, string $notes, int $ratingId,
+                                 array $categoryIds, bool $validated, bool $draft, bool $restricted, string $language,
+                                 bool $roundRobin, string $giftTo, bool $isOriginal, array $tagIds, ?string $accessHash,
+                                 ?array $characterIds, bool $completed, array $suggest, array $withdraw): array
+    {
+        $this->db->query(
+            'INSERT INTO stories (title, slug, summary, notes, author_id, rating_id, validated, is_draft, is_restricted, language, round_robin, gift_to, is_original, access_hash, completed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [$title, $slug, $summary, $notes, $userId, $ratingId, $validated ? 1 : 0, $draft ? 1 : 0, $restricted ? 1 : 0, $language, $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0, $accessHash, $completed ? 1 : 0]);
+        $storyId = (int) $this->db->lastInsertId();
+        $this->writeCategories($storyId, $categoryIds);
+        $this->writeTags($storyId, $tagIds);
+        $this->writeCharacters($storyId, $characterIds);
+        return [$storyId, $this->writeSuggestions($storyId, $userId, $suggest, $withdraw)];
+    }
+
+    /** The new-story editor's one write: the story and its chapter 1 in ONE
+     *  transaction, so there is never a story without its chapter or a
+     *  chapter without its story. $s holds the story answers (the keys
+     *  storyAnswers() on the controller builds, access_hash pre-hashed),
+     *  $chapter the chapter's title, content, before, after, publish_at and
+     *  draft flag. $hook runs inside the transaction with the new chapter id
+     *  and position (the save-key record). Visibility follows one table:
+     *  a draft or a scheduled auto-validated story waits as is_draft = 1
+     *  (hidden, not in the queue); a live one is validated; a held one waits
+     *  in the story queue.
+     *  @return array{0: int, 1: string, 2: array, 3: array, 4: string, 5: array, 6: array, 7: int} id, slug,
+     *  category slugs, series slugs, author profile slug, challenge slugs, the suggest outcome, chapter position */
+    public function createStoryWithChapter(int $userId, array $s, bool $auto, array $chapter, ?callable $hook = null): array
+    {
+        $slug = \App\Slug::unique(fn(string $x): bool => $this->slugTaken($x), \App\Slug::make($s['title']));
+        $draft = (bool) $chapter['draft'];
+        $scheduled = $chapter['publish_at'] !== null;
+        $live = !$draft && $auto && !$scheduled;
+        $storyDraft = $draft || ($auto && $scheduled);
+        $this->db->begin();
+        try {
+            [$storyId, $suggestOut] = $this->insertStory($userId, $slug, $s['title'], $s['summary'], $s['notes'], $s['rating_id'], $s['category_ids'],
+                $live, $storyDraft, $s['restricted'], $s['language'], $s['round_robin'], $s['gift_to'], $s['is_original'], $s['tag_ids'],
+                $s['access_hash'], $s['character_ids'], $s['completed'], $s['suggest'], $s['withdraw']);
+            [$chapterId, $position] = $this->insertChapter($storyId, $chapter['title'], $chapter['content'], $chapter['before'], $chapter['after'],
+                $live, $chapter['publish_at'], null, $draft);
+            $this->touchStory($storyId);
+            if ($hook !== null) $hook($chapterId, $position, $slug);
+            $this->db->commit();
+            [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData($storyId, $userId);
+            return [$storyId, $slug, $this->categorySlugs($storyId), $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut, $position];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
@@ -217,21 +271,11 @@ final class AuthoringRepository
         $oldCats = $this->categorySlugs((int) $story['id']);
         $this->db->begin();
         try {
-            $this->db->query('UPDATE stories SET title = ?, slug = ?, summary = ?, notes = ?, rating_id = ?,
-                              completed = ?, is_restricted = ?, language = ?, round_robin = ?, gift_to = ?,
-                              is_original = ?,
-                              canonical_url = ?, crosspost_url = ?,
-                              access_hash = ?,
-                              updated_at = ? WHERE id = ?',
-                [$title, $newSlug, $summary, $notes, $ratingId, $completed ? 1 : 0, $restricted ? 1 : 0, $language,
-                 $roundRobin ? 1 : 0, $giftTo, $isOriginal ? 1 : 0,
-                 $canonicalUrl === '' ? null : $canonicalUrl, $crosspostUrl === '' ? null : $crosspostUrl,
-                 $accessValue,
-                 date('c'), $story['id']]);
-            $this->writeCategories((int) $story['id'], $categoryIds);
-            $this->writeTags((int) $story['id'], $tagIds);
-            $this->writeCharacters((int) $story['id'], $characterIds);
-            $suggestOut = $this->writeSuggestions((int) $story['id'], $userId, $suggest, $withdraw);
+            $suggestOut = $this->writeStory((int) $story['id'], $newSlug, $accessValue, [
+                'title' => $title, 'summary' => $summary, 'notes' => $notes, 'rating_id' => $ratingId, 'category_ids' => $categoryIds,
+                'completed' => $completed, 'restricted' => $restricted, 'language' => $language, 'round_robin' => $roundRobin,
+                'gift_to' => $giftTo, 'is_original' => $isOriginal, 'tag_ids' => $tagIds, 'character_ids' => $characterIds,
+                'suggest' => $suggest, 'withdraw' => $withdraw, 'userId' => $userId], $canonicalUrl, $crosspostUrl);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
             return [$newSlug, array_values(array_unique(array_merge($oldCats, $this->categorySlugs((int) $story['id'])))), $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut];
@@ -239,6 +283,27 @@ final class AuthoringRepository
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+    /** The story half of a save, inside the caller's transaction (no begin or
+     *  commit here): the row's fields, then categories, tags, characters and
+     *  suggestions. $canonicalUrl and $crosspostUrl are null when the caller
+     *  does not own them (the chapter editor), which leaves both untouched.
+     *  @return array the suggest outcome */
+    private function writeStory(int $storyId, string $newSlug, ?string $accessValue, array $s, ?string $canonicalUrl = null, ?string $crosspostUrl = null): array
+    {
+        $sets = ['title = ?', 'slug = ?', 'summary = ?', 'notes = ?', 'rating_id = ?', 'completed = ?', 'is_restricted = ?', 'language = ?',
+                 'round_robin = ?', 'gift_to = ?', 'is_original = ?', 'access_hash = ?', 'updated_at = ?'];
+        $args = [$s['title'], $newSlug, $s['summary'], $s['notes'], $s['rating_id'], $s['completed'] ? 1 : 0, $s['restricted'] ? 1 : 0, $s['language'],
+                 $s['round_robin'] ? 1 : 0, $s['gift_to'], $s['is_original'] ? 1 : 0, $accessValue, date('c')];
+        if ($canonicalUrl !== null) { $sets[] = 'canonical_url = ?'; $args[] = $canonicalUrl === '' ? null : $canonicalUrl; }
+        if ($crosspostUrl !== null) { $sets[] = 'crosspost_url = ?'; $args[] = $crosspostUrl === '' ? null : $crosspostUrl; }
+        $args[] = $storyId;
+        $this->db->query('UPDATE stories SET ' . implode(', ', $sets) . ' WHERE id = ?', $args);
+        $this->writeCategories($storyId, $s['category_ids']);
+        $this->writeTags($storyId, $s['tag_ids']);
+        $this->writeCharacters($storyId, $s['character_ids']);
+        return $this->writeSuggestions($storyId, $s['userId'], $s['suggest'], $s['withdraw']);
     }
 
     /** @return array{0: string, 1: array, 2: array, 3: string, 4: array}|null slug,
@@ -267,7 +332,7 @@ final class AuthoringRepository
     public function ownStory(string $slug, int $userId, bool $rr = false): array
     {
         $story = $this->db->one(
-            "SELECT id, title, author_id, access_hash FROM stories WHERE slug = ? AND deleted_at IS NULL
+            "SELECT id, title, author_id, access_hash, is_draft FROM stories WHERE slug = ? AND deleted_at IS NULL
               AND (author_id = ?
                    OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = stories.id AND ca.user_id = ?)
                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin')
@@ -502,8 +567,11 @@ final class AuthoringRepository
             : '';
         return $this->db->one(
             "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.publish_at, ch.position,
-                    ch.id AS chapter_id, ch.access_hash,
-                    CASE WHEN s.access_hash IS NOT NULL OR ch.access_hash IS NOT NULL THEN 1 ELSE 0 END AS recovery_protected
+                    ch.id AS chapter_id, ch.access_hash, ch.is_draft, s.is_draft AS story_draft, ch.updated_at AS saved_at,
+                    CASE WHEN s.access_hash IS NOT NULL OR ch.access_hash IS NOT NULL THEN 1 ELSE 0 END AS recovery_protected,
+                    CASE WHEN s.is_draft = 1 THEN " . $this->draftStoryJson($userId) . " END AS story_json,
+                    (SELECT json_group_array(json_object('position', c.position, 'title', c.title, 'words', c.word_count, 'publish_at', c.publish_at, 'draft', c.is_draft))
+                     FROM (SELECT position, title, word_count, publish_at, is_draft FROM chapters WHERE story_id = s.id ORDER BY position) c) AS contents_json
              FROM stories s {$chapterJoin}
              WHERE s.slug = ? AND s.deleted_at IS NULL
                AND (s.author_id = ?
@@ -514,49 +582,141 @@ final class AuthoringRepository
                 : [$slug, $userId, $userId, $userId]);
     }
 
+    /** The story-form answers of a DRAFT story as one JSON column of the
+     *  chapter editor's single statement (the CASE around it keeps every other
+     *  chapter page from paying for it). It carries the story's own fields,
+     *  its selected id lists and the whole taxonomy, so the editor can show
+     *  the story rows without a second query; storyFormRows() turns it back
+     *  into formData's row shape. $userId is cast to int and inlined only
+     *  because this SQL text is built once per call and never concatenates
+     *  anything else the caller controls. */
+    private function draftStoryJson(int $userId): string
+    {
+        $u = (int) $userId;
+        return "json_object(
+            'title', s.title, 'summary', s.summary, 'notes', s.notes, 'rating_id', s.rating_id, 'completed', s.completed,
+            'restricted', s.is_restricted, 'language', s.language, 'round_robin', s.round_robin, 'gift_to', s.gift_to,
+            'is_original', s.is_original, 'has_password', CASE WHEN s.access_hash IS NOT NULL THEN 1 ELSE 0 END,
+            'admin', (SELECT COUNT(*) FROM users va WHERE va.id = {$u} AND va.role = 'admin'),
+            'cat_ids', (SELECT GROUP_CONCAT(sc.category_id) FROM story_categories sc WHERE sc.story_id = s.id),
+            'tag_ids', (SELECT GROUP_CONCAT(st.tag_id) FROM story_tags st WHERE st.story_id = s.id),
+            'char_ids', (SELECT GROUP_CONCAT(sh.character_id) FROM story_characters sh WHERE sh.story_id = s.id),
+            'cats', (SELECT json_group_array(json_array(c.id, c.name, c.slug, c.position, c.locked)) FROM categories c),
+            'ratings', (SELECT json_group_array(json_array(r.id, r.label, r.position, r.is_adult, r.warning_text)) FROM ratings r),
+            'tags', (SELECT json_group_array(json_array(t.id, t.name, tt.name, tt.id, t.canonical_id, tt.position)) FROM tag_types tt LEFT JOIN tags t ON t.tag_type_id = tt.id),
+            'chars', (SELECT json_group_array(json_array(ch2.id, ch2.name, cc.name, ch2.category_id)) FROM characters ch2 LEFT JOIN categories cc ON cc.id = ch2.category_id),
+            'sugs', (SELECT json_group_array(json_array(ts.id, ts.name, tt2.name, tt2.id, ts.status))
+                     FROM tag_suggestions ts JOIN tag_types tt2 ON tt2.id = ts.tag_type_id
+                     WHERE ts.story_id = s.id AND (ts.suggested_by = {$u} OR (SELECT COUNT(*) FROM users sa WHERE sa.id = {$u} AND sa.role = 'admin') = 1))
+        )";
+    }
+
+    /** formData-shaped rows ('cat', 'r', 'tag', 'ch', 'sug') from a draft
+     *  story's story_json, so the same static folds and the same field partial
+     *  serve both editors. @return array[] */
+    public static function storyFormRows(?string $json): array
+    {
+        $j = json_decode((string) $json, true);
+        if (!is_array($j)) return [];
+        $rows = [];
+        $blank = ['g' => null, 'h' => null, 'i' => null, 'j' => null, 'n' => null, 'o' => null, 'p' => null, 'q' => null, 'l' => null, 'm' => null, 'r' => null];
+        // SQLite hands a nested json_group_array back as text or as a decoded array, depending on subtype survival.
+        $list = static fn ($v): array => is_string($v) ? (json_decode($v, true) ?: []) : (is_array($v) ? $v : []);
+        foreach ($list($j['cats'] ?? null) as $c) {
+            $rows[] = ['k' => 'cat', 'a' => $c[0], 'b' => $c[1], 'c' => $c[2], 'd' => $c[3], 'e' => $c[4], 'f' => (int) ($j['admin'] ?? 0)] + $blank;
+        }
+        foreach ($list($j['ratings'] ?? null) as $r) {
+            $rows[] = ['k' => 'r', 'a' => $r[0], 'b' => $r[1], 'c' => null, 'd' => $r[2], 'e' => $r[3], 'f' => $r[4]] + $blank;
+        }
+        $tagSel = (string) ($j['tag_ids'] ?? '');
+        foreach ($list($j['tags'] ?? null) as $t) {
+            $rows[] = ['k' => 'tag', 'a' => $t[0], 'b' => $t[1], 'c' => $t[2], 'd' => $t[3], 'e' => $tagSel, 'f' => $t[4]] + array_merge($blank, ['g' => $t[5]]);
+        }
+        $charSel = (string) ($j['char_ids'] ?? '');
+        foreach ($list($j['chars'] ?? null) as $c) {
+            $rows[] = ['k' => 'ch', 'a' => $c[0], 'b' => $c[1], 'c' => $c[2], 'd' => $c[3] ?? 0, 'e' => $charSel, 'f' => $c[3]] + $blank;
+        }
+        foreach ($list($j['sugs'] ?? null) as $x) {
+            $rows[] = ['k' => 'sug', 'a' => $x[0], 'b' => $x[1], 'c' => $x[2], 'd' => $x[3], 'e' => $x[4], 'f' => null] + $blank;
+        }
+        return $rows;
+    }
+
     /** @return array{0: array, 1: array, 2: string, 3: array} category slugs,
      *  series slugs, author profile slug, challenge slugs (purge coordinates).
      *  $rr is the roundrobin flag: the only write the rr expansion opens
      *  (update/delete stay story-side; chapters record no contributor to gate
      *  edits by). $accessHash arrives pre-hashed (the controller hashes the
      *  form's raw input; a NULL means open). */
-    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false, ?string $accessHash = null, ?callable $inTransaction = null): array
+    public function createChapter(string $slug, int $userId, string $title, string $content, string $before, string $after, bool $validated, ?string $publishAt = null, bool $rr = false, ?string $accessHash = null, ?callable $inTransaction = null, bool $draft = false, ?array $storyAnswers = null): array
     {
         $story = $this->ownStory($slug, $userId, $rr);
+        $newSlug = $slug;
+        if ($storyAnswers !== null && \App\Slug::make($storyAnswers['title']) !== \App\Slug::make($story['title'])) {
+            $newSlug = \App\Slug::unique(fn(string $x): bool => $this->slugTaken($x), \App\Slug::make($storyAnswers['title']));
+        }
         $words = \App\Markdown::wordCount($content);
         // Scheduling is explicit: a publish_at holds the chapter at validated = 0
         // regardless of the author's auto-validate standing (it goes live when
         // releaseDue fires, not before).
-        $live = ($validated && $publishAt === null) ? 1 : 0;
+        // A draft is never live and never waits in the moderation queue.
+        $live = (!$draft && $validated && $publishAt === null);
         $this->db->begin();
         try {
-            $this->db->query(
-                'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, publish_at, access_hash)
-                 SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
-                [$story['id'], $title, $before, $content, $after, $live, $words, $publishAt, $accessHash, $story['id']]);
-            $newId = (int) $this->db->lastInsertId();
+            [$newId, $newPosition] = $this->insertChapter((int) $story['id'], $title, $content, $before, $after, (bool) $live, $publishAt, $accessHash, $draft);
             $this->touchStory($story['id']);
-            if ($inTransaction !== null) $inTransaction($newId); // rides the chapter's own commit (the JSON save key)
+            $suggestOut = [];
+            if ((int) $story['is_draft'] === 1) {
+                // A chapter going out on a draft story promotes it (see promoteStory); a
+                // draft chapter leaves it waiting. The answers ride along when the form had them.
+                if ($storyAnswers !== null) {
+                    $suggestOut = $this->writeStory((int) $story['id'], $newSlug, $this->accessValue($storyAnswers['access_clear'], $storyAnswers['access_password'], $story['access_hash'] ?? null), $storyAnswers + ['userId' => $userId]);
+                } else {
+                    $newSlug = $slug;
+                }
+                if (!$draft) $this->promoteStory((int) $story['id'], $validated, $publishAt !== null);
+            } else {
+                $newSlug = $slug;
+            }
+            // The hook gets the new position too: a draft save lands on its own editor page.
+            if ($inTransaction !== null) $inTransaction($newId, $newPosition, $newSlug); // rides the chapter's own commit (the JSON save key)
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs];
+            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs, $newSlug, $suggestOut];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
         }
     }
 
+    /** The chapter row at the story's next position, inside the caller's
+     *  transaction (no begin or commit here). @return array{0: int, 1: int} id, position */
+    private function insertChapter(int $storyId, string $title, string $content, string $before, string $after, bool $live,
+                                   ?string $publishAt, ?string $accessHash, bool $draft): array
+    {
+        $this->db->query(
+            'INSERT INTO chapters (story_id, position, title, notes_before, content, notes_after, validated, word_count, publish_at, access_hash, is_draft)
+             SELECT ?, COALESCE(MAX(position), 0) + 1, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM chapters WHERE story_id = ?',
+            [$storyId, $title, $before, $content, $after, $live ? 1 : 0, \App\Markdown::wordCount($content), $publishAt, $accessHash, $draft ? 1 : 0, $storyId]);
+        $id = (int) $this->db->lastInsertId();
+        return [$id, (int) $this->db->one('SELECT position FROM chapters WHERE id = ?', [$id])['position']];
+    }
+
     /** @return array{0: array, 1: array, 2: string, 3: array} */
-    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null, ?string $accessPassword = null, bool $accessClear = false, ?string $expectedRevision = null, ?callable $inTransaction = null): array
+    public function updateChapter(string $slug, int $position, int $userId, string $title, string $content, string $before, string $after, ?string $publishAt = null, ?string $accessPassword = null, bool $accessClear = false, ?string $expectedRevision = null, ?callable $inTransaction = null, bool $draft = false, bool $autoValidate = false, ?array $storyAnswers = null): array
     {
         $story = $this->ownStory($slug, $userId);
+        $newSlug = $slug;
+        if ($storyAnswers !== null && \App\Slug::make($storyAnswers['title']) !== \App\Slug::make($story['title'])) {
+            $newSlug = \App\Slug::unique(fn(string $x): bool => $this->slugTaken($x), \App\Slug::make($storyAnswers['title']));
+        }
         $this->db->begin();
         try {
             // Keep the version read and write in one transaction. A competing
             // WAL writer after this read makes the write fail, never overwrite.
             $current = $this->db->one(
                 'SELECT ch.id AS chapter_id, ch.title, ch.content, ch.notes_before, ch.notes_after,
-                        ch.publish_at, ch.access_hash,
+                        ch.publish_at, ch.access_hash, ch.is_draft, s.is_draft AS story_draft,
                         CASE WHEN s.access_hash IS NOT NULL OR ch.access_hash IS NOT NULL THEN 1 ELSE 0 END AS recovery_protected
                    FROM chapters ch JOIN stories s ON s.id = ch.story_id
                    WHERE ch.story_id = ? AND ch.position = ?', [$story['id'], $position]
@@ -570,14 +730,38 @@ final class AuthoringRepository
             // (chapterFormData selects publish_at), so an untouched schedule
             // round-trips and an emptied field clears it. A live chapter with a
             // stray publish_at is inert: releaseDue's WHERE demands validated = 0.
+            // Draft state: saving as a draft hides the chapter (validated = 0,
+            // is_draft = 1). Publishing a draft clears the flag and goes live
+            // the way a new chapter would: validated only for an auto-validating
+            // author with no schedule, otherwise it waits (queue or release).
+            // A chapter that was never a draft keeps its validated state.
+            $wasDraft = (int) $current['is_draft'] === 1;
             $this->db->query('UPDATE chapters SET title = ?, notes_before = ?, content = ?, notes_after = ?,
-                              word_count = ?, publish_at = ?, access_hash = ?, updated_at = ? WHERE story_id = ? AND position = ?',
-                [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, $accessValue, date('c'), $story['id'], $position]);
+                              word_count = ?, publish_at = ?, access_hash = ?, updated_at = ?, is_draft = ?,
+                              validated = CASE WHEN CAST(? AS INTEGER) = 1 THEN 0 WHEN CAST(? AS INTEGER) = 1 THEN CAST(? AS INTEGER) ELSE validated END
+                              WHERE story_id = ? AND position = ?',
+                [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, $accessValue, date('c'), $draft ? 1 : 0,
+                 $draft ? 1 : 0, $wasDraft ? 1 : 0, ($autoValidate && $publishAt === null) ? 1 : 0, $story['id'], $position]);
             $this->touchStory($story['id']);
-            if ($inTransaction !== null) $inTransaction((int) $current['chapter_id']);
+            $suggestOut = [];
+            if ((int) $current['story_draft'] === 1) {
+                // The story still waits as a draft: its answers (when the form
+                // carried them) ride this save, and publishing a chapter
+                // promotes it in the same transaction. Once promoted it is
+                // never a draft again.
+                if ($storyAnswers !== null) {
+                    $suggestOut = $this->writeStory((int) $story['id'], $newSlug, $this->accessValue($storyAnswers['access_clear'], $storyAnswers['access_password'], $story['access_hash'] ?? null), $storyAnswers + ['userId' => $userId]);
+                } else {
+                    $newSlug = $slug;
+                }
+                if (!$draft) $this->promoteStory((int) $story['id'], $autoValidate, $publishAt !== null);
+            } else {
+                $newSlug = $slug;
+            }
+            if ($inTransaction !== null) $inTransaction((int) $current['chapter_id'], $position, $newSlug);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
-            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs];
+            return [$this->categorySlugs((int) $story['id']), $seriesSlugs, $authorSlug, $challengeSlugs, $newSlug, $suggestOut];
         } catch (\Throwable $e) {
             $this->db->rollBack();
             throw $e;
@@ -618,11 +802,23 @@ final class AuthoringRepository
         }
     }
 
+    /** A draft story leaves draft state when its first chapter is published,
+     *  inside the caller's transaction. An auto-validating author with no
+     *  schedule goes live; a scheduled one stays hidden (is_draft = 1) until
+     *  releaseDue approves the chapter; anyone else waits in the story queue
+     *  (validated = 0, is_draft = 0). Never moves a story back to a draft. */
+    private function promoteStory(int $storyId, bool $auto, bool $scheduled): void
+    {
+        if ($auto && $scheduled) return;
+        $this->db->query('UPDATE stories SET validated = ?, is_draft = 0, updated_at = ? WHERE id = ? AND is_draft = 1',
+            [$auto ? 1 : 0, date('c'), $storyId]);
+    }
+
     /** Updated-at + live word-count rollup, called inside the caller's transaction. */
     private function touchStory(int $storyId): void
     {
         $this->db->query('UPDATE stories SET updated_at = ?,
-                          word_count = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE story_id = ?)
+                          word_count = (SELECT COALESCE(SUM(word_count), 0) FROM chapters WHERE story_id = ? AND is_draft = 0)
                           WHERE id = ?', [date('c'), $storyId, $storyId]);
     }
 
@@ -661,13 +857,13 @@ final class AuthoringRepository
      *  seriesSlugs, authorSlug, challengeSlugs] (purge coordinates) or null. */
     public function approveStory(int $storyId): ?array
     {
-        $story = $this->db->one('SELECT id, slug, author_id FROM stories WHERE id = ? AND validated = 0 AND deleted_at IS NULL', [$storyId]);
+        $story = $this->db->one('SELECT id, slug, author_id FROM stories WHERE id = ? AND validated = 0 AND is_draft = 0 AND deleted_at IS NULL', [$storyId]);
         if ($story === null) return null;
         $cats = $this->categorySlugs((int) $story['id']);
         $this->db->begin();
         try {
             $this->db->query('UPDATE stories SET validated = 1, updated_at = ? WHERE id = ?', [date('c'), $story['id']]);
-            $this->db->query('UPDATE chapters SET validated = 1 WHERE story_id = ?', [$story['id']]);
+            $this->db->query('UPDATE chapters SET validated = 1 WHERE story_id = ? AND is_draft = 0', [$story['id']]);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
             return [(string) $story['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
@@ -679,7 +875,7 @@ final class AuthoringRepository
     {
         $ch = $this->db->one(
             'SELECT ch.id, ch.story_id, s.slug, s.author_id FROM chapters ch JOIN stories s ON s.id = ch.story_id
-             WHERE ch.id = ? AND ch.validated = 0 AND s.deleted_at IS NULL', [$chapterId]);
+             WHERE ch.id = ? AND ch.validated = 0 AND ch.is_draft = 0 AND s.deleted_at IS NULL', [$chapterId]);
         if ($ch === null) return null;
         $cats = $this->categorySlugs((int) $ch['story_id']);
         $this->db->begin();
@@ -689,6 +885,8 @@ final class AuthoringRepository
             // holds no schedule left to honor.
             $this->db->query('UPDATE chapters SET validated = 1, publish_at = NULL, updated_at = ? WHERE id = ?', [date('c'), $ch['id']]);
             $this->db->query('UPDATE stories SET updated_at = ? WHERE id = ?', [date('c'), $ch['story_id']]);
+            // A scheduled first chapter releasing is what takes a draft story live.
+            $this->db->query('UPDATE stories SET validated = 1, is_draft = 0 WHERE id = ? AND is_draft = 1', [$ch['story_id']]);
             $this->db->commit();
             [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $ch['story_id'], (int) $ch['author_id']);
             return [(string) $ch['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
@@ -708,7 +906,7 @@ final class AuthoringRepository
     {
         $due = $this->db->all(
             "SELECT ch.id, ch.story_id FROM chapters ch JOIN stories s ON s.id = ch.story_id
-             WHERE ch.validated = 0 AND ch.publish_at IS NOT NULL
+             WHERE ch.validated = 0 AND ch.is_draft = 0 AND ch.publish_at IS NOT NULL
                AND ch.publish_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
                AND s.deleted_at IS NULL");
         $released = [];
@@ -723,11 +921,11 @@ final class AuthoringRepository
     /** @return array{0: string, 1: array, 2: array, 3: string, 4: array}|null */
     public function removeStory(int $storyId): ?array
     {
-        $story = $this->db->one('SELECT id, slug, author_id FROM stories WHERE id = ? AND deleted_at IS NULL AND validated = 0', [$storyId]);
+        $story = $this->db->one('SELECT id, slug, author_id FROM stories WHERE id = ? AND deleted_at IS NULL AND validated = 0 AND is_draft = 0', [$storyId]);
         if ($story === null) return null;
         $cats = $this->categorySlugs((int) $story['id']);
         // The conditions ride the write too: a second moderator removing the same story at the same moment changes no row, so only one caller mails the author.
-        $changed = $this->db->query('UPDATE stories SET deleted_at = ? WHERE id = ? AND validated = 0 AND deleted_at IS NULL', [date('c'), $story['id']])->rowCount();
+        $changed = $this->db->query('UPDATE stories SET deleted_at = ? WHERE id = ? AND validated = 0 AND is_draft = 0 AND deleted_at IS NULL', [date('c'), $story['id']])->rowCount();
         if ($changed !== 1) return null;
         [$seriesSlugs, $authorSlug, $challengeSlugs] = $this->purgeData((int) $story['id'], (int) $story['author_id']);
         return [(string) $story['slug'], $cats, $seriesSlugs, $authorSlug, $challengeSlugs];
@@ -738,7 +936,7 @@ final class AuthoringRepository
     {
         $ch = $this->db->one(
             'SELECT ch.id, ch.story_id, ch.position, s.slug, s.author_id FROM chapters ch JOIN stories s ON s.id = ch.story_id
-             WHERE ch.id = ? AND ch.validated = 0 AND s.deleted_at IS NULL', [$chapterId]);
+             WHERE ch.id = ? AND ch.validated = 0 AND ch.is_draft = 0 AND s.deleted_at IS NULL', [$chapterId]);
         if ($ch === null) return null;
         $cats = $this->categorySlugs((int) $ch['story_id']);
         $this->db->begin();

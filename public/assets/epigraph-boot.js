@@ -39,7 +39,7 @@
       return b;
     };
     /* Registered after the editor's own handler, so the mode is settled. */
-    button.addEventListener('click', function () {
+    var explain = function () {
       clear();
       if (api.mode() === 'rich') { return; }
       var text = doc.createElement('p');
@@ -50,12 +50,22 @@
         text.textContent = labels.modeReview || '';
         note.append(text,
           action(labels.convert || '', 'btn-primary', function () { api.acceptConversion(); if (typeof api.focus === 'function') { api.focus(); } }),
-          action(labels.keepSource || '', 'btn-secondary', function () { api.cancelConversion(); }));
+          action(labels.keepSource || '', 'btn-secondary', function () { api.cancelConversion(); if (typeof api.focus === 'function') { api.focus(); } }));
       } else {
         return;
       }
       note.hidden = false;
-    });
+      /* A keyboard writer cannot see the note appear, so put focus on the first answer. */
+      var first = note.querySelector('button');
+      if (first && first.focus) { first.focus(); }
+    };
+    button.addEventListener('click', explain);
+    /* The editor's own Ctrl or Cmd + / shortcut toggles without clicking the button, so it needs the same explanation. */
+    if (wrap.addEventListener) {
+      wrap.addEventListener('keydown', function (e) {
+        if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === '/') { explain(); }
+      }, false);
+    }
   }
 
   function init(doc, win) {
@@ -77,7 +87,10 @@
         if (images) { options.imageLibrary = { uploadUrl: uploadUrl, csrfToken: token }; }
         var api = editor.mount(box, options);
         mounted += 1;
+        /* The page chrome (preview, selection count) drives the editor through its API. */
+        box.kipEpigraph = api;
         explainMode(doc, box, api);
+        if (typeof win.CustomEvent === 'function') { box.dispatchEvent(new win.CustomEvent('epigraph-ready', { bubbles: true })); }
       } catch (e) {
         box.hidden = false;
       }

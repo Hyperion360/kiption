@@ -92,6 +92,14 @@ final class QueueTest extends TestCase
         $this->assertStringContainsString('<span class="ctx-warn">' . \App\Lang::t('queue.ctx_reports_one', ['n' => 1]) . '</span>', $body);
     }
 
+    public function test_an_author_with_no_pen_name_reads_as_no_pen_name_not_a_bare_by(): void
+    {
+        $this->db->query("UPDATE users SET penname = '' WHERE id = ?", [$this->memberId]);
+        $body = $this->clientAs(1)->get('/queue')->body;
+        $this->assertStringContainsString('<strong>' . \App\Lang::t('adminmembers.no_penname') . '</strong>', $body);
+        $this->assertDoesNotMatchRegularExpression('~by <strong></strong>~', $body);
+    }
+
     public function test_member_cannot_see_queue(): void
     {
         $res = $this->clientAs($this->memberId)->get('/queue');
@@ -156,6 +164,33 @@ final class QueueTest extends TestCase
         $this->assertContains('0gate', array_column($rows, 'k'), 'gate row must ride inside the LIMIT window');
         $res = $this->clientAs(1)->get('/queue');
         $this->assertSame(200, $res->status, 'moderator must not be 403d when the queue is full');
+    }
+
+    public function test_cancel_is_a_plain_link_and_a_member_reject_panel_offers_presets_without_scripts(): void
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, approved_at, email_verified_at) VALUES ('w2@e.test', ?, NULL, NULL, '2026-01-01T00:00:00+00:00')",
+            [\App\Tests\Support\Hashes::of('password123')]);
+        $id = (int) $this->db->lastInsertId();
+        $c = $this->clientAs(1);
+        $body = $c->get('/queue', ['tab' => 'members', 'item' => (string) $id])->body;
+        $this->assertStringContainsString('(no pen name)', $body, 'a member with no pen name is named, not blank');
+        $this->assertStringContainsString('<a class="btn" data-queue-cancel href="/queue?tab=members&amp;item=' . $id . '">Cancel</a>', $body);
+        $this->assertStringContainsString('name="reason_preset" value="rules"', $body);
+        $this->assertStringContainsString('action="/queue/member/' . $id . '/reject"', $body);
+        $this->assertStringNotContainsString('data-queue-cancel hidden', $body);
+        $stories = $c->get('/queue', ['tab' => 'stories'])->body;
+        $this->assertStringContainsString('<a class="btn" data-queue-cancel href="/queue?tab=stories&amp;item=', $stories);
+    }
+
+    public function test_approving_from_the_members_list_returns_there_and_ignores_other_addresses(): void
+    {
+        $this->db->query("INSERT INTO users (email, password_hash, penname, approved_at) VALUES ('w3@e.test', ?, 'w3', NULL)", [\App\Tests\Support\Hashes::of('password123')]);
+        $id = (int) $this->db->lastInsertId();
+        $res = $this->clientAs(1)->postWithToken('/queue/member/' . $id . '/approve', ['back' => '/adminmembers?q=w3']);
+        $this->assertStringStartsWith('/adminmembers?q=w3&saved=', (string) $res->headers['Location']);
+        $this->db->query('UPDATE users SET approved_at = NULL WHERE id = ?', [$id]);
+        $res = $this->clientAs(1)->postWithToken('/queue/member/' . $id . '/approve', ['back' => '//evil.example/x']);
+        $this->assertStringStartsWith('/queue', (string) $res->headers['Location']);
     }
 
     public function test_pending_member_lookup_is_index_backed(): void

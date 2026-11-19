@@ -492,7 +492,7 @@ final class AuthoringTest extends TestCase
         $armed = false; $changed = false; $formReads = 0;
         \App\Tests\Support\QueryTap::on($this->db, function (string $sql) use (&$armed, &$changed, &$formReads, $other): void {
             if (str_contains($sql, 's.title AS story_title')) { $armed = true; $formReads++; }
-            if ($armed && !$changed && str_contains($sql, 'SELECT id, title, author_id, access_hash FROM stories')) {
+            if ($armed && !$changed && str_contains($sql, 'SELECT id, title, author_id, access_hash, is_draft FROM stories')) {
                 $changed = true;
                 $other->exec("UPDATE chapters SET content='Won after form read' WHERE story_id=(SELECT id FROM stories WHERE slug='snapshot-race') AND position=1");
             }

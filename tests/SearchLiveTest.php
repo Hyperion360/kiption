@@ -49,6 +49,19 @@ final class SearchLiveTest extends TaxonomyCase
         $this->assertStringStartsWith('/story/view/',$data['suggestions'][0]['url']);
         $this->assertIsArray($data['counts']);
     }
+    public function test_live_suggests_authors_and_tags_by_prefix_from_the_same_statement():void
+    {
+        $tag=$this->a->tag('Quillwork');
+        $this->a->story('Quill Story',['tags'=>[$tag]]);
+        $this->db->query("UPDATE users SET penname='Quillmaker',profile_slug='quillmaker',is_locked=0,approved_at=?,email_verified_at=? WHERE id=?",[date('c'),date('c'),$this->authorId]);
+        $data=json_decode($this->request(['q'=>'quill','live'=>'1'])->body,true,512,JSON_THROW_ON_ERROR);
+        $groups=array_column($data['suggestions'],'group');
+        $this->assertSame(['stories','authors','tags'],array_values(array_unique($groups)));
+        $by=array_column($data['suggestions'],null,'group');
+        $this->assertSame('/user/view/quillmaker',$by['authors']['url']);
+        $this->assertSame('Quillwork',$by['tags']['label']);
+        $this->assertStringStartsWith('/search?tag%5B%5D=',$by['tags']['url']);
+    }
     public function test_all_hidden_story_classes_and_pending_tags_stay_out_of_live_payload():void
     {
         foreach ([['validated'=>0],['restricted'=>1],['deleted'=>'2026-01-02'],['locked'=>'hash']] as $o)
@@ -87,7 +100,7 @@ final class SearchLiveTest extends TaxonomyCase
         $get=['q'=>'river','completed'=>'0','category'=>['page-a','page-b'],'tag'=>[$tag],
             'xtag'=>[$excluded],'language'=>'en','sort'=>'updated'];
         $first=$this->request($get);$xp=$this->document($first->body);
-        $href=$xp->query('//nav[contains(@class,"pager")]/a[@rel="next"]')->item(0)->getAttribute('href');
+        $href=$xp->query('//nav[contains(@class,"pager")]//a[@rel="next"]')->item(0)->getAttribute('href');
         parse_str(parse_url($href,PHP_URL_QUERY),$next);
         $this->assertSame('0',$next['completed']);$this->assertSame(['page-a','page-b'],$next['category']);
         $this->assertSame([(string)$tag],$next['tag']);$this->assertSame([(string)$excluded],$next['xtag']);
@@ -96,7 +109,7 @@ final class SearchLiveTest extends TaxonomyCase
         $this->assertStringNotContainsString('River Completed Canary',$second->body);
         $xp=$this->document($second->body);
         $this->assertSame(1,$xp->query('//ul[contains(@class,"story-list")]/li')->length);
-        $back=$xp->query('//nav[contains(@class,"pager")]/a[@rel="prev"]')->item(0)->getAttribute('href');
+        $back=$xp->query('//nav[contains(@class,"pager")]//a[@rel="prev"]')->item(0)->getAttribute('href');
         parse_str(parse_url($back,PHP_URL_QUERY),$previous);$this->assertSame('0',$previous['completed']);
     }
     public function test_unchecking_tag_has_no_hidden_duplicate_to_resubmit():void
@@ -168,7 +181,7 @@ final class SearchLiveTest extends TaxonomyCase
             $xpath = $this->document($live['html']);
             $links = $xpath->query('//ul[contains(@class,"story-list")]//a[@class="story-title"]');
             foreach ($live['suggestions'] as $i => $suggestion) {
-                $this->assertSame(['label', 'url'], array_keys($suggestion));
+                $this->assertSame(['group', 'label', 'sub', 'url'], array_keys($suggestion));
                 $this->assertSame($links->item($i)->getAttribute('href'), $suggestion['url']);
                 $this->assertSame(trim($links->item($i)->textContent), $suggestion['label']);
             }

@@ -64,7 +64,10 @@
     on(form, 'submit', function () { submitting = true; protect(); say(labels.saving); });
     on(form, 'keydown', function (e) {
       if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault(); if (!submitting) form.requestSubmit();
+        e.preventDefault();
+        // A draft saves as a draft; a live chapter saves its changes.
+        var draftBtn = form.dataset.edState === 'draft' ? form.querySelector('[data-ed-draft]') : null;
+        if (!submitting) { if (draftBtn) form.requestSubmit(draftBtn); else form.requestSubmit(); }
       }
     });
     on(env, 'pageshow', function () { submitting = false; update(); });

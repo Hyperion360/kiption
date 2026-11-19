@@ -35,8 +35,11 @@
   $name = fn (array $r): string => match ($r['k']) {
       'chapter' => $r['b'] !== '' ? $r['b'] : \App\Lang::t('story.untitled'),
       'report' => mb_strimwidth((string) $r['b'], 0, 60, '...'),
+      'member' => trim((string) $r['b']) !== '' ? (string) $r['b'] : \App\Lang::t('adminmembers.no_penname'),
       default => (string) $r['b'],
   };
+  // Cancel is a plain link back to this very item, so it works without scripts.
+  $cancelHref = fn (array $r): string => '/queue?tab=' . $tab . '&amp;item=' . (int) $r['a'];
   ?>
   <nav class="queue-tabs" aria-label="<?= $this->e(\App\Lang::t('queue.tabs_aria')) ?>">
     <?php foreach ($groups as $t => $g): ?>
@@ -52,7 +55,7 @@
       <li><a href="/queue?tab=<?= $tab ?>&amp;item=<?= (int) $r['a'] ?>"<?= $on ? ' aria-current="true"' : '' ?>>
         <span class="queue-list-top"><strong><?= $this->e($name($r)) ?></strong><span class="queue-when"><?= $this->e(\App\Dates::ago((string) $r['e'])) ?></span></span>
         <?php if ($r['k'] === 'story' || $r['k'] === 'chapter'): ?>
-        <span class="queue-list-meta"><?= \App\Lang::t('story.by') ?> <strong><?= $this->e($r['d']) ?></strong><?php if ((int) $r['h'] > 0): ?> · <?= \App\Lang::t('queue.words', ['n' => number_format((int) $r['h'])]) ?><?php endif; ?></span>
+        <span class="queue-list-meta"><?= \App\Lang::t('story.by') ?> <strong><?= $this->e(trim((string) $r['d']) !== '' ? $r['d'] : \App\Lang::t('adminmembers.no_penname')) ?></strong><?php if ((int) $r['h'] > 0): ?> · <?= \App\Lang::t('queue.words', ['n' => number_format((int) $r['h'])]) ?><?php endif; ?></span>
         <span class="queue-list-facts"><?php foreach ($about($r['f']) as [$fact, $warn]): ?><span<?= $warn ? ' class="ctx-warn"' : '' ?>><?= $fact ?></span> <?php endforeach; ?></span>
         <?php else: ?>
         <span class="queue-list-meta"><?= $this->e($r['c']) ?></span>
@@ -114,7 +117,7 @@
           <form method="post" action="/queue/<?= $r['k'] ?>/<?= (int) $r['a'] ?>/remove" class="queue-remove-panel">
             <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><input type="hidden" name="confirmed" value="1">
             <?php if ($r['k'] === 'story'): ?>
-            <p class="queue-remove-head"><strong><?= \App\Lang::t('queue.remove_story_heading') ?></strong> <span class="queue-remove-note"><?= \App\Lang::t('queue.remove_note', ['name' => $this->e($r['d'])]) ?></span></p>
+            <p class="queue-remove-head"><strong><?= \App\Lang::t('queue.remove_story_heading') ?></strong> <span class="queue-remove-note"><?= \App\Lang::t('queue.remove_note', ['name' => $this->e(trim((string) $r['d']) !== '' ? $r['d'] : \App\Lang::t('adminmembers.no_penname'))]) ?></span></p>
             <fieldset class="queue-reasons">
               <legend class="visually-hidden"><?= \App\Lang::t('queue.reason_pick') ?></legend>
               <?php foreach ($presets as $i => $key): ?><label><input type="radio" name="reason_preset" value="<?= $this->e($key) ?>" data-text="<?= $this->e(\App\Lang::t('queue.preset_' . $key)) ?>"<?= $i === 0 ? ' checked' : '' ?>><span><?= \App\Lang::t('queue.preset_' . $key . '_label') ?></span></label><?php endforeach; ?>
@@ -123,7 +126,7 @@
             <label for="qr-reason" class="visually-hidden"><?= \App\Lang::t('queue.reason_more') ?></label>
             <textarea id="qr-reason" name="reason" maxlength="1000" rows="2" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>"></textarea>
             <?php endif; ?>
-            <p class="queue-remove-go"><button type="submit" class="btn-danger"><?= \App\Lang::t($r['k'] === 'story' ? 'queue.remove_story_btn' : 'queue.remove_confirm_btn') ?></button> <button type="button" class="btn" data-queue-cancel hidden><?= \App\Lang::t('common.cancel') ?></button></p>
+            <p class="queue-remove-go"><button type="submit" class="btn-danger"><?= \App\Lang::t($r['k'] === 'story' ? 'queue.remove_story_btn' : 'queue.remove_confirm_btn') ?></button> <a class="btn" data-queue-cancel href="<?= $cancelHref($r) ?>"><?= \App\Lang::t('common.cancel') ?></a></p>
           </form>
         </details>
         <a class="queue-open" href="/story/view/<?= $this->e($r['c']) ?>"><?= \App\Lang::t('queue.open_story') ?></a>
@@ -135,12 +138,18 @@
           <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="btn-primary"><?= \App\Lang::t('queue.approve') ?></button>
         </form>
         <details class="queue-remove">
-          <summary class="btn"><?= \App\Lang::t('queue.reject') ?></summary>
-          <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject">
+          <summary class="btn queue-remove-btn" data-queue-remove><?= \App\Lang::t('queue.reject') ?> <kbd class="queue-cap" aria-hidden="true">R</kbd></summary>
+          <form method="post" action="/queue/member/<?= (int) $r['a'] ?>/reject" class="queue-remove-panel">
             <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><input type="hidden" name="confirmed" value="1">
-            <label for="qr-reason"><?= \App\Lang::t('queue.reason_more') ?></label>
-            <input id="qr-reason" name="reason" maxlength="1000" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>">
-            <button type="submit"><?= \App\Lang::t('queue.reject') ?></button>
+            <p class="queue-remove-head"><strong><?= \App\Lang::t('queue.reject_member_heading') ?></strong> <span class="queue-remove-note"><?= \App\Lang::t('queue.reject_note', ['name' => $this->e($name($r))]) ?></span></p>
+            <fieldset class="queue-reasons">
+              <legend class="visually-hidden"><?= \App\Lang::t('queue.reason_pick') ?></legend>
+              <?php foreach ($memberPresets as $i => $key): ?><label><input type="radio" name="reason_preset" value="<?= $this->e($key) ?>" data-text="<?= $this->e(\App\Lang::t('queue.mpreset_' . $key)) ?>"<?= $i === 0 ? ' checked' : '' ?>><span><?= \App\Lang::t('queue.mpreset_' . $key . '_label') ?></span></label><?php endforeach; ?>
+              <label><input type="radio" name="reason_preset" value="" data-text=""><span><?= \App\Lang::t('queue.reason_other') ?></span></label>
+            </fieldset>
+            <label for="qr-reason" class="visually-hidden"><?= \App\Lang::t('queue.reason_more') ?></label>
+            <textarea id="qr-reason" name="reason" maxlength="1000" rows="2" placeholder="<?= $this->e(\App\Lang::t('queue.reason_placeholder')) ?>"></textarea>
+            <p class="queue-remove-go"><button type="submit" class="btn-danger"><?= \App\Lang::t('queue.reject_confirm_btn') ?></button> <a class="btn" data-queue-cancel href="<?= $cancelHref($r) ?>"><?= \App\Lang::t('common.cancel') ?></a></p>
           </form>
         </details>
       </div>

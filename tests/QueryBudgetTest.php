@@ -227,6 +227,29 @@ final class QueryBudgetTest extends TestCase
         $this->assertLessThanOrEqual(1, $queries, "{$page} ran {$queries} content queries, budget is 1");
     }
 
+    /** A draft story reopens in the chapter editor with the story's own answers: still one content query, and no scan or temp sort in its plan. */
+    public function test_a_draft_story_in_the_chapter_editor_stays_inside_the_one_query_budget(): void
+    {
+        $app = new App($this->config());
+        $client = new \Kip\Testing\TestClient($app);
+        $client->post('/auth/attempt', ['email' => 'demo@example.test', 'password' => 'password123']);
+        $db = $app->container->make(Database::class);
+        $db->query("UPDATE stories SET is_draft = 1, validated = 0 WHERE slug = 'the-rabbit-hole'");
+        $db->query("UPDATE chapters SET is_draft = 1, validated = 0 WHERE story_id = (SELECT id FROM stories WHERE slug = 'the-rabbit-hole') AND position = 1");
+        $seen = [];
+        \App\Tests\Support\QueryTap::on($db, function (string $sql) use (&$seen): void {
+            if ($sql === 'SELECT password_hash FROM users WHERE id = ?' || $sql === \App\SessionGuard::SQL) return;
+            $seen[] = $sql;
+        });
+        $res = $client->get('/chapter/edit/the-rabbit-hole/1');
+        \App\Tests\Support\QueryTap::off($db);
+        $this->assertSame(200, $res->status);
+        $this->assertStringContainsString('data-ed-mode="draft-story"', $res->body);
+        $this->assertCount(1, $seen, 'the draft-story editor ran ' . count($seen) . " content queries:\n" . implode("\n", $seen));
+        $plan = implode("\n", array_column($db->all('EXPLAIN QUERY PLAN ' . $seen[0], array_fill(0, substr_count($seen[0], '?'), 1)), 'detail'));
+        $this->assertStringNotContainsString('TEMP B-TREE', $plan);
+    }
+
     /** The language-filtered browse page renders its section ABOVE the categories,
      *  so its budget is 2 content queries: one categoriesWithCounts plus one
      *  storiesInLanguage (the plan text said 1, but the categories list stays on

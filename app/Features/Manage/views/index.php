@@ -80,7 +80,7 @@ $rows = [
   <?php else: ?>
   <ul class="home-log">
     <?php foreach ($recent as $r): ?>
-    <li><span class="home-log-what"><?= $this->e(\App\Lang::t('activity.a.' . $r['b'])) ?><?= (string) $r['c'] !== '' ? ': ' . $this->e($r['c']) : '' ?></span>
+    <li><span class="home-log-what"><?= $this->e(\App\Lang::t('activity.a.' . $r['b'])) ?><?= rtrim((string) $r['c'], ': ') !== '' ? ': ' . $this->e(rtrim((string) $r['c'], ': ')) : '' ?></span>
       <span class="home-log-meta"><?= $this->e((string) $r['a'] !== '' ? $r['a'] : \App\Lang::t($r['n'] !== null ? 'adminmembers.no_penname' : 'activity.unknown')) ?>, <time datetime="<?= $this->e($r['d']) ?>"><?= $this->e(\App\Dates::ago((string) $r['d']) ?: \App\Dates::format((string) $r['d'], false, true)) ?></time></span></li>
     <?php endforeach; ?>
   </ul>

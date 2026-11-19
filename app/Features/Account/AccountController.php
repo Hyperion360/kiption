@@ -293,7 +293,7 @@ final class AccountController
              FROM reading_history rh2 JOIN stories s2 ON s2.id = rh2.story_id
              WHERE rh2.user_id = ? AND rh2.marked_at IS NOT NULL AND s2.deleted_at IS NULL
              UNION ALL
-             SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), NULL, s.updated_at, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+             SELECT '4story', s.slug, s.title, CAST(s.validated AS TEXT), CAST(s.is_draft AS TEXT), s.updated_at, (SELECT MIN(sc.publish_at) FROM chapters sc WHERE sc.story_id = s.id AND sc.publish_at IS NOT NULL), NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
              FROM stories s WHERE s.author_id = ? AND s.deleted_at IS NULL
              UNION ALL
              SELECT '5series' k, ser.slug a, ser.title b,

@@ -79,6 +79,26 @@ final class AccountTest extends TestCase
         $this->assertStringContainsString('name="robots" content="noindex"', $res->body);
     }
 
+    public function test_my_stories_are_labelled_published_scheduled_draft_or_in_review(): void
+    {
+        $ids = array_column($this->db->all('SELECT id FROM stories WHERE author_id = 1 ORDER BY id'), 'id');
+        $this->assertGreaterThanOrEqual(2, count($ids));
+        [$a, $b] = $ids;
+        $this->db->query('UPDATE stories SET validated = 1, is_draft = 0 WHERE id = ?', [$a]);
+        $this->db->query('UPDATE stories SET validated = 0, is_draft = 1 WHERE id = ?', [$b]);
+        $this->db->query("UPDATE chapters SET publish_at = '2031-03-09 08:00:00' WHERE story_id = ?", [$b]);
+        $body = $this->client()->get('/account')->body;
+        $this->assertStringContainsString('>Published<', $body);
+        $this->assertStringContainsString('>Scheduled for ', $body);
+        $this->assertStringNotContainsString('awaiting validation', $body);
+        $this->db->query('UPDATE stories SET validated = 0, is_draft = 1 WHERE id = ?', [$a]);
+        $this->db->query('UPDATE chapters SET publish_at = NULL WHERE story_id = ?', [$b]);
+        $this->db->query('UPDATE stories SET validated = 0, is_draft = 0 WHERE id = ?', [$b]);
+        $body = $this->client()->get('/account')->body;
+        $this->assertStringContainsString('>Draft<', $body);
+        $this->assertStringContainsString('>In Review<', $body);
+    }
+
     /** The Library/Settings split: the Library is the reading shelf with a
      *  Settings link and no preference forms; Settings carries every form,
      *  its eyebrow links back, and a save lands on Settings again. */

@@ -234,7 +234,7 @@ final class SearchTest extends TestCase
         $this->assertStringNotContainsString('rel="next"', $bare->body);
         $junk = $this->client()->get('/search', ['q' => '   ', 'category' => 'nope', 'rating' => 'abc', 'completed' => 'maybe', 'language' => '!!!', 'sort' => 'sideways', 'page' => '0']);
         $this->assertSame(200, $junk->status); // coerced, not a 500
-        $this->assertStringContainsString('no stories matched', strtolower($junk->body)); // finding 16: the real empty-state copy
+        $this->assertStringContainsString('No Stories Match All of These', $junk->body); // a junk filter still reads as a chip, with the way out
     }
 
     public function test_search_filters_via_query_string(): void
@@ -429,6 +429,11 @@ final class SearchTest extends TestCase
     public function test_search_form_carries_tag_fields_sort_and_the_browse_link(): void
     {
         $c = $this->client();
+        $author = (int) $this->db->one('SELECT id FROM users LIMIT 1')['id'];
+        $rating = (int) $this->db->one('SELECT id FROM ratings LIMIT 1')['id'];
+        $archive = new \App\Tests\Support\SearchArchive($this->db, $author, $rating);
+        $archive->clear();
+        $archive->story('Slow Story', ['tags' => [$archive->tag('Slow Burn')]]);
         $res = $c->get('/search', ['q' => 'slow', 'tags' => 'Slow Burn', 'xtags' => 'gore', 'sort' => 'updated']);
         $this->assertSame(200, $res->status);
         $this->assertStringContainsString('name="tags"', $res->body);

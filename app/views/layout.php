@@ -55,11 +55,16 @@
   <p class="maintenance-banner" role="status"><?= \App\Lang::t('maintenance.banner') ?> <a href="/settings"><?= \App\Lang::t('maintenance.banner_link') ?></a></p>
 <?php endif; ?>
   <a class="skip-link" href="#main"><?= \App\Lang::t('nav.skip') ?></a>
-  <?php $navOn = \App\NavLinks::builtIns($navFile ?? ''); ?>
+  <?php $navOn = \App\NavLinks::builtIns($navFile ?? ''); $bare = $bare ?? false; // A bare page draws its own chrome (the chapter editor). ?>
+<?php if (!$bare): ?>
 <?= $this->render('site_head', ['loggedIn' => $loggedIn ?? false, 'csrf' => $csrf ?? '', 'navFile' => $navFile ?? '', 'request' => $request ?? null, 'navOn' => $navOn]) ?>
+<?php endif; ?>
   <?= $this->render('admin_main', ['content' => $content, 'isAdmin' => $isAdmin ?? false, 'staff' => $staff ?? false,
       'request' => $request ?? null, 'csrf' => $csrf ?? '']) ?>
+<?php if (!$bare): ?>
 <?= $this->render('site_foot', ['navOn' => $navOn, 'navFile' => $navFile ?? '']) ?>
+<?php endif; ?>
+<?php // The site menu sheet rides every page, bare ones too: the chapter editor opens it from its More menu. ?>
 <?= $this->render('site_menu', ['loggedIn' => $loggedIn ?? false, 'csrf' => $csrf ?? '', 'navFile' => $navFile ?? '', 'request' => $request ?? null, 'navOn' => $navOn]) ?>
 </body>
 </html>

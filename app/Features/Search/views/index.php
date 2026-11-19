@@ -8,19 +8,33 @@
 <div class="page page-search">
   <header class="page-head">
     <h1><?= \App\Lang::t('search.heading') ?></h1>
-    <p class="lede"><?= \App\Lang::t('search.lede') ?></p>
   </header>
   <form method="get" action="/search" class="search-form" role="search" data-js-module="search"
     data-search-loading="<?= $this->e(\App\Lang::t('search.live_loading')) ?>"
     data-search-error="<?= $this->e(\App\Lang::t('search.live_error')) ?>"
-    data-search-suggestions-label="<?= $this->e(\App\Lang::t('search.suggestions')) ?>">
+    data-search-suggestions-label="<?= $this->e(\App\Lang::t('search.suggestions')) ?>"
+    data-group-stories="<?= $this->e(\App\Lang::t('search.suggest_stories')) ?>"
+    data-group-authors="<?= $this->e(\App\Lang::t('search.suggest_authors')) ?>"
+    data-group-tags="<?= $this->e(\App\Lang::t('search.suggest_tags')) ?>"
+    data-kbd-enter="<?= $this->e(\App\Lang::t('search.kbd_enter', ['q' => '{q}'])) ?>"
+    data-kbd-choose="<?= $this->e(\App\Lang::t('search.kbd_choose')) ?>"
+    data-kbd-close="<?= $this->e(\App\Lang::t('search.kbd_close')) ?>">
     <div class="search-row">
-      <label class="search-q"><span class="visually-hidden"><?= \App\Lang::t('search.query') ?></span><input type="search" name="q" aria-describedby="search-status" maxlength="200" value="<?= $this->e($q) ?>" placeholder="<?= $this->e(\App\Lang::t('search.placeholder')) ?>"></label>
+      <div class="search-q"><label class="visually-hidden" for="search-input"><?= \App\Lang::t('search.query') ?></label><input type="search" id="search-input" name="q" aria-describedby="search-hint" maxlength="200" value="<?= $this->e($q) ?>" placeholder="<?= $this->e(\App\Lang::t('search.placeholder')) ?>"><a class="search-clear" href="<?= $this->e(\App\Search\ActiveFilters::withoutQuery($filters, $sort)) ?>" aria-label="<?= $this->e(\App\Lang::t('search.clear_query')) ?>" data-search-clear><?= "×" ?></a></div>
       <button type="submit" class="btn-primary"><?= \App\Lang::t('search.submit') ?></button>
     </div>
+    <p id="search-hint" class="search-hint"><span class="hint-start"><?= \App\Lang::t('search.hint') ?></span><span class="hint-asked"><?= \App\Lang::t('search.lede') ?></span></p>
     <ul id="search-suggestions" data-search-suggestions hidden></ul>
-    <p id="search-status" data-search-status class="hint" role="status" aria-live="polite" aria-atomic="true"></p>
-    <a class="rail-open" href="#search-rail"><?= \App\Lang::t('search.filters') ?><?= $chips !== [] ? ' (' . count($chips) . ')' : '' ?></a>
+    <p id="search-status" data-search-status class="search-status" role="status" aria-live="polite" aria-atomic="true"></p>
+    <?php $asked = $q !== '' || $result['mode'] !== 'none'; ?>
+    <div class="rail-bar">
+      <span class="rail-total" data-rail-total data-one="<?= $this->e(\App\Lang::t('search.stories_one')) ?>" data-many="<?= $this->e(\App\Lang::t('search.stories_n', ['count' => '{count}'])) ?>"<?= $asked ? '' : ' hidden' ?>><?= $asked ? $this->e(\App\Lang::t((int) $result['total'] === 1 ? 'search.stories_one' : 'search.stories_n', ['count' => (int) $result['total']])) : '' ?></span>
+      <a class="rail-open" href="#search-rail"><?= $chips !== [] ? $this->e(\App\Lang::t('search.filters_n', ['count' => count($chips)])) : \App\Lang::t('search.filters') ?></a>
+    </div>
+    <section class="search-recent" data-recent hidden data-remove="<?= $this->e(\App\Lang::t('search.recent_remove', ['q' => '{q}'])) ?>" data-glyph-x="<?= $this->e("×") ?>">
+      <h2 class="section-label"><?= \App\Lang::t('search.recent_heading') ?></h2>
+      <ul class="chip-list" data-recent-list></ul>
+    </section>
     <aside id="search-rail" class="search-rail" aria-label="<?= $this->e(\App\Lang::t('search.filters')) ?>">
       <div class="rail-head">
         <h2><?= \App\Lang::t('search.filters') ?></h2>

@@ -19,7 +19,7 @@
 | [story_tags](story_tags.md) | 2 |  | table |
 | [story_characters](story_characters.md) | 2 |  | table |
 | [coauthors](coauthors.md) | 2 |  | table |
-| [chapters](chapters.md) | 13 |  | table |
+| [chapters](chapters.md) | 14 |  | table |
 | [series](series.md) | 8 |  | table |
 | [series_items](series_items.md) | 6 |  | table |
 | [reviews](reviews.md) | 13 |  | table |
@@ -501,7 +501,7 @@ CREATE TABLE chapters (
             validated INTEGER NOT NULL DEFAULT 0,
             word_count INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), publish_at TEXT, access_hash TEXT,
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), publish_at TEXT, access_hash TEXT, is_draft INTEGER NOT NULL DEFAULT 0,
             UNIQUE (story_id, position)
         )
 ```
@@ -525,6 +525,7 @@ CREATE TABLE chapters (
 | updated_at | TEXT | strftime('%Y-%m-%dT%H:%M:%fZ', 'now') | false |  |  |  |
 | publish_at | TEXT |  | true |  |  |  |
 | access_hash | TEXT |  | true |  |  |  |
+| is_draft | INTEGER | 0 | false |  |  | 1 = draft: stored with validated = 0, visible only to the author, coauthors and admins in the editor and the story's management views; never in the moderation queue or releaseDue (migration 075) |
 
 ## Constraints
 

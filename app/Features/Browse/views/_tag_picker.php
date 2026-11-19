@@ -12,7 +12,7 @@
     <label><span class="visually-hidden"><?= \App\Lang::t('browse.tag_search') ?></span><input type="search" autocomplete="off" placeholder="<?= $this->e(\App\Lang::t('search.find_tag')) ?>"></label>
     <span class="chapter-meta" data-tag-none role="status" hidden><?= \App\Lang::t('browse.tag_none') ?></span>
   </p>
-  <div class="tag-chips" data-tag-chips hidden data-state-include="<?= $this->e(\App\Lang::t('search.tag_state_include')) ?>" data-state-exclude="<?= $this->e(\App\Lang::t('search.tag_state_exclude')) ?>" data-state-off="<?= $this->e(\App\Lang::t('search.tag_state_off')) ?>"></div>
+  <div class="tag-chips" data-tag-chips hidden data-state-include="<?= $this->e(\App\Lang::t('search.tag_state_include')) ?>" data-state-exclude="<?= $this->e(\App\Lang::t('search.tag_state_exclude')) ?>" data-state-off="<?= $this->e(\App\Lang::t('search.tag_state_off')) ?>" data-glyph-include="<?= $this->e(\App\Lang::t('search.tag_glyph_include')) ?>" data-glyph-exclude="<?= $this->e(\App\Lang::t('search.tag_glyph_exclude')) ?>"></div>
 <div class="tag-fallback" data-tag-fallback>
 <p class="hint"><?= \App\Lang::t('search.tag_counts_help') ?></p>
 <?php else: ?>

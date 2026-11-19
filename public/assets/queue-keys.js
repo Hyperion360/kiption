@@ -31,8 +31,9 @@
     var panel = Kip.$('.queue-remove', page);
     var cancel = Kip.$('[data-queue-cancel]', page);
     if (cancel) {
-      cancel.hidden = false;
-      cancel.addEventListener('click', function () {
+      /* A plain link without this script; with it, Cancel just closes the panel in place. */
+      cancel.addEventListener('click', function (e) {
+        e.preventDefault();
         if (panel) { panel.open = false; var s = panel.querySelector('summary'); if (s) { s.focus(); } }
       });
     }

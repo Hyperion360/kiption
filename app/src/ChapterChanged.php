@@ -13,7 +13,7 @@ final class ChapterChanged extends \RuntimeException
         $this->savedRevision = ChapterRevision::of($current);
         $this->savedFields = array_intersect_key($current, array_flip([
             'chapter_id', 'title', 'content', 'notes_before', 'notes_after',
-            'publish_at', 'recovery_protected',
+            'publish_at', 'is_draft', 'recovery_protected',
         ]));
     }
 

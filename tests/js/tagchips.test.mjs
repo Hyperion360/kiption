@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-const { next, stateOf, matches, countOf } = createRequire(import.meta.url)('../../public/assets/tagchips.js');
+const { next, stateOf, matches, countOf, glyphOf } = createRequire(import.meta.url)('../../public/assets/tagchips.js');
 
 test('a chip cycles off, include, exclude, off', () => {
   assert.equal(next('off'), 'include');
@@ -32,4 +32,11 @@ test('a tag with no include box toggles between leave out and off, never include
 test('a lone leave-out box still reads as the leave-out state', () => {
   assert.equal(stateOf(null, true), 'exclude');
   assert.equal(stateOf(undefined, false), 'off');
+});
+
+test('included and excluded chips carry a glyph so state never rests on colour alone', () => {
+  assert.equal(glyphOf('include'), '+');
+  assert.equal(glyphOf('exclude'), '\u2212');
+  assert.equal(glyphOf('off'), '');
+  assert.equal(glyphOf('include', { include: 'in' }), 'in');
 });

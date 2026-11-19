@@ -90,7 +90,7 @@ final class ReorgShapeTest extends TestCase
             // shell partials every layout and skin includes for owner screens
             // and the post and staff links, so they sit beside the layout.
             // _look_link is the owner stylesheet link every layout renders.
-            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php', 'admin_nav.php', 'admin_tabs.php', 'admin_main.php', 'menu_post.php', 'menu_staff.php', 'confirm.php', '_look_link.php', 'site_browse.php', 'site_foot.php', 'site_head.php', 'site_menu.php', 'site_theme.php'],
+            $this->assertContains($f, ['layout.php', 'maintenance.php', 'notice.php', 'admin_nav.php', 'admin_tabs.php', 'admin_main.php', 'menu_post.php', 'menu_staff.php', 'confirm.php', 'layout_bare.php', '_look_link.php', 'site_browse.php', 'site_foot.php', 'site_head.php', 'site_menu.php', 'site_theme.php'],
                 'app/views must hold only the kernel layout, its shell partials, maintenance and notice pages, found ' . $f);
         }
         $features = array_filter(glob($this->root . '/app/Features/*') ?: [], 'is_dir');

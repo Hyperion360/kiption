@@ -5,7 +5,12 @@
   if (root.Kip) { root.Kip.draftForm = api; root.Kip.init(function () { api.init(root.document); }); }
 })(typeof window !== 'undefined' ? window : globalThis, function (root) {
   var PREFIX = 'kiption:writer:v1:';
-  var names = ['title', 'content', 'notes_before', 'notes_after', 'publish_at'];
+  var DEFAULT_NAMES = ['title', 'content', 'notes_before', 'notes_after', 'publish_at'];
+  // The new-story page posts more fields than a chapter, and names them in data-writer-fields.
+  function fieldNames(form) {
+    try { var list = JSON.parse(form.dataset.writerFields || 'null'); if (Array.isArray(list) && list.length && list.every(function (n) { return typeof n === 'string'; })) return list; } catch (_) { /* Fall back to the chapter's five. */ }
+    return DEFAULT_NAMES;
+  }
   function storage() { try { return root.sessionStorage; } catch (_) { return null; } }
   function cleanup(store, owner) {
     if (!store) return false;
@@ -27,16 +32,18 @@
       return action.origin === new URL(win.location.href).origin && action.pathname === '/auth/logout' && method.toLowerCase() === 'post';
     } catch (_) { return false; }
   }
-  function values(form) {
+  function values(form, names) {
+    names = names || DEFAULT_NAMES;
     var out = {};
     names.forEach(function (name) { var el = form.elements.namedItem(name); out[name] = el ? el.value : ''; });
     return out;
   }
-  function equal(a, b) { return names.every(function (name) { return a[name] === b[name]; }); }
+  function equal(a, b, names) { return (names || DEFAULT_NAMES).every(function (name) { return a[name] === b[name]; }); }
   function attach(form, env) {
     env = Object.assign({ window: root, store: storage(), now: Date.now,
       fetch: root.fetch ? root.fetch.bind(root) : null, api: root.Kip && root.Kip.draftStore }, env || {});
     var doc = form.ownerDocument, store = env.store, api = env.api;
+    var names = fieldNames(form);
     var owner = form.dataset.writerOwner, id = form.dataset.writerChapter, key = api.key(owner, id);
     var server = JSON.parse(form.dataset.writerServer), currentBase = form.dataset.writerBase;
     var labels = JSON.parse(form.dataset.writerLabels), initial = {}, pending = null, timer = null;
@@ -56,14 +63,24 @@
       var label = doc.createElement('label'); label.textContent = pair[1];
       pair[0].readOnly = true; pair[0].setAttribute('aria-label', pair[1]); label.appendChild(pair[0]); compare.appendChild(label);
     });
-    host.className = 'writer-recovery'; host.append(status, actions, compare); ((form.querySelector && form.querySelector('[data-writer-panel-body]')) || form).appendChild(host);
-    function button(label, fn) { var el = doc.createElement('button'); el.type = 'button'; el.textContent = label; el.addEventListener('click', fn); actions.appendChild(el); return el; }
+    host.className = 'writer-recovery'; host.append(status, actions, compare);
+    // The page may give recovery a slot of its own (the editor's banner spot); otherwise it joins the options panel or the form.
+    ((form.querySelector && (form.querySelector('[data-writer-recovery-slot]') || form.querySelector('[data-writer-panel-body]'))) || form).appendChild(host);
+    function button(label, fn, act) { var el = doc.createElement('button'); el.type = 'button'; el.textContent = label; if (act) el.dataset.act = act; el.addEventListener('click', fn); actions.appendChild(el); return el; }
     function on(target, type, fn, opts) { target.addEventListener(type, fn, opts); listeners.push(function () { target.removeEventListener(type, fn, opts); }); }
     function stop() { env.window.clearTimeout(timer); timer = null; checking = false; generation++; }
-    function say(name) { if (status.textContent !== labels[name]) status.textContent = labels[name]; }
+    // Restoring or discarding closes the offer, so its one-line result stays on screen (data-notice) until the next change.
+    function say(name) { if (status.textContent !== labels[name]) status.textContent = labels[name]; if (name === 'recoveryRestored' || name === 'recoveryDiscarded') host.dataset.notice = '1'; }
     function erase(){var ok=api.remove(store,key);clearFailed=!ok;return ok;}
-    function show() {
-      actions.replaceChildren(); compare.hidden = true;
+    // The page styles these: a banner only while a copy is on offer, and the More menu reads the switch.
+    function mark() {
+      var locked = cleanupFailed || !live || !store || !ready || protectedText;
+      host.dataset.recovery = locked ? 'locked' : enabled ? 'on' : 'off';
+      host.dataset.offer = !locked && enabled && pending ? '1' : '';
+    }
+    function show() { paint(); mark(); }
+    function paint() {
+      actions.replaceChildren(); compare.hidden = true; host.dataset.notice = '';
       if(cleanupFailed){say('recoveryClearFailed');return;}
       if (!live || !store) { say(clearFailed?'recoveryClearFailed':'recoveryUnavailable'); return; }
       if (!ready) {
@@ -74,25 +91,43 @@
       }
       if (protectedText) { say(clearFailed?'recoveryProtectedRetained':'recoveryProtected'); return; }
       if (!enabled) { say('recoveryOff'); button(labels.enable, enable); return; }
-      button(labels.disable, disable);
+      button(labels.disable, disable, 'disable');
       if (!pending) { say('recoveryTab'); return; }
       var conflict = pending.base !== currentBase;
       say(clearFailed?'recoveryRemoveFailed':conflict ? 'recoveryConflict' : 'recoveryOffer');
       offer(true, conflict);
     }
+    function words(text) { var m = String(text).trim().match(/\S+/g); return m ? m.length : 0; }
+    function when(at) {
+      var d = new Date(at), now = new Date(env.now());
+      var sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+      return sameDay ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+    // The banner's own wording: a title, then when the copy was kept and how much of it the page lacks.
+    function offerText() {
+      var extra = Math.max(0, words(pending.fields.content) - words(server.content));
+      var text = extra === 0 ? labels.recoveryOfferDetailSame : extra === 1 ? labels.recoveryOfferDetailOne : labels.recoveryOfferDetail;
+      return String(text || '').replace('{time}', when(pending.at)).replace('{n}', String(extra));
+    }
     function offer(allowRestore, conflict) {
-      status.appendChild(doc.createTextNode(' ' + new Date(pending.at).toLocaleString()));
+      if (allowRestore && !conflict && labels.recoveryOfferDetail) {
+        var title = doc.createElement('strong'), detail = doc.createElement('span');
+        title.textContent = labels.recoveryOffer; detail.textContent = offerText();
+        status.textContent = ''; status.append(title, detail);
+      } else {
+        status.appendChild(doc.createTextNode(' ' + new Date(pending.at).toLocaleString()));
+      }
       archive.value = server.content; draft.value = pending.fields.content;
       compare.hidden = false; compare.open = !allowRestore || conflict;
-      if (allowRestore) button(restoreReplace ? labels.replaceUnsaved : conflict ? labels.useDraft : labels.restore, restore);
-      button(labels.discard, function () { stop(); if(!erase()){show();return;} pending = null; armed = false; restoreReplace = false; show(); say('recoveryDiscarded'); });
+      if (allowRestore) button(restoreReplace ? labels.replaceUnsaved : conflict ? labels.useDraft : labels.restore, restore, 'restore');
       button(labels.copy, function () {
         var fallback = function () { compare.open = true; draft.focus(); draft.select(); say('copyFallback'); };
         try {
           if (!env.window.navigator.clipboard) { fallback(); return; }
           env.window.navigator.clipboard.writeText(draft.value).then(function () { say('copied'); }, fallback);
         } catch (_) { fallback(); }
-      });
+      }, 'copy');
+      button(labels.discard, function () { stop(); if(!erase()){show();return;} pending = null; armed = false; restoreReplace = false; show(); say('recoveryDiscarded'); }, 'discard');
     }
     function inspect() {
       if (!enabled || protectedText || !ready || !live) return;
@@ -104,9 +139,9 @@
           if (readFailed) return;
           if (!erase()) throw Error('remove failed');
         }
-      }, key, env.now());
+      }, key, env.now(), names);
       if (readFailed || (clearFailed && !pending)) { ready = false; show(); return; }
-      if (pending && equal(pending.fields, server) && erase()) pending = null;
+      if (pending && equal(pending.fields, server, names) && erase()) pending = null;
       show();
     }
     function enable() {
@@ -118,7 +153,7 @@
     function disable() { stop(); enabled = false; armed = false; pending = null; var removed=api.setEnabled(store, owner, false); show(); if(!removed)say('recoveryClearFailed'); }
     function restore() {
       if (!pending || !live || !ready) return;
-      if ((form.dataset.writerRejected === '1' || !equal(values(form), initial)) && !restoreReplace) { restoreReplace = true; show(); return; }
+      if ((form.dataset.writerRejected === '1' || !equal(values(form, names), initial, names)) && !restoreReplace) { restoreReplace = true; show(); return; }
       var record = pending; pending = null; restoreReplace = false;
       names.forEach(function (name) {
         var el = form.elements.namedItem(name); if (!el) return;
@@ -132,18 +167,19 @@
     function write() {
       if (!live || !ready || !enabled || protectedText || pending || !armed) return;
       var base = form.elements.namedItem('base_revision');
-      if (!api.write(store, key, base ? base.value : 'new', values(form), env.now())) say('recoveryUnavailable');
+      if (!api.write(store, key, base ? base.value : 'new', values(form, names), env.now(), names)) say('recoveryUnavailable');
       else say('recoveryWritten');
     }
     function input(e) {
       if (e.target && e.target.name === 'access_password' && e.target.value !== '') {
         protectedText = true; stop(); if (store) erase(); pending = null; show(); return;
       }
+      host.dataset.notice = '';
       if (!live || !ready || !enabled || protectedText || pending) return;
       armed = true; env.window.clearTimeout(timer); timer = env.window.setTimeout(write, 750);
     }
     function resume() {
-      if (enabled && (form.dataset.writerRejected === '1' || !equal(values(form), initial))) input({});
+      if (enabled && (form.dataset.writerRejected === '1' || !equal(values(form, names), initial, names))) input({});
     }
     function endSession(nextOwner) {
       stop(); live = false; ready = false; enabled = false; armed = false; pending = null;
@@ -197,7 +233,7 @@
       if (isLogout(e, env.window)) endSession();
     }, true);
     if (restoredPage) revalidate(); else resume();
-    return { host: host, revalidate: revalidate, destroy: function () { stop(); live = false; listeners.forEach(function (off) { off(); }); host.remove(); } };
+    return { host: host, enable: enable, disable: disable, revalidate: revalidate, destroy: function () { stop(); live = false; listeners.forEach(function (off) { off(); }); host.remove(); } };
   }
   function init(doc) {
     if (doc.querySelector('[data-js-module~="draft-cleanup"]')) cleanup(storage());

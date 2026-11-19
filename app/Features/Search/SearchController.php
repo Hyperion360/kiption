@@ -45,9 +45,14 @@ final class SearchController
         $me = \App\Viewer::id($this->request, $this->session, $this->db);
         // Finding 9: the mute gate rides here in the controller, so flag off
         // disables the filtering everywhere, not just the buttons.
-        $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0, $sort);
+        $live = ($this->request->get['live'] ?? '') === '1';
+        // Passage excerpts, drop-one-filter counts and (live only) author and tag
+        // suggestions all ride the same statement as the results.
+        $extras = ['passage' => $q !== '', 'drops' => \App\Search\ActiveFilters::variants($filters),
+            'suggest' => $live ? $q : ''];
+        $result = $this->search->searchWithTaxonomies($q, $filters, $perPage, $offset, $me, \App\Features::on('mute') ? $me : 0, $sort, $extras);
         $data = compact('q', 'filters', 'result', 'sort', 'page', 'perPage') + ['chips' => $this->chips($q, $filters, $sort, $result)];
-        if (($this->request->get['live'] ?? '') === '1') return $this->live($data);
+        if ($live) return $this->live($data);
         $head = $this->head()->withTitle(\App\Lang::t('search.heading'))->withCanonical('/search')->withNoindex();
         $out = $this->view->render('search/index', [
             'title' => \App\Lang::t('search.heading'), 'head' => $head, 'theme' => \App\Theme::current($this->request),
@@ -84,9 +89,19 @@ final class SearchController
         foreach ($result['counts']['status'] as $v => $n) $counts['status:' . $v] = (int) $n;
         $counts['status:any'] = array_sum(array_map('intval', $result['counts']['status']));
         foreach ($result['counts']['language'] as $v => $n) $counts['language:' . $v] = (int) $n;
-        $suggestions = array_map(static fn (array $row): array => [
-            'label' => (string) $row['title'], 'url' => '/story/view/' . rawurlencode($row['slug']),
-        ], array_slice($result['rows'], 0, 5));
+        $suggestions = [];
+        foreach (array_slice($result['rows'], 0, 5) as $row) {
+            $suggestions[] = ['group' => 'stories', 'label' => (string) $row['title'], 'sub' => (string) $row['penname'],
+                'url' => '/story/view/' . rawurlencode($row['slug'])];
+        }
+        foreach ($result['authors'] as $a) {
+            $suggestions[] = ['group' => 'authors', 'label' => (string) $a['penname'],
+                'sub' => $this->storyCount((int) $a['stories']), 'url' => '/user/view/' . rawurlencode((string) $a['slug'])];
+        }
+        foreach ($result['suggestTags'] as $t) {
+            $suggestions[] = ['group' => 'tags', 'label' => (string) $t['name'], 'sub' => (string) (int) $t['count'],
+                'url' => '/search?tag%5B%5D=' . (int) $t['id']];
+        }
         $message = $result['mode'] === 'none'
             ? \App\Lang::t($data['q'] === '' ? 'search.hint' : 'search.no_match')
             : \App\Lang::t($result['total'] === 1 ? 'search.live_one' : 'search.live_count', ['count' => (int) $result['total']]);
@@ -95,6 +110,11 @@ final class SearchController
             JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
         return (new \Kip\Http\Response($body, 200))->withHeader('Content-Type', 'application/json; charset=utf-8')
             ->withHeader('Cache-Control', 'private, no-store')->withHeader('Vary', 'Cookie')->withHeader('X-Robots-Tag', 'noindex');
+    }
+
+    private function storyCount(int $n): string
+    {
+        return \App\Lang::t($n === 1 ? 'search.stories_one' : 'search.stories_n', ['count' => $n]);
     }
 
     private function positiveId(string $key): ?int

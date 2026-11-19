@@ -16,6 +16,16 @@
     if (!nav) { return; }
     var none = nav.querySelector('.admin-nav-none');
     box.hidden = false;
+    /* The shortcut shown inside the field, as the design draws it. */
+    var find = document.createElement('span');
+    find.className = 'admin-nav-find';
+    box.parentNode.insertBefore(find, box);
+    find.appendChild(box);
+    var key = document.createElement('kbd');
+    key.className = 'admin-nav-key';
+    key.setAttribute('aria-hidden', 'true');
+    key.textContent = /Mac|iPhone|iPad/.test(navigator.platform || '') ? '\u2318K' : 'Ctrl K';
+    find.appendChild(key);
     /* A long list scrolls inside the sidebar: start with the current screen in view. */
     var here = nav.querySelector('li a[aria-current="page"]');
     if (here && nav.scrollHeight > nav.clientHeight) { nav.scrollTop = Math.max(0, here.offsetTop - nav.clientHeight / 2); }
@@ -43,7 +53,8 @@
       searching = q !== '';
       if (none) { none.hidden = shown().length > 0; }
     });
-    if (box.getAttribute('data-hint')) { box.placeholder = box.getAttribute('data-hint'); }
+    /* The shortcut chip inside the field carries the hint; the full wording stays as the tooltip. */
+    if (box.getAttribute('data-hint')) { box.title = box.getAttribute('data-hint'); }
     document.addEventListener('keydown', function (e) {
       var combo = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && typeof e.key === 'string' && e.key.toLowerCase() === 'k';
       var t = e.target instanceof Element ? e.target : null;

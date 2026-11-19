@@ -37,18 +37,19 @@ final class SearchRepository
      *  Missing optional spelling objects retry exact FTS once. Missing FTS
      *  objects fall back to LIKE; other database errors remain visible.
      *  @return array{rows:array,hasMore:bool,mode:string,capped:bool,ratings:array,categories:array} */
-    public function searchWithTaxonomies(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0, string $sort = 'relevance'): array
+    public function searchWithTaxonomies(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer = 0, string $sort = 'relevance', array $extras = []): array
     {
         $tokens = self::sanitizedTokens($q);
+        $extras['passage'] = !empty($extras['passage']) ? $tokens : [];
         $capped = count($tokens) > self::MAX_TOKENS;
         if ($tokens !== []) {
-            $rows = $this->ftsRows($q, $filters, $perPage, $offset, $me, $viewer, $sort);
+            $rows = $this->ftsRows($q, $filters, $perPage, $offset, $me, $viewer, $sort, $extras);
             if ($rows !== null) return $this->partition($rows, $perPage, 'fts', $capped, $filters);
         }
         [$filter] = DiscoveryFilter::sql($filters);
         $mode = $tokens !== [] ? 'like' : ($filter !== '' ? 'filter' : 'none');
         [$sql, $binds] = $this->plainStatement($tokens !== [] ? $q : '', $filters, $perPage, $offset,
-            $me, $viewer, $mode !== 'none');
+            $me, $viewer, $mode !== 'none', $extras);
         return $this->partition($this->db->all($sql, $binds), $perPage, $mode, $capped, $filters);
     }
 
@@ -71,7 +72,7 @@ final class SearchRepository
 
     /** The text and visibility binds precede the shared facet binds. */
     private function plainStatement(string $q, array $filters, int $perPage, int $offset,
-        int $me, int $viewer, bool $listStories = true): array
+        int $me, int $viewer, bool $listStories = true, array $extras = []): array
     {
         $source = "SELECT {$this->selectList()},0 tier,0 distance,0 field_rank,0.0 rank
             FROM stories s {$this->fromGates()}";
@@ -82,7 +83,7 @@ final class SearchRepository
             $source .= ' AND ' . $this->likeGroup();
             array_push($binds, ...array_fill(0, 4, self::likePattern($q)));
         }
-        return DiscoveryFold::statement($source, $binds, $filters, 'updated', $perPage, $offset, false, $listStories);
+        return DiscoveryFold::statement($source, $binds, $filters, 'updated', $perPage, $offset, false, $listStories, $extras);
     }
 
     private function fromGates(): string
@@ -116,7 +117,7 @@ final class SearchRepository
     /** The spelling JSON binds precede the two MATCH binds, then visibility,
      *  mute, filters, and pagination. A failed optional prepare is its probe. */
     private function ftsRows(string $q, array $filters, int $perPage, int $offset, int $me, int $viewer,
-        string $sort): ?array
+        string $sort, array $extras = []): ?array
     {
         if ($this->fts === false) return null;
         $probes = \App\Search\Spelling::probes($q);
@@ -134,7 +135,7 @@ final class SearchRepository
             $mute = $viewer > 0 ? MuteRepository::clause('s') : '';
             if ($viewer > 0) $params[] = $viewer;
             [$sql, $params] = DiscoveryFold::statement($this->ftsSource($mute, $spell), $params,
-                $filters, $sort === 'updated' ? 'updated' : 'relevance', $perPage, $offset, true);
+                $filters, $sort === 'updated' ? 'updated' : 'relevance', $perPage, $offset, true, true, $extras);
             try {
                 return $this->db->all($sql, $params);
             } catch (\PDOException $e) {

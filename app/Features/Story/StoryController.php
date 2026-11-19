@@ -604,12 +604,125 @@ final class StoryController
             return Response::redirect($to, 303)->withHeader('Cache-Control', 'private, no-store');
         }
         if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
-        return $this->renderForm($this->authoring()->formData(null, $this->uid()), null, null, null);
+        return $this->newStoryPage(null, null);
+    }
+
+    /** The new-story page: the chapter editor with an empty chapter and the story's questions in its publish popover.
+     *  One content statement (formData); the chapter half needs none. $draft is the posted retry after a refusal. */
+    private function newStoryPage(?array $draft, ?string $error, string $openRow = '', string $focus = ''): string
+    {
+        $rows = $this->authoring()->formData(null, $this->uid());
+        $sf = \App\StoryFormVars::build($rows, [], ['language' => \App\Languages::DEFAULT], $draft);
+        $c = $draft['chapter'] ?? [];
+        $row = ['slug' => '', 'story_title' => (string) ($draft['fields']['title'] ?? ''), 'title' => (string) ($c['chapter_title'] ?? ''),
+            'content' => (string) ($c['content'] ?? ''), 'notes_before' => (string) ($c['notes_before'] ?? ''), 'notes_after' => (string) ($c['notes_after'] ?? ''),
+            'publish_at' => (string) ($c['publish_at'] ?? ''), 'draft' => 0, 'access_clear' => false];
+        $vars = \App\ChapterEditorView::vars($this->request, $this->session, $this->app, $this->uid(), [
+            'title' => \App\Lang::t('story.new_heading'), 'row' => $row, 'baseRow' => [], 'position' => null, 'error' => $error,
+            'contents' => [], 'baseRevision' => 'new', 'currentRevision' => 'new', 'conflict' => false,
+            'writerChapter' => 'new-story', 'writerCheckUrl' => '/story/new', 'writerProtected' => false,
+        ]);
+        return $this->view->render('chapter/form', $vars + $sf + ['mode' => 'new-story', 'openRow' => $openRow, 'focusField' => $focus,
+            'moreOpen' => $openRow === 'more', 'suggestRefused' => $this->suggestRefusedFlash()]);
+    }
+
+    private function wantsJson(): bool
+    {
+        return str_contains(strtolower((string) $this->request->header('accept')), 'application/json');
+    }
+
+    private function json(array $body, int $status = 200): Response
+    {
+        return new Response(json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), $status,
+            ['Content-Type' => 'application/json', 'Cache-Control' => 'no-store']);
+    }
+
+    /** A refused new-story post: the editor's JSON {error, row, field} or the same page with the posted values. */
+    private function refuseNew(string $message, string $row, string $field, int $status = 422): Response
+    {
+        if ($row === '' && preg_match('/^ed-f-(notes|tags?|suggest|characters?|gift_to|access_password)/', $field) === 1) $row = 'more';
+        if ($this->wantsJson()) return $this->json(['error' => $message, 'row' => $row, 'field' => $field], $status);
+        return new Response($this->newStoryPage($this->draftInput(), $message, $row, $field), $status);
+    }
+
+    /** Story plus chapter 1 in one transaction: the new-story editor's Publish and Save as Draft. */
+    private function createWithChapter(): Response|string
+    {
+        $json = $this->wantsJson();
+        if (\App\Posting::paused($this->db, $this->uid())) {
+            return $json ? $this->json(['error' => \App\Lang::t('error.forbidden')], 403) : \App\Posting::stopPage($this->view, $this->request, $this->app);
+        }
+        [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds, $suggest, $withdraw] = $this->storyInput();
+        $chapterTitle = trim($this->postText('chapter_title'));
+        $content = $this->postText('content');
+        $before = trim($this->postText('notes_before'));
+        $after = trim($this->postText('notes_after'));
+        $rawPublishAt = trim($this->postText('publish_at'));
+        $draft = ($this->request->post['draft'] ?? '') === '1';
+        // Replay first, before the mutable policy checks: an identical retry never meets a refusal.
+        $keys = new \App\SaveKeys($this->db, $this->uid());
+        $key = null;
+        $hash = '';
+        if ($json) {
+            $key = $this->request->post['save_key'] ?? null;
+            if (!\App\SaveKeys::valid($key)) return $this->json(['error' => \App\Lang::t('chapter.err_save_key')], 422);
+            $hash = hash('sha256', json_encode(['story-create', $title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language,
+                $roundRobin, $isOriginal, $giftTo, $tagIds, hash('sha256', $accessPassword), $accessClear, $characterIds, $suggest, $withdraw,
+                $chapterTitle, $content, $before, $after, $rawPublishAt, $draft], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE));
+            if (($seen = $keys->lookup($key, $hash)) !== null) {
+                return isset($seen['redirect']) ? $this->json(['redirect' => $seen['redirect']]) : $this->json(['error' => \App\Lang::t('chapter.err_save_key_reused')], 409);
+            }
+        }
+        if ($draft) {
+            if ($title === '') $title = $chapterTitle !== '' ? $chapterTitle : \App\Lang::t('story.untitled');
+        } elseif ($title === '') {
+            return $this->refuseNew(\App\Lang::t('story.err_title'), 'story', 'ed-f-title');
+        }
+        if (!$this->validRating($ratingId)) return $this->refuseNew(\App\Lang::t($draft ? 'story.err_rating_draft' : 'story.err_rating'), 'rating', 'ed-f-rating');
+        if ($this->authoring()->lockedViolation($this->uid(), $categoryIds, null)) {
+            return $this->refuseNew(\App\Lang::t('story.err_locked_category'), 'categories', 'ed-f-category');
+        }
+        if (!$draft && trim($content) === '') return $this->refuseNew(\App\Lang::t('chapter.err_text'), '', 'ed-f-content');
+        if (($err = \App\ChapterChecks::wordLimitError($content)) !== null) return $this->refuseNew($err, '', 'ed-f-content');
+        if (($err = \App\ChapterChecks::imageError($this->db, $this->uid(), '', $content)) !== null) return $this->refuseNew($err, '', 'ed-f-content');
+        try {
+            $publishAt = \App\ChapterChecks::canonicalPublishAt($rawPublishAt);
+        } catch (\InvalidArgumentException) {
+            return $this->refuseNew(\App\Lang::t('chapter.publish_invalid'), 'when', 'ed-f-publish');
+        }
+        $auto = $this->autoValidates();
+        $landed = '';
+        $hook = function (int $chapterId, int $position, string $slug) use ($draft, $auto, $publishAt, $keys, $key, $hash, &$landed): void {
+            $landed = $draft ? \App\Saved::url('/chapter/edit/' . $slug . '/' . $position, 'draft')
+                : '/story/edit/' . $slug . '?submitted=' . ($auto ? ($publishAt !== null ? 'scheduled' : 'live') : 'held');
+            if ($key !== null) $keys->record($key, $hash, $chapterId, 'story-create', $landed);
+        };
+        try {
+            [, $slug, $cats, $seriesSlugs, $authorSlug, $challengeSlugs, $suggestOut] = $this->authoring()->createStoryWithChapter($this->uid(), [
+                'title' => $title, 'summary' => $summary, 'notes' => $notes, 'rating_id' => $ratingId, 'category_ids' => $categoryIds,
+                'restricted' => $restricted, 'language' => $language, 'round_robin' => $roundRobin, 'gift_to' => $giftTo, 'is_original' => $isOriginal,
+                'tag_ids' => $tagIds, 'access_hash' => $accessPassword === '' ? null : password_hash($accessPassword, PASSWORD_DEFAULT),
+                'character_ids' => $characterIds, 'completed' => $completed, 'suggest' => $suggest, 'withdraw' => $withdraw,
+            ], $auto, ['title' => $chapterTitle, 'content' => $content, 'before' => $before, 'after' => $after, 'publish_at' => $publishAt, 'draft' => $draft], $hook);
+        } catch (\PDOException $e) {
+            if ($key !== null && ($seen = $keys->lookup($key, $hash)) !== null && isset($seen['redirect'])) return $this->json(['redirect' => $seen['redirect']]);
+            throw $e;
+        }
+        $this->staticCache()->purgeStory($slug, $cats, $seriesSlugs, $authorSlug, [], $challengeSlugs);
+        $this->staticCache()->purgeAuthors();
+        \App\ActivityLog::record($this->db, $this->uid(), 'story.create', $title);
+        \App\ActivityLog::record($this->db, $this->uid(), 'chapter.create', rtrim($slug . ': ' . $chapterTitle, ': '));
+        $this->flashSuggestRefused($suggestOut);
+        if ($auto && $publishAt === null && !$draft) {
+            (new \App\PublishFanout($this->db, $this->app->container->make(\App\MailGuard::class), rtrim((string) $this->app->config('base_url', 'http://localhost:8080'), '/')))->publish($slug);
+        }
+        return $json ? $this->json(['redirect' => $landed]) : Response::redirect($landed);
     }
 
     #[AuthAttr] #[Post]
     public function create(): Response|string
     {
+        if (array_key_exists('content', $this->request->post)) return $this->createWithChapter();
         if (\App\Posting::paused($this->db, $this->uid())) return \App\Posting::stopPage($this->view, $this->request, $this->app);
         [$title, $summary, $notes, $ratingId, $categoryIds, $completed, $restricted, $language, $roundRobin, $isOriginal, $giftTo, $tagIds, $accessPassword, $accessClear, $characterIds, $suggest, $withdraw] = $this->storyInput();
         if ($title === '') {
@@ -801,18 +914,9 @@ final class StoryController
     /** Retain raw, explicitly named fields; passwords are represented only by a notice flag. */
     private function draftInput(): array
     {
-        $fields = [];
-        foreach (['title', 'summary', 'notes', 'rating_id', 'language', 'gift_to', 'canonical_url', 'crosspost_url'] as $name) {
-            $fields[$name] = $this->postText($name);
-        }
-        foreach (['completed', 'restricted'] as $name) $fields[$name] = isset($this->request->post[$name]);
-        foreach (['round_robin', 'is_original', 'access_clear'] as $name) $fields[$name] = ($this->request->post[$name] ?? '') === '1';
-        $draft = ['fields' => $fields, 'suggest' => $this->suggestInput(),
-            'passwordDiscarded' => $this->postText('access_password') !== ''];
-        foreach (['categories', 'tags', 'characters', 'withdraw'] as $name) {
-            $draft[$name] = array_values(array_filter((array) ($this->request->post[$name] ?? []), 'is_numeric'));
-        }
-        if (!isset($this->request->post['characters_shown'])) $draft['characters'] = null;
+        $draft = \App\StoryInput::retry($this->request->post);
+        $draft['chapter'] = [];
+        foreach (['chapter_title', 'content', 'notes_before', 'notes_after', 'publish_at'] as $name) $draft['chapter'][$name] = $this->postText($name);
         return $draft;
     }
 
@@ -825,19 +929,11 @@ final class StoryController
     /** @param array[] $rows formData output; $story null on the create form */
     private function renderForm(array $rows, ?array $story, ?string $error, ?string $editSlug, ?array $draft = null): string
     {
-        $categories = [];
-        $ratings = [];
         $coauthors = [];
         foreach ($rows as $r) {
-            if ($r['k'] === 'r') $ratings[] = $r;
             if ($r['k'] === 'co') $coauthors[] = ['id' => (int) $r['a'], 'penname' => (string) $r['b']];
         }
         $selectedCats = $story === null ? [] : array_filter(explode(',', (string) ($story['e'] ?? '')), 'strlen');
-        $categories = \App\Repositories\AuthoringRepository::visibleCategories($rows, $selectedCats);
-        [$tagGroups, $selectedTags] = \App\Repositories\AuthoringRepository::tagGroups($rows);
-        [$characterGroups, $selectedCharacters] = \App\Repositories\AuthoringRepository::characterGroups($rows);
-        $suggestions = \App\Repositories\AuthoringRepository::suggestionGroups($rows);
-        $tagPolicy = \App\Settings::get('tag_policy');
         $chapters = [];
         if ($story !== null && ($story['h'] ?? null) !== null && $story['h'] !== '[]') {
             $chapters = json_decode((string) $story['h'], true) ?: [];
@@ -855,7 +951,7 @@ final class StoryController
             'crosspost_url' => (string) ($story['o'] ?? ''),
         ];
         $formTitle = $story === null ? \App\Lang::t('story.new_heading') : \App\Lang::t('story.edit_heading');
-        return $this->view->render('story/form', [
+        return $this->view->render('story/form', \App\StoryFormVars::build($rows, $selectedCats, $savedValues, $draft) + [
             'title' => $formTitle,
             'head' => $this->head()->withTitle($formTitle)
                 ->withCanonical($this->request->path)->withNoindex(),
@@ -864,21 +960,7 @@ final class StoryController
             'navFile' => (string) $this->app->config('nav_file', ''),
             'path' => $this->request->path,
             'story' => $story === null ? null : ['slug' => (string) $editSlug] + $savedValues,
-            'values' => $draft['fields'] ?? $savedValues,
-            'ratingInvalid' => $draft !== null && !in_array((int) $draft['fields']['rating_id'], array_map('intval', array_column($ratings, 'a')), true),
-            'draftSuggest' => $draft['suggest'] ?? [],
-            'draftWithdraw' => $draft['withdraw'] ?? [],
-            'passwordDiscarded' => $draft['passwordDiscarded'] ?? false,
-            'selectedCategories' => $draft['categories'] ?? $selectedCats,
-            'categories' => $categories,
-            'ratings' => $ratings,
-            'tagGroups' => $tagGroups,
-            'selectedTags' => $draft['tags'] ?? $selectedTags,
-            'suggestions' => $suggestions,
-            'tagPolicy' => $tagPolicy,
             'suggestRefused' => $this->suggestRefusedFlash(),
-            'characterGroups' => $characterGroups,
-            'selectedCharacters' => $draft['characters'] ?? $selectedCharacters,
             'chapters' => $chapters,
             // coauthor management is the owner/admin's; l/m ride the 's' row only
             'coauthors' => $coauthors,
@@ -899,8 +981,11 @@ final class StoryController
     private function submitNotice(): string
     {
         $state = (string) ($this->request->get['submitted'] ?? '');
+        if ($state === 'scheduled') return '<p>' . htmlspecialchars(\App\Lang::t('story.submitted_scheduled'), ENT_QUOTES) . '</p>';
         if ($state !== 'live' && $state !== 'held') return '';
-        return \App\Notices::html('msg.thanks') . ($state === 'held' ? \App\Notices::html('msg.held') : '');
+        $thanks = \App\Notices::html('msg.thanks');
+        if ($thanks === '') $thanks = '<p>' . htmlspecialchars(\App\Lang::t($state === 'held' ? 'story.submitted_held' : 'story.submitted_live'), ENT_QUOTES) . '</p>';
+        return $thanks . ($state === 'held' ? \App\Notices::html('msg.held') : '');
     }
 
     private function authoring(): \App\Repositories\AuthoringRepository
@@ -949,70 +1034,15 @@ final class StoryController
         return \App\StaticCache\Cache::configured($this->app);
     }
 
-    /** @return array{string,string,string,int,array,bool,bool,string,bool,bool,string,array,string,bool,?array} */
-    private function storyInput(): array
+    /** @return array{string,string,string,int,array,bool,bool,string,bool,bool,string,array,string,bool,?array,array,array} */
+    private function storyInput(string $titleKey = 'title'): array
     {
-        $post = $this->request->post;
-        $language = trim($this->postText('language'));
-        if ($language !== '' && (strlen($language) > 10 || !preg_match('/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/', $language))) {
-            $language = ''; // junk never reaches the browse filter's regex
-        }
-        return [
-            trim($this->postText('title')),
-            trim($this->postText('summary')),
-            trim($this->postText('notes')),
-            (int) $this->postText('rating_id'),
-            array_values(array_filter((array) ($post['categories'] ?? []), 'is_numeric')),
-            isset($post['completed']),
-            isset($post['restricted']),
-            $language,
-            // Value-based, not isset (finding 8's lesson): an unchecked box
-            // omits the key, and a forged non-'1' value must read as off.
-            ($post['round_robin'] ?? '') === '1',
-            // Attestation, same value-based idiom: unchecked omits the key,
-            // forged non-'1' reads as off. Attaching money surfaces to a
-            // fan work is the platform's hard line (DMCA posture).
-            ($post['is_original'] ?? '') === '1',
-            substr(trim($this->postText('gift_to')), 0, 120),
-            // The tags idiom is the categories idiom: numeric-only, unknown
-            // ids drop inside writeTags's INSERT..SELECT WHERE id IN.
-            array_values(array_filter((array) ($post['tags'] ?? []), 'is_numeric')),
-            // The post-password pair (Fictioneer parity): the raw password
-            // travels to the repository, which hashes it (never stored raw,
-            // never echoed back); the clear checkbox rides the same
-            // value-based idiom as the flags above.
-            trim($this->postText('access_password')),
-            ($post['access_clear'] ?? '') === '1',
-            // The character picker: null when the form did not offer it (the
-            // hidden characters_shown marker is absent), so a save from an
-            // old form never wipes the story's characters. Unknown ids and
-            // characters of unchosen categories drop in writeCharacters.
-            isset($post['characters_shown'])
-                ? array_values(array_filter((array) ($post['characters'] ?? []), 'is_numeric'))
-                : null,
-            // The suggest pair (slice 4): suggestions keyed by tag type id
-            // (string values are the typed comma lists; a non-array or junk
-            // key drops), withdrawals as the member's own pending ids. Both
-            // ride the save's transaction; the tag_policy setting decides
-            // whether a name parks pending or goes live.
-            $this->suggestInput(),
-            array_values(array_filter((array) ($post['withdraw'] ?? []), 'is_numeric')),
-        ];
+        return \App\StoryInput::from($this->request->post, $titleKey);
     }
 
-    /** @return array<int, string> tag type id => typed comma list. A scalar,
-     *  a nested array, or a non-numeric key is ignored entirely (the policy
-     *  decides nothing for junk input; TagSuggestionRepository owns the rest). */
     private function suggestInput(): array
     {
-        $raw = $this->request->post['suggest'] ?? [];
-        if (!is_array($raw)) return [];
-        $out = [];
-        foreach ($raw as $typeId => $list) {
-            if (!is_numeric($typeId) || (int) $typeId <= 0 || !is_string($list)) continue;
-            $out[(int) $typeId] = $list;
-        }
-        return $out;
+        return \App\StoryInput::suggest($this->request->post);
     }
 
     /** The signed-in viewer's role, for the owner and moderator tools on the

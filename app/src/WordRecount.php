@@ -29,8 +29,8 @@ final class WordRecount
             $this->db->commit();
         }
         // The same rollup the editor uses: a story's total is the sum of its chapters.
-        $this->db->query('UPDATE stories SET word_count = COALESCE((SELECT SUM(word_count) FROM chapters WHERE story_id = stories.id), 0)
-                          WHERE word_count IS NOT COALESCE((SELECT SUM(word_count) FROM chapters WHERE story_id = stories.id), 0)');
+        $this->db->query('UPDATE stories SET word_count = COALESCE((SELECT SUM(word_count) FROM chapters WHERE story_id = stories.id AND is_draft = 0), 0)
+                          WHERE word_count IS NOT COALESCE((SELECT SUM(word_count) FROM chapters WHERE story_id = stories.id AND is_draft = 0), 0)');
         $stories = (int) $this->db->one('SELECT changes() AS n')['n'];
         return ['chapters' => $chapters, 'stories' => $stories];
     }

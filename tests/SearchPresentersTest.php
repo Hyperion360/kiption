@@ -50,6 +50,22 @@ final class SearchPresentersTest extends TestCase
         $this->assertSame([6], array_map('intval', $q['xtag']));
     }
 
+    public function test_each_chip_has_a_type_and_variants_drop_one_at_a_time(): void
+    {
+        $filters = ['category' => ['a'], 'rating_id' => 2, 'completed' => false, 'language' => null,
+            'tag' => [5], 'xtag' => [], 'tags' => '', 'xtags' => '', 'character' => null];
+        $names = ['category' => ['a' => 'Alpha'], 'rating' => [2 => 'Mature'], 'tag' => [5 => 'Fantasy']];
+        $chips = ActiveFilters::chips('lantern', $filters, 'relevance', $names);
+        $this->assertSame(['category', 'rating', 'status', 'tag'], array_column($chips, 'type'));
+        $variants = ActiveFilters::variants($filters);
+        $this->assertCount(count($chips) + 1, $variants, 'one per chip, then everything dropped');
+        $this->assertSame([], $variants[0]['category']);
+        $this->assertSame(2, $variants[0]['rating_id']);
+        $this->assertNull(end($variants)['rating_id']);
+        $this->assertSame([], ActiveFilters::variants(['category' => [], 'rating_id' => null, 'completed' => null, 'language' => null, 'tag' => null, 'xtag' => null, 'tags' => '', 'xtags' => '', 'character' => null]));
+        $this->assertStringContainsString('Mature', ActiveFilters::phrase($chips));
+    }
+
     public function test_no_chips_when_nothing_is_filtered(): void
     {
         $f = ['category' => [], 'rating_id' => null, 'completed' => null, 'language' => null, 'tag' => null, 'xtag' => null, 'tags' => '', 'xtags' => '', 'character' => null];

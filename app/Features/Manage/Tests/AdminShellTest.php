@@ -73,6 +73,16 @@ final class AdminShellTest extends TestCase
         return $as === null ? $c : $c->actingAs($as);
     }
 
+    public function test_the_oldest_wait_counts_from_the_same_stamp_the_queue_shows(): void
+    {
+        $story = $this->db->one('SELECT id FROM stories WHERE validated = 1 AND deleted_at IS NULL LIMIT 1');
+        $this->db->query("INSERT INTO chapters (story_id, position, title, content, validated, is_draft, word_count, created_at, updated_at) VALUES (?, 99, 'Old Send', 'Body.', 0, 0, 1, ?, ?)",
+            [(int) $story['id'], gmdate('Y-m-d\TH:i:s\Z', time() - 70 * 86400), gmdate('Y-m-d\TH:i:s\Z', time() - 2 * 86400)]);
+        $body = $this->client($this->adminId)->get('/manage')->body;
+        $this->assertStringContainsString('has waited 2 days', $body);
+        $this->assertStringNotContainsString('70 days', $body);
+    }
+
     public function test_every_owner_screen_lists_the_admin_screens_and_marks_the_current_one(): void
     {
         $body = $this->client($this->adminId)->get('/tags')->body;
@@ -183,7 +193,7 @@ final class AdminShellTest extends TestCase
 
     private function waitingStory(string $title, string $when): void
     {
-        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, created_at) VALUES (?, ?, 'S.', ?, 2, 0, ?)", [$title, strtolower(str_replace(' ', '-', $title)), $this->memberId, $when]);
+        $this->db->query("INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, created_at, updated_at) VALUES (?, ?, 'S.', ?, 2, 0, ?, ?)", [$title, strtolower(str_replace(' ', '-', $title)), $this->memberId, $when, $when]);
     }
 
     public function test_the_home_lede_counts_what_needs_a_decision_and_how_long_the_oldest_waited(): void

@@ -138,9 +138,9 @@ final class ManageController extends AdminScreen
         return $this->db->all(
             "SELECT '0gate' AS k, u.id AS n, u.penname AS a, '' AS b, '' AS c, '' AS d FROM users u WHERE u.id = ? AND u.role = 'admin'
              UNION ALL
-             SELECT '1stories', COUNT(*), MIN(s.created_at), '', (SELECT GROUP_CONCAT(title, char(31)) FROM (SELECT s2.title FROM stories s2 WHERE " . str_replace('s.', 's2.', \App\Repositories\AuthoringRepository::WAITING_STORY) . " ORDER BY s2.created_at, s2.id LIMIT 3)), '' FROM stories s WHERE " . \App\Repositories\AuthoringRepository::WAITING_STORY . "
+             SELECT '1stories', COUNT(*), MIN(s.updated_at), '', (SELECT GROUP_CONCAT(title, char(31)) FROM (SELECT s2.title FROM stories s2 WHERE " . str_replace('s.', 's2.', \App\Repositories\AuthoringRepository::WAITING_STORY) . " ORDER BY s2.created_at, s2.id LIMIT 3)), '' FROM stories s WHERE " . \App\Repositories\AuthoringRepository::WAITING_STORY . "
              UNION ALL
-             SELECT '1chapters', COUNT(*), MIN(ch.created_at), '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
+             SELECT '1chapters', COUNT(*), MIN(ch.updated_at), '', '', '' FROM chapters ch JOIN stories s ON s.id = ch.story_id
              WHERE " . \App\Repositories\AuthoringRepository::WAITING_CHAPTER . "
              UNION ALL
              SELECT '1members', COUNT(*), COALESCE((SELECT us2.penname FROM users us2 WHERE " . str_replace('us.', 'us2.', \App\Repositories\AuthoringRepository::WAITING_MEMBER) . " ORDER BY us2.created_at DESC, us2.id DESC LIMIT 1), ''), COALESCE(MIN(us.created_at), ''), COALESCE((SELECT 1 FROM signup_check sc WHERE sc.id = 1 AND sc.enabled = 1 AND sc.question <> '' AND sc.answer <> ''), 0), COALESCE(MAX(us.created_at), '') FROM users us WHERE " . \App\Repositories\AuthoringRepository::WAITING_MEMBER . "

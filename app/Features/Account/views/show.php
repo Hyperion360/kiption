@@ -35,7 +35,7 @@
   <?php else: ?>
   <ul class="row-list">
     <?php foreach ($stories as $s): ?>
-    <li><a href="/story/edit/<?= $this->e($s['a']) ?>"><span class="row-title"><?= $this->e($s['b']) ?></span><span class="row-meta"><?= $s['c'] === '1' ? \App\Lang::t('account.published') : \App\Lang::t('story.awaiting_validation') ?></span></a></li>
+    <li><a href="/story/edit/<?= $this->e($s['a']) ?>"><span class="row-title"><?= $this->e($s['b']) ?></span><span class="row-meta"><?= $s['c'] === '1' ? \App\Lang::t('account.published') : (($s['d'] ?? '0') === '1' ? (!empty($s['f']) ? \App\Lang::t('ed.account_scheduled', ['date' => $this->e(\App\Dates::format((string) $s['f']))]) : \App\Lang::t('account.draft')) : \App\Lang::t('account.in_review')) ?></span></a></li>
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>

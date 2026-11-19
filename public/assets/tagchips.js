@@ -14,8 +14,13 @@
   }
   function stateOf(inc, exc) { return exc ? 'exclude' : inc ? 'include' : 'off'; }
   function matches(name, needle) { return needle === '' || name.toLowerCase().indexOf(needle.trim().toLowerCase()) !== -1; }
+  // A chip says its state without colour: + when included, a minus when left out, nothing when off.
+  function glyphOf(state, glyphs) {
+    var g = glyphs || {};
+    return state === 'include' ? (g.include || '+') : state === 'exclude' ? (g.exclude || '\u2212') : '';
+  }
   function countOf(text) { var m = /\((\d+)\)\s*$/.exec(text || ''); return m ? m[1] : '0'; }
-  if (typeof module !== 'undefined' && module.exports) { module.exports = { next: next, stateOf: stateOf, matches: matches, countOf: countOf }; }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = { next: next, stateOf: stateOf, matches: matches, countOf: countOf, glyphOf: glyphOf }; }
   if (typeof document === 'undefined') { return; }
   document.querySelectorAll('[data-js-module~="tagchips"]').forEach(function (root) {
     var fallback = root.querySelector('[data-tag-fallback]');
@@ -52,15 +57,21 @@
       var button = document.createElement('button');
       button.type = 'button';
       button.className = 'tag-chip';
+      var glyph = document.createElement('span');
+      glyph.className = 'tag-glyph';
+      glyph.setAttribute('aria-hidden', 'true');
       var text = document.createElement('span');
       text.textContent = name;
       var count = document.createElement('span');
       count.className = 'count';
+      button.appendChild(glyph);
       button.appendChild(text);
       button.appendChild(count);
       function paint() {
         var state = stateOf(inc && inc.checked, xc && xc.checked);
         button.setAttribute('data-state', state);
+        glyph.textContent = glyphOf(state, { include: holder.getAttribute('data-glyph-include'), exclude: holder.getAttribute('data-glyph-exclude') });
+        glyph.hidden = glyph.textContent === '';
         var tpl = holder.getAttribute('data-state-' + state) || '{label}';
         button.setAttribute('aria-label', tpl.replace('{label}', name));
         var from = state === 'exclude' && xc ? xc.closest('label') : label;

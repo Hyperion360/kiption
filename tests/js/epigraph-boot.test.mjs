@@ -52,16 +52,19 @@ const el = (tag) => ({
   after(n) { this.next = n; },
   addEventListener(t, f) { (this.listeners[t] ??= []).push(f); },
   click() { (this.listeners.click ?? []).forEach((f) => f()); },
+  querySelector(sel) { return sel === 'button' ? (this.children.find((c) => c.tagName === 'button') ?? null) : null; },
+  focus() { this.focused = true; },
 });
 const modePage = (api) => {
   const button = el('button');
-  const wrap = { querySelector: (sel) => (sel === '.epigraph-mode' ? button : null) };
+  const wrap = el('div'); wrap.querySelector = (sel) => (sel === '.epigraph-mode' ? button : null);
   const labels = { modeBlocked: 'Stays in Source.', modeReview: 'Rewrite the markup?', convert: 'Convert', keepSource: 'Keep Source' };
   const b = box({ 'data-writer-labels': JSON.stringify(labels) });
   b.nextElementSibling = wrap;
   const doc = { querySelectorAll: () => [b], createElement: el };
   const win = { EpigraphAuthor: { mount: () => { button.listeners.click = [() => api.showRich()]; return api; } }, Event: class { constructor(t) { this.type = t; } } };
   init(doc, win);
+  button.wrap = wrap;
   return button;
 };
 
@@ -82,6 +85,19 @@ test('a chapter the editor would rewrite asks before switching instead of doing 
   convert.click();
   assert.equal(accepted, 1);
   assert.equal(note.hidden, true);
+});
+
+test('the Ctrl or Cmd + / shortcut shows the same note and puts focus on Convert', () => {
+  let review = { original: 'a\n\n* * *\n\nb', candidate: 'a\n\n---\n\nb' };
+  const api = { mode: () => 'source', blocker: () => null, review: () => review, showRich: () => 'review', acceptConversion() {}, cancelConversion: () => { review = null; }, focus() {} };
+  const button = modePage(api);
+  const key = (e) => button.wrap.listeners.keydown.forEach((f) => f(e));
+  key({ key: '/', metaKey: false, ctrlKey: false });
+  assert.equal(button.next.hidden, true, 'a bare slash does nothing');
+  key({ key: '/', metaKey: true });
+  const note = button.next;
+  assert.equal(note.hidden, false);
+  assert.equal(note.children[1].focused, true, 'Convert has focus');
 });
 
 test('a chapter the editor cannot show says why it stays in Source', () => {

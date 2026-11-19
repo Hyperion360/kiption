@@ -4,26 +4,27 @@ var PREFIX = 'kiption:writer:v1:';
 var NAMES = ['title', 'content', 'notes_before', 'notes_after', 'publish_at'];
 var LIMIT = 2000000;
 function key(owner, chapter) { return PREFIX + encodeURIComponent(owner) + ':' + encodeURIComponent(chapter); }
-function fields(value) {
+function fields(value, names) {
   var result = Object.create(null);
-  NAMES.forEach(function (name) { result[name] = typeof value[name] === 'string' ? value[name] : ''; });
+  (names || NAMES).forEach(function (name) { result[name] = typeof value[name] === 'string' ? value[name] : ''; });
   return result;
 }
-function validFields(value) {
+function validFields(value, names) {
+  names = names || NAMES;
   return value && typeof value === 'object' && !Array.isArray(value) &&
-    Object.keys(value).length === NAMES.length && NAMES.every(function (name) { return typeof value[name] === 'string'; });
+    Object.keys(value).length === names.length && names.every(function (name) { return typeof value[name] === 'string'; });
 }
 function remove(storage, k) { try { storage.removeItem(k); return true; } catch (_) { return false; } }
-function write(storage, k, base, value, now) {
+function write(storage, k, base, value, now, names) {
   try {
     if (k.indexOf(PREFIX) !== 0 || !/^(new|[a-f0-9]{64})$/.test(base)) return false;
-    var raw = JSON.stringify({ v: 1, key: k, base: base, at: now, fields: fields(value) });
+    var raw = JSON.stringify({ v: 1, key: k, base: base, at: now, fields: fields(value, names) });
     if (raw.length > LIMIT) { remove(storage, k); return false; }
     storage.setItem(k, raw);
     return true;
   } catch (_) { return false; }
 }
-function read(storage, k, now) {
+function read(storage, k, now, names) {
   try {
     var raw = storage.getItem(k);
     if (raw === null) return null;
@@ -31,7 +32,7 @@ function read(storage, k, now) {
     var value = JSON.parse(raw);
     if (!value || value.v !== 1 || value.key !== k || (!Number.isFinite(value.at) || value.at <= 0) ||
         value.at > now + 300000 || now - value.at > 86400000 ||
-        !/^(new|[a-f0-9]{64})$/.test(value.base) || !validFields(value.fields)) {
+        !/^(new|[a-f0-9]{64})$/.test(value.base) || !validFields(value.fields, names)) {
       remove(storage, k); return null;
     }
     return value;

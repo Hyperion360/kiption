@@ -167,4 +167,32 @@ final class MarkdownTest extends TestCase
         $this->assertStringNotContainsString('<img', Markdown::render('![x](/etc/passwd)', false, true));
         $this->assertStringNotContainsString('<img', Markdown::render('![x](/uploads/../x.png)', false, true));
     }
+
+    public function test_a_link_address_with_balanced_parentheses_stays_one_link(): void
+    {
+        $this->assertSame(
+            '<p><a href="https://x.com/a_(b)" rel="noopener">wiki</a> then more.</p>' . "\n",
+            Markdown::render('[wiki](https://x.com/a_(b)) then more.'));
+        $this->assertSame(
+            '<p>(see <a href="https://x.com/a_(b)" rel="noopener">wiki</a>)</p>' . "\n",
+            Markdown::render('(see [wiki](https://x.com/a_(b)))'));
+        $this->assertSame(
+            '<p><a href="https://x.com/plain" rel="noopener">p</a> (aside)</p>' . "\n",
+            Markdown::render('[p](https://x.com/plain) (aside)'));
+        $this->assertSame(
+            '<p>[bad](javascript:alert(1))</p>' . "\n",
+            Markdown::render('[bad](javascript:alert(1))'));
+    }
+    public function test_scene_breaks_are_normalised_to_the_editor_spelling(): void
+    {
+        $this->assertSame("One\n\n---\n\nTwo", Markdown::normalizeSceneBreaks("One\n\n* * *\n\nTwo"));
+        $this->assertSame("One\r\n\r\n---\r\n\r\nTwo", Markdown::normalizeSceneBreaks("One\r\n\r\n***\r\n\r\nTwo"));
+        $this->assertSame("---\n\nTwo", Markdown::normalizeSceneBreaks("_ _ _\n\nTwo"));
+        $this->assertSame("One\n\n---\n\nTwo", Markdown::normalizeSceneBreaks("One\n\n- - -\n\nTwo"));
+        // Untouched: already canonical, bold text, text directly above (a setext heading risk), fenced and quoted breaks.
+        foreach (["One\n\n---\n\nTwo", "***bold***", "One\n* * *\nTwo", "```\n\n***\n```", "> * * *", "    * * *", "plain"] as $keep) {
+            $this->assertSame($keep, Markdown::normalizeSceneBreaks($keep));
+        }
+        $this->assertSame("<p>One</p>\n<hr>\n<p>Two</p>\n", Markdown::render(Markdown::normalizeSceneBreaks("One\n\n***\n\nTwo")));
+    }
 }

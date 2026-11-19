@@ -153,4 +153,58 @@ final class ThemeContrastTokensTest extends TestCase
         $this->assertMatchesRegularExpression('~\.cta-primary\s*\{[^}]*border:\s*1px solid var\(--btn-edge,\s*var\(--btn\)\)~', $css);
         $this->assertMatchesRegularExpression('~\.continue-cta\s*\{[^}]*box-shadow:\s*inset 0 0 0 1px var\(--btn-edge,\s*var\(--btn\)\)~', $css);
     }
+
+    // The Cloud offer band: Paper keeps the drawn dark slab, Night gets a dark
+    // green band with a sage rule, so every band text token reads on the band
+    // and the rule holds 3:1 against the page.
+    public function test_offer_band_tokens_read_in_every_theme(): void
+    {
+        $bad = [];
+        foreach (self::themes('public/assets/reader.css') as $theme => $t) {
+            foreach (['--band-ink', '--band-soft'] as $fg) {
+                $r = Color::contrast(Color::parse($t[$fg]), Color::parse($t['--band-bg']));
+                if ($r < 4.5) $bad[] = sprintf('%s %s on band = %.2f', $theme, $fg, $r);
+            }
+            $r = Color::contrast(Color::parse($t['--band-cta-ink']), Color::parse($t['--band-cta-bg']));
+            if ($r < 4.5) $bad[] = sprintf('%s button label = %.2f', $theme, $r);
+            $r = Color::contrast(Color::parse($t['--band-edge']), Color::parse($t['--bg']));
+            if ($r < 3.0 && Color::contrast(Color::parse($t['--band-bg']), Color::parse($t['--bg'])) < 3.0) $bad[] = sprintf('%s band edge on page = %.2f', $theme, $r);
+        }
+        $this->assertSame([], $bad);
+    }
+    // The chapter editor and the new-story popover restate a few tokens per
+    // theme (sepia surfaces, the danger red). Resolve them the way the page
+    // does and hold every text token to 4.5:1 on the page and the surface,
+    // with the field edge at 3:1. A computed pass over every text node in the
+    // browser (paper, sepia, night, 1440 and 390 wide) backs this up.
+    public function test_editor_scoped_tokens_read_in_every_theme(): void
+    {
+        $css = self::css('public/assets/reader.css');
+        $themes = self::themes('public/assets/reader.css');
+        $bad = [];
+        foreach (['paper', 'sepia', 'night'] as $theme) {
+            $t = self::block($css, 'html[data-theme="' . $theme . '"] #chapter-editor-form.ed') + $themes[$theme];
+            $this->assertNotSame([], self::block($css, 'html[data-theme="' . $theme . '"] #chapter-editor-form.ed'), "$theme editor block");
+            foreach (['--ink', '--ink-2', '--muted', '--accent', '--danger'] as $fg) foreach (['--bg', '--surface'] as $bg) {
+                if (!isset($t[$fg], $t[$bg])) continue;
+                $r = Color::contrast(Color::parse($t[$fg]), Color::parse($t[$bg]));
+                if ($r < 4.5) $bad[] = sprintf('%s editor %s on %s = %.2f', $theme, $fg, $bg, $r);
+            }
+            $edge = Color::parse($t['--ink'])->mix(Color::parse($t['--bg']), 0.45);
+            $r = Color::contrast($edge, Color::parse($t['--surface']));
+            if ($r < 3.0) $bad[] = sprintf('%s editor field edge on surface = %.2f', $theme, $r);
+        }
+        // Auto follows the OS: its dark danger red is the Night one.
+        $this->assertMatchesRegularExpression('~@media \(prefers-color-scheme: dark\) \{ html:not\(\[data-theme="paper"\]\):not\(\[data-theme="sepia"\]\) #chapter-editor-form\.ed \{ --danger: ' . preg_quote(self::block($css, 'html[data-theme="night"] #chapter-editor-form.ed')['--danger'], '~') . '~', $css);
+        $this->assertSame([], $bad);
+    }
+
+    // The design has no accent strip above the editor header; a 2px green
+    // border-top there was an unexplained line across the top of the page.
+    public function test_editor_header_has_no_top_strip(): void
+    {
+        $css = self::css('public/assets/reader.css');
+        $this->assertMatchesRegularExpression('~\.ed-head\s*\{[^}]*position:\s*sticky~', $css);
+        $this->assertDoesNotMatchRegularExpression('~\.ed-head\s*\{[^}]*(border-block-start|border-top)[^}]*\}~', $css);
+    }
 }

@@ -3,8 +3,38 @@ namespace App;
 
 final class Markdown
 {
+    /** An http(s) address that may hold one level of balanced parentheses, as in https://x.com/a_(b). */
+    private const WEB_URL = 'https?:\/\/(?:[^\s()]|\([^\s()]*\))+';
     /** The only local image destination: a personal-library upload. */
     public const LOCAL_IMAGE = '\/uploads\/[0-9a-f]{16}\.(?:png|jpe?g|webp|gif)';
+
+    /** The editor's scene break spelling. Epigraph rewrites "* * *", "***", "_ _ _" and "- - -" to "---" when it opens a
+     *  chapter, so a chapter stored with the other spellings used to open in Source. The editor page shows this spelling
+     *  as its baseline instead, so the text matches what Epigraph writes and the page is not dirty. Only a break that
+     *  stands alone after a blank line (or at the top) is touched, outside fenced code; "---" straight under a text line
+     *  would turn that line into a heading, so such a break stays as written. Line endings are kept. Rendering is the same
+     *  either way: every spelling is an hr. */
+    public static function normalizeSceneBreaks(string $md): string
+    {
+        if (!preg_match('/^ {0,3}(?:[*_-][ \t]*){3,}\r?$/m', $md)) return $md;
+        $parts = preg_split('/(\r\n|\n|\r)/', $md, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $fence = null;
+        $blankBefore = true;
+        for ($i = 0, $n = count($parts); $i < $n; $i += 2) {
+            $line = $parts[$i];
+            if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $line, $m)) {
+                if ($fence === null) $fence = $m[1][0];
+                elseif ($fence === $m[1][0]) $fence = null;
+                $blankBefore = false;
+                continue;
+            }
+            if ($fence === null && $blankBefore && preg_match('/^ {0,3}(?:(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}|(?:-[ \t]*){3,})$/', $line) === 1 && $line !== '---') {
+                $parts[$i] = '---';
+            }
+            $blankBefore = trim($line) === '';
+        }
+        return implode('', $parts);
+    }
 
     /** Prose subset. Raw HTML does not exist in this flavor: every non-marker
      *  character is escaped, so stored content cannot carry markup. */
@@ -74,8 +104,8 @@ final class Markdown
         $tokens = [];
         $text = preg_replace_callback(
             $localImages === null
-                ? '/(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/'
-                : '/(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+|' . self::LOCAL_IMAGE . ')\)/',
+                ? '/(!?)\[([^\]]*)\]\((' . self::WEB_URL . ')\)/'
+                : '/(!?)\[([^\]]*)\]\((' . self::WEB_URL . '|' . self::LOCAL_IMAGE . ')\)/',
             static function (array $m) use (&$tokens): string {
                 $tokens[] = $m;
                 return "\x00" . (count($tokens) - 1) . "\x00";

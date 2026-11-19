@@ -18,6 +18,8 @@ class Element {
   appendChild(el) { this.children.push(el); }
   contains(el) { return el === this || this.children.some(c => c.contains(el)); }
 }
+const textOf = el => el.textContent + el.children.map(textOf).join('');
+const opts = h => h.list.children.filter(c => c.getAttribute('role') === 'option');
 function harness(settings = {}) {
   let now = 0, next = 0;
   const timers = new Map(), requests = [], navigated = [];
@@ -34,7 +36,8 @@ function harness(settings = {}) {
   const language = settings.language ? new Element() : null;
   if (language) { language.options = language.children; language.value = 'zz'; }
   const originalQuery = form.querySelector;
-  form.querySelector = sel => sel === 'select[name="language"]' ? language : originalQuery(sel);
+  const clear = new Element(); input.focus = () => { input.focused = true; }; input.dispatchEvent = e => form.emit(e.type, {target: input});
+  form.querySelector = sel => sel === 'select[name="language"]' ? language : sel === '[data-search-clear]' ? clear : originalQuery(sel);
   const document = {activeElement: input,
     querySelectorAll: sel => sel === 'form[data-js-module~="search"]' ? [form] : [],
     querySelector: sel => sel === '[data-search-results]' ? results : null,
@@ -44,7 +47,7 @@ function harness(settings = {}) {
   }
   const window = new Element(); Object.assign(window, {Kip: {init: fn => fn()}, fetch, AbortController});
   if (settings.unavailable) window.fetch = undefined;
-  const context = {window,document,fetch,AbortController,URL,URLSearchParams,
+  const context = {window,document,fetch,Event: class { constructor(type) { this.type = type; } },AbortController,URL,URLSearchParams,
     FormData: class { constructor(f) { this.rows = [['q', input.value], ...f.fields]; } [Symbol.iterator]() { return this.rows[Symbol.iterator](); } },
     location: {origin: 'https://archive.example', assign: href => navigated.push(href)},
     setTimeout: (fn, ms) => { const id = ++next; timers.set(id,{at:now+ms,fn}); return id; },
@@ -67,7 +70,7 @@ function harness(settings = {}) {
   function body(html='new', suggestions=[{label:'River',url:'/story/view/river'}]) {
     return {html,suggestions,counts:{'category:a':2,'status:any':7},total:7,message:'2 matching stories.'};
   }
-  return {input,list,status,results,count,bare,apply,form,document,window,language,requests,navigated,tick,type,answer,body,flush};
+  return {input,clear,list,status,results,count,bare,apply,form,document,window,language,requests,navigated,tick,type,answer,body,flush};
 }
 
 test('rapid input sends one request after 250 ms and includes all active filters', () => {
@@ -104,6 +107,14 @@ test('HTTP and network errors retain old content and the submit path', async () 
   h.type('winter'); h.tick(250); h.requests[1].reject(new Error('offline')); await h.flush();
   assert.equal(h.results.innerHTML,'initial'); assert.equal(h.results.getAttribute('aria-busy'),null);
 });
+test('the clear x empties the field, refreshes the results and keeps focus; errors stay flagged until the next search', async () => {
+  const h=harness(); h.type('river'); h.tick(250); h.requests[0].reject(new Error('offline')); await h.flush();
+  assert.equal(h.status.getAttribute('data-error'),'');
+  h.input.value='river';
+  const hit=h.clear.emit('click'); assert.equal(hit.prevented,true);
+  assert.equal(h.input.value,''); assert.equal(h.input.focused,true);
+  assert.equal(h.status.getAttribute('data-error'),null);
+});
 test('ordinary Enter submits; ArrowDown then Enter selects a same-origin suggestion', async () => {
   const h=harness(); assert.equal(h.input.emit('keydown',{key:'Enter'}).prevented,false);
   h.type('river'); h.tick(250); await h.answer(0,h.body());
@@ -118,9 +129,20 @@ test('suggestion text cannot become markup and external URLs are rejected', asyn
     {label:'<img onerror=alert(1)>',url:'/story/view/safe'},
     {label:'Outside',url:'https://evil.example/story/view/a'},
     {label:'Script',url:'javascript:alert(1)'}]));
-  assert.equal(h.list.children.length,1);
-  assert.equal(h.list.children[0].textContent,'<img onerror=alert(1)>');
-  assert.equal(h.list.children[0].innerHTML,'');
+  assert.equal(opts(h).length,1);
+  assert.equal(textOf(opts(h)[0]),'<img onerror=alert(1)>');
+  assert.equal(opts(h)[0].innerHTML,'');
+});
+test('suggestions come in groups with a keyboard-hint footer, and only options are selectable', async () => {
+  const h=harness(); h.form.setAttribute('data-group-authors','Authors'); h.form.setAttribute('data-kbd-enter','Enter searches {q}');
+  h.type('riv'); h.tick(250);
+  await h.answer(0,h.body('x',[{group:'stories',label:'River',url:'/story/view/river'},{group:'authors',label:'Rivka',sub:'2 stories',url:'/user/view/rivka'},{group:'tags',label:'Rivers',url:'/search?tag%5B%5D=3'}]));
+  const kinds=h.list.children.map(c=>c.getAttribute('class'));
+  assert.deepEqual(kinds,['sg-head','sg-row','sg-head','sg-row','sg-head','sg-row','sg-foot']);
+  assert.equal(h.list.children[2].textContent,'Authors');
+  assert.equal(textOf(h.list.children[6].children[0]),'Enter searches riv');
+  assert.equal(opts(h).length,3);
+  assert.equal(h.list.children[2].getAttribute('aria-hidden'),'true');
 });
 test('count refresh preserves focus and selected filter values', async () => {
   const h=harness(); h.form.fields=[['category[]','a']]; h.type('river'); h.tick(250);
@@ -141,8 +163,8 @@ test('malformed response preserves old results', async () => {
 test('invalid suggestion rows are skipped without losing valid results or options', async () => {
   const h=harness(); h.type('river'); h.tick(250);
   await h.answer(0,h.body('fresh',[null,{label:'Missing URL'}, {label:'Broken',url:'http://['}, {label:'River',url:'/story/view/river'}]));
-  assert.equal(h.results.innerHTML,'fresh'); assert.equal(h.list.children.length,1);
-  assert.equal(h.list.children[0].textContent,'River'); assert.equal(h.status.textContent,'2 matching stories.');
+  assert.equal(h.results.innerHTML,'fresh'); assert.equal(opts(h).length,1);
+  assert.equal(textOf(opts(h)[0]),'River'); assert.equal(h.status.textContent,'2 matching stories.');
 });
 test('Tab to another form control closes suggestions and clears the active descendant', async () => {
   const h=harness(); h.type('river'); h.tick(250); await h.answer(0,h.body());
@@ -175,8 +197,8 @@ test('ArrowUp wraps, click selects, and IME Enter never selects', async () => {
   h.input.emit('keydown',{key:'ArrowUp'}); assert.equal(h.input.getAttribute('aria-activedescendant'),'search-suggestions-1');
   h.input.emit('keydown',{key:'ArrowUp'}); assert.equal(h.input.getAttribute('aria-activedescendant'),'search-suggestions-0');
   assert.equal(h.input.emit('keydown',{key:'Enter',isComposing:true}).prevented,false);
-  assert.equal(h.list.children[1].emit('mousedown').prevented,true);
-  h.list.children[1].emit('click'); assert.deepEqual(h.navigated,['https://archive.example/story/view/last']);
+  assert.equal(opts(h)[1].emit('mousedown').prevented,true);
+  opts(h)[1].emit('click'); assert.deepEqual(h.navigated,['https://archive.example/story/view/last']);
 });
 test('language options grow without duplicate values or losing the selection', async () => {
   const h=harness({language:true}); h.type('river'); h.tick(250);
