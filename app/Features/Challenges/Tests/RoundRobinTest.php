@@ -95,6 +95,20 @@ final class RoundRobinTest extends TestCase
         $this->assertSame(404, $member->postWithToken('/chapter/create/the-rabbit-hole', ['title' => 'Y', 'content' => 'Words.'])->status);
     }
 
+    public function test_a_draft_story_stays_closed_to_round_robin_contributors(): void
+    {
+        $this->db->query("UPDATE stories SET round_robin = 1, validated = 0, is_draft = 1 WHERE slug = 'the-rabbit-hole'");
+        $before = $this->db->one("SELECT title, summary, access_hash FROM stories WHERE slug = 'the-rabbit-hole'");
+        $member = $this->client($this->memberId());
+        $this->assertSame(404, $member->get('/chapter/new/the-rabbit-hole')->status, 'the editor never opens on someone else\'s draft');
+        $this->assertSame(404, $member->postWithToken('/chapter/create/the-rabbit-hole', [
+            'title' => 'Hijack', 'content' => 'Taking over.', 'story_title' => 'Stolen', 'story_summary' => 'Mine now',
+        ])->status, 'a contributor cannot write to or publish a draft story');
+        $this->assertSame($before, $this->db->one("SELECT title, summary, access_hash FROM stories WHERE slug = 'the-rabbit-hole'"));
+        $this->assertSame(0, (int) $this->db->one("SELECT COUNT(*) AS n FROM chapters WHERE title = 'Hijack'")['n']);
+        $this->assertSame(1, (int) $this->db->one("SELECT is_draft FROM stories WHERE slug = 'the-rabbit-hole'")['is_draft'], 'the draft stays a draft');
+    }
+
     public function test_contributor_surface_is_add_only_and_owner_paths_stay_unchanged(): void
     {
         $this->db->query("UPDATE stories SET round_robin = 1 WHERE slug = 'the-rabbit-hole'");

@@ -186,6 +186,30 @@ final class ChapterDraftTest extends TestCase
         $this->assertSame(200, $this->as(null)->get('/story/read/fx/1')->status);
     }
 
+    public function test_a_live_chapter_with_a_stray_future_schedule_still_refuses_draft(): void
+    {
+        // A published chapter whose publish_at was set later stays live (releaseDue only
+        // flips waiting rows), so it must not be hideable through Save as Draft.
+        $this->db->query("UPDATE chapters SET publish_at = '2099-01-01T00:00:00Z' WHERE position = 1");
+        $c = $this->as(1);
+        $rev = \App\Tests\Support\ChapterForm::revision($c->get('/chapter/edit/fx/1')->body, 'base_revision');
+        $res = $c->post('/chapter/update/fx/1', ['_token' => $c->csrfToken(), 'title' => 'One', 'content' => 'Edited words.', 'draft' => '1', 'publish_at' => '2099-01-01T00:00', 'base_revision' => $rev]);
+        $this->assertSame(422, $res->status);
+        $this->assertSame(0, (int) $this->row(1)['is_draft']);
+        $this->assertSame(1, (int) $this->row(1)['validated'], 'readers keep the chapter');
+        $this->assertSame(200, $this->as(null)->get('/story/read/fx/1')->status);
+    }
+
+    public function test_clearing_the_schedule_publishes_a_waiting_chapter_for_an_auto_validating_author(): void
+    {
+        $this->db->query("UPDATE chapters SET validated = 0, publish_at = '2099-01-01T00:00:00Z' WHERE position = 1");
+        $c = $this->as(1);
+        $rev = \App\Tests\Support\ChapterForm::revision($c->get('/chapter/edit/fx/1')->body, 'base_revision');
+        $res = $c->post('/chapter/update/fx/1', ['_token' => $c->csrfToken(), 'title' => 'One', 'content' => 'Now live.', 'publish_at' => '', 'base_revision' => $rev]);
+        $this->assertSame(302, $res->status, $res->body);
+        $this->assertSame(['validated' => 1, 'is_draft' => 0, 'publish_at' => null], $this->row(1));
+    }
+
     public function test_an_invalid_schedule_shows_the_schedule_error_and_saves_nothing(): void
     {
         $c = $this->as(1);

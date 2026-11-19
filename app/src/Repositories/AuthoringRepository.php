@@ -18,7 +18,7 @@ final class AuthoringRepository
     /** What is known about author au, packed for the queue row:
      *  joined|stories posted|removed while waiting|reports on their stories. */
     private const AUTHOR_FACTS = "au.created_at || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 1 AND x.deleted_at IS NULL)
-                 || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 0 AND x.deleted_at IS NOT NULL)
+                 || '|' || (SELECT COUNT(*) FROM stories x WHERE x.author_id = au.id AND x.validated = 0 AND x.is_draft = 0 AND x.deleted_at IS NOT NULL)
                  || '|' || (SELECT COUNT(*) FROM reports r JOIN stories x ON x.id = r.story_id WHERE x.author_id = au.id)";
 
     /** What a waiting story's pane adds, as correlated subselects in the same
@@ -336,7 +336,7 @@ final class AuthoringRepository
               AND (author_id = ?
                    OR EXISTS (SELECT 1 FROM coauthors ca WHERE ca.story_id = stories.id AND ca.user_id = ?)
                    OR EXISTS (SELECT 1 FROM users u WHERE u.id = ? AND u.role = 'admin')
-                   OR (CAST(? AS INTEGER) = 1 AND stories.round_robin = 1
+                   OR (CAST(? AS INTEGER) = 1 AND stories.round_robin = 1 AND stories.is_draft = 0
                        AND EXISTS (SELECT 1 FROM users m WHERE m.id = CAST(? AS INTEGER)
                             AND m.approved_at IS NOT NULL AND m.email_verified_at IS NOT NULL AND m.is_locked = 0)))",
             [$slug, $userId, $userId, $userId, $rr ? 1 : 0, $userId]);
@@ -561,13 +561,13 @@ final class AuthoringRepository
             ? 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = (SELECT COALESCE(MAX(position), 0) + 1 FROM chapters WHERE story_id = s.id)'
             : 'LEFT JOIN chapters ch ON ch.story_id = s.id AND ch.position = ' . (int) $position;
         $rrClause = $rr && $position === null
-            ? " OR (CAST(? AS INTEGER) = 1 AND s.round_robin = 1
+            ? " OR (CAST(? AS INTEGER) = 1 AND s.round_robin = 1 AND s.is_draft = 0
                        AND EXISTS (SELECT 1 FROM users m WHERE m.id = CAST(? AS INTEGER)
                             AND m.approved_at IS NOT NULL AND m.email_verified_at IS NOT NULL AND m.is_locked = 0))"
             : '';
         return $this->db->one(
             "SELECT s.id AS story_id, s.title AS story_title, s.slug, ch.title, ch.notes_before, ch.content, ch.notes_after, ch.publish_at, ch.position,
-                    ch.id AS chapter_id, ch.access_hash, ch.is_draft, s.is_draft AS story_draft, ch.updated_at AS saved_at,
+                    ch.id AS chapter_id, ch.access_hash, ch.is_draft, ch.validated AS chapter_validated, s.is_draft AS story_draft, ch.updated_at AS saved_at,
                     CASE WHEN s.access_hash IS NOT NULL OR ch.access_hash IS NOT NULL THEN 1 ELSE 0 END AS recovery_protected,
                     CASE WHEN s.is_draft = 1 THEN " . $this->draftStoryJson($userId) . " END AS story_json,
                     (SELECT json_group_array(json_object('position', c.position, 'title', c.title, 'words', c.word_count, 'publish_at', c.publish_at, 'draft', c.is_draft))
@@ -738,7 +738,7 @@ final class AuthoringRepository
             $wasDraft = (int) $current['is_draft'] === 1;
             $this->db->query('UPDATE chapters SET title = ?, notes_before = ?, content = ?, notes_after = ?,
                               word_count = ?, publish_at = ?, access_hash = ?, updated_at = ?, is_draft = ?,
-                              validated = CASE WHEN CAST(? AS INTEGER) = 1 THEN 0 WHEN CAST(? AS INTEGER) = 1 THEN CAST(? AS INTEGER) ELSE validated END
+                              validated = CASE WHEN CAST(? AS INTEGER) = 1 THEN 0 WHEN CAST(? AS INTEGER) = 1 OR (validated = 0 AND publish_at IS NOT NULL) THEN CAST(? AS INTEGER) ELSE validated END
                               WHERE story_id = ? AND position = ?',
                 [$title, $before, $content, $after, \App\Markdown::wordCount($content), $publishAt, $accessValue, date('c'), $draft ? 1 : 0,
                  $draft ? 1 : 0, $wasDraft ? 1 : 0, ($autoValidate && $publishAt === null) ? 1 : 0, $story['id'], $position]);

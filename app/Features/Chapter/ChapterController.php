@@ -438,10 +438,12 @@ final class ChapterController
         return $rows;
     }
 
-    /** Live means readers can open it now: not a draft, and no schedule still in the future (UTC). */
+    /** Live means readers can open it now: not a draft, and either already validated (a stray
+     *  later schedule is inert on a live chapter) or no schedule still in the future (UTC). */
     private function isLive(array $row): bool
     {
         if ((int) ($row['is_draft'] ?? 0) === 1) return false;
+        if ((int) ($row['chapter_validated'] ?? 0) === 1) return true;
         $at = (string) ($row['publish_at'] ?? '');
         return $at === '' || $at <= gmdate('Y-m-d\TH:i:s\Z');
     }
