@@ -124,7 +124,7 @@ final class Markdown
                 : ($m[1] === '!'
                 ? '<img src="' . $url . '" alt="' . strip_tags($label) . '">'
                 : (str_starts_with($m[3], 'https://')
-                    ? '<a href="' . $url . '" rel="noopener">' . $label . '</a>'
+                    ? '<a href="' . $url . '" rel="noopener nofollow ugc">' . $label . '</a>'
                     : '[' . $label . '](' . $url . ')'));
             $safe = str_replace("\x00{$i}\x00", $replacement, $safe);
         }

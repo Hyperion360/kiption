@@ -39,7 +39,7 @@ final class MarkdownTest extends TestCase
     public function test_links_https_only(): void
     {
         $this->assertSame(
-            '<p><a href="https://example.test/a?b=c" rel="noopener">text</a></p>' . "\n",
+            '<p><a href="https://example.test/a?b=c" rel="noopener nofollow ugc">text</a></p>' . "\n",
             Markdown::render('[text](https://example.test/a?b=c)'));
     }
 
@@ -71,14 +71,14 @@ final class MarkdownTest extends TestCase
     public function test_link_text_is_escaped(): void
     {
         $this->assertSame(
-            '<p><a href="https://e.test/" rel="noopener">&lt;b&gt;bold&lt;/b&gt;</a></p>' . "\n",
+            '<p><a href="https://e.test/" rel="noopener nofollow ugc">&lt;b&gt;bold&lt;/b&gt;</a></p>' . "\n",
             Markdown::render('[<b>bold</b>](https://e.test/)'));
     }
 
     public function test_inline_markup_inside_paragraphs(): void
     {
         $this->assertSame(
-            "<p>A <em>b</em> and <strong>c</strong> and <a href=\"https://e.test/\" rel=\"noopener\">d</a>.</p>\n",
+            "<p>A <em>b</em> and <strong>c</strong> and <a href=\"https://e.test/\" rel=\"noopener nofollow ugc\">d</a>.</p>\n",
             Markdown::render('A *b* and **c** and [d](https://e.test/).'));
     }
 
@@ -110,10 +110,10 @@ final class MarkdownTest extends TestCase
     public function test_underscores_in_link_addresses_stay_in_the_address(): void
     {
         $this->assertSame(
-            '<p><a href="https://e.test/a_b_c" rel="noopener">x</a> and <a href="https://e.test/_x_" rel="noopener">y</a></p>' . "\n",
+            '<p><a href="https://e.test/a_b_c" rel="noopener nofollow ugc">x</a> and <a href="https://e.test/_x_" rel="noopener nofollow ugc">y</a></p>' . "\n",
             Markdown::render('[x](https://e.test/a_b_c) and [y](https://e.test/_x_)'));
         $this->assertSame(
-            '<p><a href="https://e.test/a*b*c" rel="noopener">z</a></p>' . "\n",
+            '<p><a href="https://e.test/a*b*c" rel="noopener nofollow ugc">z</a></p>' . "\n",
             Markdown::render('[z](https://e.test/a*b*c)'));
         $this->assertSame(
             '<p><img src="https://e.test/a_b_c.png" alt="p"></p>' . "\n",
@@ -133,7 +133,7 @@ final class MarkdownTest extends TestCase
 
     public function test_escaped_markers_in_link_text_and_list_items(): void
     {
-        $this->assertSame('<p><a href="https://e.test/" rel="noopener">a*b</a></p>' . "\n", Markdown::render('[a\\*b](https://e.test/)'));
+        $this->assertSame('<p><a href="https://e.test/" rel="noopener nofollow ugc">a*b</a></p>' . "\n", Markdown::render('[a\\*b](https://e.test/)'));
         $this->assertSame("<ul>\n<li>a * b</li></ul>\n", Markdown::render('- a \\* b', true));
     }
 
@@ -171,13 +171,13 @@ final class MarkdownTest extends TestCase
     public function test_a_link_address_with_balanced_parentheses_stays_one_link(): void
     {
         $this->assertSame(
-            '<p><a href="https://x.com/a_(b)" rel="noopener">wiki</a> then more.</p>' . "\n",
+            '<p><a href="https://x.com/a_(b)" rel="noopener nofollow ugc">wiki</a> then more.</p>' . "\n",
             Markdown::render('[wiki](https://x.com/a_(b)) then more.'));
         $this->assertSame(
-            '<p>(see <a href="https://x.com/a_(b)" rel="noopener">wiki</a>)</p>' . "\n",
+            '<p>(see <a href="https://x.com/a_(b)" rel="noopener nofollow ugc">wiki</a>)</p>' . "\n",
             Markdown::render('(see [wiki](https://x.com/a_(b)))'));
         $this->assertSame(
-            '<p><a href="https://x.com/plain" rel="noopener">p</a> (aside)</p>' . "\n",
+            '<p><a href="https://x.com/plain" rel="noopener nofollow ugc">p</a> (aside)</p>' . "\n",
             Markdown::render('[p](https://x.com/plain) (aside)'));
         $this->assertSame(
             '<p>[bad](javascript:alert(1))</p>' . "\n",
