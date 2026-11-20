@@ -2923,7 +2923,7 @@ html:not(.js) .ed .js-only, html.js .ed .nojs-only { display: none !important; }
 .ed-icon { display: flex; flex-direction: column; gap: 3px; width: 14px; }
 .ed-icon-lines i { display: block; height: 1.5px; background: currentColor; }
 .ed-icon-lines i:nth-child(2) { inline-size: 70%; }
-.ed-icon-src { font: 600 12px/1 var(--mono, ui-monospace, monospace); letter-spacing: -.04em; }
+.ed-icon-src { flex-direction: row; align-items: center; width: auto; white-space: nowrap; font: 600 12px/1 var(--mono, ui-monospace, monospace); letter-spacing: -.04em; }
 .ed-tool-source[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .ed-icon-aa { flex-direction: row; align-items: baseline; width: auto; font: 500 16px/1 var(--serif); }
 .ed-icon-aa small { font-size: .72em; }
