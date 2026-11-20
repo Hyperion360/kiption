@@ -17,8 +17,10 @@ final class AssetUrlTest extends TestCase
 
     public function test_defaults_to_self_hosted_asset_paths(): void
     {
-        self::assertSame('/assets/reader.css', AssetUrl::for('reader.css'));
-        self::assertSame('/assets/skins/classic.css', AssetUrl::for('skins/classic.css'));
+        self::assertMatchesRegularExpression('#^/assets/reader\.css\?v=[a-f0-9]{10}$#', AssetUrl::for('reader.css'));
+        self::assertMatchesRegularExpression('#^/assets/skins/classic\.css\?v=[a-f0-9]{10}$#', AssetUrl::for('skins/classic.css'));
+        self::assertSame(AssetUrl::for('reader.css'), AssetUrl::for('reader.css'), 'the version is stable between calls');
+        self::assertSame('/assets/no-such-file.css', AssetUrl::for('no-such-file.css'), 'a missing file gets no version');
         self::assertSame('/favicon.ico', AssetUrl::icon('favicon.ico'));
         self::assertSame('/favicon.svg', AssetUrl::icon('favicon.svg'));
         self::assertSame('/apple-touch-icon.png', AssetUrl::icon('apple-touch-icon.png'));

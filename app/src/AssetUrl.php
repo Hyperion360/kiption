@@ -28,7 +28,22 @@ final class AssetUrl
             preg_match('#(?:^|/)\.\.?(/|$)#', $name) === 1 || str_contains($name, '//')) {
             throw new \InvalidArgumentException('Invalid asset name');
         }
-        return self::$prefix . $name;
+        return self::$prefix . $name . self::version($name);
+    }
+
+    /**
+     * Plain installs serve /assets/ in place, so a CDN keeps the old file after
+     * a deploy. A query string built from the file's mtime and size changes
+     * whenever the file does, which makes every edge fetch the new copy
+     * without a purge. Release builds already carry a digest in the path.
+     */
+    private static function version(string $name): string
+    {
+        if (self::$prefix !== '/assets/') {
+            return '';
+        }
+        $stat = @stat(dirname(__DIR__, 2) . '/public/assets/' . $name);
+        return $stat === false ? '' : '?v=' . substr(md5($stat['mtime'] . '-' . $stat['size']), 0, 10);
     }
 
     public static function icon(string $name): string
