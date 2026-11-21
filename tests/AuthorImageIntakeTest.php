@@ -87,4 +87,20 @@ final class AuthorImageIntakeTest extends TestCase
         $this->assertSame($f, $r->file);
         $this->assertSame('a.gif', $r->name);
     }
+
+    public function test_the_webp_re_encode_drops_exif_gps_metadata(): void
+    {
+        $this->needGd();
+        $jpeg = $this->pngFile(300, 200);
+        $im = imagecreatefrompng($jpeg);
+        imagejpeg($im, $jpeg, 90);
+        $bytes = (string) file_get_contents($jpeg);
+        $exif = "Exif\0\0MM\0*\0\0\0\x08\0\0GPSLatitudeMARKER";
+        $app1 = "\xFF\xE1" . pack('n', strlen($exif) + 2) . $exif;
+        file_put_contents($jpeg, substr($bytes, 0, 2) . $app1 . substr($bytes, 2));
+        $this->assertStringContainsString('GPSLatitudeMARKER', (string) file_get_contents($jpeg));
+        $r = (new AuthorImageIntake(storedCap: 2 * 1024 * 1024, gd: true))->prepare($jpeg, 'phone.jpg');
+        $this->assertNull($r->refusalKey);
+        $this->assertStringNotContainsString('GPSLatitudeMARKER', (string) file_get_contents($r->file));
+    }
 }

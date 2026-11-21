@@ -1870,7 +1870,7 @@ return [
     'settings.review_scores_on' => 'Allow 1-10 Scores',
     'settings.review_scores_on_note' => 'When off, reviews are comments only and existing scores are hidden, not deleted.',
     'settings.categories_on' => 'Use Categories',
-    'settings.categories_on_note' => 'Turn off for a single-fandom archive. Stories keep any categories they already have, and Crossover and No Crossover become ordinary tags.',
+    'settings.categories_on_note' => 'Turn off for a single-fandom archive. Stories keep any categories they already have.',
     'story.edit_link' => 'Edit Story',
     'story.characters_help_flat' => 'Pick the characters in this story.',
     'settings.rating_only_note' => 'Reviewers can leave just a score from 0 to 10.',

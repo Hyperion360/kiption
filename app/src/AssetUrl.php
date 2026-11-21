@@ -42,8 +42,12 @@ final class AssetUrl
         if (self::$prefix !== '/assets/') {
             return '';
         }
-        $stat = @stat(dirname(__DIR__, 2) . '/public/assets/' . $name);
-        return $stat === false ? '' : '?v=' . substr(md5($stat['mtime'] . '-' . $stat['size']), 0, 10);
+        static $seen = [];
+        if (!isset($seen[$name])) {
+            $stat = @stat(dirname(__DIR__, 2) . '/public/assets/' . $name);
+            $seen[$name] = $stat === false ? '' : '?v=' . substr(md5($stat['mtime'] . '-' . $stat['size']), 0, 10);
+        }
+        return $seen[$name];
     }
 
     public static function icon(string $name): string

@@ -73,6 +73,9 @@ final class AuthorimagesController
         } catch (UploadException) {
             if ($processed) @unlink($intake->file);
             return $this->json(['error' => \App\Lang::t('images.err_upload')], 422);
+        } catch (\Throwable $e) {
+            if ($processed) @unlink($intake->file);
+            throw $e;
         }
         if ($processed && $path === null) @unlink($intake->file);
         if ($path === null) return $this->json(['error' => \App\Lang::t('images.storage_full')], 422);
