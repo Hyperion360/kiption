@@ -300,7 +300,8 @@ final class AuthoringRepository
         if ($crosspostUrl !== null) { $sets[] = 'crosspost_url = ?'; $args[] = $crosspostUrl === '' ? null : $crosspostUrl; }
         $args[] = $storyId;
         $this->db->query('UPDATE stories SET ' . implode(', ', $sets) . ' WHERE id = ?', $args);
-        $this->writeCategories($storyId, $s['category_ids']);
+        // With Categories switched off the form never posts them: leave the stored rows alone.
+        if (\App\Settings::on('categories_on')) $this->writeCategories($storyId, $s['category_ids']);
         $this->writeTags($storyId, $s['tag_ids']);
         $this->writeCharacters($storyId, $s['character_ids']);
         return $this->writeSuggestions($storyId, $s['userId'], $s['suggest'], $s['withdraw']);

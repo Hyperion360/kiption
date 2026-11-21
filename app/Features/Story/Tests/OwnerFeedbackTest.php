@@ -97,4 +97,18 @@ final class OwnerFeedbackTest extends TestCase
         $this->setting('categories_on', '0');
         $this->assertStringNotContainsString('name="categories[]"', $this->client($this->authorId)->get('/story/edit/the-rabbit-hole')->body);
     }
+
+    public function test_saving_with_categories_off_keeps_the_stories_categories(): void
+    {
+        $sid = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $before = (int) $this->db->one('SELECT COUNT(*) n FROM story_categories WHERE story_id = ?', [$sid])['n'];
+        $this->assertGreaterThan(0, $before, 'fixture story has categories');
+        $this->setting('categories_on', '0');
+        $title = (string) $this->db->one('SELECT title FROM stories WHERE id = ?', [$sid])['title'];
+        $rating = (int) $this->db->one('SELECT rating_id FROM stories WHERE id = ?', [$sid])['rating_id'];
+        $res = $this->client($this->authorId)->postWithToken('/story/update/the-rabbit-hole', ['title' => $title, 'summary' => 'Edited summary text here.', 'rating_id' => (string) $rating]);
+        $this->assertSame('Edited summary text here.', $this->db->one('SELECT summary FROM stories WHERE id = ?', [$sid])['summary'], 'status ' . $res->status);
+        $after = (int) $this->db->one('SELECT COUNT(*) n FROM story_categories WHERE story_id = ?', [$sid])['n'];
+        $this->assertSame($before, $after);
+    }
 }
