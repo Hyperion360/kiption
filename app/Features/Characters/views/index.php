@@ -31,4 +31,26 @@
     <label><?= \App\Lang::t('characters.description') ?> <input name="description" maxlength="500"></label>
     <button type="submit"><?= \App\Lang::t('common.create') ?></button>
   </form>
+  <?php if (($conversion ?? null) !== null): $L = fn (string $k, array $p = []) => \App\Lang::t($k, $p); ?>
+  <h2><?= $L('characters.convert_heading') ?></h2>
+  <p class="admin-help"><?= $this->e($L('characters.convert_help')) ?></p>
+  <p><?= $this->e($L('characters.convert_counts', ['n' => $conversion['characters'], 's' => $conversion['stories']])) ?></p>
+  <?php if ($conversion['merges'] !== []): ?><p class="admin-help"><?= $this->e($L('characters.convert_merges')) ?></p>
+  <ul><?php foreach ($conversion['merges'] as $kept => $others): ?><li><?= $this->e($kept) ?>: <?= $this->e(implode(', ', $others)) ?></li><?php endforeach; ?></ul><?php endif; ?>
+  <?php if ($conversion['reused'] !== []): ?><p class="admin-help"><?= $this->e($L('characters.convert_reused')) ?></p>
+  <ul><?php foreach ($conversion['reused'] as $n): ?><li><?= $this->e($n) ?></li><?php endforeach; ?></ul><?php endif; ?>
+  <?php if ($conversion['categoryBound'] !== []): ?><p class="admin-help"><?= $this->e($L('characters.convert_category')) ?></p>
+  <ul><?php foreach ($conversion['categoryBound'] as $n => $cat): ?><li><?= $this->e($n) ?> <span class="chapter-meta"><?= $this->e($cat) ?></span></li><?php endforeach; ?></ul><?php endif; ?>
+  <?php if ($conversion['blocked'] !== []): ?><p class="error"><?= $this->e($L('characters.convert_blocked')) ?></p>
+  <ul><?php foreach ($conversion['blocked'] as $n => $type): ?><li><?= $this->e($L('characters.convert_blocked_item', ['name' => $n, 'type' => $type])) ?></li><?php endforeach; ?></ul><?php endif; ?>
+  <?php if ($conversion['invalid'] !== []): ?><p class="error"><?= $this->e($L('characters.convert_invalid')) ?></p>
+  <ul><?php foreach ($conversion['invalid'] as $n): ?><li><?= $this->e($n) ?></li><?php endforeach; ?></ul><?php endif; ?>
+  <?php if ($conversion['blocked'] === [] && $conversion['invalid'] === []): ?>
+  <form method="post" class="form-card" action="/characters/convert">
+    <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
+    <label><?= $this->e($L('characters.convert_confirm', ['word' => $confirmWord])) ?> <input name="confirm" required autocomplete="off" maxlength="20"></label>
+    <button type="submit"><?= $L('characters.convert_button') ?></button>
+  </form>
+  <?php endif; ?>
+  <?php endif; ?>
 </section>
