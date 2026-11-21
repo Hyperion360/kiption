@@ -2234,6 +2234,8 @@ return [
     'auth.err_short' => 'Password must be at least 8 characters.',
     'auth.err_reset' => 'That reset link is invalid or has expired, request a new one.',
     'authorimages.off' => 'Images in chapters are switched off on this archive.',
+    'chapter.images_off_admin' => 'Turn on Allow Images in Chapters under Settings, Stories.',
+    'chapter.images_off_author' => 'The administrator has not turned on images for this archive.',
     'authorimages.forbidden' => 'This account cannot upload images right now.',
     'authorimages.limit' => 'Your image library is full at 100 images.',
     'authorimages.conflict' => 'That upload key was already used for a different image.',
