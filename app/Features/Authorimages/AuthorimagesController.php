@@ -83,6 +83,26 @@ final class AuthorimagesController
         return $this->json(['id' => $id, 'src' => $path]);
     }
 
+    /** Remove one image from the signed-in author's own library. Another
+     *  author's id is a plain 404, so the reply never says it exists. An image
+     *  any chapter still shows is refused with the story's title (409); a file
+     *  an avatar or cover also uses keeps its bytes (removeFiles checks). */
+    #[AuthAttr] #[Post]
+    public function delete(): Response
+    {
+        $uid = (int) $this->session->get('user_id');
+        $id = (int) ($this->request->post['id'] ?? 0);
+        $row = $id > 0 ? $this->db->one('SELECT id, path FROM author_images WHERE id = ? AND owner_id = ?', [$id, $uid]) : null;
+        if ($row === null) return $this->json(['error' => \App\Lang::t('error.not_found')], 404);
+        $use = \App\ChapterImageUse::chaptersUsing($this->db, (string) $row['path']);
+        if ($use !== []) {
+            return $this->json(['error' => \App\Lang::t('authorimages.err_in_use', ['stories' => implode(', ', array_values(array_unique(array_column($use, 'story'))))])], 409);
+        }
+        $this->db->query('DELETE FROM author_images WHERE id = ? AND owner_id = ?', [$id, $uid]);
+        \App\StorageQuota::forApp($this->app)->removeFiles([basename((string) $row['path'])]);
+        return $this->json(['deleted' => $id]);
+    }
+
     /** PNG, JPEG, GIF87a/89a and RIFF....WEBP signatures. */
     public static function hasImageMagic(string $file): bool
     {

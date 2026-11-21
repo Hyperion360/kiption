@@ -188,6 +188,93 @@ final class AuthorimagesTest extends TestCase
         $this->assertArrayHasKey('aaaaaaaaaaaaaaaa.png', \App\UploadRefs::names($this->db));
     }
 
+    /** @return array{id:int,src:string} */
+    private function uploaded(int $as): array
+    {
+        return json_decode($this->send($this->client($as), $this->png(), 'x.png', null)->body, true);
+    }
+
+    private function chapterShowing(string $src, int $author, int $draft = 0, ?string $publishAt = null, bool $storyGone = false): void
+    {
+        $this->db->query('INSERT INTO stories (title, slug, summary, author_id, rating_id, validated, completed, word_count, deleted_at) VALUES (?, ?, ?, ?, 1, 1, 1, 1, ?)',
+            ['Story ' . $src, 's' . uniqid(), 's', $author, $storyGone ? date('c') : null]);
+        $sid = (int) $this->db->lastInsertId();
+        $this->db->query("INSERT INTO chapters (story_id, position, title, content, word_count, is_draft, publish_at) VALUES (?, 1, 'c', ?, 1, ?, ?)",
+            [$sid, "Words.\n\n![A map]($src)", $draft, $publishAt]);
+    }
+
+    public function test_an_author_deletes_an_unused_image_and_the_bytes_come_back(): void
+    {
+        $c = $this->client($this->alice, ['storage_cap_bytes' => 100000]);
+        $j = json_decode($this->send($c, $this->png(), 'x.png', null)->body, true);
+        $quota = new \App\StorageQuota($this->db, $this->root . '/upl', 100000);
+        $this->assertGreaterThan(0, $quota->used());
+        $res = $this->client($this->alice, ['storage_cap_bytes' => 100000])->postWithToken('/authorimages/delete', ['id' => (string) $j['id']]);
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images')['n']);
+        $this->assertFileDoesNotExist($this->root . '/upl/' . basename($j['src']));
+        $this->assertSame(0, $quota->used());
+    }
+
+    public function test_an_image_a_chapter_shows_cannot_be_deleted_whatever_the_chapter_state(): void
+    {
+        $j = $this->uploaded($this->alice);
+        foreach ([[0, null], [1, null], [0, '2999-01-01T00:00:00Z']] as $i => [$draft, $at]) {
+            $this->db->query('DELETE FROM stories');
+            $this->chapterShowing($j['src'], $this->alice, $draft, $at);
+            $res = $this->client($this->alice)->postWithToken('/authorimages/delete', ['id' => (string) $j['id']]);
+            $this->assertSame(409, $res->status, "case $i " . $res->body);
+            $this->assertStringContainsString('Story ' . $j['src'], json_decode($res->body, true)['error']);
+            $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images')['n']);
+            $this->assertFileExists($this->root . '/upl/' . basename($j['src']));
+        }
+    }
+
+    public function test_one_author_cannot_delete_or_probe_anothers_image(): void
+    {
+        $j = $this->uploaded($this->alice);
+        $this->chapterShowing($j['src'], $this->alice);
+        $res = $this->client($this->bob)->postWithToken('/authorimages/delete', ['id' => (string) $j['id']]);
+        $this->assertSame(404, $res->status);
+        $this->assertStringNotContainsString('Story', $res->body, 'no story title leaks');
+        $this->assertSame(404, $this->client($this->bob)->postWithToken('/authorimages/delete', ['id' => '999999'])->status);
+        $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images')['n']);
+    }
+
+    public function test_deleting_an_image_needs_a_token_and_a_signed_in_author(): void
+    {
+        $j = $this->uploaded($this->alice);
+        $this->assertSame(403, $this->client($this->alice)->post('/authorimages/delete', ['id' => (string) $j['id']])->status);
+        $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images')['n']);
+    }
+
+    public function test_the_admin_library_will_not_delete_a_file_a_chapter_still_shows(): void
+    {
+        $admin = $this->user('boss'); $this->db->query("UPDATE users SET role = 'admin' WHERE id = ?", [$admin]);
+        $name = 'bbbbbbbbbbbbbbbb.png';
+        mkdir($this->root . '/upl', 0775, true);
+        file_put_contents($this->root . '/upl/' . $name, $this->png());
+        $this->chapterShowing('/uploads/' . $name, $this->alice);
+        $res = $this->client($admin)->postWithToken('/images/delete', ['name' => $name, 'confirmed' => '1']);
+        $this->assertSame(409, $res->status);
+        $this->assertFileExists($this->root . '/upl/' . $name);
+        $this->db->query('DELETE FROM stories');
+        $this->assertSame(302, $this->client($admin)->postWithToken('/images/delete', ['name' => $name, 'confirmed' => '1'])->status);
+        $this->assertFileDoesNotExist($this->root . '/upl/' . $name);
+    }
+
+    public function test_chapter_image_use_finds_a_path_in_notes_and_lists_at_most_five(): void
+    {
+        $src = '/uploads/cccccccccccccccc.png';
+        $this->assertSame([], \App\ChapterImageUse::chaptersUsing($this->db, $src));
+        for ($i = 0; $i < 7; $i++) $this->chapterShowing($src, $this->alice);
+        $this->assertCount(5, \App\ChapterImageUse::chaptersUsing($this->db, $src));
+        $this->db->query('DELETE FROM stories');
+        $this->chapterShowing('/uploads/x.png', $this->alice);
+        $this->db->query('UPDATE chapters SET notes_after = ?', ['![n](' . $src . ')']);
+        $this->assertCount(1, \App\ChapterImageUse::chaptersUsing($this->db, $src));
+    }
+
     public function test_a_post_without_a_token_is_refused(): void
     {
         $this->assertSame(403, $this->client($this->alice)->post('/authorimages/upload', [])->status);

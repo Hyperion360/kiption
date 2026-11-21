@@ -101,6 +101,9 @@ final class ImagesController
         if (isset($this->inUseNames()[$name])) {
             return new Response(\App\Lang::t('images.err_in_use'), 409);
         }
+        if (\App\ChapterImageUse::chaptersUsing($this->db, '/uploads/' . $name) !== []) {
+            return new Response(\App\Lang::t('images.err_in_chapter'), 409);
+        }
         if (!\App\Confirm::given($this->request)) {
             return new Response(\App\Confirm::page($this->view, $this->request, $this->session, $this->app, 'images.confirm_delete', 'common.delete', '/images', true, ['name' => $name]));
         }
