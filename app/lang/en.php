@@ -1463,6 +1463,7 @@ return [
     'tagsadmin.suggest_relationships' => 'Relationships',
     'tagsadmin.suggest_warnings' => 'Warnings',
     'tagsadmin.suggest_genres' => 'Genres',
+    'tagsadmin.suggest_characters' => 'Characters',
     'tagsadmin.relationships_placeholder' => 'Clark/Lois',
     'tagsadmin.relationships_help' => "Relationship tags are free text. They aren't linked to Characters.",
     'tagsadmin.wrangling_link' => 'Merge Look-Alike Tags (tag wrangling)',

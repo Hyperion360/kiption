@@ -154,4 +154,21 @@ final class TagsTest extends TaxonomyCase
         $this->addTag($this->typeId('genre'), 'Fresh tag');
         $this->assertFileDoesNotExist($file);
     }
+
+    public function test_characters_is_offered_as_a_common_type_until_it_exists(): void
+    {
+        $this->assertStringContainsString('Add Characters', $this->admin()->get('/tags')->body);
+        $this->addType('characters'); // any case counts as present
+        $this->assertStringNotContainsString('Add Characters', $this->admin()->get('/tags')->body);
+    }
+
+    public function test_a_member_can_suggest_a_character_through_the_characters_type(): void
+    {
+        $type = $this->addType('Characters');
+        $this->db->query("INSERT INTO stories (title, slug, author_id, rating_id, validated) VALUES ('Char Story', 'char-story', 1, 1, 1)");
+        $story = (int) $this->db->lastInsertId();
+        $out = (new \App\Repositories\TagSuggestionRepository($this->db))->submit($story, 1, [$type => 'Lana Lang'], 'suggest');
+        $this->assertSame(['Lana Lang'], $out['pending']);
+        $this->assertStringContainsString('Lana Lang', $this->admin()->get('/tagqueue')->body);
+    }
 }

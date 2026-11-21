@@ -190,7 +190,7 @@ final class TagsController extends AdminScreen
         foreach ($tags as $t) $byType[(int) $t['tag_type_id']][] = $t;
         // Common types not yet there. Compared against the current label and the
         // English default, so renaming the label never re-offers an existing type.
-        $defaults = ['relationships' => 'Relationships', 'warnings' => 'Warnings', 'genres' => 'Genres'];
+        $defaults = ['relationships' => 'Relationships', 'warnings' => 'Warnings', 'genres' => 'Genres', 'characters' => 'Characters'];
         $have = array_map(static fn (array $t): string => mb_strtolower((string) $t['name']), $types);
         $missingTypes = array_values(array_filter(array_keys($defaults),
             static fn (string $k): bool => !in_array(mb_strtolower(Lang::t('tagsadmin.suggest_' . $k)), $have, true)
