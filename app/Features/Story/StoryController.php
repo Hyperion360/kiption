@@ -683,7 +683,7 @@ final class StoryController
         }
         if (!$draft && trim($content) === '') return $this->refuseNew(\App\Lang::t('chapter.err_text'), '', 'ed-f-content');
         if (($err = \App\ChapterChecks::wordLimitError($content)) !== null) return $this->refuseNew($err, '', 'ed-f-content');
-        if (($err = \App\ChapterChecks::imageError($this->db, $this->uid(), '', $content)) !== null) return $this->refuseNew($err, '', 'ed-f-content');
+        if (($err = \App\ChapterChecks::imageError($this->db, $this->uid(), '', $content) ?? \App\ChapterChecks::missingImageError($this->app, $content, $draft)) !== null) return $this->refuseNew($err, '', 'ed-f-content');
         try {
             $publishAt = \App\ChapterChecks::canonicalPublishAt($rawPublishAt);
         } catch (\InvalidArgumentException) {

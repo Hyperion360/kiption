@@ -96,4 +96,16 @@ final class ChapterImagesTest extends TestCase
         $this->db->query('DELETE FROM author_images WHERE path = ?', [$srcs[149]]);
         $this->assertSame('chapter.err_image_library', ChapterImages::refusal($this->db, 1, '', $md, true));
     }
+
+    public function test_missing_lists_each_distinct_upload_that_has_no_file(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-chmiss-' . uniqid('', true);
+        mkdir($dir);
+        file_put_contents($dir . '/0123456789abcdef.png', 'x');
+        $md = '![a](' . self::A . ') ![b](' . self::B . ') ![c](' . self::B . ') ![d](https://example.test/x.png)';
+        $this->assertSame([self::B], ChapterImages::missing($dir, $md));
+        $this->assertSame([], ChapterImages::missing($dir, 'No images, just words.'));
+        $this->assertSame([], ChapterImages::missing($dir, '![a](' . self::A . ')'));
+        exec('rm -rf ' . escapeshellarg($dir));
+    }
 }

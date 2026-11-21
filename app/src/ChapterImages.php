@@ -56,4 +56,14 @@ final class ChapterImages
             [$userId, json_encode($wanted, JSON_THROW_ON_ERROR)])['n'] ?? 0);
         return $owned === count($wanted) ? null : 'chapter.err_image_library';
     }
+
+    /** Distinct /uploads/ sources in $md whose file is not in $uploadsDir: one is_file per source, no database. @return list<string> */
+    public static function missing(string $uploadsDir, string $md): array
+    {
+        $gone = [];
+        foreach (array_unique(array_column(self::sources($md), 'src')) as $src) {
+            if (!is_file(rtrim($uploadsDir, '/') . '/' . basename($src))) $gone[] = $src;
+        }
+        return $gone;
+    }
 }

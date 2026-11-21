@@ -2257,6 +2257,7 @@ return [
     'authorimages.throttled' => 'Too many uploads. Wait a few minutes and try again.',
     'authorimages.err_type' => 'Only PNG, JPEG, WebP, and GIF images can be added.',
     'authorimages.err_in_use' => 'A chapter still shows this image: {stories}. Remove it from the chapter first.',
+    'chapter.err_image_missing' => 'This chapter shows an image that is no longer stored: {src}. Remove it or add the image again.',
     'chapter.err_image_pending' => 'An image was not uploaded. Add it again and save.',
     'chapter.err_image_off' => 'Images in chapters are switched off, so new images cannot be added.',
     'chapter.err_image_alt' => 'Every new image needs a short description.',
