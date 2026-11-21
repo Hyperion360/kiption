@@ -6,6 +6,8 @@ use Kip\{Image, ImageException};
 /** What bytes an author's upload becomes. Pure policy: no request, no database, no quota. */
 final class AuthorImageIntake
 {
+    private const MAX_PIXELS = 16_000_000;
+
     public function __construct(private int $storedCap, private ?bool $gd = null) {}
 
     /** @return object{file:string,name:string,refusalKey:?string} the file to store and the upload name carrying its extension */
@@ -17,7 +19,7 @@ final class AuthorImageIntake
 
         // No GD, or an animation a still re-encode would flatten: keep the original if it fits.
         if (!($this->gd ?? Image::available()) || Image::isAnimated($tmp)) {
-            return $fits($tmp) ? $ok($tmp, $clientName) : $no('authorimages.too_big');
+            return $fits($tmp) && $this->withinPixelCap($tmp) ? $ok($tmp, $clientName) : $no('authorimages.too_big');
         }
         $out = $tmp . '.webp';
         try {
@@ -28,5 +30,12 @@ final class AuthorImageIntake
         }
         if (!$fits($out)) { @unlink($out); return $no('authorimages.too_big'); }
         return $ok($out, 'image.webp');
+    }
+
+    /** A kept original skips the re-encode, so it needs the same pixel ceiling Image::toWebp enforces. */
+    private function withinPixelCap(string $file): bool
+    {
+        $size = @getimagesize($file);
+        return $size !== false && $size[0] * $size[1] <= self::MAX_PIXELS;
     }
 }

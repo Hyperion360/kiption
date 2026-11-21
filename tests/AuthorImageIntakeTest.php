@@ -103,4 +103,16 @@ final class AuthorImageIntakeTest extends TestCase
         $this->assertNull($r->refusalKey);
         $this->assertStringNotContainsString('GPSLatitudeMARKER', (string) file_get_contents($r->file));
     }
+
+    public function test_a_gif_forced_to_look_animated_cannot_skip_the_pixel_cap(): void
+    {
+        $f = tempnam(sys_get_temp_dir(), 'imgt');
+        $this->made[] = $f;
+        $frame = "\x21\xF9\x04\x00\x0A\x00\x00\x00" . "\x2C\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00";
+        // Canvas declared 65535 x 65535, with the animation marker planted twice.
+        file_put_contents($f, "GIF89a\xFF\xFF\xFF\xFF\x00\x00\x00" . $frame . $frame . ';');
+        $this->assertTrue(\Kip\Image::isAnimated($f));
+        $r = (new AuthorImageIntake(storedCap: 2097152, gd: true))->prepare($f, 'a.gif');
+        $this->assertSame('authorimages.too_big', $r->refusalKey);
+    }
 }
