@@ -84,7 +84,15 @@
           /* The word count and draft modules listen for input on the textarea. */
           onChange: function () { box.dispatchEvent(new win.Event('input', { bubbles: true })); }
         };
-        if (images) { options.imageLibrary = { uploadUrl: uploadUrl, csrfToken: token }; }
+        if (images) {
+          options.imageLibrary = { uploadUrl: uploadUrl, csrfToken: token };
+          /* The server's intake cap, before it shrinks the image; junk or zero leaves the editor's own default. */
+          var maxBytes = parseInt(box.getAttribute('data-epigraph-max-bytes') || '', 10);
+          if (maxBytes > 0) { options.imageMaxBytes = maxBytes; }
+        } else {
+          var offNote = box.getAttribute ? box.getAttribute('data-epigraph-images-off') : null;
+          if (offNote) { options.imagesOffMessage = offNote; }
+        }
         var api = editor.mount(box, options);
         mounted += 1;
         /* The page chrome (preview, selection count) drives the editor through its API. */

@@ -276,7 +276,7 @@ $seg = static function (string $key, string $title, string $note, array $opts): 
         </div>
 
         <div class="ed-write" data-ed-write>
-          <label class="writer-body"><span class="visually-hidden"><?= $this->e($t('chapter.text')) ?></span> <textarea name="content" id="ed-f-content" rows="18" required autocomplete="off" aria-describedby="writer-count" data-js-module="paste epigraph-boot"<?php if ($imagesOn) : ?> data-epigraph-upload-url="/authorimages/upload" data-epigraph-csrf="<?= $this->e($csrf) ?>"<?php endif; ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
+          <label class="writer-body"><span class="visually-hidden"><?= $this->e($t('chapter.text')) ?></span> <textarea name="content" id="ed-f-content" rows="18" required autocomplete="off" aria-describedby="writer-count" data-js-module="paste epigraph-boot"<?php if ($imagesOn) : ?> data-epigraph-upload-url="/authorimages/upload" data-epigraph-csrf="<?= $this->e($csrf) ?>" data-epigraph-max-bytes="<?= (int) $intakeMaxBytes ?>"<?php else : ?> data-epigraph-images-off="<?= $this->e($imagesOffNote) ?>"<?php endif; ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
               'bold' => $t('chapter.editor_bold'),
               'italic' => $t('chapter.editor_italic'),
               'link' => $t('chapter.editor_link'),

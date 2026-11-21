@@ -29,6 +29,31 @@ test('the server-rendered upload address and token turn images on', () => {
   assert.deepEqual(calls[0].imageLibrary, { uploadUrl: '/authorimages/upload', csrfToken: 'tok' });
 });
 
+test('the intake size cap is forwarded as imageMaxBytes when the server renders it', () => {
+  const b = box({ 'data-epigraph-upload-url': '/authorimages/upload', 'data-epigraph-csrf': 'tok', 'data-epigraph-max-bytes': '10485760' }), calls = [];
+  const { doc, win } = page([b], { mount: (el, opts) => { calls.push(opts); } });
+  init(doc, win);
+  assert.equal(calls[0].imageMaxBytes, 10485760);
+});
+
+test('a missing or junk size cap sends no imageMaxBytes', () => {
+  for (const v of [undefined, '', 'abc', '0', '-5']) {
+    const b = box(v === undefined ? {} : { 'data-epigraph-max-bytes': v }), calls = [];
+    const { doc, win } = page([b], { mount: (el, opts) => { calls.push(opts); } });
+    init(doc, win);
+    assert.equal(calls[0].imageMaxBytes, undefined, String(v));
+  }
+});
+
+test('the images-off note reaches the editor only while images are off', () => {
+  const off = box({ 'data-epigraph-images-off': 'Ask the administrator.' }), on = box({ 'data-epigraph-upload-url': '/u', 'data-epigraph-csrf': 't', 'data-epigraph-images-off': 'Stale.' }), calls = [];
+  const { doc, win } = page([off, on], { mount: (el, opts) => { calls.push(opts); } });
+  init(doc, win);
+  assert.equal(calls[0].imagesAllowed, false);
+  assert.equal(calls[0].imagesOffMessage, 'Ask the administrator.');
+  assert.equal(calls[1].imagesOffMessage, undefined);
+});
+
 test('a missing bundle changes nothing', () => {
   const b = box();
   assert.equal(init(page([b], undefined).doc, page([b], undefined).win), 0);
