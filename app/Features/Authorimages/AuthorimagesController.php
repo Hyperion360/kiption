@@ -55,9 +55,10 @@ final class AuthorimagesController
         if ($this->count($uid) >= self::LIBRARY_MAX) return $this->json(['error' => \App\Lang::t('authorimages.limit')], 422);
         if (!self::hasImageMagic($tmp)) return $this->json(['error' => \App\Lang::t('authorimages.err_type')], 422);
         $cfg = (array) $this->app->config('uploads');
+        $storedCap = (int) ($cfg['max_bytes'] ?? 2097152);
         // Big phone and Word images may arrive up to the intake cap and are shrunk to the stored cap below.
         if ((int) filesize($tmp) > (int) ($cfg['intake_max_bytes'] ?? 10485760)) return $this->json(['error' => \App\Lang::t('authorimages.too_big')], 422);
-        $intake = (new \App\AuthorImageIntake((int) ($cfg['max_bytes'] ?? 2097152)))->prepare($tmp, (string) ($file['name'] ?? 'image'));
+        $intake = (new \App\AuthorImageIntake($storedCap))->prepare($tmp, (string) ($file['name'] ?? 'image'));
         if ($intake->refusalKey !== null) return $this->json(['error' => \App\Lang::t($intake->refusalKey)], 422);
         $processed = $intake->file !== $tmp;
         $file['tmp_name'] = $intake->file;
@@ -65,7 +66,7 @@ final class AuthorimagesController
         $file['size'] = (int) filesize($intake->file);
         // A re-encoded file is not an HTTP upload, so move_uploaded_file would refuse it: rename it into place instead.
         $store = $processed
-            ? new Storage((string) ($cfg['dir'] ?? ''), (int) ($cfg['max_bytes'] ?? 2097152), (array) ($cfg['ext'] ?? []), static fn(string $a, string $b): bool => rename($a, $b))
+            ? new Storage((string) ($cfg['dir'] ?? ''), $storedCap, (array) ($cfg['ext'] ?? []), static fn(string $a, string $b): bool => rename($a, $b))
             : $this->storage;
         $quota = \App\StorageQuota::forApp($this->app);
         try {
