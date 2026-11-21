@@ -415,8 +415,8 @@ final class AuthoringRepository
             'INSERT OR IGNORE INTO story_characters (story_id, character_id)
              SELECT ?, ch.id FROM characters ch
              WHERE ch.id IN (' . implode(',', $ids) . ')
-               AND (ch.category_id IS NULL OR ch.category_id IN (SELECT category_id FROM story_categories WHERE story_id = ?))',
-            [$storyId, $storyId]);
+               AND (ch.category_id IS NULL OR CAST(? AS INTEGER) = 0 OR ch.category_id IN (SELECT category_id FROM story_categories WHERE story_id = ?))',
+            [$storyId, \App\Settings::on('categories_on') ? 1 : 0, $storyId]);
     }
 
     /** Fold formData's 'ch' rows into [groups, selected ids]: groups keyed by

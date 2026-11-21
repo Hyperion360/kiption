@@ -111,4 +111,18 @@ final class OwnerFeedbackTest extends TestCase
         $after = (int) $this->db->one('SELECT COUNT(*) n FROM story_categories WHERE story_id = ?', [$sid])['n'];
         $this->assertSame($before, $after);
     }
+
+    public function test_categories_off_still_saves_a_category_bound_character(): void
+    {
+        $sid = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $this->db->query('DELETE FROM story_categories WHERE story_id = ?', [$sid]);
+        $cat = (int) $this->db->one('SELECT id FROM categories LIMIT 1')['id'];
+        $this->db->query("INSERT INTO characters (category_id, name, slug) VALUES (?, 'Alice', 'alice-ofb')", [$cat]);
+        $ch = (int) $this->db->lastInsertId();
+        $this->setting('categories_on', '0');
+        $title = (string) $this->db->one('SELECT title FROM stories WHERE id = ?', [$sid])['title'];
+        $rating = (int) $this->db->one('SELECT rating_id FROM stories WHERE id = ?', [$sid])['rating_id'];
+        $this->client($this->authorId)->postWithToken('/story/update/the-rabbit-hole', ['title' => $title, 'summary' => 'Edited again here.', 'rating_id' => (string) $rating, 'characters_shown' => '1', 'characters' => [(string) $ch]]);
+        $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) n FROM story_characters WHERE story_id = ? AND character_id = ?', [$sid, $ch])['n']);
+    }
 }
