@@ -21,12 +21,13 @@ final class ReviewController
         if (!\App\Settings::on('reviews_on')) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($userId === null && !\App\Settings::on('guest_reviews')) return new Response(\App\Lang::t('story.sign_in_to_review'), 403);
         $raw = $this->request->postStr('rating');
-        $rating = $raw === '' ? null : max(0, min(10, (int) $raw));
+        $scoresOn = \App\Settings::on('review_scores_on');
+        $rating = ($raw === '' || !$scoresOn) ? null : max(0, min(10, (int) $raw));
         if (($blocked = \App\Features\Wordfilter\WordFilter::refusal($this->db, $this->request->postStr('body'), $this->request->postStr('guest_name'))) !== null) return new Response($blocked, 422);
         [$added, $authorId, $title, $error] = (new ReviewRepository($this->db))->addReview(
             $slug, is_int($userId) ? $userId : null,
             $userId === null ? $this->request->postStr('guest_name') : null,
-            $this->request->postStr('body'), $rating, $this->request->ip, \App\Settings::on('rating_only'));
+            $this->request->postStr('body'), $rating, $this->request->ip, $scoresOn && \App\Settings::on('rating_only'));
         if ($authorId === 0 && $error === null) return new Response(\App\Lang::t('error.not_found'), 404);
         if ($error !== null) {
             $status = $error === \App\Lang::t('review.err_daily') ? 429 : 422;

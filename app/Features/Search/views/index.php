@@ -73,6 +73,7 @@
           <span class="row-label"><?= $this->e($c['name']) ?></span>
           <span class="count" data-search-count="category:<?= $this->e($c['slug']) ?>"><?= (int) $c['count'] ?></span></label>
         <?php return (string) ob_get_clean(); }; ?>
+      <?php if (\App\Settings::on('categories_on')): ?>
       <fieldset class="rail-group">
         <legend><?= \App\Lang::t('search.category') ?></legend>
         <?php foreach ($shown as $c) echo $row($c); ?>
@@ -84,6 +85,7 @@
         <?php endif; ?>
         <p class="visually-hidden"><?= \App\Lang::t('search.category_counts_help') ?></p>
       </fieldset>
+      <?php endif; ?>
       <div class="rail-group">
         <label class="rail-label" for="rail-language"><?= \App\Lang::t('browse.language') ?></label>
         <select id="rail-language" name="language">

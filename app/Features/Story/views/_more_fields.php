@@ -45,7 +45,7 @@ $metaClass = $ed ? 'ed-group-label' : 'chapter-meta';
     <fieldset<?= $ed ? ' class="ed-fieldset"' : '' ?>>
       <legend<?= $ed ? ' class="ed-flabel"' : '' ?>><?= \App\Lang::t('story.characters') ?></legend>
       <input type="hidden" name="characters_shown" value="1">
-      <p class="<?= $hintClass ?>"><?= \App\Lang::t('story.characters_help') ?></p>
+      <p class="<?= $hintClass ?>"><?= \App\Lang::t(\App\Settings::on('categories_on') ? 'story.characters_help' : 'story.characters_help_flat') ?></p>
       <?php foreach ($characterGroups as $group): ?>
         <p class="<?= $metaClass ?>"><?= $group['name'] === '' ? \App\Lang::t('characters.any_category') : $this->e($group['name']) ?></p>
         <?php foreach ($group['characters'] as $characterId => $characterName): ?>

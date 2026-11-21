@@ -402,6 +402,7 @@ $seg = static function (string $key, string $title, string $note, array $opts): 
             </select></span>
           </div>
         </div>
+        <?php if (\App\Settings::on('categories_on')): ?>
         <div class="ed-prow" data-ed-row="categories">
           <?= $rowHead('categories', $t('ed.row_categories'), $categoryNames === [] ? $t('ed.none_chosen') : implode(', ', $categoryNames), 'data-ed-value="categories" data-ed-empty="' . $this->e($t('ed.none_chosen')) . '"') ?>
           <div class="ed-prow-body" id="ed-row-categories">
@@ -414,6 +415,7 @@ $seg = static function (string $key, string $title, string $note, array $opts): 
             </fieldset>
           </div>
         </div>
+        <?php endif; ?>
 <?php endif; ?>
         <div class="ed-prow" data-ed-row="when">
           <button type="button" class="ed-prow-head js-only" aria-expanded="false" aria-controls="ed-when"><span class="ed-prow-name"><?= $this->e($t('ed.row_when')) ?></span><span class="ed-prow-value" data-ed-when-value></span><span class="ed-chev" aria-hidden="true"></span></button>
