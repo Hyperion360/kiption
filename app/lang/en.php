@@ -2255,6 +2255,7 @@ return [
     'authorimages.limit' => 'Your image library is full at 100 images.',
     'authorimages.conflict' => 'That upload key was already used for a different image.',
     'authorimages.throttled' => 'Too many uploads. Wait a few minutes and try again.',
+    'authorimages.too_big' => 'That image is too large to store. Try a smaller picture.',
     'authorimages.err_type' => 'Only PNG, JPEG, WebP, and GIF images can be added.',
     'authorimages.err_in_use' => 'A chapter still shows this image: {stories}. Remove it from the chapter first.',
     'chapter.err_image_missing' => 'This chapter shows an image that is no longer stored: {src}. Remove it or add the image again.',

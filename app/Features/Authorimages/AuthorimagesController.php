@@ -54,12 +54,27 @@ final class AuthorimagesController
         }
         if ($this->count($uid) >= self::LIBRARY_MAX) return $this->json(['error' => \App\Lang::t('authorimages.limit')], 422);
         if (!self::hasImageMagic($tmp)) return $this->json(['error' => \App\Lang::t('authorimages.err_type')], 422);
+        $cfg = (array) $this->app->config('uploads');
+        // Big phone and Word images may arrive up to the intake cap and are shrunk to the stored cap below.
+        if ((int) filesize($tmp) > (int) ($cfg['intake_max_bytes'] ?? 10485760)) return $this->json(['error' => \App\Lang::t('authorimages.too_big')], 422);
+        $intake = (new \App\AuthorImageIntake((int) ($cfg['max_bytes'] ?? 2097152)))->prepare($tmp, (string) ($file['name'] ?? 'image'));
+        if ($intake->refusalKey !== null) return $this->json(['error' => \App\Lang::t($intake->refusalKey)], 422);
+        $processed = $intake->file !== $tmp;
+        $file['tmp_name'] = $intake->file;
+        $file['name'] = $intake->name;
+        $file['size'] = (int) filesize($intake->file);
+        // A re-encoded file is not an HTTP upload, so move_uploaded_file would refuse it: rename it into place instead.
+        $store = $processed
+            ? new Storage((string) ($cfg['dir'] ?? ''), (int) ($cfg['max_bytes'] ?? 2097152), (array) ($cfg['ext'] ?? []), static fn(string $a, string $b): bool => rename($a, $b))
+            : $this->storage;
         $quota = \App\StorageQuota::forApp($this->app);
         try {
-            $path = $quota->putUnderCap($file, false, $this->storage);
+            $path = $quota->putUnderCap($file, false, $store);
         } catch (UploadException) {
+            if ($processed) @unlink($intake->file);
             return $this->json(['error' => \App\Lang::t('images.err_upload')], 422);
         }
+        if ($processed && $path === null) @unlink($intake->file);
         if ($path === null) return $this->json(['error' => \App\Lang::t('images.storage_full')], 422);
         try {
             $this->db->begin();

@@ -87,7 +87,7 @@ final class AuthorimagesTest extends TestCase
         $res = $this->send($this->client($this->alice), $this->png());
         $this->assertSame(200, $res->status, $res->body);
         $j = json_decode($res->body, true);
-        $this->assertMatchesRegularExpression('#^/uploads/[0-9a-f]{16}\.png$#D', $j['src']);
+        $this->assertMatchesRegularExpression('#^/uploads/[0-9a-f]{16}\.(png|webp)$#D', $j['src'], 'WebP when GD is present, the original otherwise');
         $row = $this->db->one('SELECT owner_id, path, upload_key FROM author_images WHERE id = ?', [$j['id']]);
         $this->assertSame($this->alice, (int) $row['owner_id']);
         $this->assertSame($j['src'], $row['path']);
@@ -128,9 +128,102 @@ final class AuthorimagesTest extends TestCase
         $c = $this->client($this->alice);
         $this->assertSame(422, $this->send($c, '<?php echo 1;', 'x.png')->status, 'text claiming png');
         $this->assertSame(422, $this->send($c, '<svg xmlns="http://www.w3.org/2000/svg"/>', 'x.svg')->status);
-        $this->assertSame(422, $this->send($c, $this->png(str_repeat('0', 2097152)))->status, 'over 2 MiB');
+        $this->assertSame(422, $this->send($c, $this->png(str_repeat('0', 10485760)))->status, 'over the 10 MiB intake cap');
         $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images')['n']);
         $this->assertSame([], glob($this->root . '/upl/*') ?: []);
+    }
+
+    private function needGd(): void
+    {
+        if (!\Kip\Image::available()) $this->markTestSkipped('GD with WebP is not available');
+    }
+
+    /** A noisy truecolor PNG, stored uncompressed so it is far over 2 MiB. */
+    private function bigPng(int $w = 1000, int $h = 800): string
+    {
+        $im = imagecreatetruecolor($w, $h);
+        for ($i = 0; $i < 4000; $i++) imagesetpixel($im, random_int(0, $w - 1), random_int(0, $h - 1), random_int(0, 0xFFFFFF));
+        ob_start();
+        imagepng($im, null, 0);
+        return (string) ob_get_clean();
+    }
+
+    public function test_a_big_png_is_stored_as_a_webp_under_the_stored_cap(): void
+    {
+        $this->needGd();
+        $bytes = $this->bigPng();
+        $this->assertGreaterThan(2097152, strlen($bytes));
+        $res = $this->send($this->client($this->alice), $bytes);
+        $this->assertSame(200, $res->status, $res->body);
+        $src = json_decode($res->body, true)['src'];
+        $this->assertStringEndsWith('.webp', $src);
+        $this->assertLessThan(2097152, filesize($this->root . '/upl/' . basename($src)));
+    }
+
+    public function test_the_quota_is_charged_the_stored_webp_not_the_original(): void
+    {
+        $this->needGd();
+        $res = $this->send($this->client($this->alice, ['storage_cap_bytes' => 1000000]), $this->bigPng());
+        $this->assertSame(200, $res->status, $res->body);
+        $stored = filesize($this->root . '/upl/' . basename(json_decode($res->body, true)['src']));
+        $this->assertSame($stored, (new \App\StorageQuota($this->db, $this->root . '/upl', 1000000))->used());
+    }
+
+    public function test_a_retry_of_a_big_image_returns_the_same_src_and_a_changed_body_conflicts(): void
+    {
+        $this->needGd();
+        $bytes = $this->bigPng();
+        $first = json_decode($this->send($this->client($this->alice), $bytes)->body, true);
+        $again = $this->send($this->client($this->alice), $bytes);
+        $this->assertSame(200, $again->status);
+        $this->assertSame($first, json_decode($again->body, true));
+        $this->assertCount(1, glob($this->root . '/upl/*'));
+        $this->assertSame(409, $this->send($this->client($this->alice), $bytes . 'x')->status);
+        $this->assertCount(1, glob($this->root . '/upl/*'));
+    }
+
+    public function test_an_animated_gif_under_the_cap_is_stored_as_a_gif(): void
+    {
+        $frame = "\x21\xF9\x04\x00\x0A\x00\x00\x00\x2C\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00";
+        $gif = "GIF89a\x01\x00\x01\x00\x00\x00\x00" . $frame . $frame . ';';
+        $res = $this->send($this->client($this->alice), $gif, 'a.gif');
+        $this->assertSame(200, $res->status, $res->body);
+        $this->assertStringEndsWith('.gif', json_decode($res->body, true)['src']);
+    }
+
+    public function test_a_file_that_passes_the_magic_check_but_will_not_decode_is_refused_and_leaves_nothing(): void
+    {
+        $this->needGd();
+        $before = (new \App\StorageQuota($this->db, $this->root . '/upl', 100000))->used();
+        $res = $this->send($this->client($this->alice, ['storage_cap_bytes' => 100000]), "\x89PNG\r\n\x1a\n" . random_bytes(80));
+        $this->assertSame(422, $res->status);
+        $this->assertSame($before, (new \App\StorageQuota($this->db, $this->root . '/upl', 100000))->used());
+        $this->assertSame([], glob($this->root . '/upl/*') ?: []);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images')['n']);
+    }
+
+    public function test_a_webp_refused_at_the_storage_cap_leaves_no_temp_file(): void
+    {
+        $this->needGd();
+        $tmps = [];
+        $c = $this->client($this->alice, ['storage_cap_bytes' => 10]);
+        $before = glob(sys_get_temp_dir() . '/img*.webp') ?: [];
+        $this->assertSame(422, $this->send($c, $this->bigPng(400, 300))->status);
+        $this->assertSame($before, glob(sys_get_temp_dir() . '/img*.webp') ?: []);
+    }
+
+    public function test_one_author_cannot_reference_anothers_image_and_owner_id_is_never_taken_from_the_request(): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'img') . '.png';
+        file_put_contents($tmp, $this->png());
+        $res = $this->client($this->alice)->postWithFile('/authorimages/upload', ['upload_key' => self::KEY_A, 'owner_id' => (string) $this->bob], 'file',
+            ['name' => 'x.png', 'type' => 'image/png', 'tmp_name' => $tmp, 'error' => UPLOAD_ERR_OK, 'size' => filesize($tmp)]);
+        $this->assertSame(200, $res->status, $res->body);
+        $j = json_decode($res->body, true);
+        $this->assertSame($this->alice, (int) $this->db->one('SELECT owner_id FROM author_images WHERE id = ?', [$j['id']])['owner_id']);
+        $md = '![a picture](' . $j['src'] . ')';
+        $this->assertNull(\App\ChapterImages::refusal($this->db, $this->alice, '', $md, true));
+        $this->assertSame('chapter.err_image_library', \App\ChapterImages::refusal($this->db, $this->bob, '', $md, true));
     }
 
     public function test_magic_bytes_for_each_allowed_type(): void
