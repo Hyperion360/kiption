@@ -44,10 +44,46 @@ final class AssetUrl
         }
         static $seen = [];
         if (!isset($seen[$name])) {
-            $stat = @stat(dirname(__DIR__, 2) . '/public/assets/' . $name);
-            $seen[$name] = $stat === false ? '' : '?v=' . substr(md5($stat['mtime'] . '-' . $stat['size']), 0, 10);
+            $stat = @stat(self::assetsDir() . $name);
+            $seen[$name] = $stat === false ? '' : '?v=' . self::token($stat['mtime'] . '-' . $stat['size']);
         }
         return $seen[$name];
+    }
+
+    /**
+     * One token for every script app.js loads on demand (editor, paste, and the
+     * rest). Those files are fetched by name from app.js, so they cannot carry
+     * their own per-file version; this changes whenever any of them does.
+     * Release builds already carry a digest in the path, so they get ''.
+     */
+    public static function scriptsVersion(): string
+    {
+        if (self::$prefix !== '/assets/') {
+            return '';
+        }
+        static $token = null;
+        if ($token === null) {
+            $parts = [];
+            foreach (glob(self::assetsDir() . '*.js') ?: [] as $file) {
+                $stat = @stat($file);
+                if ($stat !== false) {
+                    $parts[] = basename($file) . $stat['mtime'] . '-' . $stat['size'];
+                }
+            }
+            sort($parts);
+            $token = self::token(implode('|', $parts));
+        }
+        return $token;
+    }
+
+    private static function assetsDir(): string
+    {
+        return dirname(__DIR__, 2) . '/public/assets/';
+    }
+
+    private static function token(string $material): string
+    {
+        return substr(md5($material), 0, 10);
     }
 
     public static function icon(string $name): string

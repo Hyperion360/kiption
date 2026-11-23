@@ -10,6 +10,9 @@
 (function () {
   var scriptUrl = document.currentScript && document.currentScript.src || '/assets/app.js';
   var assetBase = scriptUrl.slice(0, scriptUrl.lastIndexOf('/') + 1);
+  /* The layout stamps one version on app.js so the scripts it loads below are
+   * not served stale from a CDN after a deploy. */
+  var scriptsV = document.currentScript && document.currentScript.getAttribute('data-v') || '';
   var Kip = {
     $: function (sel, root) { return (root || document).querySelector(sel); },
     $$: function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); },
@@ -114,7 +117,7 @@
     if (loaded[name]) return;
     loaded[name] = true;
     var script = document.createElement('script');
-    script.src = assetBase + name + '.js';
+    script.src = assetBase + name + '.js' + (scriptsV ? '?v=' + encodeURIComponent(scriptsV) : '');
     script.async = false;
     document.head.appendChild(script);
   }

@@ -214,7 +214,6 @@ final class AuthorimagesTest extends TestCase
     public function test_a_webp_refused_at_the_storage_cap_leaves_no_temp_file(): void
     {
         $this->needGd();
-        $tmps = [];
         $c = $this->client($this->alice, ['storage_cap_bytes' => 10]);
         $before = glob(sys_get_temp_dir() . '/img*.webp') ?: [];
         $this->assertSame(422, $this->send($c, $this->bigPng(400, 300))->status);

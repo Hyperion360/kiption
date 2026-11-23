@@ -108,4 +108,18 @@ final class ChapterImagesTest extends TestCase
         $this->assertSame([], ChapterImages::missing($dir, '![a](' . self::A . ')'));
         exec('rm -rf ' . escapeshellarg($dir));
     }
+
+    public function test_a_publish_is_refused_for_a_missing_file_but_a_draft_is_not(): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-chmiss2-' . uniqid('', true);
+        mkdir($dir);
+        file_put_contents($dir . '/0123456789abcdef.png', 'x');
+        $app = new \Kip\App(['app_dir' => dirname(__DIR__) . '/app', 'env' => 'prod', 'views' => dirname(__DIR__) . '/app/views',
+            'db' => ['dsn' => 'sqlite::memory:'], 'log_db' => ['dsn' => 'sqlite::memory:'], 'uploads' => ['dir' => $dir]]);
+        $broken = '![b](' . self::B . ')';
+        $this->assertNull(\App\ChapterChecks::missingImageError($app, $broken, true), 'a draft keeps its broken image');
+        $this->assertStringContainsString(self::B, (string) \App\ChapterChecks::missingImageError($app, $broken, false));
+        $this->assertNull(\App\ChapterChecks::missingImageError($app, '![a](' . self::A . ')', false));
+        exec('rm -rf ' . escapeshellarg($dir));
+    }
 }

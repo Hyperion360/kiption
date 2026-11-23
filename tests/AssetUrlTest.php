@@ -68,5 +68,21 @@ final class AssetUrlTest extends TestCase
         $script = (string) file_get_contents(dirname(__DIR__) . '/public/assets/app.js');
         self::assertStringNotContainsString("script.src = '/assets/'", $script);
         self::assertStringContainsString('document.currentScript.src', $script);
+        self::assertStringContainsString("'?v=' + encodeURIComponent(scriptsV)", $script, 'on-demand scripts carry the version');
+    }
+
+    public function test_scripts_version_is_stable_on_plain_installs_and_empty_on_releases(): void
+    {
+        self::assertMatchesRegularExpression('/^[a-f0-9]{10}$/', AssetUrl::scriptsVersion());
+        self::assertSame(AssetUrl::scriptsVersion(), AssetUrl::scriptsVersion());
+        AssetUrl::init(['asset_digest' => str_repeat('b', 64)]);
+        self::assertSame('', AssetUrl::scriptsVersion());
+    }
+
+    public function test_every_layout_stamps_the_scripts_version_on_app_js(): void
+    {
+        foreach (['app/views/layout.php', 'app/skins/classic/views/layout.php', 'app/skins/manuscript/views/layout.php'] as $path) {
+            self::assertStringContainsString('data-v="<?= \\App\\AssetUrl::scriptsVersion() ?>"', (string) file_get_contents(dirname(__DIR__) . '/' . $path), $path);
+        }
     }
 }

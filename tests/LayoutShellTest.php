@@ -427,7 +427,7 @@ final class LayoutShellTest extends TestCase
     public function test_layout_defers_the_enhancement_layer(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertMatchesRegularExpression('#<script src="/assets/app\.js(\?v=[a-f0-9]{10})?" defer></script>#', $body,
+        $this->assertMatchesRegularExpression('#<script src="/assets/app\.js(\?v=[a-f0-9]{10})?" data-v="[a-f0-9]{0,10}" defer></script>#', $body,
             'one deferred vanilla script tag');
         $this->assertSame(2, substr_count($body, '<script'),
             'exactly two script tags: the deferred layer and the data-only JSON-LD');
