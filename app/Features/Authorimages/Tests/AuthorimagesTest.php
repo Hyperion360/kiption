@@ -191,11 +191,20 @@ final class AuthorimagesTest extends TestCase
         $this->assertStringEndsWith('.gif', json_decode($res->body, true)['src']);
     }
 
+    public function test_a_forged_animated_gif_over_the_pixel_cap_says_too_large_not_wrong_type(): void
+    {
+        $frame = "\x21\xF9\x04\x00\x0A\x00\x00\x00\x2C\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00";
+        $res = $this->send($this->client($this->alice), "GIF89a\xFF\xFF\xFF\xFF\x00\x00\x00" . $frame . $frame . ';', 'a.gif');
+        $this->assertSame(422, $res->status);
+        $this->assertSame(\App\Lang::t('authorimages.too_big'), json_decode($res->body, true)['error']);
+        $this->assertSame(0, (int) $this->db->one('SELECT COUNT(*) AS n FROM author_images')['n']);
+    }
+
     public function test_a_file_that_passes_the_magic_check_but_will_not_decode_is_refused_and_leaves_nothing(): void
     {
         $this->needGd();
         $before = (new \App\StorageQuota($this->db, $this->root . '/upl', 100000))->used();
-        $res = $this->send($this->client($this->alice, ['storage_cap_bytes' => 100000]), "\x89PNG\r\n\x1a\n" . random_bytes(80));
+        $res = $this->send($this->client($this->alice, ['storage_cap_bytes' => 100000]), "\x89PNG\r\n\x1a\n" . str_repeat("\0", 80));
         $this->assertSame(422, $res->status);
         $this->assertSame($before, (new \App\StorageQuota($this->db, $this->root . '/upl', 100000))->used());
         $this->assertSame([], glob($this->root . '/upl/*') ?: []);

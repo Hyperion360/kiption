@@ -60,7 +60,7 @@ final class AuthorImageIntakeTest extends TestCase
         $this->needGd();
         $f = tempnam(sys_get_temp_dir(), 'imgt');
         $this->made[] = $f;
-        file_put_contents($f, "\x89PNG\r\n\x1a\n" . random_bytes(80));
+        file_put_contents($f, "\x89PNG\r\n\x1a\n" . str_repeat("\0", 80));
         $r = (new AuthorImageIntake(storedCap: 2097152, gd: true))->prepare($f, 'a.png');
         $this->assertSame('authorimages.err_type', $r->refusalKey);
         $this->assertFileDoesNotExist($f . '.webp');
@@ -114,5 +114,18 @@ final class AuthorImageIntakeTest extends TestCase
         $this->assertTrue(\Kip\Image::isAnimated($f));
         $r = (new AuthorImageIntake(storedCap: 2097152, gd: true))->prepare($f, 'a.gif');
         $this->assertSame('authorimages.too_big', $r->refusalKey);
+    }
+
+    public function test_a_real_picture_over_the_pixel_cap_is_a_size_refusal_not_a_type_refusal(): void
+    {
+        $this->needGd();
+        $im = imagecreate(5000, 4000); // 20 million pixels, palette-based so it stays light
+        imagecolorallocate($im, 255, 255, 255);
+        $f = tempnam(sys_get_temp_dir(), 'imgt');
+        $this->made[] = $f;
+        imagepng($im, $f, 9);
+        $r = (new AuthorImageIntake(storedCap: 2097152, gd: true))->prepare($f, 'huge.png');
+        $this->assertSame('authorimages.too_big', $r->refusalKey);
+        $this->assertFileDoesNotExist($f . '.webp');
     }
 }

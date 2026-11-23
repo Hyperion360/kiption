@@ -21,6 +21,8 @@ final class AuthorImageIntake
         if (!($this->gd ?? Image::available()) || Image::isAnimated($tmp)) {
             return $fits($tmp) && $this->withinPixelCap($tmp) ? $ok($tmp, $clientName) : $no('authorimages.too_big');
         }
+        // A real but oversized picture is a size problem, not a wrong file type.
+        if (!$this->withinPixelCap($tmp) && $this->isReadable($tmp)) return $no('authorimages.too_big');
         $out = $tmp . '.webp';
         try {
             Image::toWebp($tmp, $out);
@@ -30,6 +32,11 @@ final class AuthorImageIntake
         }
         if (!$fits($out)) { @unlink($out); return $no('authorimages.too_big'); }
         return $ok($out, 'image.webp');
+    }
+
+    private function isReadable(string $file): bool
+    {
+        return @getimagesize($file) !== false;
     }
 
     /** A kept original skips the re-encode, so it needs the same pixel ceiling Image::toWebp enforces. */
