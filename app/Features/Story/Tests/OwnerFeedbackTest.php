@@ -58,6 +58,19 @@ final class OwnerFeedbackTest extends TestCase
         $this->assertStringContainsString('href="/story/edit/the-rabbit-hole"', $this->client($this->authorId)->get('/story/view/the-rabbit-hole')->body);
     }
 
+    public function test_a_coauthor_sees_the_edit_link(): void
+    {
+        $sid = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];
+        $this->db->query('INSERT INTO coauthors (story_id, user_id) VALUES (?, ?)', [$sid, $this->strangerId]);
+        $this->assertStringContainsString('href="/story/edit/the-rabbit-hole"', $this->client($this->strangerId)->get('/story/view/the-rabbit-hole')->body);
+    }
+
+    public function test_an_admin_sees_the_edit_link_on_anyones_story(): void
+    {
+        $this->db->query("UPDATE users SET role = 'admin' WHERE id = ?", [$this->strangerId]);
+        $this->assertStringContainsString('href="/story/edit/the-rabbit-hole"', $this->client($this->strangerId)->get('/story/view/the-rabbit-hole')->body);
+    }
+
     public function test_strangers_and_guests_see_no_edit_link(): void
     {
         $this->assertStringNotContainsString('/story/edit/the-rabbit-hole', $this->client($this->strangerId)->get('/story/view/the-rabbit-hole')->body);
@@ -134,5 +147,35 @@ final class OwnerFeedbackTest extends TestCase
         $rating = (int) $this->db->one('SELECT rating_id FROM stories WHERE id = ?', [$sid])['rating_id'];
         $this->client($this->authorId)->postWithToken('/story/update/the-rabbit-hole', ['title' => $title, 'summary' => 'Edited again here.', 'rating_id' => (string) $rating, 'characters_shown' => '1', 'characters' => [(string) $ch]]);
         $this->assertSame(1, (int) $this->db->one('SELECT COUNT(*) n FROM story_characters WHERE story_id = ? AND character_id = ?', [$sid, $ch])['n']);
+    }
+
+    public function test_categories_off_hides_the_category_filter_in_browse_and_search(): void
+    {
+        $c = $this->client($this->strangerId);
+        $this->assertStringContainsString('name="cat[]"', $c->get('/browse/filter')->body);
+        $this->assertStringContainsString('name="category[]"', $c->get('/search', ['q' => 'rabbit'])->body);
+        $this->setting('categories_on', '0');
+        $this->assertStringNotContainsString('name="cat[]"', $c->get('/browse/filter')->body);
+        $this->assertStringNotContainsString('name="category[]"', $c->get('/search', ['q' => 'rabbit'])->body);
+    }
+
+    public function test_categories_off_drops_the_categories_row_from_the_chapter_editor(): void
+    {
+        $this->db->query("UPDATE users SET role = 'validated_author' WHERE id = ?", [$this->authorId]);
+        $this->assertStringContainsString('id="ed-row-categories"', $this->client($this->authorId)->get('/story/new')->body);
+        $this->setting('categories_on', '0');
+        $this->assertStringNotContainsString('id="ed-row-categories"', $this->client($this->authorId)->get('/story/new')->body);
+    }
+
+    public function test_categories_off_uses_the_flat_characters_help_in_the_story_form(): void
+    {
+        $cat = (int) $this->db->one('SELECT id FROM categories LIMIT 1')['id'];
+        $this->db->query("INSERT INTO characters (category_id, name, slug) VALUES (?, 'Alice', 'alice-flat')", [$cat]);
+        $this->setting('categories_on', '1');
+        $this->assertStringContainsString(htmlspecialchars(\App\Lang::t('story.characters_help'), ENT_QUOTES), $this->client($this->authorId)->get('/story/edit/the-rabbit-hole')->body);
+        $this->setting('categories_on', '0');
+        $body = $this->client($this->authorId)->get('/story/edit/the-rabbit-hole')->body;
+        $this->assertStringContainsString(htmlspecialchars(\App\Lang::t('story.characters_help_flat'), ENT_QUOTES), $body);
+        $this->assertStringNotContainsString(htmlspecialchars(\App\Lang::t('story.characters_help'), ENT_QUOTES), $body);
     }
 }
