@@ -446,6 +446,8 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   background: var(--danger-bg); border: 1px solid var(--danger-line);
   color: var(--danger); font: 500 14px/1.5 var(--sans);
 }
+/* The conversion warnings sit in the 640px form column, not across the whole page. */
+.convert-stop { max-width: 640px; }
 .notice { display: block; margin: 0 0 18px; padding: 12px 14px; background: var(--pill-bg); color: var(--accent); font: 500 14px/1.5 var(--sans); }
 /* A list of words is not prose: plain type, one per line. */
 .site-main form textarea.plain-list { font: 400 16px/1.5 var(--sans); }
