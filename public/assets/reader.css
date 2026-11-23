@@ -2677,6 +2677,7 @@ body:has(.reader) .site-foot { display: none; }
     background: var(--surface); border-block-end: 1px solid var(--line-strong); box-shadow: 0 24px 40px -24px var(--scrim);
   }
   .bp-grid { display: grid; grid-template-columns: 1.1fr 1.1fr 1fr; gap: 40px; }
+  .bp-grid-two { grid-template-columns: 1.1fr 1fr; }
   .bp-label { margin: 0 0 12px; font: 600 12px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
   .bp-catlist, .bp-waylist, .bp-chips { list-style: none; margin: 0; padding: 0; }
   .bp-catlist a { display: flex; justify-content: space-between; padding-block: 8px; border-block-end: 1px solid var(--line); text-decoration: none; color: var(--ink); font: 15px var(--sans); }

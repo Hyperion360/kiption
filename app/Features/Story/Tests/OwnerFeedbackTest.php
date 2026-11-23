@@ -98,6 +98,16 @@ final class OwnerFeedbackTest extends TestCase
         $this->assertStringNotContainsString('name="categories[]"', $this->client($this->authorId)->get('/story/edit/the-rabbit-hole')->body);
     }
 
+    // Regression: found by /qa on 2026-11-22, the header Browse panel still listed categories with the switch off.
+    public function test_categories_off_hides_the_header_browse_panel_categories(): void
+    {
+        $this->assertStringContainsString('class="bp-cats"', $this->client($this->strangerId)->get('/story/view/the-rabbit-hole')->body);
+        $this->setting('categories_on', '0');
+        $body = $this->client($this->strangerId)->get('/story/view/the-rabbit-hole')->body;
+        $this->assertStringNotContainsString('class="bp-cats"', $body);
+        $this->assertStringContainsString('bp-grid bp-grid-two', $body);
+    }
+
     public function test_saving_with_categories_off_keeps_the_stories_categories(): void
     {
         $sid = (int) $this->db->one("SELECT id FROM stories WHERE slug = 'the-rabbit-hole'")['id'];

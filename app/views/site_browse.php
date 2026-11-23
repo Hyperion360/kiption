@@ -11,9 +11,11 @@ $ways = [['/browse/recent', 'nav.way_recent', 'nav.way_recent_note', $navOn['/br
          ['/series', 'nav.series', 'nav.way_series_note', $navOn['/series'] && \App\Settings::on('series_on')],
          ['/lists', 'foot.lists', 'nav.way_lists_note', \App\Features::on('lists')],
          ['/challenges', 'challenges.index', 'nav.way_challenges_note', \App\Features::on('challenges')]];
+$catsOn = \App\Settings::on('categories_on');
 ?>
 <div class="browse-panel" role="region" aria-label="<?= $this->e(\App\Lang::t('nav.browse')) ?>">
-  <div class="bp-grid">
+  <div class="bp-grid<?= $catsOn ? '' : ' bp-grid-two' ?>">
+<?php if ($catsOn): ?>
     <section class="bp-cats">
       <h2 class="bp-label"><?= \App\Lang::t('nav.panel_categories') ?></h2>
 <?php if ($panel['categories'] !== []): ?>
@@ -25,6 +27,7 @@ $ways = [['/browse/recent', 'nav.way_recent', 'nav.way_recent_note', $navOn['/br
 <?php endif; ?>
       <a class="bp-all" href="/browse"><?= \App\Lang::t('nav.all_categories') ?></a>
     </section>
+<?php endif; ?>
     <section class="bp-ways">
       <h2 class="bp-label"><?= \App\Lang::t('nav.panel_ways') ?></h2>
       <ul class="bp-waylist">

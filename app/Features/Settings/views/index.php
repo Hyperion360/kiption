@@ -59,6 +59,7 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <?= $check('series_on', \App\Lang::t('settings.series_on'), \App\Lang::t('settings.series_on_note')) ?>
   <?= $check('uploads_on', \App\Lang::t('settings.uploads_on'), \App\Lang::t('settings.uploads_on_note')) ?>
   <?= $check('chapter_images_on', \App\Lang::t('settings.chapter_images_on'), \App\Lang::t('settings.chapter_images_on_note')) ?>
+  <?= $check('categories_on', \App\Lang::t('settings.categories_on'), \App\Lang::t('settings.categories_on_note')) ?>
   <label><?= \App\Lang::t('settings.default_sort') ?>
     <select name="default_sort">
       <?php foreach (['recent', 'alpha'] as $sort): ?>
@@ -86,7 +87,6 @@ $check = function (string $key, string $label, string $note = '') use ($current)
   <?= $check('guest_reviews', \App\Lang::t('settings.guest_reviews'), \App\Lang::t('settings.guest_reviews_note')) ?>
   <?= $check('rating_only', \App\Lang::t('settings.rating_only'), \App\Lang::t('settings.rating_only_note')) ?>
   <?= $check('review_scores_on', \App\Lang::t('settings.review_scores_on'), \App\Lang::t('settings.review_scores_on_note')) ?>
-  <?= $check('categories_on', \App\Lang::t('settings.categories_on'), \App\Lang::t('settings.categories_on_note')) ?>
   <button type="submit" class="btn-primary"><?= \App\Lang::t('settings.save_section', ['section' => \App\Lang::t('settings.group_reviews')]) ?></button>
 </form>
 </section>
