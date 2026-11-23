@@ -178,4 +178,18 @@ final class OwnerFeedbackTest extends TestCase
         $this->assertStringContainsString(htmlspecialchars(\App\Lang::t('story.characters_help_flat'), ENT_QUOTES), $body);
         $this->assertStringNotContainsString(htmlspecialchars(\App\Lang::t('story.characters_help'), ENT_QUOTES), $body);
     }
+
+    public function test_categories_off_lists_characters_in_one_flat_list_without_category_subheads(): void
+    {
+        $cat = (int) $this->db->one('SELECT id FROM categories LIMIT 1')['id'];
+        $this->db->query("INSERT INTO characters (category_id, name, slug) VALUES (?, 'Zed', 'zed-flat')", [$cat]);
+        $this->db->query("INSERT INTO characters (category_id, name, slug) VALUES (NULL, 'Bea', 'bea-flat')");
+        $anyCategory = '>' . \App\Lang::t('characters.any_category') . '</p>';
+        $this->setting('categories_on', '1');
+        $this->assertStringContainsString($anyCategory, $this->client($this->authorId)->get('/story/edit/the-rabbit-hole')->body);
+        $this->setting('categories_on', '0');
+        $body = $this->client($this->authorId)->get('/story/edit/the-rabbit-hole')->body;
+        $this->assertStringNotContainsString($anyCategory, $body);
+        $this->assertLessThan(strpos($body, 'Zed'), strpos($body, 'Bea'), 'one A-Z list, not grouped by category');
+    }
 }

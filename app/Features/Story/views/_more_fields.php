@@ -45,9 +45,17 @@ $metaClass = $ed ? 'ed-group-label' : 'chapter-meta';
     <fieldset<?= $ed ? ' class="ed-fieldset"' : '' ?>>
       <legend<?= $ed ? ' class="ed-flabel"' : '' ?>><?= \App\Lang::t('story.characters') ?></legend>
       <input type="hidden" name="characters_shown" value="1">
-      <p class="<?= $hintClass ?>"><?= \App\Lang::t(\App\Settings::on('categories_on') ? 'story.characters_help' : 'story.characters_help_flat') ?></p>
+      <?php $charCatsOn = \App\Settings::on('categories_on');
+      if (!$charCatsOn) { // One flat A-Z list: the category split means nothing when Categories are off.
+          $flat = array_replace(...array_column($characterGroups, 'characters'));
+          uasort($flat, 'strnatcasecmp');
+          $characterGroups = [['name' => '', 'characters' => $flat]];
+      } ?>
+      <p class="<?= $hintClass ?>"><?= \App\Lang::t($charCatsOn ? 'story.characters_help' : 'story.characters_help_flat') ?></p>
       <?php foreach ($characterGroups as $group): ?>
+        <?php if ($charCatsOn): /* With Categories off, a category subhead names something readers never see. */ ?>
         <p class="<?= $metaClass ?>"><?= $group['name'] === '' ? \App\Lang::t('characters.any_category') : $this->e($group['name']) ?></p>
+        <?php endif; ?>
         <?php foreach ($group['characters'] as $characterId => $characterName): ?>
         <?= $check('characters[]', (string) (int) $characterId, $sel($selectedCharacters ?? [], $characterId), $this->e($characterName), $ed) ?>
         <?php endforeach; ?>
