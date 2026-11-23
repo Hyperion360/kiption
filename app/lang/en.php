@@ -1471,7 +1471,7 @@ return [
     'tagqueue.err_type' => 'The chosen tag is of another type. A suggestion can only fold into a tag of its own type.',
     'tagqueue.err_conflict' => 'This name is now used by another tag. Review the live tag before deciding this suggestion.',
     'tagsadmin.heading' => 'Tags and Tag Types',
-    'tagsadmin.help' => 'Tags are grouped by type and shared by every category. Common types are Genres, Warnings and Relationships. Authors pick tags when they post a story. Characters are kept on their own screen because each one belongs to a category.',
+    'tagsadmin.help' => 'Tags are grouped by type and shared by every category. Common types are Genres, Warnings, Relationships and Characters. Authors pick tags when they post a story. An older per-category Characters list can be moved here from the Characters screen.',
     'tagsadmin.suggest_heading' => 'Add a Common Tag Type',
     'tagsadmin.suggest_add' => 'Add {type}',
     'tagsadmin.suggest_relationships' => 'Relationships',
