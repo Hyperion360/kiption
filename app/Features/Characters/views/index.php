@@ -40,7 +40,7 @@
   <?php if ($conversion['reused'] !== []): ?><p class="admin-help"><?= $this->e($L('characters.convert_reused')) ?></p>
   <ul><?php foreach ($conversion['reused'] as $n): ?><li><?= $this->e($n) ?></li><?php endforeach; ?></ul><?php endif; ?>
   <?php if ($conversion['categoryBound'] !== []): ?><p class="admin-help"><?= $this->e($L('characters.convert_category')) ?></p>
-  <ul><?php foreach ($conversion['categoryBound'] as $n => $cat): ?><li><?= $this->e($n) ?> <span class="chapter-meta"><?= $this->e($cat) ?></span></li><?php endforeach; ?></ul><?php endif; ?>
+  <ul><?php foreach ($conversion['categoryBound'] as $b): ?><li><?= $this->e($b['name']) ?> <span class="chapter-meta"><?= $this->e($b['category']) ?></span></li><?php endforeach; ?></ul><?php endif; ?>
   <?php if ($conversion['blocked'] !== []): ?><p class="error"><?= $this->e($L('characters.convert_blocked')) ?></p>
   <ul><?php foreach ($conversion['blocked'] as $n => $type): ?><li><?= $this->e($L('characters.convert_blocked_item', ['name' => $n, 'type' => $type])) ?></li><?php endforeach; ?></ul><?php endif; ?>
   <?php if ($conversion['invalid'] !== []): ?><p class="error"><?= $this->e($L('characters.convert_invalid')) ?></p>

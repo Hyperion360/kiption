@@ -20,10 +20,10 @@ final class CharacterConversion
     public function __construct(private Database $db) {}
 
     /** @return array{characters: int, stories: int, merges: array<string, list<string>>,
-     *  blocked: array<string, string>, invalid: list<string>, categoryBound: array<string, string>,
+     *  blocked: array<string, string>, invalid: list<string>, categoryBound: list<array{name: string, category: string}>,
      *  reused: list<string>} merges: kept name => the spellings folded into it;
      *  blocked: name => the other tag type that already owns it; categoryBound:
-     *  name => the category the character loses; reused: names already tags of
+     *  one row per character that loses its category (two fandoms can share a name); reused: names already tags of
      *  the Characters type. */
     public function plan(): array
     {
@@ -44,7 +44,7 @@ final class CharacterConversion
             $name = trim((string) $r['name']);
             if (TagSuggestionRepository::normalize($name) !== [$name]) { $out['invalid'][] = $name; continue; }
             $key = mb_strtolower($name);
-            if ($r['category'] !== null) $out['categoryBound'][$name] = (string) $r['category'];
+            if ($r['category'] !== null) $out['categoryBound'][] = ['name' => $name, 'category' => (string) $r['category']];
             if (isset($kept[$key])) {
                 if ($kept[$key] !== $name) $out['merges'][$kept[$key]][] = $name;
                 continue;

@@ -352,7 +352,7 @@ return [
     'characters.err_in_use' => '{n} stories use this character. Remove it from those stories, then delete it.',
     'characters.convert_heading' => 'Convert to Tags',
     'characters.convert_help' => 'Move every character into one Characters tag type. Stories keep their characters, and members can then suggest characters like any tag. The old list is emptied, and this cannot be undone, so take a backup first.',
-    'characters.convert_counts' => '{n} characters used by {s} stories will become tags.',
+    'characters.convert_counts' => 'Characters to convert: {n}. Stories that use them: {s}.',
     'characters.convert_merges' => 'These spellings merge into the first one:',
     'characters.convert_reused' => 'These names already exist as Characters tags and are reused:',
     'characters.convert_category' => 'These characters lose their category, because tags are shared by every category:',

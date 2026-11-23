@@ -73,7 +73,18 @@ final class CharacterConversionTest extends TaxonomyCase
         $this->character('Alice', $general);
         $p = $this->plan();
         $this->assertSame(['X', '<b>Bold</b>'], $p['invalid']);
-        $this->assertSame(['Alice' => 'General'], $p['categoryBound']);
+        $this->assertSame([['name' => 'Alice', 'category' => 'General']], $p['categoryBound']);
+    }
+
+    // Regression: found by /qa on 2026-11-22, a second same-named character overwrote the first in the warning list.
+    public function test_same_name_in_two_categories_lists_both_bindings(): void
+    {
+        $general = (int) $this->row("SELECT id FROM categories WHERE slug = 'general'")['id'];
+        $this->db->query("INSERT INTO categories (name, slug) VALUES ('Fantasy', 'fantasy')");
+        $fantasy = (int) $this->db->lastInsertId();
+        $this->character('Mara Voss', $fantasy);
+        $this->character('Mara Voss', $general);
+        $this->assertSame([['name' => 'Mara Voss', 'category' => 'Fantasy'], ['name' => 'Mara Voss', 'category' => 'General']], $this->plan()['categoryBound']);
     }
 
     public function test_the_preview_writes_nothing(): void
