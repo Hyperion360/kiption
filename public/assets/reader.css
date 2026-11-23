@@ -767,7 +767,7 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 .story-info .byline .follow-btn:hover { background: none; color: var(--accent-hover); text-decoration: underline; }
 .story-info .byline .follow-state { color: var(--muted); }
 /* Edit Story is an action, not a person: the Follow toggle's quiet accent, not the bold author-link ink. */
-.story-info .byline .story-edit-link { font-weight: 400; color: var(--accent); text-decoration: none; }
+.story-info .byline .story-edit-link { font-weight: 400; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .story-info .byline .story-edit-link:hover { color: var(--accent-hover); text-decoration: underline; }
 .story-info .meta-line { font-size: 13px; }
 .story-stats { display: none; }
