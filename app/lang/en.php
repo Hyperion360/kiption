@@ -1867,7 +1867,7 @@ return [
     'settings.guest_reviews' => 'Let Visitors Review without Signing In',
     'settings.guest_reviews_note' => 'When off, only signed-in members can leave a review.',
     'settings.rating_only' => 'Allow a Rating with No Written Review',
-    'settings.review_scores_on' => 'Allow 1-10 Scores',
+    'settings.review_scores_on' => 'Allow 0-10 Scores',
     'settings.review_scores_on_note' => 'When off, reviews are comments only and existing scores are hidden, not deleted.',
     'settings.categories_on' => 'Use Categories',
     'settings.categories_on_note' => 'Turn off for a single-fandom archive. Stories keep any categories they already have.',
