@@ -192,6 +192,9 @@ verification; do not force it.
 - Composer
 - Git, and network access to fetch `kip/framework` from GitHub during
   `composer install`
+- Optional: the `gd` extension with WebP support (`php-gd`). With it, chapter
+  images are compressed to WebP on upload. Without it, images over 2 MiB
+  are refused.
 
 Nothing else: no database server, no Node, no build step. SQLite is the
 storage engine and the schema arrives by migration.
@@ -292,6 +295,30 @@ fully correct and fast (SQLite reads from the page cache, no routing).
 
         location ~ /\. { deny all; }     # the .htaccess dotfile rule, nginx spelling
     }
+
+### Chapter image upload limits
+
+Chapter images upload up to 10 MiB and are stored as WebP of at most 2 MiB.
+PHP's stock limits (`upload_max_filesize = 2M`, `post_max_size = 8M`) refuse
+a large image before Kiption sees it, so raise them:
+
+    upload_max_filesize = 12M
+    post_max_size = 14M
+
+Install `php-gd` (WebP support) so the compression works. Without it,
+images over 2 MiB are refused. Authors can add images only after an
+administrator turns on Allow Images in Chapters under Settings, Stories.
+
+On nginx, raise the body limit for the upload route only:
+
+    location = /authorimages/upload {
+        client_max_body_size 14m;
+        include fastcgi_params;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root/index.php;
+    }
+
+Apache needs no change beyond the PHP values.
 
 ## 5. Email
 

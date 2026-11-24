@@ -155,6 +155,21 @@ final class NewStoryEditorTest extends TaxonomyCase
         self::assertStringNotContainsString('Secret Draft Story', $guest->get('/search', ['q' => 'Secret'])->body);
     }
 
+    public function test_publishing_a_new_story_with_a_missing_image_file_is_refused_but_a_draft_saves(): void
+    {
+        \App\Settings::put('chapter_images_on', '1');
+        $src = '/uploads/' . bin2hex(random_bytes(8)) . '.png';
+        $this->db->query('INSERT INTO author_images (owner_id, path, content_sha256, created_at) VALUES (?, ?, ?, ?)', [$this->authorId, $src, 'x', date('c')]);
+        $content = "Words here.\n\n![A map]($src)";
+        $before = $this->counts();
+        $r = $this->client($this->authorId)->postWithToken('/story/create', $this->fields(['content' => $content]));
+        self::assertSame(422, $r->status);
+        self::assertStringContainsString($src, $r->body);
+        self::assertSame($before, $this->counts());
+        $d = $this->client($this->authorId)->postWithToken('/story/create', $this->fields(['content' => $content, 'draft' => '1']));
+        self::assertSame(302, $d->status, $d->body);
+    }
+
     public function test_a_draft_with_a_blank_story_title_borrows_a_name(): void
     {
         $this->client($this->authorId)->postWithToken('/story/create', $this->fields(['draft' => '1', 'title' => '']));

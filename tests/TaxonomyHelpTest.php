@@ -120,6 +120,6 @@ final class TaxonomyHelpTest extends TaxonomyCase
 
     public function test_tags_screen_help_names_the_common_types(): void
     {
-        $this->assertStringContainsString('Common types are Genres, Warnings and Relationships.', html_entity_decode($this->admin()->get('/tags')->body));
+        $this->assertStringContainsString('Common types are Genres, Warnings, Relationships and Characters.', html_entity_decode($this->admin()->get('/tags')->body));
     }
 }

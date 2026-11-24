@@ -48,7 +48,7 @@
   <link rel="apple-touch-icon" href="<?= \App\AssetUrl::icon('apple-touch-icon.png') ?>">
   <link rel="stylesheet" href="<?= \App\AssetUrl::for('reader.css') ?>">
   <?= $this->render('_look_link') ?>
-  <script src="<?= \App\AssetUrl::for('app.js') ?>" defer></script>
+  <script src="<?= \App\AssetUrl::for('app.js') ?>" data-v="<?= \App\AssetUrl::scriptsVersion() ?>" defer></script>
 </head>
 <body<?= ($focus ?? false) ? ' class="focus"' : '' ?>>
 <?php if (($isAdmin ?? false) && \App\Maintenance::on()): ?>

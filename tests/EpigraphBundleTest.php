@@ -36,7 +36,9 @@ final class EpigraphBundleTest extends TestCase
             'uploads' => ['dir' => sys_get_temp_dir() . '/kiption-epigraph-upl'],
             'site_name' => 'Kiption', 'base_url' => 'https://archive.example',
         ]);
-        $html = (new TestClient($app))->actingAs(1)->get('/chapter/new/the-rabbit-hole')->body;
+        $client = (new TestClient($app))->actingAs(1);
+        \App\SessionGuard::enforce(new \Kip\Database('sqlite:' . $this->path), $client->session); // what index.php does before a page runs
+        $html = $client->get('/chapter/new/the-rabbit-hole')->body;
         $doc = new \DOMDocument();
         @$doc->loadHTML('<?xml encoding="utf-8" ?>' . $html);
         $box = (new \DOMXPath($doc))->query('//textarea[@name="content"]')->item(0);
@@ -62,6 +64,28 @@ final class EpigraphBundleTest extends TestCase
         $box = $this->box();
         $this->assertSame('/authorimages/upload', $box->getAttribute('data-epigraph-upload-url'));
         $this->assertNotSame('', $box->getAttribute('data-epigraph-csrf'));
+    }
+
+    public function test_with_images_on_the_box_carries_the_intake_size_cap_and_no_off_note(): void
+    {
+        \App\Features::init(new \Kip\Database('sqlite:' . $this->path), []);
+        \App\Settings::put('chapter_images_on', '1');
+        $box = $this->box();
+        $this->assertSame('10485760', $box->getAttribute('data-epigraph-max-bytes'));
+        $this->assertFalse($box->hasAttribute('data-epigraph-images-off'));
+    }
+
+    public function test_with_images_off_an_author_is_told_the_administrator_has_not_turned_them_on(): void
+    {
+        $box = $this->box();
+        $this->assertSame(\App\Lang::t('chapter.images_off_author'), $box->getAttribute('data-epigraph-images-off'));
+        $this->assertFalse($box->hasAttribute('data-epigraph-max-bytes'));
+    }
+
+    public function test_with_images_off_an_administrator_is_told_which_setting_to_turn_on(): void
+    {
+        \App\Adminness::setRole(new \Kip\Database('sqlite:' . $this->path), 1, 'admin');
+        $this->assertSame(\App\Lang::t('chapter.images_off_admin'), $this->box()->getAttribute('data-epigraph-images-off'));
     }
 
     public function test_epigraph_is_the_only_editor_and_the_plain_textarea_is_the_scriptless_fallback(): void

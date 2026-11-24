@@ -42,6 +42,25 @@ final class CharactersController extends AdminScreen
         return \App\Saved::to('/characters', \App\CachePurge::savedCode($this->app, 'added'));
     }
 
+    /** The one-click conversion: needs the typed confirm word, and the whole
+     *  move is CharacterConversion::run (one transaction, refuses on problems). */
+    #[Auth] #[Post]
+    public function convert(): Response|string
+    {
+        if ($r = $this->deny()) return $r;
+        if (mb_strtolower($this->post('confirm')) !== CharacterConversion::CONFIRM_WORD) {
+            return new Response($this->list(Lang::t('characters.convert_err_word')), 422);
+        }
+        try {
+            $result = (new CharacterConversion($this->db))->run((int) $this->session->get('user_id', 0));
+        } catch (\RuntimeException | \PDOException) {
+            return new Response($this->list(Lang::t('characters.convert_err_failed')), 422);
+        }
+        if ($result['status'] === 'refused') return new Response($this->list(Lang::t('characters.convert_err_refused')), 422);
+        $this->purge();
+        return \App\Saved::to('/characters', \App\CachePurge::savedCode($this->app, 'moved'));
+    }
+
     #[Auth] #[Post]
     public function update(string $id): Response|string
     {
@@ -119,7 +138,9 @@ final class CharactersController extends AdminScreen
         $word = htmlspecialchars(Lang::t('characters.tags_screen'), ENT_QUOTES);
         $helpHtml = str_replace($word, '<a href="/tags">' . $word . '</a>', htmlspecialchars(Lang::t('characters.help'), ENT_QUOTES));
         return $this->page('characters/index', 'characters.heading', '/characters',
-            ['characters' => $rows, 'categories' => $this->categories(), 'error' => $error, 'helpHtml' => $helpHtml]);
+            ['characters' => $rows, 'categories' => $this->categories(), 'error' => $error, 'helpHtml' => $helpHtml,
+             'conversion' => $rows === [] ? null : (new CharacterConversion($this->db))->plan(),
+             'confirmWord' => CharacterConversion::CONFIRM_WORD]);
     }
 
     private function editForm(array $row, ?string $error): string

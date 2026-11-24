@@ -43,6 +43,6 @@ final class PasteConverterTest extends TestCase
     public function test_the_docs_sample_round_trips_to_the_expected_markup(): void
     {
         $html = \App\Markdown::render((string) file_get_contents(__DIR__ . '/fixtures/paste/docs-basic.md'));
-        $this->assertSame('<p><em>slanted</em> and <strong>loud</strong> <a href="https://example.org" rel="noopener">link</a></p>', trim($html));
+        $this->assertSame('<p><em>slanted</em> and <strong>loud</strong> <a href="https://example.org" rel="noopener nofollow ugc">link</a></p>', trim($html));
     }
 }

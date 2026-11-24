@@ -280,7 +280,7 @@ final class LayoutShellTest extends TestCase
 
     public function test_stylesheet_link_is_unchanged(): void
     {
-        $this->assertStringContainsString('<link rel="stylesheet" href="/assets/reader.css">', $this->client()->get('/')->body);
+        $this->assertMatchesRegularExpression('#<link rel="stylesheet" href="/assets/reader\.css(\?v=[a-f0-9]{10})?">#', $this->client()->get('/')->body);
     }
 
     /** The logomark pair (the K in the brand serif): the SVG carries the
@@ -427,7 +427,7 @@ final class LayoutShellTest extends TestCase
     public function test_layout_defers_the_enhancement_layer(): void
     {
         $body = $this->client()->get('/')->body;
-        $this->assertStringContainsString('<script src="/assets/app.js" defer></script>', $body,
+        $this->assertMatchesRegularExpression('#<script src="/assets/app\.js(\?v=[a-f0-9]{10})?" data-v="[a-f0-9]{0,10}" defer></script>#', $body,
             'one deferred vanilla script tag');
         $this->assertSame(2, substr_count($body, '<script'),
             'exactly two script tags: the deferred layer and the data-only JSON-LD');

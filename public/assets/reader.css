@@ -446,6 +446,8 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
   background: var(--danger-bg); border: 1px solid var(--danger-line);
   color: var(--danger); font: 500 14px/1.5 var(--sans);
 }
+/* The conversion warnings sit in the 640px form column, not across the whole page. */
+.convert-stop { max-width: 640px; }
 .notice { display: block; margin: 0 0 18px; padding: 12px 14px; background: var(--pill-bg); color: var(--accent); font: 500 14px/1.5 var(--sans); }
 /* A list of words is not prose: plain type, one per line. */
 .site-main form textarea.plain-list { font: 400 16px/1.5 var(--sans); }
@@ -764,6 +766,9 @@ a.btn:hover { background: var(--hover); color: var(--ink); }
 }
 .story-info .byline .follow-btn:hover { background: none; color: var(--accent-hover); text-decoration: underline; }
 .story-info .byline .follow-state { color: var(--muted); }
+/* Edit Story is an action, not a person: the Follow toggle's quiet accent, not the bold author-link ink. */
+.story-info .byline .story-edit-link { font-weight: 400; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.story-info .byline .story-edit-link:hover { color: var(--accent-hover); text-decoration: underline; }
 .story-info .meta-line { font-size: 13px; }
 .story-stats { display: none; }
 .summary {
@@ -2677,6 +2682,9 @@ body:has(.reader) .site-foot { display: none; }
     background: var(--surface); border-block-end: 1px solid var(--line-strong); box-shadow: 0 24px 40px -24px var(--scrim);
   }
   .bp-grid { display: grid; grid-template-columns: 1.1fr 1.1fr 1fr; gap: 40px; }
+  .bp-grid-two { grid-template-columns: 1.1fr 1fr; }
+  /* With Categories off, Ways In takes the wide column: two columns of links, not one thin strip. */
+  .bp-grid-two .bp-waylist { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
   .bp-label { margin: 0 0 12px; font: 600 12px/1.5 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
   .bp-catlist, .bp-waylist, .bp-chips { list-style: none; margin: 0; padding: 0; }
   .bp-catlist a { display: flex; justify-content: space-between; padding-block: 8px; border-block-end: 1px solid var(--line); text-decoration: none; color: var(--ink); font: 15px var(--sans); }
@@ -2923,7 +2931,7 @@ html:not(.js) .ed .js-only, html.js .ed .nojs-only { display: none !important; }
 .ed-icon { display: flex; flex-direction: column; gap: 3px; width: 14px; }
 .ed-icon-lines i { display: block; height: 1.5px; background: currentColor; }
 .ed-icon-lines i:nth-child(2) { inline-size: 70%; }
-.ed-icon-src { font: 600 12px/1 var(--mono, ui-monospace, monospace); letter-spacing: -.04em; }
+.ed-icon-src { flex-direction: row; align-items: center; width: auto; white-space: nowrap; font: 600 12px/1 var(--mono, ui-monospace, monospace); letter-spacing: -.04em; }
 .ed-tool-source[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .ed-icon-aa { flex-direction: row; align-items: baseline; width: auto; font: 500 16px/1 var(--serif); }
 .ed-icon-aa small { font-size: .72em; }

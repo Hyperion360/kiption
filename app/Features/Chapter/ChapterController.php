@@ -49,7 +49,7 @@ final class ChapterController
         if (($wordError = $this->wordLimitError($content)) !== null) {
             return $this->fail($slug, null, $wordError);
         }
-        if (($imageError = $this->imageError('', $content)) !== null) {
+        if (($imageError = $this->imageError('', $content) ?? \App\ChapterChecks::missingImageError($this->app, $content, $this->isDraft())) !== null) {
             return $this->fail($slug, null, $imageError);
         }
         try {
@@ -110,7 +110,7 @@ final class ChapterController
         if (($wordError = $this->wordLimitError($content)) !== null) {
             return $this->fail($slug, $position, $wordError);
         }
-        if (($imageError = $this->imageError((string) ($this->formRow($slug, $position)['content'] ?? ''), $content)) !== null) {
+        if (($imageError = $this->imageError((string) ($this->formRow($slug, $position)['content'] ?? ''), $content) ?? \App\ChapterChecks::missingImageError($this->app, $content, $this->isDraft())) !== null) {
             return $this->fail($slug, $position, $imageError);
         }
         try {

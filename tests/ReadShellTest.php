@@ -253,7 +253,7 @@ final class ReadShellTest extends TestCase
         // The progressive-enhancement policy (Task 1): exactly one script tag
         // beyond the inert JSON-LD payload, the deferred loader; nothing
         // inline, no event-handler attributes anywhere.
-        $this->assertSame(1, preg_match_all('#<script src="/assets/app\.js" defer></script>#', $body),
+        $this->assertSame(1, preg_match_all('#<script src="/assets/app\.js(\?v=[a-f0-9]{10})?" data-v="[a-f0-9]{0,10}" defer></script>#', $body),
             'only the deferred loader ships');
         $this->assertSame(2, substr_count($body, '<script'),
             'the loader plus the data-only JSON-LD, nothing else');

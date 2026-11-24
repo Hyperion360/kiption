@@ -54,12 +54,31 @@ final class AuthorimagesController
         }
         if ($this->count($uid) >= self::LIBRARY_MAX) return $this->json(['error' => \App\Lang::t('authorimages.limit')], 422);
         if (!self::hasImageMagic($tmp)) return $this->json(['error' => \App\Lang::t('authorimages.err_type')], 422);
+        $cfg = (array) $this->app->config('uploads');
+        $storedCap = (int) ($cfg['max_bytes'] ?? 2097152);
+        // Big phone and Word images may arrive up to the intake cap and are shrunk to the stored cap below.
+        if ((int) filesize($tmp) > (int) ($cfg['intake_max_bytes'] ?? 10485760)) return $this->json(['error' => \App\Lang::t('authorimages.too_big')], 422);
+        $intake = (new \App\AuthorImageIntake($storedCap))->prepare($tmp, (string) ($file['name'] ?? 'image'));
+        if ($intake->refusalKey !== null) return $this->json(['error' => \App\Lang::t($intake->refusalKey)], 422);
+        $processed = $intake->file !== $tmp;
+        $file['tmp_name'] = $intake->file;
+        $file['name'] = $intake->name;
+        $file['size'] = (int) filesize($intake->file);
+        // A re-encoded file is not an HTTP upload, so move_uploaded_file would refuse it: rename it into place instead.
+        $store = $processed
+            ? new Storage((string) ($cfg['dir'] ?? ''), $storedCap, (array) ($cfg['ext'] ?? []), static fn(string $a, string $b): bool => rename($a, $b))
+            : $this->storage;
         $quota = \App\StorageQuota::forApp($this->app);
         try {
-            $path = $quota->putUnderCap($file, false, $this->storage);
+            $path = $quota->putUnderCap($file, false, $store);
         } catch (UploadException) {
+            if ($processed) @unlink($intake->file);
             return $this->json(['error' => \App\Lang::t('images.err_upload')], 422);
+        } catch (\Throwable $e) {
+            if ($processed) @unlink($intake->file);
+            throw $e;
         }
+        if ($processed && $path === null) @unlink($intake->file);
         if ($path === null) return $this->json(['error' => \App\Lang::t('images.storage_full')], 422);
         try {
             $this->db->begin();
@@ -81,6 +100,26 @@ final class AuthorimagesController
             return $this->json(['error' => \App\Lang::t($e instanceof \LengthException ? 'authorimages.limit' : 'images.err_upload')], 422);
         }
         return $this->json(['id' => $id, 'src' => $path]);
+    }
+
+    /** Remove one image from the signed-in author's own library. Another
+     *  author's id is a plain 404, so the reply never says it exists. An image
+     *  any chapter still shows is refused with the story's title (409); a file
+     *  an avatar or cover also uses keeps its bytes (removeFiles checks). */
+    #[AuthAttr] #[Post]
+    public function delete(): Response
+    {
+        $uid = (int) $this->session->get('user_id');
+        $id = (int) ($this->request->post['id'] ?? 0);
+        $row = $id > 0 ? $this->db->one('SELECT id, path FROM author_images WHERE id = ? AND owner_id = ?', [$id, $uid]) : null;
+        if ($row === null) return $this->json(['error' => \App\Lang::t('error.not_found')], 404);
+        $use = \App\ChapterImageUse::chaptersUsing($this->db, (string) $row['path']);
+        if ($use !== []) {
+            return $this->json(['error' => \App\Lang::t('authorimages.err_in_use', ['stories' => implode(', ', array_values(array_unique(array_column($use, 'story'))))])], 409);
+        }
+        $this->db->query('DELETE FROM author_images WHERE id = ? AND owner_id = ?', [$id, $uid]);
+        \App\StorageQuota::forApp($this->app)->removeFiles([basename((string) $row['path'])]);
+        return $this->json(['deleted' => $id]);
     }
 
     /** PNG, JPEG, GIF87a/89a and RIFF....WEBP signatures. */

@@ -25,6 +25,16 @@ final class ChapterChecks
         return $key === null ? null : Lang::t($key);
     }
 
+    /** A chapter going live (or scheduled to) may not show an image whose file is gone. A draft
+     *  keeps any text, so the author can finish it. The message names the first broken address. */
+    public static function missingImageError(\Kip\App $app, string $content, bool $draft): ?string
+    {
+        if ($draft) return null;
+        $dir = (string) ($app->config('uploads')['dir'] ?? dirname(__DIR__, 2) . '/public/uploads');
+        $gone = ChapterImages::missing($dir, $content);
+        return $gone === [] ? null : Lang::t('chapter.err_image_missing', ['src' => $gone[0]]);
+    }
+
     /** The schedule input's normalizer. The zone is OPTIONAL in the accepted
      *  shape because the form's datetime-local input submits without one; a
      *  zone-less value reads as UTC (the third createFromFormat argument pins

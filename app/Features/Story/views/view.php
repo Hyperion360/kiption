@@ -136,7 +136,7 @@
            HTML parser auto-closes a p element when a form element opens,
            which would break the comp's one-line byline at tablet and
            desktop widths. */ ?>
-      <div class="byline"><?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?><?php if (!empty($csrf) && empty($isAuthor)): ?><?php if ((int) $following_author === 1): ?> · <span class="follow-state"><?= \App\Lang::t('story.you_follow_author') ?></span><?php else: ?> · <form method="post" action="/follow/author/<?= (int) $story['author_id'] ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="follow-btn"><?= \App\Lang::t('story.follow_author') ?></button></form><?php endif; ?><?php endif; ?></div>
+      <div class="byline"><?= \App\Lang::t('story.by') ?> <a href="/user/view/<?= $this->e($story['profile_slug']) ?>"><?= $this->e($story['penname']) ?></a><?php foreach ($coauthors as $co): ?>, <a href="/user/view/<?= $this->e($co['p']) ?>"><?= $this->e($co['n']) ?></a><?php endforeach; ?><?php if (!empty($csrf) && empty($isAuthor)): ?><?php if ((int) $following_author === 1): ?> · <span class="follow-state"><?= \App\Lang::t('story.you_follow_author') ?></span><?php else: ?> · <form method="post" action="/follow/author/<?= (int) $story['author_id'] ?>" class="inline"><input type="hidden" name="_token" value="<?= $this->e($csrf) ?>"><button type="submit" class="follow-btn"><?= \App\Lang::t('story.follow_author') ?></button></form><?php endif; ?><?php endif; ?><?php if (!empty($csrf) && (!empty($isAuthor) || !empty($amCoauthor) || ($viewerRole ?? '') === 'admin')): ?> · <a class="story-edit-link" href="/story/edit/<?= $this->e($story['slug']) ?>"><?= \App\Lang::t('story.edit_link') ?></a><?php endif; ?></div>
       <?php /* one markup, two presentations: the meta line shows below 1024px, the stats dl from 1024px up. The reading time is public (word_count at 250 wpm); the member-only minutes-left note joins it. */ ?>
       <p class="meta meta-line"><?= $this->e($story['rating_label']) ?> · <?= number_format((int) $story['word_count']) ?> <?= \App\Lang::t('story.words') ?> · <?= \App\Lang::t('reader.chapters_n', ['n' => count($chapters)]) ?> · <?= \App\Lang::t('story.read_time', ['time' => $readTime]) ?><?php /* a finished story (0 min) says so through its 100% marker, not "about 0 min left" */ if ($progress !== null && ($progress['minutes_left'] ?? 0) > 0): ?> · <?= \App\Lang::t('reader.about_left', ['min' => (int) $progress['minutes_left']]) ?><?php endif; ?>
         <?php if ((int) $story['is_adult'] === 1): ?><span class="badge"><?= \App\Lang::t('story.adult') ?></span><?php endif; ?>
@@ -228,7 +228,7 @@
       <article class="review">
         <?php /* The site's meta convention: middle dots, a short date (the raw
            ISO stamp stays in the datetime attribute for machines). */ ?>
-        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $r['created_at'])) ?></time></p>
+        <p class="chapter-meta"><?= $this->e($r['penname'] ?? $r['guest_name'] ?? \App\Lang::t('common.anonymous')) ?><?= $r['rating'] !== null && \App\Settings::on('review_scores_on') ? ' · ' . (int) $r['rating'] . '/10' : '' ?> · <time datetime="<?= $this->e($r['created_at']) ?>"><?= $this->e(\App\Dates::format((string) $r['created_at'])) ?></time></p>
         <div class="prose"><?= \App\Markdown::render($r['body'] ?? '') ?></div>
         <?php if (!empty($csrf) && (in_array($viewerRole ?? '', ['moderator', 'admin'], true) || !empty($isAuthor))): ?> <a class="review-delete" href="/review/remove/<?= (int) $r['id'] ?>"><?= \App\Lang::t('review.delete') ?></a><?php endif; ?>
         <?php if (!empty($r['replies'])): ?>
@@ -275,13 +275,13 @@
     <form class="form-card review-form" method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
       <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <input type="hidden" name="_token" value="<?= $this->e($csrf) ?>">
-      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4"<?= \App\Settings::on('rating_only') ? '' : ' required' ?> maxlength="5000"></textarea></label>
-      <fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
+      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4"<?= \App\Settings::on('review_scores_on') && \App\Settings::on('rating_only') ? '' : ' required' ?> maxlength="5000"></textarea></label>
+      <?php if (\App\Settings::on('review_scores_on')): ?><fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
         <input type="radio" name="rating" value="" id="rating-none" checked><label for="rating-none"><?= \App\Lang::t('story.rating_none') ?></label>
 <?php for ($i = 0; $i <= 10; $i++): ?>
         <input type="radio" name="rating" value="<?= $i ?>" id="rating-<?= $i ?>"><label for="rating-<?= $i ?>"><?= $i ?></label>
 <?php endfor; ?>
-      </fieldset>
+      </fieldset><?php endif; ?>
       <button type="submit" class="btn-primary"><?= \App\Lang::t('story.post_review') ?></button>
     </form>
   <?php elseif (!\App\Settings::on('guest_reviews')): ?>
@@ -290,13 +290,13 @@
     <form class="form-card review-form" method="post" action="/review/add/<?= $this->e($story['slug']) ?>">
       <p class="form-card-title"><?= \App\Lang::t('story.leave_review') ?></p>
       <label><?= \App\Lang::t('story.name') ?> <input name="guest_name" required maxlength="40"></label>
-      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4"<?= \App\Settings::on('rating_only') ? '' : ' required' ?> maxlength="5000"></textarea></label>
-      <fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
+      <label><?= \App\Lang::t('story.review_label') ?> <textarea name="body" rows="4"<?= \App\Settings::on('review_scores_on') && \App\Settings::on('rating_only') ? '' : ' required' ?> maxlength="5000"></textarea></label>
+      <?php if (\App\Settings::on('review_scores_on')): ?><fieldset class="rating-pips"><legend><?= \App\Lang::t('story.rating_optional') ?></legend>
         <input type="radio" name="rating" value="" id="rating-none" checked><label for="rating-none"><?= \App\Lang::t('story.rating_none') ?></label>
 <?php for ($i = 0; $i <= 10; $i++): ?>
         <input type="radio" name="rating" value="<?= $i ?>" id="rating-<?= $i ?>"><label for="rating-<?= $i ?>"><?= $i ?></label>
 <?php endfor; ?>
-      </fieldset>
+      </fieldset><?php endif; ?>
       <button type="submit" class="btn-primary"><?= \App\Lang::t('story.post_review_guest') ?></button>
     </form>
   <?php endif; ?>

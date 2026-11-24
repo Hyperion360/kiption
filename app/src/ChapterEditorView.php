@@ -41,6 +41,7 @@ final class ChapterEditorView
             ogImage: (string) $app->config('og_image', ''),
             baseUrl: rtrim((string) $app->config('base_url', ''), '/'),
         );
+        $imagesOn = Settings::on('chapter_images_on') && Settings::on('uploads_on');
         return [
             'title' => $o['title'],
             'head' => $head->withTitle($o['title'])->withCanonical($request->path)->withNoindex(),
@@ -63,7 +64,11 @@ final class ChapterEditorView
             'csrf' => $session->csrfToken(),
             'error' => $error,
             'writerLabels' => self::writerLabels(),
-            'imagesOn' => Settings::on('chapter_images_on') && Settings::on('uploads_on'),
+            'imagesOn' => $imagesOn,
+            // The size the server accepts before it shrinks the image; the editor refuses anything bigger without uploading.
+            'intakeMaxBytes' => (int) (((array) $app->config('uploads'))['intake_max_bytes'] ?? 10485760),
+            // Who can fix an images-off archive: the role rides the session row already read, so no query is spent.
+            'imagesOffNote' => $imagesOn ? '' : Lang::t(SessionGuard::role() === 'admin' ? 'chapter.images_off_admin' : 'chapter.images_off_author'),
             'notice' => $error !== null ? ''
                 : match (Saved::message($request)) {
                     'admin.saved_saved' => Lang::t('chapter.saved'),

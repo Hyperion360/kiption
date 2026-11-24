@@ -34,6 +34,7 @@
         <?php endforeach; ?>
       </select>
     </label>
+    <?php if (\App\Settings::on('categories_on')): ?>
     <fieldset>
       <legend><?= \App\Lang::t('story.categories') ?></legend>
       <?php foreach ($categories as $c): ?>
@@ -44,6 +45,7 @@
         </label>
       <?php endforeach; ?>
     </fieldset>
+    <?php endif; ?>
     <?php if ($story === null): ?>
     <div class="writer-actions story-create">
       <button type="submit" class="btn-primary"><?= $story === null ? \App\Lang::t('common.create') : \App\Lang::t('common.save') ?></button>

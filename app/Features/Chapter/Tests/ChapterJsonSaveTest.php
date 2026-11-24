@@ -82,6 +82,13 @@ final class ChapterJsonSaveTest extends TestCase
         $this->db->query('INSERT INTO author_images (owner_id, path, content_sha256, created_at) VALUES (?, ?, ?, ?)', [$owner, $path, 'x', date('c')]);
     }
 
+    private function store(string $src): void
+    {
+        $dir = sys_get_temp_dir() . '/kiption-cjs-upl';
+        if (!is_dir($dir)) mkdir($dir, 0775, true);
+        file_put_contents($dir . '/' . basename($src), 'x');
+    }
+
     public function test_json_create_replies_with_a_same_origin_redirect(): void
     {
         $r = $this->create();
@@ -192,6 +199,7 @@ final class ChapterJsonSaveTest extends TestCase
         $this->assertSame(422, $this->create(['content' => $md])->status, 'another author\'s image');
         $this->db->query('DELETE FROM author_images WHERE owner_id = 2');
         $this->mine(self::IMG, 1);
+        $this->store(self::IMG);
         $this->assertSame(422, $this->create(['content' => "Words here.\n\n![ ](" . self::IMG . ')'])->status, 'empty alt');
         $this->assertSame(200, $this->create(['content' => $md])->status);
         $this->assertSame(2, $this->chapters());
@@ -200,6 +208,7 @@ final class ChapterJsonSaveTest extends TestCase
     public function test_an_unchanged_image_survives_prose_edits_while_the_switch_is_off(): void
     {
         $md = "Words here.\n\n![A map](" . self::IMG . ')';
+        $this->store(self::IMG);
         $this->db->query('UPDATE chapters SET content = ? WHERE story_id = ?', [$md, $this->storyId]);
         $f = ['title' => 'One', 'content' => $md . "\n\nMore words.", 'notes_before' => '', 'notes_after' => '', 'base_revision' => $this->revision(), 'save_key' => self::K2];
         $this->assertSame(200, $this->jpost(1, '/chapter/update/fx/1', $f)->status);
@@ -208,5 +217,33 @@ final class ChapterJsonSaveTest extends TestCase
         $f['save_key'] = self::K1;
         $f['base_revision'] = $this->revision();
         $this->assertSame(422, $this->jpost(1, '/chapter/update/fx/1', $f)->status);
+    }
+
+    public function test_publishing_a_chapter_with_a_missing_image_file_is_refused_but_a_draft_saves(): void
+    {
+        @unlink(sys_get_temp_dir() . '/kiption-cjs-upl/' . basename(self::IMG));
+        \App\Settings::put('chapter_images_on', '1');
+        $this->mine(self::IMG);
+        $md = "Words here.\n\n![A map](" . self::IMG . ')';
+        $r = $this->create(['content' => $md]);
+        $this->assertSame(422, $r->status);
+        $this->assertStringContainsString(self::IMG, json_decode($r->body, true)['error']);
+        $this->assertSame(1, $this->chapters());
+        $this->assertSame(200, $this->create(['content' => $md, 'draft' => '1'])->status, 'a draft keeps the dead address');
+        $this->assertSame(2, $this->chapters());
+        $this->store(self::IMG);
+        $this->assertSame(200, $this->create(['content' => $md, 'save_key' => self::K2])->status, 'file back, publishes');
+    }
+
+    public function test_updating_a_live_chapter_whose_image_file_vanished_is_refused_until_it_is_removed(): void
+    {
+        $md = "Words here.\n\n![A map](" . self::IMG . ')';
+        @unlink(sys_get_temp_dir() . '/kiption-cjs-upl/' . basename(self::IMG));
+        $this->db->query('UPDATE chapters SET content = ? WHERE story_id = ?', [$md, $this->storyId]);
+        $f = ['title' => 'One', 'content' => $md . "\n\nMore words.", 'notes_before' => '', 'notes_after' => '', 'base_revision' => $this->revision(), 'save_key' => self::K2];
+        $this->assertSame(422, $this->jpost(1, '/chapter/update/fx/1', $f)->status);
+        $f['content'] = 'The picture is gone, so the text says so.';
+        $f['save_key'] = self::K1;
+        $this->assertSame(200, $this->jpost(1, '/chapter/update/fx/1', $f)->status);
     }
 }

@@ -276,7 +276,7 @@ $seg = static function (string $key, string $title, string $note, array $opts): 
         </div>
 
         <div class="ed-write" data-ed-write>
-          <label class="writer-body"><span class="visually-hidden"><?= $this->e($t('chapter.text')) ?></span> <textarea name="content" id="ed-f-content" rows="18" required autocomplete="off" aria-describedby="writer-count" data-js-module="paste epigraph-boot"<?php if ($imagesOn) : ?> data-epigraph-upload-url="/authorimages/upload" data-epigraph-csrf="<?= $this->e($csrf) ?>"<?php endif; ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
+          <label class="writer-body"><span class="visually-hidden"><?= $this->e($t('chapter.text')) ?></span> <textarea name="content" id="ed-f-content" rows="18" required autocomplete="off" aria-describedby="writer-count" data-js-module="paste epigraph-boot"<?php if ($imagesOn) : ?> data-epigraph-upload-url="/authorimages/upload" data-epigraph-csrf="<?= $this->e($csrf) ?>" data-epigraph-max-bytes="<?= (int) $intakeMaxBytes ?>"<?php else : ?> data-epigraph-images-off="<?= $this->e($imagesOffNote) ?>"<?php endif; ?> data-writer-labels="<?= $this->e(json_encode($writerLabels, JSON_THROW_ON_ERROR)) ?>" data-editor-labels="<?= $this->e(json_encode([
               'bold' => $t('chapter.editor_bold'),
               'italic' => $t('chapter.editor_italic'),
               'link' => $t('chapter.editor_link'),
@@ -402,6 +402,7 @@ $seg = static function (string $key, string $title, string $note, array $opts): 
             </select></span>
           </div>
         </div>
+        <?php if (\App\Settings::on('categories_on')): ?>
         <div class="ed-prow" data-ed-row="categories">
           <?= $rowHead('categories', $t('ed.row_categories'), $categoryNames === [] ? $t('ed.none_chosen') : implode(', ', $categoryNames), 'data-ed-value="categories" data-ed-empty="' . $this->e($t('ed.none_chosen')) . '"') ?>
           <div class="ed-prow-body" id="ed-row-categories">
@@ -414,6 +415,7 @@ $seg = static function (string $key, string $title, string $note, array $opts): 
             </fieldset>
           </div>
         </div>
+        <?php endif; ?>
 <?php endif; ?>
         <div class="ed-prow" data-ed-row="when">
           <button type="button" class="ed-prow-head js-only" aria-expanded="false" aria-controls="ed-when"><span class="ed-prow-name"><?= $this->e($t('ed.row_when')) ?></span><span class="ed-prow-value" data-ed-when-value></span><span class="ed-chev" aria-hidden="true"></span></button>

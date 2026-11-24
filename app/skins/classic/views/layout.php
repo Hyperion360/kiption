@@ -39,7 +39,7 @@
   <link rel="stylesheet" href="<?= \App\AssetUrl::for('reader.css') ?>">
   <link rel="stylesheet" href="<?= \App\AssetUrl::for('skins/classic.css') ?>">
   <?= $this->render('_look_link') ?>
-  <script src="<?= \App\AssetUrl::for('app.js') ?>" defer></script>
+  <script src="<?= \App\AssetUrl::for('app.js') ?>" data-v="<?= \App\AssetUrl::scriptsVersion() ?>" defer></script>
 </head>
 <body class="skin-classic<?= ($focus ?? false) ? ' focus' : '' ?>">
 <?php if (($isAdmin ?? false) && \App\Maintenance::on()): ?>
