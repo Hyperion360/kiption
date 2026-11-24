@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5f4b4ef23fcfae9a2347da9ef7e68ee8",
+    "content-hash": "2ab230503fd0b2792b8fc0bf4c59bb6f",
     "packages": [
         {
             "name": "kip/framework",
-            "version": "v0.5.1",
+            "version": "v0.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Hyperion360/kip.git",
-                "reference": "6b951361cc5a9f22841a82bb90a41c4e4069c489"
+                "reference": "e510b299947714b1ddffdae575c45cdaa2ac6935"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/6b951361cc5a9f22841a82bb90a41c4e4069c489",
-                "reference": "6b951361cc5a9f22841a82bb90a41c4e4069c489",
+                "url": "https://api.github.com/repos/Hyperion360/kip/zipball/e510b299947714b1ddffdae575c45cdaa2ac6935",
+                "reference": "e510b299947714b1ddffdae575c45cdaa2ac6935",
                 "shasum": ""
             },
             "require": {
@@ -74,7 +74,7 @@
                 "issues": "https://github.com/Hyperion360/kip/issues",
                 "source": "https://github.com/Hyperion360/kip"
             },
-            "time": "2026-10-25T04:59:04+00:00"
+            "time": "2026-11-24T02:23:35+00:00"
         }
     ],
     "packages-dev": [
@@ -1855,5 +1855,5 @@
         "ext-zlib": "*"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.11.0"
 }
